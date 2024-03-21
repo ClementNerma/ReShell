@@ -59,21 +59,26 @@ fn run() -> Runner {
              ..
          },
          ctx| {
+            let style = match template {
+                Some(template) => ProgressStyle::with_template(&template).map_err(|err| {
+                    ctx.error(
+                        template_at.unwrap(),
+                        format!("invalid template provided: {err}"),
+                    )
+                })?,
+
+                None => ProgressStyle::with_template(
+                    "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>3}/{len:3} {eta_precise} {msg}",
+                )
+                .unwrap(),
+            };
+
             let mut pb = match len {
                 Some(len) => ProgressBar::new(len),
                 None => ProgressBar::new_spinner(),
             };
 
-            if let Some(template) = template {
-                let template = ProgressStyle::with_template(&template).map_err(|err| {
-                    ctx.error(
-                        template_at.unwrap(),
-                        format!("invalid template provided: {err}"),
-                    )
-                })?;
-
-                pb = pb.with_style(template);
-            }
+            pb = pb.with_style(style);
 
             if let Some(message) = message {
                 pb = pb.with_message(message);
