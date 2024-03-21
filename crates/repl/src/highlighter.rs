@@ -40,7 +40,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     }
 
     /// Create a simple rule that must be preceded by a given pattern
-    fn simple_preceded_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, preceded_by: &'static str) -> Rule {
+    fn simple_preceded_by<S: Into<Style> + Copy>(preceded_by: &'static str, regex: &'static str, colors: impl AsRef<[S]>) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.preceded_by = Some(Regex::new(preceded_by).unwrap());
         Rule::Simple(rule)
@@ -100,7 +100,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(@direct)\\b", [Magenta]),
 
                 // Command names
-                simple_preceded_by("([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue], "(^\\s*|[\\|\\n;]\\s*|@direct\\s+)$"),
+                simple_preceded_by("(^\\s*|[\\|\\n;]\\s*|@direct\\s+)$", "([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),

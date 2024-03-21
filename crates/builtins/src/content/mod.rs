@@ -6,6 +6,7 @@
 mod append;
 mod approx_int_div;
 mod at;
+mod basename;
 mod cd;
 mod chars;
 mod clone;
@@ -26,6 +27,7 @@ mod filename;
 mod filter;
 mod find_str;
 mod fold;
+mod for_each;
 mod get;
 mod glob;
 mod human_size;
@@ -89,6 +91,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::append::build_fn(),
             self::approx_int_div::build_fn(),
             self::at::build_fn(),
+            self::basename::build_fn(),
             self::cd::build_fn(),
             self::chars::build_fn(),
             self::clone::build_fn(),
@@ -107,6 +110,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::file_exists::build_fn(),
             self::filename::build_fn(),
             self::fold::build_fn(),
+            self::for_each::build_fn(),
             self::get::build_fn(),
             self::glob::build_fn(),
             self::human_size::build_fn(),
