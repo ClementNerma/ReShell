@@ -5,6 +5,10 @@ use std::{
 
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
+use reshell_runtime::{
+    context::{Context, ScopeContent},
+    pretty::{PrettyPrintOptions, PrettyPrintable},
+};
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
@@ -217,12 +221,17 @@ pub struct CompletionData {
 }
 
 impl CompletionData {
-    pub fn new() -> Self {
-        Self { scopes: vec![] }
+    pub fn generate_from_context(ctx: &Context) -> Self {
+        Self {
+            scopes: ctx
+                .visible_scopes()
+                .map(|scope| CompletionDataScope::new(scope, ctx))
+                .collect(),
+        }
     }
 
-    pub fn replace_with(&mut self, scopes: Vec<CompletionDataScope>) {
-        self.scopes = scopes;
+    pub fn update_with(&mut self, ctx: &Context) {
+        *self = Self::generate_from_context(ctx);
     }
 }
 
@@ -230,4 +239,38 @@ pub struct CompletionDataScope {
     // TODO: requires computing type of all vars ahead of time (costly)
     pub vars: HashMap<String, Option<String>>,
     pub fns: HashMap<String, String>,
+}
+
+impl CompletionDataScope {
+    fn new(scope: &ScopeContent, ctx: &Context) -> Self {
+        Self {
+            fns: scope
+                .fns
+                .iter()
+                .map(|(name, func)| {
+                    (
+                        name.clone(),
+                        func.value
+                            .signature
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
+                    )
+                })
+                .collect(),
+
+            vars: scope
+                .vars
+                .iter()
+                .map(|(name, var)| {
+                    (
+                        name.clone(),
+                        var.value.read().as_ref().map(|loc_val| {
+                            loc_val
+                                .value
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        }),
+                    )
+                })
+                .collect(),
+        }
+    }
 }

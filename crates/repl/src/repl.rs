@@ -11,21 +11,20 @@ use reshell_runtime::{
     exec::ProgramExitStatus,
     files_map::ScopableFilePath,
     native_lib::{render_prompt, LastCmdStatus, PromptRendering},
-    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
 use crate::{
-    completer::{self, CompletionData, CompletionDataScope},
+    completer::{self, CompletionData},
     edit_mode,
     exec::run_script,
     highlighter, hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
-    validator,
+    validator, Timings,
 };
 
-pub fn start(ctx: &mut Context) -> Option<ExitCode> {
-    let completion_data = Arc::new(Mutex::new(CompletionData::new()));
+pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<ExitCode> {
+    let completion_data = Arc::new(Mutex::new(CompletionData::generate_from_context(ctx)));
 
     let mut line_editor = Reedline::create()
         .with_history(history::create_history())
@@ -45,7 +44,13 @@ pub fn start(ctx: &mut Context) -> Option<ExitCode> {
 
     let mut last_cmd_status = None;
 
+    if show_timings {
+        display_timings(timings, Instant::now());
+    }
+
     loop {
+        let line_start = Instant::now();
+
         let prompt_rendering = match render_prompt(ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
@@ -56,39 +61,11 @@ pub fn start(ctx: &mut Context) -> Option<ExitCode> {
 
         let prompt = Prompt::new(prompt_rendering);
 
-        completion_data.lock().unwrap().replace_with(
-            ctx.visible_scopes()
-                .map(|scope| CompletionDataScope {
-                    fns: scope
-                        .fns
-                        .iter()
-                        .map(|(name, func)| {
-                            (
-                                name.clone(),
-                                func.value
-                                    .signature
-                                    .render_colored(ctx, PrettyPrintOptions::inline()),
-                            )
-                        })
-                        .collect(),
+        completion_data.lock().unwrap().update_with(ctx);
 
-                    vars: scope
-                        .vars
-                        .iter()
-                        .map(|(name, var)| {
-                            (
-                                name.clone(),
-                                var.value.read().as_ref().map(|loc_val| {
-                                    loc_val
-                                        .value
-                                        .render_colored(ctx, PrettyPrintOptions::inline())
-                                }),
-                            )
-                        })
-                        .collect(),
-                })
-                .collect(),
-        );
+        if show_timings {
+            println!("* Time to interaction: {:?}", line_start.elapsed());
+        }
 
         let input = match line_editor.read_line(&prompt) {
             Ok(Signal::Success(buffer)) => buffer,
@@ -142,4 +119,32 @@ pub fn start(ctx: &mut Context) -> Option<ExitCode> {
             }),
         });
     }
+}
+
+fn display_timings(timings: Timings, now: Instant) {
+    let Timings {
+        started,
+        before_init_script,
+        before_repl,
+    } = timings;
+
+    println!("*** Timings ***");
+
+    println!(
+        "* Time to init script: {:.1?} ({:.1?})",
+        before_init_script - started,
+        before_init_script - started,
+    );
+
+    println!(
+        "* Time to REPL       : {:.1?} ({:.1?})",
+        before_repl - before_init_script,
+        before_repl - started,
+    );
+
+    println!(
+        "* Time to REPL ready : {:.1?} ({:.1?})",
+        now - before_repl,
+        now - started,
+    );
 }

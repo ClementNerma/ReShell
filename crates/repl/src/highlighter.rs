@@ -60,58 +60,79 @@ fn highlight(input: &str) -> StyledText {
             ("instructions", vec![
                 // Comments
                 rule!(@simple "(#.*)$" => [DarkGray]),
+                
                 // Variable declaration
                 rule!(@frac "\\b(let)\\b" => [Magenta],
                             "(\\s+mut\\b|)" => [Magenta],
                             "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
                             "\\s*(=)\\s*" => [LightYellow]
                 ),
-                // Variable assignment
-                rule!(@frac "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
-                            "\\s*(=)" => [LightYellow]
-                ),
+                
                 // For loop
                 rule!(@frac "\\b(for)\\b" => [Magenta],
                             "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
                             "\\s+(in)\\b" => [Magenta]
                 ),
+                
                 // Function declaration
                 rule!(@frac "\\b(fn)\\b" => [Magenta],
-                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Blue]
+                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Blue],
+                            "\\s*(\\()" => [LightYellow]
                 ),
-                // Command alias
+
+                // Command aliases
                 rule!(@frac "\\b(alias)\\b" => [Magenta],
                             "\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b" => [Blue],
                             "\\s*(=)" => [LightYellow]
                 ),
+                
                 // Keywords
                 rule!(@simple "\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b" => [Magenta]),
-                // Expressions
-                rule!(@group "in-expressions"),
+
+                // Argument names and structure keys
+                rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])" => [Red, LightYellow]),
+                
                 // Command names
                 rule!(@simple "(?:^|\\n)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
+
+                //
+                // This is the "less polished" part of the highlighter
+                //
+
+                // Expressions
+                rule!(@group "in-expressions"),
+                
                 // Raw arguments
                 rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
                 // Types
                 rule!(@simple "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => [Magenta]),
+
                 // Type aliases
                 rule!(@simple "\\b([A-Z][a-zA-Z0-9_]*)\\b" => [LightYellow]),
+
                 // Booleans
                 rule!(@simple "\\b(true|false)\\b" => [LightYellow]),
+
                 // The null value
                 rule!(@simple "\\b(null)\\b" => [LightYellow]),
+
                 // Variables
                 rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
-                // Single variable identifier
+
+                // Single variable marker
                 rule!(@simple "(\\$)" => [Red]),
+
                 // Flags
                 rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
+
                 // Number
                 rule!(@simple "(\\d+(?:\\.\\d+)?)" => [LightYellow]),
+
                 // Symbols and operators
                 rule!(@simple "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => [LightYellow]),
+
                 // Strings
                 rule!(@nested "(\")" => Green, "(\")" => Green, vec![
                     rule!(@simple "(.+)" => [LightGreen])
