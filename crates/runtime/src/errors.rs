@@ -15,6 +15,14 @@ pub struct ExecError {
     pub content: ExecErrorContent,
     pub call_stack: CallStack,
     pub scope_range: ScopeRange,
+    pub note: Option<String>,
+}
+
+impl ExecError {
+    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+        self.note = Some(note.into());
+        self
+    }
 }
 
 #[derive(Debug)]

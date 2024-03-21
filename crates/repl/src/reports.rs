@@ -120,9 +120,17 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             .with_color(ariadne::Color::Red),
     );
 
-    if matches!(err, ReportableError::Checking(_)) {
-        inner = inner.with_note("Error was encountered before running the program");
-    }
+    match err {
+        ReportableError::Parsing(_) => {}
+        ReportableError::Checking(_) => {
+            inner.set_note("Error was encountered before running the program")
+        }
+        ReportableError::Runtime(err) => {
+            if let Some(note) = &err.note {
+                inner.set_note(note);
+            }
+        }
+    };
 
     inner
         .finish()
