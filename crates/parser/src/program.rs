@@ -2,7 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, FileId, Parser,
+    char, choice, end, filter, just, late, lookahead, not, recursive, silent_choice, whitespaces,
+    FileId, Parser,
 };
 
 use crate::{
@@ -24,10 +25,18 @@ pub fn program(
     let program = late::<Program>();
     let outer = program.clone();
 
+    let comment = char('#').then(filter(|c| c != '\r' && c != '\n').repeated());
+
+    let ms = silent_choice((
+        comment,
+        filter(|c| c.is_whitespace() && c != '\r' && c != '\n'),
+    ))
+    .repeated();
+
+    let msnl = silent_choice((comment, filter(|c| c.is_whitespace()))).repeated();
+
     let raw_block = recursive::<Block, _>(move |raw_block| {
-        let ms = whitespaces().no_newline();
-        let s = ms.at_least_one();
-        let msnl = whitespaces();
+        let s = whitespaces().no_newline().at_least_one();
 
         let block = char('{')
             .critical_expectation()
@@ -44,7 +53,7 @@ pub fn program(
             .then(filter(|c| c == '_' || c.is_alphanumeric()).repeated())
             .collect_string();
 
-        let var_name = char('$').ignore_then(ident.clone());
+        let var_name = char('$').ignore_then(ident);
 
         let cmd_call = late::<CmdCall>();
         let expr = late::<Expr>();
@@ -57,32 +66,32 @@ pub fn program(
 
         let single_value_type = choice::<_, SingleValueType>((
             just("any")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Any),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Any),
             just("null")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Null),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Null),
             just("bool")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Bool),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Bool),
             just("int")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Int),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Int),
             just("float")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Float),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Float),
             just("string")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::String),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::String),
             just("list")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::List),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::List),
             just("map")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Map),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Map),
             just("error")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Error),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Error),
             just("fn")
                 .ignore_then(fn_signature.clone())
                 .spanned()
@@ -94,7 +103,6 @@ pub fn program(
                 .ignore_then(msnl)
                 .ignore_then(
                     ident
-                        .clone()
                         .spanned()
                         .map(RuntimeEaten::Parsed)
                         .then_ignore(ms)
@@ -110,15 +118,15 @@ pub fn program(
                         .map(|(name, typ)| StructTypeMember { name, typ })
                         .spanned()
                         .map(RuntimeEaten::Parsed)
-                        .separated_by(char(',').padded()),
+                        .separated_by(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_expectation())
                 .map(SingleValueType::TypedStruct),
             just("struct")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::UntypedStruct),
-            ident.clone().spanned().map(SingleValueType::TypeAlias),
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::UntypedStruct),
+            ident.spanned().map(SingleValueType::TypeAlias),
         ));
 
         value_type.finish(choice((
@@ -136,7 +144,7 @@ pub fn program(
                         .clone()
                         .spanned()
                         .map(RuntimeEaten::Parsed)
-                        .separated_by(char('|').padded())
+                        .separated_by(char('|').padded_by(msnl))
                         .at_least(2)
                         .critical("expected at least 2 types in union"),
                 )
@@ -148,11 +156,10 @@ pub fn program(
         let fn_arg_long_flag = just("--")
             .ignore_then(
                 ident
-                    .clone()
                     .spanned()
                     .critical("expected a flag name (identifier)"),
             )
-            .followed_by(not(possible_ident_char.clone()).critical("unexpected symbol"));
+            .followed_by(not(possible_ident_char).critical("unexpected symbol"));
 
         let fn_arg_short_flag = char('-')
             .ignore_then(
@@ -161,7 +168,7 @@ pub fn program(
                     .critical("expected a single-character identifier"),
             )
             .followed_by(
-                not(possible_ident_char.clone()).critical("expected a single-character identifier"),
+                not(possible_ident_char).critical("expected a single-character identifier"),
             );
 
         let fn_flag_arg_names = choice::<_, FnFlagArgNames>((
@@ -171,7 +178,7 @@ pub fn program(
                 .map(RuntimeEaten::Parsed)
                 .then_ignore(ms)
                 .then_ignore(char('('))
-                .then(fn_arg_short_flag.clone().map(RuntimeEaten::Parsed))
+                .then(fn_arg_short_flag.map(RuntimeEaten::Parsed))
                 .then_ignore(char(')').critical("unclosed short argument, expected ')'"))
                 .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
             // Long flag only
@@ -193,7 +200,6 @@ pub fn program(
             choice::<_, _ParsedFnArgName>((
                 // Positional
                 ident
-                    .clone()
                     .spanned()
                     .map(RuntimeEaten::Parsed)
                     .map(_ParsedFnArgName::Positional),
@@ -227,7 +233,7 @@ pub fn program(
             }),
             // Rest
             just("...")
-                .ignore_then(ident.clone())
+                .ignore_then(ident)
                 .spanned()
                 .map(RuntimeEaten::Parsed)
                 .map(|name| FnArg::Rest { name }),
@@ -238,7 +244,7 @@ pub fn program(
                 .ignore_then(
                     fn_arg
                         .clone()
-                        .separated_by(char(',').padded())
+                        .separated_by(char(',').padded_by(msnl))
                         .spanned()
                         .map(RuntimeEaten::Parsed),
                 )
@@ -264,7 +270,6 @@ pub fn program(
 
         let fn_call_arg = choice::<_, FnCallArg>((
             ident
-                .clone()
                 .spanned()
                 .then_ignore(ms)
                 .then_ignore(char('='))
@@ -285,13 +290,13 @@ pub fn program(
 
         let fn_call = char('$')
             .or_not()
-            .then(ident.clone())
+            .then(ident)
             .spanned()
             .then_ignore(char('('))
             .then(
                 fn_call_arg
                     .spanned()
-                    .padded()
+                    .padded_by(msnl)
                     .separated_by(char(','))
                     .spanned(),
             )
@@ -305,25 +310,25 @@ pub fn program(
         let literal_value = choice::<_, LiteralValue>((
             // Booleans
             just("true")
-                .not_followed_by(possible_ident_char.clone())
-                .to(LiteralValue::Boolean(true)),
+                .not_followed_by(possible_ident_char)
+                .map(|_| LiteralValue::Boolean(true)),
             just("false")
-                .not_followed_by(possible_ident_char.clone())
-                .to(LiteralValue::Boolean(false)),
+                .not_followed_by(possible_ident_char)
+                .map(|_| LiteralValue::Boolean(false)),
             // Floats
             char('-')
                 .or_not()
                 .then(digits(10))
                 .then(char('.'))
                 .then(digits(10))
-                .not_followed_by(possible_ident_char.clone())
+                .not_followed_by(possible_ident_char)
                 .collect_string()
                 .map(|num| LiteralValue::Float(str::parse::<f64>(&num).unwrap())),
             // Integers
             char('-')
                 .or_not()
                 .then(digits(10))
-                .not_followed_by(possible_ident_char.clone())
+                .not_followed_by(possible_ident_char)
                 .collect_string()
                 .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
         ));
@@ -343,16 +348,13 @@ pub fn program(
                         .ignore_then(escapable_char.critical("this character is not escapable"))
                         .map(ComputedStringPiece::Escaped),
                     // Expressions
-                    var_name
-                        .clone()
-                        .spanned()
-                        .map(ComputedStringPiece::Variable),
+                    var_name.spanned().map(ComputedStringPiece::Variable),
                     // Expressions
                     just("${")
                         .ignore_then(
                             expr.clone()
                                 .spanned()
-                                .padded()
+                                .padded_by(msnl)
                                 .critical("expected an expression"),
                         )
                         .then_ignore(char('}').critical("missing closing brace for expression (})"))
@@ -363,7 +365,7 @@ pub fn program(
                             cmd_call
                                 .clone()
                                 .spanned()
-                                .padded()
+                                .padded_by(msnl)
                                 .critical("expected a command call"),
                         )
                         .then_ignore(
@@ -384,7 +386,7 @@ pub fn program(
             .map(|pieces| ComputedString { pieces });
 
         let value = choice::<_, Value>((
-            just("null").to(Value::Null),
+            just("null").map(|_| Value::Null),
             // Literals
             literal_value.clone().spanned().map(Value::Literal),
             // Computed strings
@@ -392,7 +394,11 @@ pub fn program(
             // Lists
             char('[')
                 .ignore_then(msnl)
-                .ignore_then(expr.clone().spanned().separated_by(char(',').padded()))
+                .ignore_then(
+                    expr.clone()
+                        .spanned()
+                        .separated_by(char(',').padded_by(msnl)),
+                )
                 .then_ignore(msnl)
                 .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
                 .map(Value::List),
@@ -400,13 +406,12 @@ pub fn program(
                 .ignore_then(msnl)
                 .ignore_then(
                     ident
-                        .clone()
                         .spanned()
                         .then_ignore(ms)
                         .then_ignore(char(':').critical_expectation())
                         .then_ignore(msnl)
                         .then(expr.clone().spanned().critical("expected an expression"))
-                        .separated_by(char(',').padded()),
+                        .separated_by(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical("expected closing brace '}' for opened object"))
@@ -426,7 +431,7 @@ pub fn program(
                 .then_ignore(char(')').critical("mising close parenthesis for command call"))
                 .map(Value::CmdOutput),
             // Variables
-            var_name.clone().spanned().map(Value::Variable),
+            var_name.spanned().map(Value::Variable),
             // Commands
             just("@(")
                 .ignore_then(msnl)
@@ -441,7 +446,7 @@ pub fn program(
                 .map(Value::CmdSuccess),
             // Function as value
             char('@')
-                .ignore_then(ident.clone().critical("expected a function name"))
+                .ignore_then(ident.critical("expected a function name"))
                 .spanned()
                 .map(Value::FnAsValue),
             // Closures
@@ -449,7 +454,7 @@ pub fn program(
                 .ignore_then(
                     fn_arg
                         .clone()
-                        .separated_by(char(',').padded())
+                        .separated_by(char(',').padded_by(msnl))
                         .spanned()
                         .map(RuntimeEaten::Parsed),
                 )
@@ -584,12 +589,7 @@ pub fn program(
                         just("catch").critical("expected 'catch' keyword after function call"),
                     )
                     .then_ignore(s.critical("expected a space"))
-                    .then(
-                        ident
-                            .clone()
-                            .spanned()
-                            .critical("expected a catch variable"),
-                    )
+                    .then(ident.spanned().critical("expected a catch variable"))
                     .then_ignore(s.critical("expected a space"))
                     .then(
                         expr.clone()
@@ -609,13 +609,13 @@ pub fn program(
 
         let prop_access_nature = choice::<_, PropAccessNature>((
             char('.')
-                .ignore_then(ident.clone().spanned().critical("expected a property name"))
+                .ignore_then(ident.spanned().critical("expected a property name"))
                 .map(PropAccessNature::Prop),
             char('[')
                 .not_followed_by(char(']'))
                 .ignore_then(
                     expr.clone()
-                        .padded()
+                        .padded_by(msnl)
                         .spanned()
                         .critical("expected an expression"),
                 )
@@ -702,7 +702,7 @@ pub fn program(
                         .map(Box::new)
                         .critical("expected an expression")
                         .spanned()
-                        .padded(),
+                        .padded_by(msnl),
                 )
                 .then_ignore(
                     char(')').critical("expected a closing parenthesis after the expression"),
@@ -727,7 +727,7 @@ pub fn program(
                 .map(CmdEnvVarValue::ComputedString),
             // Expression
             char('(')
-                .ignore_then(expr.clone().spanned().padded())
+                .ignore_then(expr.clone().spanned().padded_by(msnl))
                 .then_ignore(
                     char(')').critical("unclosed expression (expected a closing parenthesis)"),
                 )
@@ -735,7 +735,6 @@ pub fn program(
         ));
 
         let cmd_env_var = ident
-            .clone()
             .spanned()
             .then_ignore(char('='))
             .then(
@@ -775,7 +774,7 @@ pub fn program(
                     cmd_call
                         .clone()
                         .spanned()
-                        .padded()
+                        .padded_by(msnl)
                         .critical("expected a command call"),
                 )
                 .then_ignore(
@@ -787,18 +786,18 @@ pub fn program(
                 .ignore_then(
                     expr.clone()
                         .spanned()
-                        .padded()
+                        .padded_by(msnl)
                         .critical("expected an expression"),
                 )
                 .then_ignore(char(')').critical("unclosed expression"))
                 .map(CmdValueMakingArg::ParenExpr),
             // Function as value
             char('@')
-                .ignore_then(ident.clone().critical("expected a function name"))
+                .ignore_then(ident.critical("expected a function name"))
                 .spanned()
                 .map(CmdValueMakingArg::FnAsValue),
             // Variables
-            var_name.clone().spanned().map(CmdValueMakingArg::VarName),
+            var_name.spanned().map(CmdValueMakingArg::VarName),
             // Raw argument
             cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw),
         ));
@@ -829,12 +828,7 @@ pub fn program(
                 .map(CmdArg::RestSeparator),
             // Spread
             just("$...")
-                .ignore_then(
-                    ident
-                        .clone()
-                        .spanned()
-                        .critical("expected a variable to spread"),
-                )
+                .ignore_then(ident.spanned().critical("expected a variable to spread"))
                 .map(CmdArg::SpreadVar),
             // Value-making
             cmd_value_making_arg.map(CmdArg::ValueMaking),
@@ -880,13 +874,6 @@ pub fn program(
 
         let instr = choice::<_, Instruction>((
             //
-            // Comments
-            //
-            char('#')
-                .ignore_then(ms)
-                .ignore_then(filter(|c| c != '\n').repeated().collect_string().spanned())
-                .map(|content| Instruction::Comment { content }),
-            //
             // Variables declaration
             //
             just("let")
@@ -898,7 +885,7 @@ pub fn program(
                         .spanned()
                         .or_not(),
                 )
-                .then(ident.clone().spanned())
+                .then(ident.spanned())
                 .then(
                     ms.ignore_then(char('='))
                         .ignore_then(msnl)
@@ -988,7 +975,7 @@ pub fn program(
             //
             just("for")
                 .ignore_then(s)
-                .ignore_then(ident.clone().spanned())
+                .ignore_then(ident.spanned())
                 .then_ignore(s)
                 .then_ignore(just("in"))
                 .then_ignore(s)
@@ -1014,11 +1001,11 @@ pub fn program(
             //
             just("for")
                 .ignore_then(s)
-                .ignore_then(ident.clone().spanned())
+                .ignore_then(ident.spanned())
                 .then_ignore(ms)
                 .then_ignore(char(','))
                 .then_ignore(ms)
-                .then(ident.clone().spanned())
+                .then(ident.spanned())
                 .then_ignore(s)
                 .then_ignore(just("in"))
                 .then_ignore(s)
@@ -1059,11 +1046,11 @@ pub fn program(
             //
             // Loop continuation keyword
             //
-            just("continue").to(Instruction::LoopContinue),
+            just("continue").map(|_| Instruction::LoopContinue),
             //
             // Loop breakage
             //
-            just("break").to(Instruction::LoopBreak),
+            just("break").map(|_| Instruction::LoopBreak),
             //
             // Switch
             //
@@ -1100,7 +1087,6 @@ pub fn program(
                 .ignore_then(s)
                 .ignore_then(
                     ident
-                        .clone()
                         .spanned()
                         .critical("expected identifier as the function's name"),
                 )
@@ -1152,7 +1138,6 @@ pub fn program(
                 .then_ignore(s.critical("expected a space followed by the catch variable"))
                 .then(
                     ident
-                        .clone()
                         .spanned()
                         .critical("expected a variable to catch the throw value in"),
                 )
@@ -1170,7 +1155,6 @@ pub fn program(
                 .ignore_then(s)
                 .ignore_then(
                     ident
-                        .clone()
                         .spanned()
                         .critical("expected an alias name (identifier)"),
                 )
@@ -1237,10 +1221,10 @@ pub fn program(
         ))
         .then_ignore(ms)
         .then_ignore(
-            choice((
-                lookahead(char('}')).map(|_| ()),
-                lookahead(just("\r\n").map(|_| ())),
-                filter(|c| c == '\n' || c == ';').map(|_| ()),
+            silent_choice((
+                lookahead(char('}')),
+                lookahead(just("\r\n")),
+                filter(|c| c == '\n' || c == ';'),
                 end(),
             ))
             .critical("unexpected symbol"),
@@ -1248,7 +1232,7 @@ pub fn program(
 
         // Raw block
         instr
-            .padded()
+            .padded_by(msnl)
             .spanned()
             .repeated_vec()
             .map(|instructions| Block { instructions })
@@ -1257,7 +1241,7 @@ pub fn program(
     outer.finish(
         raw_block
             .spanned()
-            .padded()
+            .padded_by(msnl)
             .full()
             .critical("unexpected symbol")
             .map(|content| Program { content }),
@@ -1268,7 +1252,7 @@ pub fn program(
 
 pub fn delimiter_chars() -> HashSet<char> {
     HashSet::from([
-        '(', ')', '[', ']', '{', '}', '<', '>', '=', ';', '!', '?', '&', '|', '\'', '"', '$',
+        '(', ')', '[', ']', '{', '}', '<', '>', '=', ';', '!', '?', '&', '|', '\'', '"', '$', '#',
     ])
 }
 

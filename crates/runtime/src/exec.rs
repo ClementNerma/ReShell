@@ -156,8 +156,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
     ctx.clear_wandering_value();
 
     match &instr.data {
-        Instruction::Comment { content: _ } => {}
-
         Instruction::DeclareVar {
             name,
             mutable,

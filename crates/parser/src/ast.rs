@@ -16,11 +16,6 @@ pub struct Block {
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
-    // TODO: remove from AST
-    Comment {
-        content: Eaten<String>,
-    },
-
     /// Variable declaration
     DeclareVar {
         name: Eaten<String>,
@@ -86,9 +81,7 @@ pub enum Instruction {
     },
 
     /// Function return statement
-    FnReturn {
-        expr: Option<Eaten<Expr>>,
-    },
+    FnReturn { expr: Option<Eaten<Expr>> },
 
     /// Function throw statement
     Throw(Eaten<Expr>),

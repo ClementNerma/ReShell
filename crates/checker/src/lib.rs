@@ -194,8 +194,6 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
 
 fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
     match &instr.data {
-        Instruction::Comment { content: _ } => {}
-
         Instruction::DeclareVar {
             name,
             mutable,
