@@ -68,7 +68,7 @@ pub struct Context {
     deps: HashMap<CodeRange, HashSet<Dependency>>,
 
     /// List of type aliases with their content
-    type_aliases: HashMap<CodeRange, Eaten<ValueType>>,
+    type_aliases_decl: HashMap<CodeRange, Eaten<ValueType>>,
 
     /// List of type aliases usage
     /// Used to know which type alias is referenced at a given point,
@@ -78,7 +78,7 @@ pub struct Context {
 
     /// List of declared type aliases, used to build a checker scope
     /// See [`ScopeContent::to_checker_scope`] and [`Scope::to_checker_scope`]
-    type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
+    type_aliases_decl_by_scope: HashMap<CodeRange, HashMap<String, CodeRange>>,
 
     /// List of function signatures
     /// Used to avoid cloning the whole signature object (which is heavy)
@@ -141,9 +141,9 @@ impl Context {
             home_dir: conf.initial_home_dir.clone(),
             deps: HashMap::new(),
             deps_scopes: HashMap::new(),
-            type_aliases: HashMap::new(),
-            type_aliases_usages: HashMap::new(),
             type_aliases_decl: HashMap::new(),
+            type_aliases_usages: HashMap::new(),
+            type_aliases_decl_by_scope: HashMap::new(),
             fn_signatures: HashMap::new(),
             fn_bodies: HashMap::new(),
             cmd_aliases: HashMap::new(),
@@ -224,8 +224,7 @@ impl Context {
         CheckerScope {
             code_range: *range,
 
-            deps: false,
-            scope_type: None,
+            special_scope_type: None,
 
             cmd_aliases: cmd_aliases
                 .iter()
@@ -235,7 +234,7 @@ impl Context {
             type_aliases: match range {
                 RuntimeCodeRange::Internal => Default::default(),
                 RuntimeCodeRange::Parsed(range) => self
-                    .type_aliases_decl
+                    .type_aliases_decl_by_scope
                     .get(range)
                     .cloned()
                     .unwrap_or_default(),
@@ -295,18 +294,19 @@ impl Context {
         // Merge the checker's output
         let CheckerOutput {
             deps,
-            type_aliases,
-            type_aliases_usages,
             type_aliases_decl,
+            type_aliases_usages,
+            type_aliases_decl_by_scope,
             fn_signatures,
             fn_bodies,
             cmd_aliases,
         } = checker_output;
 
         self.deps.extend(deps);
-        self.type_aliases.extend(type_aliases);
-        self.type_aliases_usages.extend(type_aliases_usages);
         self.type_aliases_decl.extend(type_aliases_decl);
+        self.type_aliases_usages.extend(type_aliases_usages);
+        self.type_aliases_decl_by_scope
+            .extend(type_aliases_decl_by_scope);
 
         self.fn_signatures.extend(
             fn_signatures
@@ -542,7 +542,7 @@ impl Context {
     pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> Option<&'c Eaten<ValueType>> {
         let type_alias_at = self.type_aliases_usages.get(name)?;
 
-        Some(self.type_aliases.get(type_alias_at).unwrap())
+        Some(self.type_aliases_decl.get(type_alias_at).unwrap())
     }
 
     /// Get a specific type signature from its location
@@ -592,7 +592,7 @@ impl Context {
         for dep in deps_list {
             let Dependency {
                 name,
-                declared_at,
+                declared_name_at: declared_at,
                 dep_type,
             } = dep;
 

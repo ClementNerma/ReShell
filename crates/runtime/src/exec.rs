@@ -627,7 +627,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         }
 
-        Instruction::BaseBlock(block) => {
+        Instruction::DoBlock(block) => {
             run_block(&block.data, ctx, ScopeContent::new())?;
         }
 

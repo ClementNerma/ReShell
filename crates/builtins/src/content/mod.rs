@@ -1,3 +1,8 @@
+//!
+//! This module contains all native functions and variables
+//!
+//! Each function has its own dedicated module.
+
 mod cd;
 mod clone;
 mod current_dir;
@@ -40,6 +45,7 @@ use reshell_runtime::values::RuntimeValue;
 
 use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME};
 
+/// Generate definitions of the native library
 pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
         functions: vec![

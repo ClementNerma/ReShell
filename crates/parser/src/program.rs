@@ -1171,7 +1171,7 @@ pub fn program(
             just("do")
                 .ignore_then(s)
                 .ignore_then(block.spanned())
-                .map(Instruction::BaseBlock),
+                .map(Instruction::DoBlock),
             //
             //
             //

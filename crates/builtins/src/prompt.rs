@@ -13,6 +13,7 @@ use crate::{
 
 pub static GEN_PROMPT_VAR_NAME: &str = "gen_prompt";
 
+/// Render the prompt (used for the REPL)
 pub fn render_prompt(
     ctx: &mut Context,
     last_cmd_status: Option<LastCmdStatus>,
