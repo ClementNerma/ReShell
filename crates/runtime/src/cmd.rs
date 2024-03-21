@@ -302,7 +302,10 @@ fn single_call_to_chain_el(
         }))
     };
 
-    let (call, from_alias) = develop_aliases(call, ctx);
+    let (call, from_alias) = match develop_aliases(call, ctx) {
+        Some((call, from_alias)) => (Cow::Owned(call), Some(from_alias)),
+        None => (Cow::Borrowed(call), None),
+    };
 
     let mut popped = if from_alias.is_some() {
         Some(false)
@@ -375,45 +378,37 @@ fn compute_env_var_value(value: &CmdEnvVarValue, ctx: &mut Context) -> ExecResul
     }
 }
 
-fn develop_aliases<'a>(
-    call: &'a Eaten<SingleCmdCall>,
+fn develop_aliases(
+    call: &Eaten<SingleCmdCall>,
     ctx: &mut Context,
-) -> (Cow<'a, Eaten<SingleCmdCall>>, Option<RuntimeCmdAlias>) {
+) -> Option<(Eaten<SingleCmdCall>, RuntimeCmdAlias)> {
     let cmd_path = match &call.data.path.data {
         CmdPath::RawString(raw) => raw,
-        CmdPath::ComputedString(_) | CmdPath::Expr(_) | CmdPath::Direct(_) => {
-            return (Cow::Borrowed(call), None)
-        }
+        CmdPath::ComputedString(_) | CmdPath::Expr(_) | CmdPath::Direct(_) => return None,
     };
 
     let cmd_alias = ctx
         .visible_scopes()
-        .find_map(|scope| scope.cmd_aliases.get(&cmd_path.data));
+        .find_map(|scope| scope.cmd_aliases.get(&cmd_path.data))?;
 
-    match cmd_alias {
-        None => (Cow::Borrowed(call), None),
+    let mut call = call.clone();
 
-        Some(cmd_alias) => {
-            let mut call = call.clone();
+    let SingleCmdCall {
+        env_vars,
+        path,
+        args,
+    } = &*cmd_alias.alias_content;
 
-            let SingleCmdCall {
-                env_vars,
-                path,
-                args,
-            } = &*cmd_alias.alias_content;
+    call.data.path.change_value(path.data.clone());
 
-            call.data.path.change_value(path.data.clone());
+    call.data
+        .env_vars
+        .data
+        .splice(0..0, env_vars.data.iter().cloned());
 
-            call.data
-                .env_vars
-                .data
-                .splice(0..0, env_vars.data.iter().cloned());
+    call.data.args.data.splice(0..0, args.data.iter().cloned());
 
-            call.data.args.data.splice(0..0, args.data.iter().cloned());
-
-            (Cow::Owned(call), Some(cmd_alias.clone()))
-        }
-    }
+    Some((call, cmd_alias.clone()))
 }
 
 fn check_if_cmd_is_fn(
