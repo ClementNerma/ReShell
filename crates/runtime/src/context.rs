@@ -671,19 +671,25 @@ impl Context {
 pub struct Scope {
     /// Unique ID of the scope (not two scopes must have the same ID)
     pub id: u64,
+
     /// Range of the scope
     pub range: RuntimeCodeRange,
+
     /// Content of the scope
     pub content: ScopeContent,
+
     /// List of parent scopes, from farthest to the nearest
     pub parent_scopes: IndexSet<u64>,
+
     /// Dependencies scope (if any)
     /// See [`Context::capture_deps`] for more informations
     pub deps_scope: Option<u64>,
+
     /// Previous scope
     /// Used e.g. when calling a function, the function's body will
     /// get a new scope but we must return to the callee's scope afterwards
     pub previous_scope: Option<u64>,
+
     /// Entire call stack
     pub call_stack: CallStack,
 }
@@ -739,8 +745,10 @@ impl ScopeContent {
 pub struct ScopeVar {
     /// Location of the variable's name in its declaration
     pub name_at: RuntimeCodeRange,
+
     /// Is the variable mutable?
     pub is_mut: bool,
+
     /// Value of the variable
     /// It is backed by a [`GcCell`] in order to be sharable in captured dependencies
     /// See [`Context::capture_deps`]
@@ -752,6 +760,7 @@ pub struct ScopeVar {
 pub struct ScopeFn {
     /// Location of the function's name in its declaration
     pub name_at: RuntimeCodeRange,
+
     /// Value of the function
     /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
@@ -762,6 +771,7 @@ pub struct ScopeFn {
 pub struct ScopeCmdAlias {
     /// Location of the alias' name in its declaration
     pub name_at: CodeRange,
+
     /// Content of the alias
     /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeCmdAlias>,
