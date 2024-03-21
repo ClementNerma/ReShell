@@ -105,11 +105,22 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // This is the "less polished" part of the highlighter
                 //
 
+                // Variables
+                rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
+
+                // Single variable marker
+                rule!(@simple "(\\$)" => [Red]),
+
+                // Number
+                rule!(@simple "(?:\\s*)(\\d+(?:\\.\\d+)?)(?:[^\\d]|$)" => [LightYellow]),
+
                 // Expressions
-                rule!(@group "in-expressions"),
-                
+                rule!(@nested "(\\()" => White, "(\\))" => White, vec![
+                    rule!(@group "in-expressions")
+                ]),
+
                 // Raw arguments
-                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)" => [Green]),
+                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
                 // Strings
@@ -138,14 +149,14 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // The null value
                 rule!(@simple "\\b(null)\\b" => [LightYellow]),
 
+                // Flags
+                rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
+
                 // Variables
                 rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
 
                 // Single variable marker
                 rule!(@simple "(\\$)" => [Red]),
-
-                // Flags
-                rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
 
                 // Number
                 rule!(@simple "(\\d+(?:\\.\\d+)?)" => [LightYellow]),
