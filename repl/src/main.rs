@@ -81,12 +81,13 @@ fn run_init_script() {
 
     let init_file = home_dir.join(INIT_SCRIPT_FILE_NAME);
 
-    // if !init_file.exists() {
-    //     return print_warn(&format!(
-    //         "Init script was not found at path {}",
-    //         init_file.to_string_lossy().bright_magenta(),
-    //     ));
-    // }
+    if !init_file.exists() {
+        //  print_warn(&format!(
+        //     "Init script was not found at path {}",
+        //     init_file.to_string_lossy().bright_magenta(),
+        // ));
+        return;
+    }
 
     if !init_file.is_file() {
         return print_err(&format!(
