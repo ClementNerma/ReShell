@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
-use reshell_checker::Dependency;
+use reshell_checker::output::Dependency;
 use reshell_parser::ast::{
     FnSignature, FunctionBody, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
     StructTypeMember, ValueType,

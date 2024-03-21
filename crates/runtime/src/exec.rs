@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use indexmap::IndexSet;
 use parsy::{Eaten, FileId};
-use reshell_checker::CheckerOutput;
+use reshell_checker::output::CheckerOutput;
 use reshell_parser::ast::{
     Block, ElsIf, FunctionBody, Instruction, Program, RuntimeCodeRange, SwitchCase,
 };

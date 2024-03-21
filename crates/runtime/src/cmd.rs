@@ -5,7 +5,7 @@ use std::{
 };
 
 use parsy::{CodeRange, Eaten};
-use reshell_checker::DevelopedSingleCmdCall;
+use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
     CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, FlagValueSeparator, RuntimeCodeRange,

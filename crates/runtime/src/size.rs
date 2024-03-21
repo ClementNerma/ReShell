@@ -7,7 +7,7 @@ use std::{
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location, SourceFileID};
-use reshell_checker::{
+use reshell_checker::output::{
     CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
 };
 use reshell_parser::{
