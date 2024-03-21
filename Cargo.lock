@@ -652,9 +652,9 @@ dependencies = [
 
 [[package]]
 name = "parsy"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89bbf705192d13720db14b74199e4696bad990c6b74fd2e7081470bd6e252061"
+checksum = "58bb384c43b5d3ac5087ddce2417cd1030d350b2b4cbfbab3cc386f5351a88cc"
 dependencies = [
  "perfect-derive",
 ]
