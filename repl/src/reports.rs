@@ -2,6 +2,7 @@ use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
 use reshell_runtime::{
+    context::ScopeRange,
     display::dbg_loc,
     errors::{CallStack, CallStackEntry, ExecError, ExecErrorContent},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
@@ -84,11 +85,18 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
     };
 
-    let mut msg = msg;
+    let mut bottom = String::new();
+
+    if let ReportableError::ExecError(ExecError {
+        scope_range: ScopeRange::CodeRange(range),
+        ..
+    }) = err
+    {
+        let curr_scope_msg = format!("* In scope : {}", dbg_loc(*range, files).bright_magenta());
+        bottom = format!("{}", curr_scope_msg.bright_yellow());
+    }
 
     if let Some(CallStack { history }) = call_stack {
-        msg.push('\n');
-
         for entry in history.iter().rev() {
             let CallStackEntry {
                 fn_called_at,
@@ -96,11 +104,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             } = entry;
 
             let entry_msg = format!(
-                "\n* Called at: {}",
+                "* Called at: {}",
                 dbg_loc(*fn_called_at, files).bright_magenta()
             );
 
-            msg.push_str(&format!("{}", entry_msg.fg(ariadne::Color::Yellow)));
+            bottom.push_str(&format!("\n{}", entry_msg.fg(ariadne::Color::Yellow)));
         }
     }
 
@@ -115,6 +123,10 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     inner
         .print((display_file, Source::from(source_file.content)))
         .unwrap();
+
+    if !bottom.is_empty() {
+        println!("{bottom}");
+    }
 }
 
 fn parser_expection_to_str(err: &ParserExpectation) -> String {

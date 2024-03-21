@@ -48,6 +48,7 @@ impl Context {
             source_file: self.current_source_file().cloned(),
             content: content.into(),
             call_stack: self.produce_call_stack(),
+            scope_range: self.current_scope().range,
         }
     }
 
@@ -71,6 +72,8 @@ impl Context {
         loop {
             if let Some(ref call_stack_entry) = scope.call_stack_entry {
                 history.push(call_stack_entry.clone());
+                scope = self.scopes.get(&call_stack_entry.previous_scope).unwrap();
+                continue;
             }
 
             match scope.parent_scopes.last() {
@@ -78,6 +81,8 @@ impl Context {
                 None => break,
             }
         }
+
+        history.reverse();
 
         CallStack { history }
     }

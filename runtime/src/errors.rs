@@ -1,6 +1,6 @@
 use parsy::{CodeRange, FileId, ParsingError};
 
-use crate::files_map::SourceFile;
+use crate::{context::ScopeRange, files_map::SourceFile};
 
 pub type ExecResult<T> = Result<T, ExecError>;
 
@@ -11,6 +11,7 @@ pub struct ExecError {
     pub source_file: Option<SourceFile>,
     pub content: ExecErrorContent,
     pub call_stack: CallStack,
+    pub scope_range: ScopeRange,
 }
 
 #[derive(Debug)]
