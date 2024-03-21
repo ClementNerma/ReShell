@@ -64,7 +64,6 @@ mod slice;
 mod sort;
 mod split;
 mod starts_with;
-mod stringify;
 mod struct_to_map;
 mod substr;
 mod succeeds;
@@ -73,6 +72,7 @@ mod term_cols;
 mod term_rows;
 mod to_json;
 mod to_lowercase;
+mod to_string;
 mod to_uppercase;
 mod transform;
 mod trim;
@@ -148,7 +148,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::sort::build_fn(),
         self::split::build_fn(),
         self::starts_with::build_fn(),
-        self::stringify::build_fn(),
         self::runtime::build_fn(),
         self::struct_to_map::build_fn(),
         self::substr::build_fn(),
@@ -158,6 +157,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::term_rows::build_fn(),
         self::to_json::build_fn(),
         self::to_lowercase::build_fn(),
+        self::to_string::build_fn(),
         self::to_uppercase::build_fn(),
         self::trim::build_fn(),
         self::values::build_fn(),

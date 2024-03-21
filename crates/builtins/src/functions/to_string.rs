@@ -3,10 +3,10 @@ crate::define_internal_fn!(
     // Display a message
     //
 
-    "stringify",
+    "toString",
 
     (
-        value: RequiredArg<StringifyableType> = Arg::positional("value")
+        value: RequiredArg<StringifyableType> = Arg::method_self()
     )
 
     -> None
