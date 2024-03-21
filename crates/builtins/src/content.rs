@@ -34,7 +34,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "map",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     entries: OptionalArg<Union2Type<
                         UntypedStructType,
                         DetachedListType<Tuple2Type<StringType, AnyType>>
@@ -44,7 +44,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> Some(MapType::direct_underlying_type()),
 
-                |_, Args { entries }, ArgsAt { entries: entries_at }, _, _| {
+                |_, Args { entries }, ArgsAt { entries: entries_at }, _| {
                     let map = match entries {
                         None => HashMap::new(),
                         Some(entries) => match entries {
@@ -63,13 +63,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "echo",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
                 )
 
                 -> None,
 
-                |_, Args { message }, _, _, _| {
+                |_, Args { message }, _, _| {
                     println!("{}", match message {
                         Union3Result::A(string) => string,
                         Union3Result::B(int) => int.to_string(),
@@ -86,7 +86,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "dbg",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     value: RequiredArg<AnyType> => Arg::positional("value"),
                     tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
                     max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
@@ -94,7 +94,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> None,
 
-                |at, Args { value, tab_size, max_line_size }, _, _, ctx| {
+                |at, Args { value, tab_size, max_line_size }, _, ctx| {
                     let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
 
                     println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
@@ -113,7 +113,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             define_internal_fn!(
                 "dbg_type",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     value: RequiredArg<AnyType> => Arg::positional("value"),
                     tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
                     max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
@@ -121,7 +121,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> None,
 
-                |at, Args { value, tab_size, max_line_size }, _, _, ctx| {
+                |at, Args { value, tab_size, max_line_size }, _, ctx| {
                     let at = format!("dbg-type [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
 
                     println!("{} {}", at.bright_magenta(), value.get_type().render_colored(ctx, PrettyPrintOptions {
@@ -141,14 +141,14 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "range",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
                     to: RequiredArg<ExactIntType<usize>> => Arg::positional("to")
                 )
 
                 -> Some(RangeType::direct_underlying_type()),
 
-                |_, Args { from, to }, _, _, _| {
+                |_, Args { from, to }, _, _| {
                     Ok(Some(RuntimeValue::Range { from, to }))
                 }
             ),
@@ -159,13 +159,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "error",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     content: RequiredArg<StringType> => Arg::positional("content")
                 )
 
                 -> Some(ErrorType::direct_underlying_type()),
 
-                |at, Args { content }, _, _, ctx| {
+                |at, Args { content }, _, ctx| {
                     match at {
                         RuntimeCodeRange::CodeRange(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
                         RuntimeCodeRange::Internal => Err(ctx.error(at, "cannot generate an error from an internal location"))
@@ -179,13 +179,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "len",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     content: RequiredArg<Union3Type<StringType, UntypedListType, MapType>> => Arg::positional("value")
                 )
 
                 -> Some(ExactIntType::<usize>::direct_underlying_type()),
 
-                |_, Args { content }, ArgsAt { content: content_at }, _, ctx| {
+                |_, Args { content }, ArgsAt { content: content_at }, ctx| {
                     let len = match content {
                         Union3Result::A(str) => str.len(),
                         Union3Result::B(list) => list.read(content_at).len(),
@@ -204,7 +204,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "slice",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     list: RequiredArg<UntypedListType> => Arg::positional("list"),
                     from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
                     length: OptionalArg<ExactIntType<usize>> => Arg::positional("length")
@@ -212,7 +212,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> Some(UntypedListType::direct_underlying_type()),
 
-                |_, Args { list, from, length }, ArgsAt { list: list_at, .. }, _, _| {
+                |_, Args { list, from, length }, ArgsAt { list: list_at, .. }, _| {
                     let sliced = list.read(list_at).iter().skip(from).take(length.unwrap_or(usize::MAX)).cloned().collect::<Vec<_>>();
 
                     Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
@@ -225,13 +225,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "pop",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     list: RequiredArg<UntypedListType> => Arg::positional("list")
                 )
 
                 -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type()),
 
-                |_, Args { list }, ArgsAt { list: list_at }, _, ctx| {
+                |_, Args { list }, ArgsAt { list: list_at }, ctx| {
                     Ok(Some(list.write(list_at, ctx)?.pop().unwrap_or(RuntimeValue::Null)))
                 }
             ),
@@ -242,9 +242,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "listmap",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     list: RequiredArg<UntypedListType> => Arg::positional("list"),
-                    mapper: RequiredArg<TypedFunctionType> => Arg::new(ArgNames::Positional("mapper"), TypedFunctionType::new(forge_basic_fn_signature(
+                    mapper @ mapper_type: RequiredArg<TypedFunctionType> => Arg::new(ArgNames::Positional("mapper"), TypedFunctionType::new(forge_basic_fn_signature(
                         vec![
                             ("index", ExactIntType::<usize>::direct_underlying_type()),
                             ("value", AnyType::direct_underlying_type()),
@@ -255,7 +255,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> Some(UntypedListType::direct_underlying_type()),
 
-                |_, Args { list, mapper }, ArgsAt { list: _, mapper: mapper_at }, ArgsTy { list: _, mapper: mapper_ty }, ctx| {
+                move |_, Args { list, mapper }, ArgsAt { list: _, mapper: mapper_at }, ctx| {
                     let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
 
                     let mapped = list
@@ -265,7 +265,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         .map(|(index, value)| -> ExecResult<RuntimeValue> {
                             let ret = call_fn_checked(
                                 &mapper,
-                                mapper_ty.base_typing().signature(),
+                                mapper_type.base_typing().signature(),
                                 vec![
                                     RuntimeValue::Int(index.try_into().expect("list contains too many elements to be represented by an integer")),
                                     value.clone()
@@ -287,14 +287,14 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "env",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     var_name: RequiredArg<StringType> => Arg::positional("var_name"),
                     lossy: OptionalArg<BoolType> => Arg::long_flag("lossy")
                 )
 
                 -> Some(StringType::direct_underlying_type()),
 
-                |_, Args { var_name, lossy }, ArgsAt { var_name: var_name_at, .. }, _, ctx| {
+                |_, Args { var_name, lossy }, ArgsAt { var_name: var_name_at, .. }, ctx| {
                     let var_value = std::env::var_os(&var_name).ok_or_else(|| ctx.error(var_name_at, format!("environment variable '{var_name}' is not set")))?;
 
                     let var_value = if lossy == Some(true) {
@@ -316,13 +316,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "cd",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     path: RequiredArg<StringType> => Arg::positional("path")
                 )
 
                 -> None,
 
-                |at, Args { path }, ArgsAt { path: path_at }, _, ctx| {
+                |at, Args { path }, ArgsAt { path: path_at }, ctx| {
                     let trimmed_path = path.trim_end_matches(['/', '\\']);
 
                     let path = Path::new(if trimmed_path.is_empty() { path.as_str() } else { trimmed_path });
@@ -344,13 +344,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "current_dir",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     lossy: OptionalArg<BoolType> => Arg::long_flag("lossy")
                 )
 
                 -> Some(StringType::direct_underlying_type()),
 
-                |at, Args { lossy }, _, _, ctx| {
+                |at, Args { lossy }, _, ctx| {
                     let current_dir = std::env::current_dir()
                         .map_err(|err| ctx.error(at, format!("failed to get current directory: {err}")))?;
 
@@ -371,13 +371,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "exit",
 
-                Args [ArgsAt, ArgsTy] (
+                Args [ArgsAt] (
                     code: OptionalArg<ExactIntType<u8>> => Arg::positional("code")
                 )
 
                 -> None,
 
-                |at, Args { code }, _, _, ctx| {
+                |at, Args { code }, _, ctx| {
                     Err(ctx.exit(at, code))
                 }
             ),
