@@ -121,7 +121,7 @@ impl BinariesResolver {
 
                                 #[cfg(target_family = "unix")]
                                 {
-                                    use std::os::unix::PermissionsExt;
+                                    use std::os::unix::fs::PermissionsExt;
 
                                     // Ensure exec permissions are present
                                     if mt.permissions().mode() & 111 != 0 {
