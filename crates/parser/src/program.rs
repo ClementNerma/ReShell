@@ -581,10 +581,18 @@ pub fn program() -> impl Parser<Program> {
                 )
                 .map(CmdPath::Direct),
             // Call variable
-            just("@var")
-                .ignore_then(ms)
-                .ignore_then(ident.clone().critical("expected a variable name").spanned())
-                .map(CmdPath::CallVariable),
+            char('(')
+                .ignore_then(
+                    expr.clone()
+                        .map(Box::new)
+                        .critical("expected an expression")
+                        .spanned()
+                        .padded(),
+                )
+                .then_ignore(
+                    char(')').critical("expected a closing parenthesis after the expression"),
+                )
+                .map(CmdPath::Expr),
             // Computed string
             computed_string
                 .clone()

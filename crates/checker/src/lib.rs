@@ -545,7 +545,7 @@ fn check_single_cmd_call(
             }
         }
         CmdPath::Direct(_) => {}
-        CmdPath::CallVariable(var) => state.register_usage(var, DependencyType::Variable)?,
+        CmdPath::Expr(expr) => check_expr(&expr.data, state)?,
         CmdPath::ComputedString(computed_string) => check_computed_string(computed_string, state)?,
     }
 

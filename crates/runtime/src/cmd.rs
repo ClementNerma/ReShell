@@ -6,8 +6,8 @@ use std::{
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, FnCall, FnCallArg,
-    SingleCmdCall,
+    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, Expr, FnCall,
+    FnCallArg, SingleCmdCall,
 };
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
-    functions::call_fn,
+    functions::{call_fn, call_fn_value, FnCallResult, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{RuntimeCmdAlias, RuntimeValue},
 };
@@ -52,11 +52,17 @@ pub fn run_cmd(
             .and_then(|pipe_type| pipe_type.map(|pipe_type| pipe_type.data));
 
         match item {
-            CmdChainElContent::FnCall(call, deps_scope) => {
+            CmdChainElContent::NonCmd(call, deps_scope) => {
                 // for now (TODO)
                 assert!(!pipe_types.iter().any(|pipe_type| pipe_type.is_some()));
 
                 let has_deps_scope = deps_scope.is_some();
+
+                let NonCmdCall {
+                    at,
+                    nature,
+                    call_args,
+                } = call;
 
                 if let Some(deps_scope) = deps_scope {
                     ctx.create_and_push_scope_with_deps(
@@ -68,13 +74,49 @@ pub fn run_cmd(
                     );
                 }
 
-                let result = call_fn(&call, ctx);
+                // TODO: handle non-success outputs (e.g. Thrown etc.)
+                let result = match nature {
+                    NonCmdCallNature::Function { is_var_name, name } => {
+                        // TODO: handle non-success cases (e.g. Thrown)
+                        call_fn(
+                            &Eaten::ate(
+                                at,
+                                FnCall {
+                                    is_var_name,
+                                    name,
+                                    call_args,
+                                },
+                            ),
+                            ctx,
+                        )?
+                    }
+
+                    NonCmdCallNature::Expr(expr) => {
+                        let result = eval_expr(&expr.data, ctx)?;
+
+                        let func = match result {
+                            RuntimeValue::Function(func) => func,
+
+                            _ => {
+                                return Err(ctx.error(
+                                    expr.at,
+                                    format!(
+                                        "expected a function, got a {}",
+                                        result
+                                            .get_type()
+                                            .render_colored(ctx, PrettyPrintOptions::inline())
+                                    ),
+                                ));
+                            }
+                        };
+
+                        call_fn_value(at, &func, FnPossibleCallArgs::Parsed(&call_args), ctx)?
+                    }
+                };
 
                 if has_deps_scope {
                     ctx.pop_scope();
                 }
-
-                result?;
             }
 
             CmdChainElContent::Cmd(item) => {
@@ -192,7 +234,7 @@ fn single_call_to_chain_el(
         } = &call.data;
 
         if let Some(call) = check_if_cmd_is_fn(call, ctx)? {
-            return Ok(CmdChainElContent::FnCall(
+            return Ok(CmdChainElContent::NonCmd(
                 call,
                 popped.map(|popped| {
                     *popped = true;
@@ -230,7 +272,7 @@ fn single_call_to_chain_el(
                 CmdPath::RawString(raw) => raw.clone(),
                 CmdPath::ComputedString(str) => str.forge_here(eval_computed_string(str, ctx)?),
                 CmdPath::Direct(direct) => direct.clone(),
-                CmdPath::CallVariable(_) => unreachable!(),
+                CmdPath::Expr(_) => unreachable!(),
             },
             env_vars: eval_env_vars,
             args: eval_args,
@@ -276,7 +318,23 @@ fn single_call_to_chain_el(
 #[derive(Debug)]
 enum CmdChainElContent {
     Cmd(CmdCallEl),
-    FnCall(Eaten<FnCall>, Option<ScopeContent>),
+    NonCmd(NonCmdCall, Option<ScopeContent>),
+}
+
+#[derive(Debug)]
+struct NonCmdCall {
+    at: CodeRange,
+    nature: NonCmdCallNature,
+    call_args: Eaten<Vec<Eaten<FnCallArg>>>,
+}
+
+#[derive(Debug)]
+enum NonCmdCallNature {
+    Function {
+        is_var_name: bool,
+        name: Eaten<String>,
+    },
+    Expr(Eaten<Expr>),
 }
 
 #[derive(Debug)]
@@ -301,7 +359,7 @@ fn develop_aliases<'a>(
 ) -> (Cow<'a, Eaten<SingleCmdCall>>, Option<RuntimeCmdAlias>) {
     let cmd_path = match &call.data.path.data {
         CmdPath::RawString(raw) => raw,
-        CmdPath::ComputedString(_) | CmdPath::CallVariable(_) | CmdPath::Direct(_) => {
+        CmdPath::ComputedString(_) | CmdPath::Expr(_) | CmdPath::Direct(_) => {
             return (Cow::Borrowed(call), None)
         }
     };
@@ -339,50 +397,67 @@ fn develop_aliases<'a>(
 fn check_if_cmd_is_fn(
     call: &Eaten<SingleCmdCall>,
     ctx: &mut Context,
-) -> ExecResult<Option<Eaten<FnCall>>> {
+) -> ExecResult<Option<NonCmdCall>> {
     let SingleCmdCall {
         path,
         args,
         env_vars,
     } = &call.data;
 
-    let (name, is_var) = match &path.data {
+    match &path.data {
+        CmdPath::Direct(_) => Ok(None),
+        CmdPath::ComputedString(_) => Ok(None),
         CmdPath::RawString(raw) => match ctx.get_visible_fn(raw) {
-            Some(_) => (raw, false),
-            None => return Ok(None),
-        },
-        CmdPath::Direct(_) => return Ok(None),
-        CmdPath::ComputedString(_) => return Ok(None),
-        CmdPath::CallVariable(name) => (name, true),
-    };
+            None => Ok(None),
+            Some(_) => {
+                if !env_vars.data.is_empty() {
+                    return Err(ctx.error(
+                        env_vars.at,
+                        "inline environment variables are not supported for function calls",
+                    ));
+                }
 
-    if !env_vars.data.is_empty() {
-        return Err(ctx.error(
-            env_vars.at,
-            "inline environment variables are not supported for function calls",
-        ));
+                Ok(Some(NonCmdCall {
+                    at: call.at,
+
+                    nature: NonCmdCallNature::Function {
+                        is_var_name: false,
+                        name: raw.clone(),
+                    },
+
+                    call_args: Eaten::ate(
+                        args.at,
+                        args.data
+                            .iter()
+                            .map(|arg| Eaten::ate(arg.at, FnCallArg::CmdArg(arg.clone())))
+                            .collect(),
+                    ),
+                }))
+            }
+        },
+        CmdPath::Expr(expr) => {
+            if !env_vars.data.is_empty() {
+                return Err(ctx.error(
+                    env_vars.at,
+                    "inline environment variables are not supported for function calls",
+                ));
+            }
+
+            Ok(Some(NonCmdCall {
+                at: call.at,
+
+                nature: NonCmdCallNature::Expr(expr.map_ref(|expr| *expr.clone())),
+
+                call_args: Eaten::ate(
+                    args.at,
+                    args.data
+                        .iter()
+                        .map(|arg| Eaten::ate(arg.at, FnCallArg::CmdArg(arg.clone())))
+                        .collect(),
+                ),
+            }))
+        }
     }
-
-    let fn_call = FnCall {
-        is_var_name: is_var,
-        name: name.clone(),
-        call_args: Eaten {
-            at: args.at,
-            data: args
-                .data
-                .iter()
-                .map(|arg| Eaten {
-                    at: arg.at,
-                    data: FnCallArg::CmdArg(arg.clone()),
-                })
-                .collect(),
-        },
-    };
-
-    Ok(Some(Eaten {
-        at: call.at,
-        data: fn_call,
-    }))
 }
 
 pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult> {

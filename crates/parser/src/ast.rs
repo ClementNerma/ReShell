@@ -302,7 +302,7 @@ pub enum CmdEnvVarValue {
 pub enum CmdPath {
     RawString(Eaten<String>),
     Direct(Eaten<String>),
-    CallVariable(Eaten<String>),
+    Expr(Eaten<Box<Expr>>),
     ComputedString(Eaten<ComputedString>),
 }
 
