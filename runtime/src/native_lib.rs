@@ -460,6 +460,18 @@ pub fn generate_native_lib() -> Scope {
         native_fn!(exit (code: Int) {
             std::process::exit(code as i32);
         }),
+        //
+        // report runtime stats
+        //
+        native_fn!(__runtime_stats () [ctx] {
+            eprintln!(
+                "=== Runtime stats ===\nCall stack size: {}\nAlive scopes: {}",
+                ctx.current_scope().call_stack.history().len(),
+                ctx.scopes().len()
+            );
+
+            Ok(None)
+        }),
         // //
         // // create a directory
         // //
