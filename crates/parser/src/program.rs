@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use parsy::{
     atoms::{alphanumeric, digits},
@@ -645,29 +645,12 @@ pub fn program(
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let cmd_raw = filter(|c| {
-            !c.is_whitespace()
-                && c != '('
-                && c != ')'
-                && c != '['
-                && c != ']'
-                && c != '{'
-                && c != '}'
-                && c != '<'
-                && c != '>'
-                && c != '='
-                && c != ';'
-                && c != '!'
-                && c != '?'
-                && c != '&'
-                && c != '|'
-                && c != '\''
-                && c != '"'
-                && c != '$'
-        })
-        .repeated()
-        .at_least(1)
-        .collect_string();
+        let delimiter_chars = delimiter_chars();
+
+        let cmd_raw = filter(move |c| !c.is_whitespace() && !delimiter_chars.contains(&c))
+            .repeated()
+            .at_least(1)
+            .collect_string();
 
         let cmd_path = choice::<_, CmdPath>((
             // Direct
@@ -1251,6 +1234,12 @@ pub fn program(
     );
 
     outer
+}
+
+pub fn delimiter_chars() -> HashSet<char> {
+    HashSet::from([
+        '(', ')', '[', ']', '{', '}', '<', '>', '=', ';', '!', '?', '&', '|', '\'', '"', '$',
+    ])
 }
 
 // fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
