@@ -1,6 +1,3 @@
 [workspace]
-members = [
-  "parser",
-  "runtime",
-  "repl"
-]
+members = ["parser", "runtime", "repl"]
+resolver = "2"
