@@ -206,6 +206,7 @@ pub(super) fn generate_internal_arg_decl<
 }
 
 pub struct InternalFunction {
+    pub name: &'static str,
     pub args: Vec<FnArg>,
     pub run: InternalFnBody,
     pub ret_type: Option<ValueType>,
@@ -213,7 +214,7 @@ pub struct InternalFunction {
 
 #[macro_export]
 macro_rules! define_internal_fn {
-    ($args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
+    ($name: expr, $args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
         use std::collections::HashMap;
 
         use reshell_parser::ast::FnArg;
@@ -303,6 +304,6 @@ macro_rules! define_internal_fn {
                 .map(|value| value.map(|value| LocatedValue::new(value, forge_internal_loc())))
         }
 
-        InternalFunction { args: build_args_decl(), run, ret_type: $ret_type }
+        InternalFunction { args: build_args_decl(), run, ret_type: $ret_type, name: $name }
     }};
 }
