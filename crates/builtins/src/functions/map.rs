@@ -5,7 +5,7 @@ crate::define_internal_fn!(
     // Create a map (optionally from a list of entries)
     //
 
-    "make_map",
+    "map",
 
     (
         entries: OptionalArg<

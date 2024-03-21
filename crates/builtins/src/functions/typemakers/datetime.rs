@@ -39,7 +39,7 @@ fn run() -> Runner {
 ///
 /// This means that ReShell's runtime is actually only sound if the program
 /// is single-threaded.
-pub fn get_utc_offset() -> UtcOffset {
+fn get_utc_offset() -> UtcOffset {
     unsafe {
         set_soundness(Soundness::Unsound);
     }
