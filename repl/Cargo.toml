@@ -11,7 +11,7 @@ path = "src/main.rs"
 ariadne = "0.2.0"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
-parsy = "0.1.0"
+parsy = "0.2.0"
 clap = { version = "4.3.4", features = ["derive"] }
 reedline = "0.20.0"
 nu-ansi-term = "0.47.0"
