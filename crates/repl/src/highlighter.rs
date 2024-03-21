@@ -133,7 +133,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(true|false)\\b", [LightYellow]),
 
                 // Raw arguments
-                simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\?\\|'\"\\$]+)", [Green]),
+                simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\|'\"\\$]+)", [Green]),
 
                 // Invalid characters
                 invalid_chars.clone()
