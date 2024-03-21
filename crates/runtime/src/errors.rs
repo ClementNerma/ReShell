@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use parsy::ParsingError;
+use reshell_checker::CheckerError;
 use reshell_parser::ast::RuntimeCodeRange;
 
 use crate::context::CallStack;
@@ -38,6 +39,8 @@ impl ExecError {
 pub enum ExecErrorNature {
     /// Parsing of a program failed
     ParsingErr(ParsingError),
+    /// Checking of a program failed
+    CheckingErr(CheckerError),
     /// A command could not be started
     CommandFailedToStart { message: String },
     /// A command failed

@@ -9,22 +9,18 @@ use reshell_parser::{
 use crate::{errors::CheckerResult, output::*, CheckerError};
 
 /// Checker's state
-pub struct State {
+pub struct State<'a> {
     scopes: Vec<CheckerScope>,
-    collected: CheckerOutput,
+    collected: &'a mut CheckerOutput,
 }
 
-impl State {
+impl<'a> State<'a> {
     /// Create an empty state
-    pub fn new(prev: Option<CheckerOutput>) -> Self {
+    pub fn new(prev: &'a mut CheckerOutput) -> Self {
         Self {
             scopes: vec![],
-            collected: prev.unwrap_or_else(CheckerOutput::empty),
+            collected: prev,
         }
-    }
-
-    pub fn consume(self) -> CheckerOutput {
-        self.collected
     }
 
     /// Enter a new scope

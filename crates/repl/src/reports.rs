@@ -17,17 +17,17 @@ use reshell_runtime::{
 #[derive(Debug)]
 pub enum ReportableError {
     Parsing(ParsingError),
-    Checking(CheckerError),
     Runtime(Box<ExecError>, Option<Eaten<Program>>),
 }
 
 impl ReportableError {
     pub fn exit_code(&self) -> Option<i32> {
         match self {
-            ReportableError::Parsing(_) | ReportableError::Checking(_) => None,
+            ReportableError::Parsing(_) => None,
             ReportableError::Runtime(err, _) => match err.nature {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::CheckingErr(_)
                 | ExecErrorNature::Thrown { at: _, message: _ } => None,
 
                 ExecErrorNature::CommandFailedToStart { message: _ } => Some(1),
@@ -50,11 +50,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ReportableError::Parsing(err) => {
             let (at, err) = parsing_error(err);
             (RuntimeCodeRange::Parsed(at), "Syntax error", err)
-        }
-
-        ReportableError::Checking(err) => {
-            let (at, err) = checking_error(err);
-            (RuntimeCodeRange::Parsed(at), "Checking error", err)
         }
 
         ReportableError::Runtime(err, _) => match &err.nature {
@@ -87,6 +82,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 )
             }
 
+            ExecErrorNature::CheckingErr(err) => {
+                let (at, err) = checking_error(err);
+                (RuntimeCodeRange::Parsed(at), "Checking error", err)
+            }
+
             ExecErrorNature::CommandFailedToStart { message } => {
                 (err.at, "Could not start command", message.clone())
             }
@@ -110,7 +110,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let call_stack = match err {
         ReportableError::Parsing(_) => None,
-        ReportableError::Checking(_) => None,
         ReportableError::Runtime(err, _) => Some(&err.call_stack),
     };
 
@@ -251,12 +250,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let infos = match err {
         ReportableError::Parsing(_) => vec![],
-        ReportableError::Checking(_) => {
-            vec![(
-                ExecInfoType::Note,
-                "Error was encountered before running the program".to_owned(),
-            )]
-        }
         ReportableError::Runtime(err, _) => err.infos.clone(),
     };
 

@@ -34,9 +34,6 @@ pub struct ExecArgs {
     #[clap(long, help = "Print the AST")]
     pub print_ast: bool,
 
-    #[clap(long, help = "Print the checker's output")]
-    pub print_checker_output: bool,
-
     #[clap(long, help = "Don't actually execute the program")]
     pub only_check: bool,
 }
