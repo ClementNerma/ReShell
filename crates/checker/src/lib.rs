@@ -7,7 +7,7 @@ mod state;
 
 use std::collections::{HashMap, HashSet};
 
-use parsy::Eaten;
+use parsy::{Eaten, MaybeEaten};
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
     ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp,
@@ -672,9 +672,11 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
 fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     let Function { signature, body } = func;
 
+    state.register_function_body(body.clone());
+
     check_fn_signature(signature, state)?;
 
-    let FnSignature { args, ret_type: _ } = signature;
+    let FnSignature { args, ret_type: _ } = &signature.data;
 
     let mut vars = HashMap::new();
 
@@ -767,14 +769,19 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
             Ok(())
         }
 
-        SingleValueType::Function(signature) => check_fn_signature(signature, state),
+        SingleValueType::Function(signature) => match signature {
+            MaybeEaten::Eaten(eaten) => check_fn_signature(eaten, state),
+            MaybeEaten::Raw(_) => Ok(()),
+        },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
     }
 }
 
-fn check_fn_signature(signature: &FnSignature, state: &mut State) -> CheckerResult {
-    let FnSignature { args, ret_type } = signature;
+fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> CheckerResult {
+    state.register_function_signature(signature.clone());
+
+    let FnSignature { args, ret_type } = &signature.data;
 
     let mut used_idents = HashSet::new();
 
@@ -795,7 +802,7 @@ fn check_fn_signature(signature: &FnSignature, state: &mut State) -> CheckerResu
 
         if let Some(long) = long {
             if used_idents.contains(&long.data) {
-                return Err(CheckerError::new(long.at, "duplicate argument name "));
+                return Err(CheckerError::new(long.at, "duplicate argument name"));
             }
 
             used_idents.insert(long.data.clone());

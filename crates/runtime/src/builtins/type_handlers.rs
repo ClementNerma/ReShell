@@ -192,13 +192,13 @@ impl ArgSingleTypingDirectCreation for UntypedFunctionType {
 
 impl ArgSingleTyping for UntypedFunctionType {
     fn arg_single_type() -> SingleValueType {
-        SingleValueType::Function(
+        SingleValueType::Function(MaybeEaten::Raw(
             // Universal signature
             FnSignature {
                 args: forge_internal_token(vec![]),
                 ret_type: None,
             },
-        )
+        ))
     }
 
     type Parsed = GcReadOnlyCell<RuntimeFnValue>;

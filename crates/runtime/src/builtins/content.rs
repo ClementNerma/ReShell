@@ -1,5 +1,5 @@
 use colored::Colorize;
-use terminal_size::{terminal_size, Height, Width};
+use terminal_size::{terminal_size, Width};
 
 use crate::{
     builtins::{

@@ -67,7 +67,13 @@ pub fn call_fn_value(
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<FnCallResult> {
-    let args = parse_fn_call_args(call_at, func, call_args, &func.signature.args.data, ctx)?;
+    let args = parse_fn_call_args(
+        call_at,
+        func,
+        call_args,
+        &func.signature.inner().args.data,
+        ctx,
+    )?;
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
@@ -112,7 +118,7 @@ pub fn call_fn_value(
         RuntimeFnBody::Internal(run) => run(InternalFnCallData { call_at, args, ctx })?,
     };
 
-    if let Some(ret_type) = &func.signature.ret_type {
+    if let Some(ret_type) = &func.signature.inner().ret_type {
         let Some(ret_val) = &returned else {
             return Err(ctx.error(
                 call_at,

@@ -78,6 +78,8 @@ pub fn program() -> impl Parser<Program> {
                 .to(SingleValueType::Error),
             just("fn")
                 .ignore_then(fn_signature.clone())
+                .spanned()
+                .map(MaybeEaten::Eaten)
                 .map(SingleValueType::Function),
             just("struct")
                 .ignore_then(ms)
@@ -396,13 +398,10 @@ pub fn program() -> impl Parser<Program> {
                         .then_ignore(ms)
                         .or_not(),
                 )
+                .map(|(args, ret_type)| FnSignature { args, ret_type })
+                .spanned()
                 .then(block.clone().spanned())
-                .map(|((args, ret_type), body)| {
-                    Value::Closure(Function {
-                        signature: FnSignature { args, ret_type },
-                        body,
-                    })
-                }),
+                .map(|(signature, body)| Value::Closure(Function { signature, body })),
         ));
 
         let single_op = choice::<_, SingleOp>((char('!').to(SingleOp::Neg),));
@@ -933,7 +932,11 @@ pub fn program() -> impl Parser<Program> {
                         .critical("expected identifier as the function's name"),
                 )
                 .then_ignore(ms)
-                .then(fn_signature.critical("expected a list of arguments opened by a '('"))
+                .then(
+                    fn_signature
+                        .critical("expected a list of arguments opened by a '('")
+                        .spanned(),
+                )
                 .then_ignore(ms)
                 .then(
                     block

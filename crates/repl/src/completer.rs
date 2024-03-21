@@ -252,6 +252,7 @@ impl CompletionDataScope {
                         name.clone(),
                         func.value
                             .signature
+                            .inner()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
                     )
                 })

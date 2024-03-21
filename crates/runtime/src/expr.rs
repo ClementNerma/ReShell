@@ -16,8 +16,8 @@ use crate::{
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
-        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
-        RuntimeValue,
+        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnSignature,
+        RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -365,17 +365,21 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 } => Ok(RuntimeValue::Bool(false)),
             },
         },
-        Value::Closure(Function { signature, body }) => {
-            Ok(RuntimeValue::Function(GcReadOnlyCell::new(
-                RuntimeFnValue {
-                    signature: signature.clone(),
-                    // TODO: compute and store which values this references
-                    body: RuntimeFnBody::Block(body.clone()),
-                    parent_scopes: ctx.generate_parent_scopes(),
-                    captured_deps: ctx.capture_deps(body.data.code_range),
-                },
-            )))
-        }
+        Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(
+            GcReadOnlyCell::new(RuntimeFnValue {
+                signature: RuntimeFnSignature::Shared(
+                    ctx.get_fn_signature(signature)
+                        .expect("internal error: unregistered function signature"),
+                ),
+
+                body: RuntimeFnBody::Block(
+                    ctx.get_fn_body(body)
+                        .expect("internal error: unregistered function body"),
+                ),
+                parent_scopes: ctx.generate_parent_scopes(),
+                captured_deps: ctx.capture_deps(body.data.code_range),
+            }),
+        )),
     }
 }
 

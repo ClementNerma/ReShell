@@ -131,13 +131,13 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Error, _) | (_, SingleValueType::Error) => Ok(false),
 
         (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
-            check_fn_equality(signature, into, ctx)
+            check_fn_signature_equality(signature.data(), into.data(), ctx)
         }
     }
 }
 
 // TODO: with detailed error message (ExecResult<()>)?
-pub fn check_fn_equality(
+pub fn check_fn_signature_equality(
     signature: &FnSignature,
     into: &FnSignature,
     ctx: &Context,
