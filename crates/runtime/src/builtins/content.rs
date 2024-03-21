@@ -4,7 +4,9 @@ use terminal_size::{terminal_size, Height, Width};
 use crate::{
     builtins::{
         helper::{Arg, OptionalArg, RequiredArg},
-        type_handlers::{AnyType, FloatType, IntType, StringType, Union3Result, Union3Type},
+        type_handlers::{
+            AnyType, ExactIntType, FloatType, IntType, StringType, Union3Result, Union3Type,
+        },
     },
     define_internal_fn,
     display::dbg_loc,
@@ -53,19 +55,20 @@ pub fn define_native_lib() -> NativeLibDefinition {
             (
                 "dbg",
                 define_internal_fn!(
-                    Args [ArgsAt] ( value: RequiredArg<AnyType> => Arg::positional("value") ),
+                    Args [ArgsAt] (
+                        value: RequiredArg<AnyType> => Arg::positional("value"),
+                        tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
+                        max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
+                    ),
 
-                    |at, Args { value }, _, ctx| {
+                    |at, Args { value, tab_size, max_line_size }, _, ctx| {
                         let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
 
                         println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
                             pretty: true,
                             line_prefix_size: at.chars().count(),
-                            max_line_size: match terminal_size() {
-                                Some((Width(cols), Height(_))) => cols.into(),
-                                None => 30 // todo: make this a static?
-                            },
-                            tab_size: 4 // todo: make this configurable?
+                            max_line_size: max_line_size.or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width))).unwrap_or(30),
+                            tab_size: tab_size.unwrap_or(4)
                         }));
 
                         Ok(None)
