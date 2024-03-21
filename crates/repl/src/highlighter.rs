@@ -3,7 +3,7 @@ use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
 use crate::logic::{
-    nesting::{handle_nesting, NestingAction, NestingActionType},
+    nesting::{detect_nesting_actions, NestingAction, NestingActionType},
     syntax_highlighter::SyntaxHighlighter,
 };
 
@@ -20,53 +20,22 @@ impl RlHighlighter for Highlighter {
 }
 
 fn highlight(input: &str) -> StyledText {
-    // TODO: nested highlighting
-    // e.g. between $( and ) or ${ and }
-
     let mut h = SyntaxHighlighter::new(input);
 
-    for action in handle_nesting(input) {
-        let NestingAction {
-            offset,
-            len,
-            action_type,
-        } = action;
+    let nesting = detect_nesting_actions(input);
 
-        let style = match action_type {
-            NestingActionType::Opening | NestingActionType::Closing => {
-                Style::new().fg(if &input[offset..offset + len] == "\"" {
-                    Color::Green
-                } else {
-                    Color::LightBlue
-                })
-            }
-
-            NestingActionType::Unclosed => Style::new().fg(Color::Red),
-
-            NestingActionType::ClosingWithoutOpening => {
-                Style::new().fg(Color::Red).on(Color::White)
-            }
-
-            NestingActionType::Escaping => Style::new().fg(Color::Cyan),
-
-            NestingActionType::InvalidEscape => Style::new().fg(Color::Red),
-
-            NestingActionType::StringPiece => Style::new().fg(Color::Green),
-        };
-
-        h.range(offset, len, style);
-    }
+    highlight_inner(input, &nesting, &mut h);
 
     macro_rules! highlight {
-            ($($regex: expr => $color: ident),+) => {
-                $(
-                    h.regex(
-                        Regex::new($regex).unwrap(),
-                        &[Style::new().fg(Color::$color)],
-                    );
-                )+
-            }
+        ($($regex: expr => $color: ident),+) => {
+            $(
+                h.regex(
+                    Regex::new($regex).unwrap(),
+                    &[Style::new().fg(Color::$color)],
+                );
+            )+
         }
+    }
 
     highlight!(
         // comments
@@ -112,7 +81,7 @@ fn highlight(input: &str) -> StyledText {
         "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
 
         // untyped function arguments (2)
-        "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
+        "(?:,|[a-zA-Z0-9_]\\s*\\()\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
 
         // numbers
         "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
@@ -121,9 +90,9 @@ fn highlight(input: &str) -> StyledText {
         "(?:^|[\\{;]|\\$\\()\\s*(@raw|@var)\\b" => Magenta,
 
         // command call
-        "(?:^|[\\{;]|\\$\\(|@raw|@var\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$]+)\\b" => LightBlue,
+        "(?:^|[\\{;]|\\$\\(|@raw|@var\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$\\s]+)(?:[\\s\\)]|\\n|$)" => LightBlue,
 
-        // function calls
+        // function call
         "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
 
         // symbols and operators
@@ -134,4 +103,45 @@ fn highlight(input: &str) -> StyledText {
     );
 
     h.finalize(Style::default())
+}
+
+fn highlight_inner(input: &str, nesting_actions: &[NestingAction], h: &mut SyntaxHighlighter) {
+    // if let Some(begin) = nesting_actions.iter().find(|a| {
+    //     matches!(a.action_type, NestingActionType::Opening)
+    //         && &input[a.offset..a.offset + a.len] == "$("
+    // }) {
+    //     todo!()
+    // }
+
+    for action in nesting_actions {
+        let NestingAction {
+            offset,
+            len,
+            action_type,
+        } = action;
+
+        let style = match action_type {
+            NestingActionType::Opening | NestingActionType::Closing { opening_offset: _ } => {
+                Style::new().fg(if &input[*offset..*offset + len] == "\"" {
+                    Color::Green
+                } else {
+                    Color::LightBlue
+                })
+            }
+
+            NestingActionType::Unclosed => Style::new().fg(Color::Red),
+
+            NestingActionType::ClosingWithoutOpening => {
+                Style::new().fg(Color::Red).on(Color::White)
+            }
+
+            NestingActionType::Escaping => Style::new().fg(Color::Cyan),
+
+            NestingActionType::InvalidEscape => Style::new().fg(Color::Red),
+
+            NestingActionType::StringPiece => Style::new().fg(Color::Green),
+        };
+
+        h.range(*offset, *len, style);
+    }
 }

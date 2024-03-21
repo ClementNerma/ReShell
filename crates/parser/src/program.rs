@@ -283,7 +283,12 @@ pub fn program() -> impl Parser<Program> {
                         .map(ComputedStringPiece::Variable),
                     // Expressions
                     just("${")
-                        .ignore_then(expr.clone().spanned().critical("expected an expression"))
+                        .ignore_then(
+                            expr.clone()
+                                .spanned()
+                                .padded()
+                                .critical("expected an expression"),
+                        )
                         .then_ignore(char('}').critical("missing closing brace for expression (})"))
                         .map(ComputedStringPiece::Expr),
                     // Command calls
@@ -292,6 +297,7 @@ pub fn program() -> impl Parser<Program> {
                             cmd_call
                                 .clone()
                                 .spanned()
+                                .padded()
                                 .critical("expected a command call"),
                         )
                         .then_ignore(
