@@ -1,0 +1,74 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "ReShell",
+	"patterns": [
+		{
+			"include": "#core"
+		}
+	],
+	"repository": {
+		"core": {
+			"patterns": [
+				{
+					"begin": "\"",
+					"end": "\"",
+					"patterns": [
+						{
+							"include": "#core"
+						}
+					],
+					"name": "string.quoted.double"
+				},
+				{
+					"match": "(?<=\\s)\\-\\-[a-zA-Z_][a-zA-Z0-9_]+|\\-[a-zA-Z]\\b",
+					"name": "constant"
+				},
+				{
+					"match": "\\b(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do)\\b",
+					"name": "keyword"
+				},
+				{
+					"match": "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b",
+					"name": "storage.type"
+				},
+				{
+					"match": "\\b(true|false|null)\\b",
+					"name": "constant.language"
+				},
+				{
+					"match": "\\$[a-zA-Z_][a-zA-Z0-9_]*\\b",
+					"name": "variable.name"
+				},
+				{
+					"match": "(?<=\\bfor\\s+)[a-zA-Z_][a-zA-Z0-9_]*\\b",
+					"name": "variable.name"
+				},
+				{
+					"match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*:)",
+					"name": "string.unquoted"
+				},
+				{
+					"match": "\\b(\\d+(?:\\.\\d+)?)\\b",
+					"name": "constant.numeric"
+				},
+				{
+					"match": "(?<=(^|[\\(\\{;])\\s*)([a-zA-Z0-9_/\\-\\.]+)\\b",
+					"name": "entity.name.function"
+				},
+				{
+					"match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\()",
+					"name": "entity.name.function"
+				},
+				{
+					"match": "[^\\s\\(\\)\\[\\]\\{\\}&\\|;=!<>\\?]+",
+					"name": "string.unquoted"
+				},
+				{
+					"match": "[\\(\\)\\{\\}\\[\\]&\\|;=!<>\\?]+",
+					"name": "keyword.operator"
+				}
+			]
+		}
+	},
+	"scopeName": "source.reshell"
+}
