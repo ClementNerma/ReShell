@@ -186,10 +186,10 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]]+)", [LightYellow]),
 
                 // Flags
-                simple("(?:[\\(,\\s])(-[a-zA-Z0-9_-]*)(?:$|[,\\s\\)])", [LightYellow]),
+                simple("(?:^|[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
 
                 // Argument names (by elimination we have reached them)
-                simple("(?:^|[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[:,\\|]|$)", [Red]),
+                simple("(?:^|[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[\\?:,\\|]|$)", [Red]),
 
                 // Invalid characters
                 invalid_chars.clone()
@@ -254,10 +254,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         closing_without_opening_style: Style::new().fg(White).on(Red),
 
         unclosed_style: Style::new().fg(White).on(Red),
-
-        // unmatched: vec![
-        //     simple("([^\\s]+)", [Style::new().fg(Color::White).on(Color::Red)])
-        // ]
     };
 
     Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
