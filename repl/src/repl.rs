@@ -21,6 +21,7 @@ use crate::{
 pub fn start() {
     let mut line_editor = Reedline::create()
         .with_history(history::create_history())
+        .with_menu(history::create_history_menu())
         .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())
         .with_validator(validator::create_validator())
