@@ -10,7 +10,7 @@ crate::define_internal_fn!(
     "progressBar",
 
     (
-        len: OptionalArg<ExactIntType<u64>> = Arg::long_and_short_flag("len", 'l'),
+        len: OptionalArg<ExactIntType<u64>> = Arg::positional("len"),
         template: OptionalArg<StringType> = Arg::long_and_short_flag("template", 's'),
         message: OptionalArg<StringType> = Arg::long_and_short_flag("message", 'm'),
         prefix: OptionalArg<StringType> = Arg::long_and_short_flag("prefix", 'p'),
