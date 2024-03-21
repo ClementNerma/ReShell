@@ -308,7 +308,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             ) {
                 return Err(CheckerError::new(
                     instr.at,
-                    "can only be used inside a loop",
+                    "'continue' keyword can only be used inside a loop",
                 ));
             }
         }
@@ -320,7 +320,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             ) {
                 return Err(CheckerError::new(
                     instr.at,
-                    "can only be used inside a loop",
+                    "'break' keyword can only be used inside a loop",
                 ));
             }
         }
@@ -349,7 +349,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             ) {
                 return Err(CheckerError::new(
                     instr.at,
-                    "can only be used inside a function",
+                    "'return' keyword can only be used inside a function",
                 ));
             }
 

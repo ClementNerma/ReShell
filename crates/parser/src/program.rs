@@ -851,7 +851,7 @@ pub fn program(
             .spanned()
             .separated_by(s)
             .spanned()
-            .then(cmd_path.clone().spanned())
+            .then(cmd_path.spanned())
             .then(s.ignore_then(cmd_arg.spanned()).repeated_vec().spanned())
             .map(|((env_vars, path), args)| SingleCmdCall {
                 env_vars,
