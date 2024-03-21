@@ -1,8 +1,8 @@
-use std::{collections::HashMap, error::Error};
+use std::collections::HashMap;
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, Parser,
+    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, FileId, Parser,
 };
 
 use crate::{
@@ -19,9 +19,12 @@ use crate::{
 };
 
 pub fn program(
-    file_loader: impl Fn(String) -> Result<SourceFile, Box<dyn Error>>,
+    load_file: impl Fn(String, FileId) -> Result<SourceFile, String> + 'static,
 ) -> impl Parser<Program> {
-    let raw_block = recursive::<Block, _>(|raw_block| {
+    let program = late::<Program>();
+    let outer = program.clone();
+
+    let raw_block = recursive::<Block, _>(move |raw_block| {
         let ms = whitespaces().no_newline();
         let s = ms.at_least_one();
         let msnl = whitespaces();
@@ -1187,6 +1190,26 @@ pub fn program(
                 .ignore_then(block.spanned())
                 .map(Instruction::BaseBlock),
             //
+            //
+            //
+            just("include")
+                .ignore_then(s)
+                .ignore_then(char('"').critical("expected an opening quote (\")"))
+                .ignore_then(
+                    filter(|c| c != '"' && c != '\r' && c != '\n')
+                        .repeated()
+                        .at_least(1)
+                        .critical("expected a path")
+                        .collect_string(),
+                )
+                .then_ignore(char('"').critical("expected a closing quote after the path (\")"))
+                .spanned()
+                .fallible_map(move |path| load_file(path.data, path.at.start.file_id))
+                .and_then(move |file| {
+                    program.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
+                })
+                .map(Instruction::Imported),
+            //
             // Function call
             //
             fn_call.spanned().map(Instruction::FnCall),
@@ -1218,12 +1241,16 @@ pub fn program(
             })
     });
 
-    raw_block
-        .spanned()
-        .padded()
-        .full()
-        .critical("unexpected symbol")
-        .map(|content| Program { content })
+    outer.finish(
+        raw_block
+            .spanned()
+            .padded()
+            .full()
+            .critical("unexpected symbol")
+            .map(|content| Program { content }),
+    );
+
+    outer
 }
 
 // fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {

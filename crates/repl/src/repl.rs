@@ -41,7 +41,8 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
 
     let files_map = ctx.files_map().clone();
 
-    let parser = reshell_parser::program(|path| files_map.load_file(&path));
+    let parser =
+        reshell_parser::program(move |path, relative_to| files_map.load_file(&path, relative_to));
 
     let mut counter = 0;
 

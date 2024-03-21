@@ -615,6 +615,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::BaseBlock(block) => {
             run_block(&block.data, ctx, ScopeContent::new())?;
         }
+
+        Instruction::Imported(program) => {
+            let Program { content } = &program.data;
+
+            run_block_in_current_scope(&content.data, ctx)?;
+        }
     }
 
     Ok(None)
