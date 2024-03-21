@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use parsy::{CodeRange, Eaten, FileId, Location};
+use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     CmdArg, FnArg, FnArgNames, FnCall, FnCallArg, SingleValueType, ValueType,
 };
@@ -67,7 +67,7 @@ pub fn call_fn_value(
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<FnCallResult> {
-    let args = parse_fn_call_args(call_at, call_args, &func.signature.args.data, ctx)?;
+    let args = parse_fn_call_args(call_at, func, call_args, &func.signature.args.data, ctx)?;
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
@@ -147,6 +147,7 @@ pub fn call_fn_value(
 
 fn parse_fn_call_args(
     call_at: CodeRange,
+    func: &RuntimeFnValue,
     mut call_args: FnPossibleCallArgs,
     fn_args: &[FnArg],
     ctx: &mut Context,
@@ -348,15 +349,20 @@ fn parse_fn_call_args(
         }
     }
 
+    let is_native_fn = match func.body {
+        RuntimeFnBody::Block(_) => false,
+        RuntimeFnBody::Internal(_) => true,
+    };
+
     for flag in fn_args.iter().filter(|arg| arg.names.is_flag()) {
         let arg_name = fn_arg_var_name(flag);
 
         if let Entry::Vacant(e) = args.entry(arg_name) {
-            let mut value = RuntimeValue::Null;
+            let mut value = None;
 
             if let Some(typ) = &flag.typ {
                 if is_type_bool(&typ.data) {
-                    value = RuntimeValue::Bool(false);
+                    value = Some(RuntimeValue::Bool(false));
                 } else if !flag.is_optional {
                     return Err(ctx.error(
                         call_at,
@@ -367,10 +373,17 @@ fn parse_fn_call_args(
                     ));
                 }
             } else {
-                value = RuntimeValue::Bool(false);
+                value = Some(RuntimeValue::Bool(false));
             }
 
-            e.insert(LocatedValue::new(value, call_at));
+            if !is_native_fn {
+                e.insert(LocatedValue::new(
+                    value.unwrap_or(RuntimeValue::Null),
+                    call_at,
+                ));
+            } else if let Some(value) = value {
+                e.insert(LocatedValue::new(value, call_at));
+            }
         }
     }
 

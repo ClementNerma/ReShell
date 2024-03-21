@@ -1,11 +1,7 @@
-use parsy::{CodeRange, MaybeEaten};
+use parsy::MaybeEaten;
 use reshell_parser::ast::{FnArg, FnArgNames, SingleValueType, ValueType};
 
-use crate::{
-    context::Context,
-    errors::ExecResult,
-    values::{InternalFnBody, RuntimeValue},
-};
+use crate::values::{InternalFnBody, RuntimeValue};
 
 use super::utils::forge_internal_token;
 
@@ -14,7 +10,18 @@ pub enum ArgNames {
     Positional(&'static str),
     ShortFlag(char),
     LongFlag(&'static str),
-    ShortAndLongFlag(char, &'static str),
+    LongAndShortFlag(&'static str, char),
+}
+
+impl ArgNames {
+    pub fn static_name(&self) -> String {
+        match self {
+            ArgNames::Positional(name) => (*name).to_owned(),
+            ArgNames::ShortFlag(short) => short.to_string(),
+            ArgNames::LongFlag(long) => (*long).to_owned(),
+            ArgNames::LongAndShortFlag(long, _) => (*long).to_owned(),
+        }
+    }
 }
 
 pub trait ArgSingleTyping {
@@ -110,8 +117,8 @@ impl<const OPTIONAL: bool, T: ArgTypingDirectCreation> Arg<OPTIONAL, T> {
         Self::direct(ArgNames::LongFlag(long))
     }
 
-    pub fn short_and_long_flag(short: char, long: &'static str) -> Self {
-        Self::direct(ArgNames::ShortAndLongFlag(short, long))
+    pub fn long_and_short_flag(long: &'static str, short: char) -> Self {
+        Self::direct(ArgNames::LongAndShortFlag(long, short))
     }
 }
 
@@ -187,9 +194,9 @@ pub(super) fn generate_internal_arg_decl<
 
             ArgNames::LongFlag(flag) => FnArgNames::LongFlag(forge_internal_token(flag.to_owned())),
 
-            ArgNames::ShortAndLongFlag(short, long) => FnArgNames::LongAndShortFlag {
-                short: forge_internal_token(short),
+            ArgNames::LongAndShortFlag(long, short) => FnArgNames::LongAndShortFlag {
                 long: forge_internal_token(long.to_owned()),
+                short: forge_internal_token(short),
             },
         },
         is_optional: arg.is_optional(),
@@ -213,7 +220,7 @@ macro_rules! define_internal_fn {
 
         use $crate::{
             context::Context,
-            builtins::helper::{ArgHandler, generate_internal_arg_decl, InternalFunction},
+            builtins::helper::{ArgHandler, InternalFunction, generate_internal_arg_decl},
             errors::ExecResult,
             values::{RuntimeValue, LocatedValue, InternalFnCallData}
         };
@@ -247,19 +254,23 @@ macro_rules! define_internal_fn {
                 .collect::<HashMap<_, _>>();
 
             let args_at = $args_loc_struct_name {
-                $( $arg_name: args.get(stringify!($arg_name)).map(|(at, _)| *at) ),*
+                $( $arg_name: {
+                    let arg_handler: $arg_handler = $gen;
+
+                    args.get(&arg_handler.names().static_name()).map(|(at, _)| *at)
+                } ),*
             };
 
             let parsed = $args_struct_name {
                 $( $arg_name: {
-                    let arg = args.remove(stringify!($arg_name));
+                    let arg_handler: $arg_handler = $gen;
+
+                    let arg = args.remove(&arg_handler.names().static_name());
 
                     let arg_may_be_at = match arg {
                         Some((at, _)) => at,
                         None => call_at
                     };
-
-                    let arg_handler: $arg_handler = $gen;
 
                     let parsed =
                         arg_handler.parse(arg.map(|arg| arg.1.value)).map_err(|err| (arg_may_be_at, err))?;
