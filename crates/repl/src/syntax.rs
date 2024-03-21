@@ -12,7 +12,6 @@ pub struct RuleSet {
 #[derive(Debug)]
 pub enum Rule {
     Simple(SimpleRule),
-    Progressive(SimpleRule, Vec<SimpleRule>),
     Nested(NestingRule),
     Group(String),
 }
@@ -41,31 +40,50 @@ impl Highlighter {
     }
 
     pub fn highlight(&self, text: &str) -> Vec<HighlightPiece> {
-        let mut out = vec![];
+        let mut pieces = vec![];
+        self.highlight_inner(text, &self.rule_set.rules, 0, &mut pieces);
 
-        self.highlight_inner(text, &self.rule_set.rules, 0, &mut out);
+        let mut out = Vec::with_capacity(pieces.len());
+        let mut prev_end = 0;
 
-        if cfg!(debug_assertions) {
-            let mut last_piece_end = 0;
+        for piece in pieces {
+            assert!(piece.start >= prev_end, "non-consecutive piece: {piece:?}");
 
-            for piece in &out {
-                let HighlightPiece {
-                    start,
-                    len,
-                    style: _,
-                } = piece;
+            assert!(
+                piece.start < text.len(),
+                "out-of-bound piece start: {} vs {}",
+                piece.start,
+                text.len()
+            );
 
-                assert_eq!(*start, last_piece_end, "pieces are not consecutive");
+            assert!(
+                piece.start + piece.len <= text.len(),
+                "out-of-bound piece end: {} vs {}",
+                piece.start + piece.len,
+                text.len()
+            );
 
-                last_piece_end += len;
+            if prev_end < piece.start {
+                out.push(HighlightPiece {
+                    start: prev_end,
+                    len: piece.start - prev_end,
+                    style: None,
+                });
             }
 
-            assert_eq!(
-                last_piece_end,
-                text.len(),
-                "pieces don't cover the whole input"
-            );
+            prev_end = piece.start + piece.len;
+            out.push(piece);
         }
+
+        if prev_end < text.len() {
+            out.push(HighlightPiece {
+                start: prev_end,
+                len: text.len() - prev_end,
+                style: None,
+            });
+        }
+
+        assert_eq!(out.iter().map(|piece| piece.len).sum::<usize>(), text.len());
 
         out
     }
@@ -77,28 +95,37 @@ impl Highlighter {
         curr_shift: usize,
         out: &mut Vec<HighlightPiece>,
     ) {
+        if text.is_empty() {
+            return;
+        }
+
         let mut inner_shift = 0;
 
-        while let Some(nesting) = self.find_first_nesting(&text[inner_shift..], rules) {
+        while let Some(nesting) =
+            self.find_first_nesting(&text[inner_shift..], rules, curr_shift + inner_shift)
+        {
             let Nesting {
-                start,
+                begin,
                 end,
                 inner_rules,
             } = nesting;
 
-            if !text[inner_shift..=inner_shift + start].is_empty() {
-                self.highlight_inner(
-                    &text[inner_shift..=inner_shift + start],
-                    rules,
-                    curr_shift + inner_shift,
-                    out,
-                );
-            }
+            self.highlight_inner(
+                &text[inner_shift..begin.start],
+                rules,
+                curr_shift + inner_shift,
+                out,
+            );
+
+            Self::highlight_piece(&begin, out);
 
             self.highlight_inner(
-                &text[inner_shift + start..=inner_shift + end.unwrap_or(text.len() - 1)],
+                &text[begin.end..match end {
+                    Some(ref end) => end.start,
+                    None => text.len(),
+                }],
                 inner_rules,
-                curr_shift + inner_shift + start,
+                begin.end,
                 out,
             );
 
@@ -106,13 +133,20 @@ impl Highlighter {
                 return;
             };
 
-            inner_shift += end + text[inner_shift..].chars().next().unwrap().len_utf8();
+            Self::highlight_piece(&end, out);
+
+            inner_shift = end.end;
         }
 
         self.highlight_with_rules(&text[inner_shift..], rules, curr_shift + inner_shift, out);
     }
 
-    fn find_first_nesting<'a>(&'a self, text: &str, rules: &'a [Rule]) -> Option<Nesting<'a>> {
+    fn find_first_nesting<'h, 'str>(
+        &'h self,
+        text: &'str str,
+        rules: &'h [Rule],
+        curr_shift: usize,
+    ) -> Option<Nesting<'h, 'str>> {
         if text.is_empty() {
             return None;
         }
@@ -121,20 +155,26 @@ impl Highlighter {
 
         for rule in rules {
             match rule {
-                Rule::Simple(_) | Rule::Progressive(_, _) => continue,
+                Rule::Simple(_) => continue,
 
                 Rule::Nested(rule) => {
-                    if let Some(matched) = rule.begin.matches.find(text) {
+                    if let Some(captured) = rule.begin.matches.captures(text) {
+                        let start = captured.get(0).unwrap().start();
+                        let end = captured.get(0).unwrap().end();
+
                         if min.is_none()
-                            || matches!(min, Some(ref nested) if matched.start() < nested.start)
+                            || matches!(min, Some(ref nested) if start <  nested.begin.start)
                         {
+                            let closing_pat = self.find_matching_closing_pattern(
+                                &text[end..],
+                                &rule.end,
+                                &rule.inner_rules,
+                                curr_shift + end,
+                            );
+
                             min = Some(Nesting {
-                                start: matched.start(),
-                                end: self.find_matching_closing_pattern(
-                                    text,
-                                    &rule.end,
-                                    &rule.inner_rules,
-                                ),
+                                begin: Match::new(&rule.begin, captured, curr_shift),
+                                end: closing_pat,
                                 inner_rules: &rule.inner_rules,
                             });
                         }
@@ -144,7 +184,7 @@ impl Highlighter {
                 Rule::Group(name) => {
                     let rules = self.rule_set.groups.get(name).unwrap();
 
-                    if let Some(pos) = self.find_first_nesting(text, rules) {
+                    if let Some(pos) = self.find_first_nesting(text, rules, curr_shift) {
                         return Some(pos);
                     }
                 }
@@ -154,29 +194,37 @@ impl Highlighter {
         min
     }
 
-    fn find_matching_closing_pattern(
-        &self,
-        mut text: &str,
-        closing_pat: &SimpleRule,
-        rules: &[Rule],
-    ) -> Option<usize> {
-        let mut shift = 0;
+    fn find_matching_closing_pattern<'h, 'str>(
+        &'h self,
+        mut text: &'str str,
+        closing_pat: &'h SimpleRule,
+        rules: &'h [Rule],
+        curr_shift: usize,
+    ) -> Option<Match<'h, 'str>> {
+        if text.is_empty() {
+            return None;
+        }
+
+        let mut inner_shift = 0;
 
         loop {
-            let pos = closing_pat.matches.find(text)?.start();
+            let captured = closing_pat.matches.captures(text)?;
 
-            match self.find_first_nesting(text, rules) {
-                Some(nesting) => {
-                    if pos < nesting.start {
-                        return Some(pos + shift);
-                    } else {
-                        text = &text[pos..];
-                        shift += pos;
-                    }
+            let start = captured.get(0).unwrap().start();
+            let end = captured.get(0).unwrap().end();
+
+            if let Some(nesting) =
+                self.find_first_nesting(&text[inner_shift..], rules, curr_shift + inner_shift)
+            {
+                if start >= nesting.begin.start {
+                    text = &text[start..];
+                    inner_shift += end;
+
+                    continue;
                 }
-
-                None => return Some(pos + shift),
             }
+
+            return Some(Match::new(closing_pat, captured, curr_shift + inner_shift));
         }
     }
 
@@ -188,73 +236,31 @@ impl Highlighter {
         curr_shift: usize,
         out: &mut Vec<HighlightPiece>,
     ) {
-        let mut inner_shift = 0;
-        let mut untouched = 0;
-
-        let mut apply_rule = |rule: &SimpleRule, captured: Captures, inner_shift: &mut usize| {
-            let SimpleRule { matches: _, style } = rule;
-
-            for (i, style) in style.iter().enumerate() {
-                let captured = captured.get(i + 1).unwrap();
-
-                if !text[untouched..*inner_shift + captured.start()].is_empty() {
-                    out.push(HighlightPiece {
-                        start: curr_shift + untouched,
-                        len: *inner_shift + captured.start() - untouched,
-                        style: None,
-                    });
-                }
-
-                out.push(HighlightPiece {
-                    start: curr_shift + *inner_shift + captured.start(),
-                    len: captured.len(),
-                    style: Some(*style),
-                });
-
-                untouched = *inner_shift + captured.start() + captured.len();
-            }
-
-            let full_match = captured.get(0).unwrap();
-
-            *inner_shift += full_match.start() + full_match.len();
-        };
-
-        while let Some((rule, captured, following)) =
-            self.find_nearest_simple_rule(&text[inner_shift..], rules)
-        {
-            apply_rule(rule, captured, &mut inner_shift);
-
-            let Some(following) = following else {
-                continue;
-            };
-
-            for rule in following {
-                let Some(captured) = rule.matches.captures(&text[inner_shift..]) else {
-                    break;
-                };
-
-                if captured.get(0).unwrap().start() != 0 {
-                    break;
-                }
-
-                apply_rule(rule, captured, &mut inner_shift);
-            }
+        if text.is_empty() {
+            return;
         }
 
-        if !text[untouched..].is_empty() {
-            out.push(HighlightPiece {
-                start: curr_shift + untouched,
-                len: text.len() - untouched,
-                style: None,
-            });
+        let mut inner_shift = 0;
+
+        while let Some(matched) =
+            self.find_nearest_simple_rule(&text[inner_shift..], rules, curr_shift + inner_shift)
+        {
+            Self::highlight_piece(&matched, out);
+
+            inner_shift += matched.capture_end;
+
+            if inner_shift > text.len() {
+                return;
+            }
         }
     }
 
-    fn find_nearest_simple_rule<'a, 'b>(
-        &'a self,
-        text: &'b str,
-        rules: &'a [Rule],
-    ) -> Option<(&'a SimpleRule, Captures<'b>, Option<&'a Vec<SimpleRule>>)> {
+    fn find_nearest_simple_rule<'h, 'str>(
+        &'h self,
+        text: &'str str,
+        rules: &'h [Rule],
+        curr_shift: usize,
+    ) -> Option<Match<'h, 'str>> {
         if text.is_empty() {
             return None;
         }
@@ -265,25 +271,21 @@ impl Highlighter {
                     let SimpleRule { matches, style: _ } = simple;
 
                     if let Some(captured) = matches.captures(text) {
-                        return Some((simple, captured, None));
-                    }
-                }
-
-                Rule::Progressive(first, next) => {
-                    let SimpleRule { matches, style: _ } = first;
-
-                    if let Some(captured) = matches.captures(text) {
-                        return Some((first, captured, Some(next)));
+                        return Some(Match::new(simple, captured, curr_shift));
                     }
                 }
 
                 Rule::Nested(_) => continue,
 
                 Rule::Group(name) => {
-                    if let Some(ret) =
-                        self.find_nearest_simple_rule(text, self.rule_set.groups.get(name).unwrap())
-                    {
-                        return Some(ret);
+                    let ret = self.find_nearest_simple_rule(
+                        text,
+                        self.rule_set.groups.get(name).unwrap(),
+                        curr_shift,
+                    );
+
+                    if ret.is_some() {
+                        return ret;
                     }
                 }
             }
@@ -291,12 +293,67 @@ impl Highlighter {
 
         None
     }
+
+    fn highlight_piece(matched: &Match, out: &mut Vec<HighlightPiece>) {
+        let Match {
+            rule,
+            captured,
+            start,
+            ..
+        } = matched;
+
+        let SimpleRule { matches: _, style } = rule;
+
+        let cap_start = captured.get(0).unwrap().start();
+
+        for (i, style) in style.iter().enumerate() {
+            let Some(captured) = captured.get(i + 1) else {
+                continue;
+            };
+
+            if captured.is_empty() {
+                continue;
+            }
+
+            out.push(HighlightPiece {
+                start: start + captured.start() - cap_start,
+                len: captured.len(),
+                style: Some(*style),
+            });
+        }
+    }
 }
 
-struct Nesting<'a> {
+struct Nesting<'h, 'str> {
+    begin: Match<'h, 'str>,
+    end: Option<Match<'h, 'str>>,
+    inner_rules: &'h [Rule],
+}
+
+#[derive(Debug)]
+struct Match<'h, 'str> {
+    rule: &'h SimpleRule,
+    captured: Captures<'str>,
     start: usize,
-    end: Option<usize>,
-    inner_rules: &'a [Rule],
+    end: usize,
+    // capture_start: usize,
+    capture_end: usize,
+}
+
+impl<'h, 'str> Match<'h, 'str> {
+    fn new(rule: &'h SimpleRule, captured: Captures<'str>, curr_shift: usize) -> Self {
+        let capture_start = captured.get(0).unwrap().start();
+        let capture_end = captured.get(0).unwrap().end();
+
+        Self {
+            start: capture_start + curr_shift,
+            end: capture_end + curr_shift,
+            // capture_start,
+            capture_end,
+            rule,
+            captured,
+        }
+    }
 }
 
 #[derive(Debug)]
