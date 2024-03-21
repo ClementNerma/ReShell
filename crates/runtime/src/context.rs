@@ -602,12 +602,14 @@ impl Context {
     /// Get a specific type signature from its location
     /// Avoids cloning the entire (heavy) [`FnSignature`] value
     pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Rc<Eaten<FnSignature>>> {
+        #[allow(clippy::map_clone)]
         self.collected.fn_signatures.get(&from.at).map(Rc::clone)
     }
 
     /// Get a specific function's body from its location
     /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
     pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Rc<Eaten<Block>>> {
+        #[allow(clippy::map_clone)]
         self.collected.fn_bodies.get(&from.at).map(Rc::clone)
     }
 
@@ -617,6 +619,7 @@ impl Context {
         &self,
         from: &Eaten<SingleCmdCall>,
     ) -> Option<Rc<Eaten<SingleCmdCall>>> {
+        #[allow(clippy::map_clone)]
         self.collected.cmd_aliases.get(&from.at).map(Rc::clone)
     }
 

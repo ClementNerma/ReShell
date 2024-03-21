@@ -84,6 +84,7 @@ impl State {
         &self,
         at: CodeRange,
     ) -> Option<SharingType<DevelopedSingleCmdCall>> {
+        #[allow(clippy::map_clone)]
         self.collected.cmd_calls.get(&at).map(SharingType::clone)
     }
 
