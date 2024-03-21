@@ -331,8 +331,6 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 typ: None,
                 vars: HashMap::new(),
                 fns: HashMap::new(),
-                // TODO: inject this cmd alias into the created scope (allows inner usage) - first check if it doesn't create an infinite loop
-                // and test this throroughtly!
                 cmd_aliases: HashMap::new(),
                 type_aliases: HashMap::new(),
             });
