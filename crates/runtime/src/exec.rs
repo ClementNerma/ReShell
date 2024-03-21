@@ -421,7 +421,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 name.data.clone(),
                 ScopeFn {
                     declared_at: name.at,
-                    value: GcCell::new(RuntimeFnValue {
+                    value: GcReadOnlyCell::new(RuntimeFnValue {
                         body: RuntimeFnBody::Block(body.clone()),
                         signature: signature.clone(),
                         parent_scopes,

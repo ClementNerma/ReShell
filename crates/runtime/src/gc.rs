@@ -26,7 +26,7 @@ impl<T> GcCell<T> {
 }
 
 // Garbage-collectable read-only cell
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GcReadOnlyCell<T> {
     value: Arc<T>,
 }
@@ -44,5 +44,14 @@ impl<T> Deref for GcReadOnlyCell<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.value
+    }
+}
+
+// NOTE: manual implementation is required due to a limitation of the Rust compiler
+impl<T> Clone for GcReadOnlyCell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            value: Arc::clone(&self.value),
+        }
     }
 }

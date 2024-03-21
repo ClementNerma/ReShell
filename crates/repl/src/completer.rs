@@ -81,7 +81,6 @@ impl RlCompleter for Completer {
                     value: format!("@{name}"),
                     description: Some(
                         item.value
-                            .read()
                             .signature
                             .render_uncolored(ctx, PrettyPrintOptions::inline()),
                     ),

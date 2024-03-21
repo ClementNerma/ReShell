@@ -18,7 +18,7 @@ use crate::{
     errors::ExecResult,
     files_map::ScopableFilePath,
     functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs},
-    gc::GcCell,
+    gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_fn_equality,
     values::{CapturedDependencies, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
@@ -65,7 +65,7 @@ macro_rules! native_fn {
             stringify!($name).to_string(),
             ScopeFn {
                 declared_at: forge_internal_token(()).at,
-                value: GcCell::new(RuntimeFnValue {
+                value: GcReadOnlyCell::new(RuntimeFnValue {
                     signature: FnSignature {
                         args: forge_internal_token(
                             vec![
@@ -520,7 +520,7 @@ pub fn generate_native_lib() -> Scope {
                 _ => return Err(ctx.error(value_at, format!("expected a function, got a {}", value.get_type().render_colored(ctx, PrettyPrintOptions::inline()))))
             };
 
-            match func.read().body {
+            match func.body {
                 RuntimeFnBody::Internal(_) => return Err(ctx.error(value_at, "this is an internal function")),
                 RuntimeFnBody::Block(ref block) => {
                     eprintln!("== |> Dependencies for function at: {}", dbg_loc(value_at, ctx.files_map()).bright_magenta());
@@ -749,7 +749,7 @@ fn call_fn_checked(
         }
     };
 
-    if !check_fn_equality(&func.read().signature, expected_signature, ctx)? {
+    if !check_fn_equality(&func.signature, expected_signature, ctx)? {
         return Err(ctx.error(
             loc_val.from,
             format!(

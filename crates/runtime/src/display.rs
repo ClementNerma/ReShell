@@ -247,7 +247,7 @@ impl PrettyPrintable for RuntimeValue {
             },
 
             RuntimeValue::Function(func) => PrintablePiece::Join(vec![
-                func.read().signature.generate_pretty_data(ctx),
+                func.signature.generate_pretty_data(ctx),
                 PrintablePiece::colored_atomic(" { ... }", Color::BrightBlack),
             ]),
 
