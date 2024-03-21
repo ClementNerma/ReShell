@@ -11,7 +11,7 @@ use crate::{
     values::RuntimeValue,
 };
 
-static GEN_PROMPT_VAR_NAME: &str = "gen_prompt";
+pub static GEN_PROMPT_VAR_NAME: &str = "gen_prompt";
 
 pub fn render_prompt(
     ctx: &mut Context,

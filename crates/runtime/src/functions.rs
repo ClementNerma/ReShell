@@ -336,7 +336,7 @@ fn parse_fn_call_args(
     }
 
     if let Some(arg) = positional_args.next() {
-        if !arg.is_rest {
+        if !arg.is_rest && !arg.is_optional {
             return Err(ctx.error(
                 match call_args {
                     FnPossibleCallArgs::Parsed(parsed) => parsed.at,
