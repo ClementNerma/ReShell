@@ -6,7 +6,7 @@ define_internal_fn!(
     "append",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         append: RequiredArg<UntypedListType> = Arg::positional("append")
     )
 

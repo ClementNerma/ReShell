@@ -3,7 +3,7 @@ use std::{
     collections::HashSet,
     error::Error,
     fs,
-    path::{Path, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
 use glob::{glob_with, MatchOptions};
@@ -190,10 +190,6 @@ fn build_cmd_completions(
     let mut results = Vec::<(String, Suggestion)>::new();
 
     for dir in path_dirs {
-        if !Path::new(dir).is_dir() {
-            continue;
-        }
-
         let Ok(entries) = fs::read_dir(dir) else {
             continue;
         };
@@ -203,13 +199,11 @@ fn build_cmd_completions(
                 continue;
             };
 
-            println!("> {}", item.path().display());
-
-            let Ok(mt) = item.metadata() else {
+            let Ok(file_type) = item.file_type() else {
                 continue;
             };
 
-            if !mt.is_file() {
+            if !file_type.is_file() {
                 continue;
             }
 
@@ -259,15 +253,15 @@ fn build_cmd_completions(
                         continue;
                     }
 
-                    #[cfg(target_family = "unix")]
-                    {
-                        use std::os::unix::fs::PermissionsExt;
+                    // #[cfg(target_family = "unix")]
+                    // {
+                    //     use std::os::unix::fs::PermissionsExt;
 
-                        // Ensure exec permissions are present
-                        if mt.permissions().mode() & 111 == 0 {
-                            continue;
-                        }
-                    }
+                    //     // Ensure exec permissions are present
+                    //     if mt.permissions().mode() & 111 == 0 {
+                    //         continue;
+                    //     }
+                    // }
 
                     #[cfg(not(target_family = "unix"))]
                     unreachable!()

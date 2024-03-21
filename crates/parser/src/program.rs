@@ -637,7 +637,7 @@ pub fn program(
             });
 
         let expr_inner_chaining = choice::<_, ExprInnerChaining>((
-            char('.')
+            silent_choice((char('.'), msnl.then(just("->")).then(msnl)))
                 .ignore_then(fn_call.clone())
                 .spanned()
                 .map(ExprInnerChaining::MethodCall),
