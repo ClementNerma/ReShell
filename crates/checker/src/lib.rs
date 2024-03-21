@@ -808,8 +808,8 @@ fn check_single_cmd_call(
 
                         if !is_ready {
                             return Err(CheckerError::new(
-                                name_at,
-                                "cannot use a command alias before it's ready",
+                                name.at,
+                                "cannot reference a command alias before its declaration",
                             ));
                         }
 
