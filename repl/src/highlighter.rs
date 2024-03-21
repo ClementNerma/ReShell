@@ -381,7 +381,7 @@ impl Highlight for Eaten<CmdArg> {
             }
             CmdArg::VarName(name) => h.push(&VAR_NAME, name.at),
             CmdArg::FnAsValue(name) => h.push(&FN_NAME, name.at),
-            CmdArg::Raw(raw) => h.push(&PATH, raw.at),
+            CmdArg::Raw(raw) => h.push(&RAW_STR, raw.at),
             CmdArg::SpreadVar(name) => h.push(&VAR_NAME, name.at), // TODO: change?
         }
     }
