@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    ComputedString, ComputedStringPiece, DoubleOp, Expr, ExprInner, ExprInnerContent, ExprOp,
-    LiteralValue, PropAccess, SingleOp, Value,
+    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerContent,
+    ExprOp, LiteralValue, PropAccess, SingleOp, Value,
 };
 
 use crate::{
@@ -222,6 +222,45 @@ fn eval_expr_inner_content(
         }
 
         ExprInnerContent::ParenExpr(expr) => eval_expr(&expr.data, ctx),
+
+        ExprInnerContent::Ternary {
+            cond,
+            body,
+            elsif,
+            els,
+        } => {
+            let cond_val = match eval_expr(&cond.data, ctx)? {
+                RuntimeValue::Bool(bool) => bool,
+                value => {
+                    return Err(ctx.error(
+                        cond.at,
+                        format!(
+                            "expected the condition to resolve to a boolean, found a {} instead",
+                            readable_value_type(&value)
+                        ),
+                    ))
+                }
+            };
+
+            if cond_val {
+                return eval_expr(&body.data, ctx);
+            }
+
+            for branch in elsif {
+                let ElsIfExpr { cond, body } = &branch.data;
+
+                let cond_val = eval_expr(&cond.data, ctx)?;
+                let RuntimeValue::Bool(cond_val) = cond_val else {
+                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val))));
+                    };
+
+                if cond_val {
+                    return eval_expr(&body.data, ctx);
+                }
+            }
+
+            eval_expr(&els.data, ctx)
+        }
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
     }

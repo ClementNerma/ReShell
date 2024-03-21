@@ -115,13 +115,24 @@ pub struct ExprInner {
 
 #[derive(Debug, Clone)]
 pub enum ExprInnerContent {
-    // TODO: ternary
     SingleOp {
         op: Eaten<SingleOp>,
         right: Eaten<Box<ExprInnerContent>>,
     },
     ParenExpr(Eaten<Box<Expr>>),
     Value(Eaten<Value>),
+    Ternary {
+        cond: Eaten<Box<Expr>>,
+        body: Eaten<Box<Expr>>,
+        elsif: Vec<Eaten<ElsIfExpr>>,
+        els: Eaten<Box<Expr>>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct ElsIfExpr {
+    pub cond: Eaten<Box<Expr>>,
+    pub body: Eaten<Box<Expr>>,
 }
 
 #[derive(Debug, Clone)]
