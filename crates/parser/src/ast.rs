@@ -395,6 +395,7 @@ pub struct CmdPipe {
 pub enum CmdPipeType {
     Stdout,
     Stderr,
+    Value,
     // Both,
 }
 

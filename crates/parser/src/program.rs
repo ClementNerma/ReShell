@@ -827,8 +827,8 @@ pub fn program(
                 .then(
                     ms.ignore_then(
                         choice::<_, CmdPipeType>((
-                            just("err|").to(CmdPipeType::Stderr),
-                            // just("all|").to(CmdPipeType::Both),
+                            just("!|").to(CmdPipeType::Stderr),
+                            just("|>").to(CmdPipeType::Value),
                             char('|').to(CmdPipeType::Stdout),
                         ))
                         .spanned(),
