@@ -13,7 +13,6 @@ use crate::{
     errors::{ExecErrorContent, ExecResult},
     functions::call_fn,
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
-    typechecker::check_if_single_type_fits_single,
     values::{RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -165,17 +164,13 @@ fn apply_double_op(
             RuntimeValue::Bool(if op.data == DoubleOp::Eq { cmp } else { !cmp })
         }
 
-        DoubleOp::NullFallback => match (left, right) {
-            (RuntimeValue::Null, right) => right,
-            (left, RuntimeValue::Null) => left,
-            (left, right) => {
-                if !check_if_single_type_fits_single(&left.get_type(), &right.get_type(), ctx)? {
-                    todo!("Incompatible types");
-                }
-
+        DoubleOp::NullFallback => {
+            if matches!(left, RuntimeValue::Null) {
+                right
+            } else {
                 left
             }
-        },
+        }
     };
 
     Ok(result)

@@ -166,13 +166,6 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color("]".to_string(), Color::Blue),
                 suffix: None,
             },
-            // RuntimeValue::Range { from, to } => PrintablePiece::Suite(vec![
-            //     Colored::with_color("range".to_string(), Color::Blue),
-            //     Colored::with_color("(".to_string(), Color::Blue),
-            //     Colored::with_color("")
-            //     Colored::with_color(", ".to_string(), Color::Blue),
-            //     Colored::with_color(")".to_string(), Color::Blue),
-            // ]),
             RuntimeValue::Range { from, to } => PrintablePiece::List {
                 begin: Colored::with_color("range(".to_string(), Color::Blue),
                 items: vec![
