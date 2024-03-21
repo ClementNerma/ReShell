@@ -1,6 +1,8 @@
 use std::{
-    collections::HashMap,
-    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+    collections::{HashMap, HashSet},
+    error::Error,
+    fs,
+    path::{Path, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
     sync::{Arc, Mutex},
 };
 
@@ -11,7 +13,10 @@ use reshell_runtime::{
     pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
-use crate::utils::lev_distance::levenshtein_distance;
+use crate::{
+    compat::{TargetFamily, TARGET_FAMILY},
+    utils::lev_distance::levenshtein_distance,
+};
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
@@ -76,33 +81,42 @@ impl RlCompleter for Completer {
         }
 
         if !after_space && !word.contains(['/', '\\']) {
-            // TODO: complete ambiant command names in PATH as well
-            return complete_fn_name(word, None, span, &completion_data);
+            let mut cmd_comp = build_cmd_completions(word, span, &completion_data)
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+
+            cmd_comp.extend(build_fn_completions(word, None, span, &completion_data));
+
+            return sort_results(word, cmd_comp);
         }
 
         complete_path(word, span, completion_data.home_dir.as_deref())
     }
 }
 
-fn complete_fn_name(
+type SortableSuggestion = (String, Suggestion);
+
+fn build_fn_completions<'a>(
     word: &str,
     add_prefix: Option<&str>,
     span: Span,
-    completion_data: &CompletionData,
-) -> Vec<Suggestion> {
+    completion_data: &'a CompletionData,
+) -> impl Iterator<Item = SortableSuggestion> + 'a {
     let word = word.to_lowercase();
+    let add_prefix = add_prefix.map(str::to_owned);
 
-    let results = completion_data
+    completion_data
         .scopes
         .iter()
         .flat_map(|scope| scope.fns.iter())
-        .filter(|(name, _)| name.to_lowercase().contains(&word))
-        .map(|(name, signature)| {
+        .filter(move |(name, _)| name.to_lowercase().contains(&word))
+        .map(move |(name, signature)| {
             (
                 name.clone(),
                 Suggestion {
                     value: match add_prefix {
-                        Some(prefix) => format!("{prefix}{name}"),
+                        Some(ref prefix) => format!("{prefix}{name}"),
                         None => name.clone(),
                     },
                     description: Some(signature.clone()),
@@ -112,9 +126,119 @@ fn complete_fn_name(
                 },
             )
         })
-        .collect::<Vec<_>>();
+}
 
-    sort_results(&word, results)
+fn complete_fn_name(
+    word: &str,
+    add_prefix: Option<&str>,
+    span: Span,
+    completion_data: &CompletionData,
+) -> Vec<Suggestion> {
+    sort_results(
+        word,
+        build_fn_completions(word, add_prefix, span, completion_data).collect(),
+    )
+}
+
+fn build_cmd_completions(
+    word: &str,
+    span: Span,
+    completion_data: &CompletionData,
+) -> Result<Option<Vec<SortableSuggestion>>, Box<dyn Error>> {
+    if word.contains('/') || word.contains('\\') {
+        return Ok(None);
+    }
+
+    let word = word.to_lowercase();
+
+    let path = std::env::var_os("PATH").ok_or("PATH variable is not set")?;
+    let path = path
+        .to_str()
+        .ok_or("PATH variable contains is not a valid UTF-8 string")?;
+
+    let path_var_sep = match TARGET_FAMILY {
+        TargetFamily::Windows => ';',
+        TargetFamily::Unix => ':',
+    };
+
+    let path_dirs = [completion_data.home_dir.as_deref()]
+        .into_iter()
+        .flatten()
+        .chain(path.split(path_var_sep).filter(|entry| !entry.is_empty()));
+
+    let mut results = Vec::<(String, Suggestion)>::new();
+
+    for dir in path_dirs {
+        if !Path::new(dir).is_dir() {
+            continue;
+        }
+
+        let items = fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
+
+        for item in items {
+            if !item.file_type()?.is_file()
+                && (!item.file_type()?.is_symlink() || !fs::read_link(&item.path())?.is_file())
+            {
+                continue;
+            }
+
+            let item_name = item.file_name();
+
+            let Some(item_name) = item_name.to_str() else {
+                continue;
+            };
+
+            let item_name_lc = item_name.to_lowercase();
+
+            if !item_name_lc.contains(&word) {
+                continue;
+            }
+
+            match TARGET_FAMILY {
+                TargetFamily::Windows => {
+                    let possible_names = [item_name_lc.clone()]
+                        .into_iter()
+                        .chain(
+                            ["bat", "cmd", "exe"]
+                                .into_iter()
+                                .map(|ext| format!("{item_name_lc}.{ext}")),
+                        )
+                        .collect::<HashSet<_>>();
+
+                    if results
+                        .iter()
+                        .any(|(other, _)| possible_names.contains(other))
+                    {
+                        continue;
+                    }
+                }
+
+                TargetFamily::Unix => {
+                    if results.iter().any(|(other, _)| &item_name_lc == other) {
+                        continue;
+                    }
+                }
+            }
+
+            results.push((
+                item_name_lc,
+                Suggestion {
+                    // TODO: improve escaping
+                    value: if item_name.contains(' ') {
+                        format!("\"{item_name}\"")
+                    } else {
+                        item_name.to_owned()
+                    },
+                    description: None,
+                    extra: None,
+                    span,
+                    append_whitespace: true,
+                },
+            ))
+        }
+    }
+
+    Ok(Some(results))
 }
 
 fn complete_var_name(
@@ -209,6 +333,7 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
 
     #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     enum FileType {
+        Symlink,
         Directory,
         File,
         Unknown,
@@ -227,6 +352,8 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
             FileType::Directory
         } else if file_type.is_file() {
             FileType::File
+        } else if file_type.is_symlink() {
+            FileType::Symlink
         } else {
             FileType::Unknown
         };
@@ -263,9 +390,10 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
                 value,
                 description: Some(
                     match file_type_enum {
-                        FileType::Directory => "D",
-                        FileType::File => "F",
-                        FileType::Unknown => "?",
+                        FileType::Directory => "",
+                        FileType::File => "",
+                        FileType::Symlink => "Symlink",
+                        FileType::Unknown => "<Unkown filesystem item type>",
                     }
                     .to_string(),
                 ),

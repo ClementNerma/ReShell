@@ -20,6 +20,7 @@ use self::exec::run_script;
 use self::reports::ReportableError;
 
 mod cmd;
+mod compat;
 mod completer;
 mod edit_mode;
 mod exec;
