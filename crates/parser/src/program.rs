@@ -745,13 +745,7 @@ pub fn program(
                 )
                 .map(CmdPath::Direct),
             // Method
-            char('.')
-                .ignore_then(
-                    ident
-                        .spanned()
-                        .critical("expected a method name after the dot '.'"),
-                )
-                .map(CmdPath::Method),
+            char('.').ignore_then(ident.spanned()).map(CmdPath::Method),
             // Computed string
             computed_string
                 .clone()
