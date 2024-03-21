@@ -560,9 +560,10 @@ impl Context {
     /// Get a specific variable
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> Option<&'c ScopeVar> {
+    pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> &'c ScopeVar {
         self.visible_scopes()
             .find_map(|scope| scope.vars.get(&name.data))
+            .unwrap_or_else(|| self.panic(name.at, "variable was not found (= bug in checker)"))
     }
 
     /// Get a specific type alias

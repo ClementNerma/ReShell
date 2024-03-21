@@ -183,7 +183,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             list_push,
             expr,
         } => {
-            let var = ctx.get_visible_var(name).cloned().unwrap_or_else(|| ctx.panic(name.at, format!("variable not alive (this is a bug either in the checker or in the garbage collector): {name:?}")));
+            let var = ctx.get_visible_var(name).clone();
 
             // Same goes here
             assert!(var.is_mut);
