@@ -93,7 +93,7 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         None => {
                             return Err(
-                                ctx.error(key_expr.at, format!("index '{index}' is out-of-bounds"))
+                                ctx.error(key_expr.at, format!("index '{index}' is out-of-bounds (list only contains {} elements)", items.len()))
                             );
                         }
                     }
