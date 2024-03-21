@@ -10,7 +10,7 @@ use crate::{
     context::{Context, ScopeVar},
     display::{readable_type, readable_value_type},
     errors::ExecResult,
-    exec::{run_block, InstrRet},
+    exec::{run_block, InstrRet, InstrRetType},
     expr::eval_expr,
     typechecker::check_if_single_type_fits,
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
@@ -67,15 +67,23 @@ pub fn call_fn_value(
                 );
             }
 
-            if let (_, Some(InstrRet::FnReturn(ret))) = run_block(&body.data, ctx, fn_scope)? {
-                Ok(ret)
-            } else {
-                Ok(None)
+            let (_, instr_ret) = run_block(&body.data, ctx, fn_scope)?;
+
+            match instr_ret {
+                Some(InstrRet { typ, from }) => match typ {
+                    InstrRetType::ContinueLoop | InstrRetType::BreakLoop => {
+                        return Err(ctx.error(from, "not in a loop"))
+                    }
+                    InstrRetType::FnReturn(value) => value,
+                    InstrRetType::Throwed(_) => todo!(),
+                },
+
+                None => None,
             }
         }
 
-        RuntimeFnBody::Internal(run) => Ok(run(call_at, call_args, ctx)?),
-    }?;
+        RuntimeFnBody::Internal(run) => run(call_at, call_args, ctx)?,
+    };
 
     if let Some(ret_type) = &func.signature.ret_type {
         let Some(ret_val) = &ret else {
