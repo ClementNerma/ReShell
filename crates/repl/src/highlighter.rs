@@ -99,7 +99,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
             ]),
             ("commands", vec![
                 // Command names
-                rule!(@simple "(?:^|\\n|\\{|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
+                rule!(@simple "(?:^|\\n|\\{|\\$\\(|[^\\|]|)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)" => [Blue]),
 
                 //
                 // This is the "less polished" part of the highlighter
@@ -109,7 +109,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 rule!(@group "in-expressions"),
                 
                 // Raw arguments
-                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
+                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
                 // Strings
