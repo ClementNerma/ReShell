@@ -98,10 +98,10 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                 let on_type = method_on_type.unwrap();
 
                 (
-                    (name.to_owned(), on_type.clone()),
+                    (name.to_owned(), on_type),
                     ScopeMethod {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
-                        applyable_type: on_type.clone(),
+                        applyable_type: on_type,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             is_method: true,
 
