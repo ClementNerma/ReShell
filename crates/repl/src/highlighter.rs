@@ -88,7 +88,10 @@ fn highlight(input: &str) -> StyledText {
                 // Expressions
                 rule!(@group "in-expressions"),
                 // Command names
+                // TODO: make "^" actually work!
                 rule!(@simple "(?:^|\\n)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
+                // Raw arguments
+                rule!(@simple "(?:^|\\n|\\s+)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
                 // Types
