@@ -121,6 +121,10 @@
 					"name": "constant.numeric"
 				},
 				{
+					"match": "(?<=\\\\\\n\\s+)([a-zA-Z0-9_/\\-\\.]+)",
+					"name": "string.unquoted"
+				},
+				{
 					"match": "(?<=(^|[\\(\\{;])\\s*)([a-zA-Z0-9_/\\-\\.]+)\\b",
 					"name": "entity.name.function"
 				},
