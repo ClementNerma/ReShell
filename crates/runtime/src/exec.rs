@@ -48,17 +48,17 @@ pub fn run_program(
 
     ctx.prepare_for_new_program(program, checker_output);
 
-    let result = run_block_in_current_scope(&content.data, ctx).map(|result| match result {
-        None => (),
-        Some(_) => ctx.panic(
-            program.content.at,
-            "this instruction shouldn't have been allowed to run here",
-        ),
-    });
+    run_block_in_current_scope(&content.data, ctx).map(|result| {
+        assert_eq!(ctx.current_scope().id, FIRST_SCOPE_ID);
 
-    assert_eq!(ctx.current_scope().id, FIRST_SCOPE_ID);
-
-    result
+        match result {
+            None => (),
+            Some(_) => ctx.panic(
+                program.content.at,
+                "this instruction shouldn't have been allowed to run here",
+            ),
+        }
+    })
 }
 
 fn run_block(
