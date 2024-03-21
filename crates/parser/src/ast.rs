@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
+use parsy::{CodeRange, Eaten};
 
 /// A complete parsed program
 #[derive(Debug, Clone)]
@@ -450,61 +450,9 @@ pub enum RuntimeEaten<T> {
     Internal(T),
 }
 
-impl<T> RuntimeEaten<T> {
-    pub fn at(&self) -> RuntimeCodeRange {
-        match self {
-            RuntimeEaten::Eaten(eaten) => RuntimeCodeRange::Parsed(eaten.at),
-            RuntimeEaten::Internal(_) => RuntimeCodeRange::Internal,
-        }
-    }
-
-    pub fn data(&self) -> &T {
-        match &self {
-            Self::Eaten(eaten) => &eaten.data,
-            Self::Internal(raw) => raw,
-        }
-    }
-
-    pub fn eaten(&self) -> Option<&Eaten<T>> {
-        match self {
-            RuntimeEaten::Eaten(eaten) => Some(eaten),
-            RuntimeEaten::Internal(_) => None,
-        }
-    }
-
-    pub fn map<U>(self, func: impl FnOnce(T) -> U) -> RuntimeEaten<U> {
-        match self {
-            RuntimeEaten::Eaten(eaten) => RuntimeEaten::Eaten(eaten.map(func)),
-            RuntimeEaten::Internal(data) => RuntimeEaten::Internal(func(data)),
-        }
-    }
-}
-
 /// Either a [`CodeRange`] or an internal location
 #[derive(Debug, Clone, Copy)]
 pub enum RuntimeCodeRange {
     Parsed(CodeRange),
     Internal,
-}
-
-impl RuntimeCodeRange {
-    pub fn parsed_range(&self) -> Option<CodeRange> {
-        match self {
-            RuntimeCodeRange::Parsed(range) => Some(*range),
-            RuntimeCodeRange::Internal => None,
-        }
-    }
-
-    pub fn contains(&self, range: CodeRange) -> Result<bool, CodeRangeComparisonError> {
-        match self {
-            RuntimeCodeRange::Parsed(c) => c.contains(range),
-            RuntimeCodeRange::Internal => Ok(false),
-        }
-    }
-}
-
-impl From<CodeRange> for RuntimeCodeRange {
-    fn from(range: CodeRange) -> Self {
-        Self::Parsed(range)
-    }
 }
