@@ -76,6 +76,66 @@ pub struct CheckerOutput {
     pub cmd_calls: HashMap<CodeRange, SharingType<DevelopedSingleCmdCall>>,
 }
 
+impl CheckerOutput {
+    pub fn empty() -> Self {
+        Self {
+            deps: HashMap::new(),
+            type_aliases_decl: HashMap::new(),
+            type_aliases_usages: HashMap::new(),
+            type_aliases_decl_by_scope: HashMap::new(),
+            fn_signatures: HashMap::new(),
+            fn_bodies: HashMap::new(),
+            cmd_aliases: HashMap::new(),
+            cmd_calls: HashMap::new(),
+        }
+    }
+
+    pub fn merge(&mut self, other: CheckerOutput) {
+        #[deny(unused_variables)]
+        let CheckerOutput {
+            deps,
+            type_aliases_decl,
+            type_aliases_usages,
+            type_aliases_decl_by_scope,
+            fn_signatures,
+            fn_bodies,
+            cmd_aliases,
+            cmd_calls
+        } = other;
+
+        self.deps.extend(deps);
+
+        self.type_aliases_decl.extend(type_aliases_decl);
+
+        self.type_aliases_usages.extend(type_aliases_usages);
+
+        self.type_aliases_decl_by_scope
+            .extend(type_aliases_decl_by_scope);
+
+        self.cmd_calls.extend(cmd_calls);
+
+        self.fn_signatures.extend(fn_signatures);
+
+        self.fn_bodies.extend(fn_bodies);
+
+        self.cmd_aliases.extend(cmd_aliases);
+    }
+
+    // TODO: find a way to avoid a massive cloning
+    pub fn reuse_in_checker(&self) -> Self {
+        Self {
+            deps: self.deps.clone(),
+            type_aliases_decl: self.type_aliases_decl.clone(),
+            type_aliases_usages: self.type_aliases_usages.clone(),
+            type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
+            fn_signatures: self.fn_signatures.clone(),
+            fn_bodies: self.fn_bodies.clone(),
+            cmd_aliases: self.cmd_aliases.clone(),
+            cmd_calls: self.cmd_calls.clone()
+        }
+    }
+}
+
 /// Developed command call
 #[derive(Debug, Clone)]
 pub struct DevelopedSingleCmdCall {
@@ -104,16 +164,7 @@ impl State {
     pub fn new() -> Self {
         Self {
             scopes: vec![],
-            collected: CheckerOutput {
-                cmd_calls: HashMap::new(),
-                deps: HashMap::new(),
-                type_aliases_decl: HashMap::new(),
-                type_aliases_usages: HashMap::new(),
-                type_aliases_decl_by_scope: HashMap::new(),
-                fn_signatures: HashMap::new(),
-                fn_bodies: HashMap::new(),
-                cmd_aliases: HashMap::new()
-            },
+            collected: CheckerOutput::empty(),
         }
     }
 
