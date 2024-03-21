@@ -57,7 +57,6 @@ impl RlHighlighter for Highlighter {
 }
 
 static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
-    // TODO: lazify this
     let rule_set = RuleSet {
         groups: [
             ("instructions", vec![

@@ -276,74 +276,69 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             iter_var,
             iter_on,
             body,
-        } => {
-            match eval_expr(&iter_on.data, ctx)? {
-                RuntimeValue::List(list) => {
-                    for item in list.read().iter() {
-                        let mut loop_scope = ScopeContent::new();
+        } => match eval_expr(&iter_on.data, ctx)? {
+            RuntimeValue::List(list) => {
+                // TODO: handle locks (e.g. program tries to modify list while iterating)
+                for item in list.read().iter() {
+                    let mut loop_scope = ScopeContent::new();
 
-                        loop_scope.vars.insert(
-                            iter_var.data.clone(),
-                            ScopeVar {
-                                declared_at: iter_var.at,
-                                is_mut: false,
-                                value: GcCell::new(Some(LocatedValue::new(
-                                    // TODO: performance?
-                                    item.clone(),
-                                    iter_var.at,
-                                ))),
-                            },
-                        );
+                    loop_scope.vars.insert(
+                        iter_var.data.clone(),
+                        ScopeVar {
+                            declared_at: iter_var.at,
+                            is_mut: false,
+                            value: GcCell::new(Some(LocatedValue::new(item.clone(), iter_var.at))),
+                        },
+                    );
 
-                        if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
-                            let InstrRet { typ, from: _ } = ret;
+                    if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
+                        let InstrRet { typ, from: _ } = ret;
 
-                            if matches!(typ, InstrRetType::BreakLoop) {
-                                break;
-                            }
+                        if matches!(typ, InstrRetType::BreakLoop) {
+                            break;
                         }
                     }
-                }
-
-                RuntimeValue::Range { from, to } => {
-                    for i in from..=to {
-                        let mut loop_scope = ScopeContent::new();
-
-                        loop_scope.vars.insert(
-                            iter_var.data.clone(),
-                            ScopeVar {
-                                declared_at: iter_var.at,
-                                is_mut: false,
-                                value: GcCell::new(Some(LocatedValue::new(
-                                    RuntimeValue::Int(i as i64),
-                                    iter_var.at,
-                                ))),
-                            },
-                        );
-
-                        if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
-                            let InstrRet { typ, from: _ } = ret;
-
-                            if matches!(typ, InstrRetType::BreakLoop) {
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                value => {
-                    return Err(ctx.error(
-                        iter_on.at,
-                        format!(
-                            "expected a list or range to iterate on, found a {} instead",
-                            value
-                                .get_type()
-                                .render_colored(ctx, PrettyPrintOptions::inline())
-                        ),
-                    ))
                 }
             }
-        }
+
+            RuntimeValue::Range { from, to } => {
+                for i in from..=to {
+                    let mut loop_scope = ScopeContent::new();
+
+                    loop_scope.vars.insert(
+                        iter_var.data.clone(),
+                        ScopeVar {
+                            declared_at: iter_var.at,
+                            is_mut: false,
+                            value: GcCell::new(Some(LocatedValue::new(
+                                RuntimeValue::Int(i as i64),
+                                iter_var.at,
+                            ))),
+                        },
+                    );
+
+                    if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
+                        let InstrRet { typ, from: _ } = ret;
+
+                        if matches!(typ, InstrRetType::BreakLoop) {
+                            break;
+                        }
+                    }
+                }
+            }
+
+            value => {
+                return Err(ctx.error(
+                    iter_on.at,
+                    format!(
+                        "expected a list or range to iterate on, found a {} instead",
+                        value
+                            .get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline())
+                    ),
+                ))
+            }
+        },
 
         Instruction::WhileLoop { cond, body } => loop {
             let cond_val =

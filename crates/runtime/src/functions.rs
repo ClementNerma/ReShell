@@ -1,6 +1,6 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_parser::ast::{
     CmdArg, FnArg, FnArgNames, FnCall, FnCallArg, SingleValueType, ValueType,
 };
@@ -147,7 +147,7 @@ pub fn call_fn_value(
 
 fn parse_fn_call_args(
     call_at: CodeRange,
-    call_args: FnPossibleCallArgs,
+    mut call_args: FnPossibleCallArgs,
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<Eaten<String>, LocatedValue>> {
@@ -164,21 +164,25 @@ fn parse_fn_call_args(
     };
 
     for arg_index in 0..args_len {
-        let call_arg = match call_args {
+        let (call_arg, call_arg_at) = match call_args {
             FnPossibleCallArgs::Parsed(parsed) => {
-                FnPossibleCallArg::Parsed(&parsed.data.get(arg_index).unwrap().data)
-            }
-            FnPossibleCallArgs::Direct { at: _, ref args } => {
-                FnPossibleCallArg::Direct(args.get(arg_index).unwrap())
-            }
-        };
+                let arg = &parsed.data.get(arg_index).unwrap().data;
 
-        let call_arg_at = match call_arg {
-            FnPossibleCallArg::Parsed(parsed) => match parsed {
-                FnCallArg::Expr(expr) => expr.at,
-                FnCallArg::CmdArg(cmd_arg) => cmd_arg.at,
-            },
-            FnPossibleCallArg::Direct(value) => value.from,
+                (
+                    FnPossibleCallArg::Parsed(arg),
+                    match arg {
+                        FnCallArg::Expr(expr) => expr.at,
+                        FnCallArg::CmdArg(cmd_arg) => cmd_arg.at,
+                    },
+                )
+            }
+            FnPossibleCallArgs::Direct {
+                at: _,
+                ref mut args,
+            } => {
+                let arg = args.remove(0);
+                (FnPossibleCallArg::Direct(arg.value), arg.from)
+            }
         };
 
         if let FnPossibleCallArg::Parsed(FnCallArg::CmdArg(cmd_arg)) = &call_arg {
@@ -277,10 +281,7 @@ fn parse_fn_call_args(
                                 }
                             },
                         },
-                        FnPossibleCallArg::Direct(value) => opened_rest_values.push(
-                            // TODO: improve performance
-                            value.value.clone(),
-                        ),
+                        FnPossibleCallArg::Direct(loc_val) => opened_rest_values.push(loc_val),
                     }
 
                     continue;
@@ -301,10 +302,7 @@ fn parse_fn_call_args(
                     }
                 },
             },
-            FnPossibleCallArg::Direct(value) => {
-                // TODO: improve performance
-                value.value.clone()
-            }
+            FnPossibleCallArg::Direct(value) => value,
         };
 
         if let Some(expected_type) = &fn_arg.typ {
@@ -427,7 +425,7 @@ pub enum FnPossibleCallArgs<'a> {
 
 pub enum FnPossibleCallArg<'a> {
     Parsed(&'a FnCallArg),
-    Direct(&'a LocatedValue),
+    Direct(RuntimeValue),
 }
 
 pub enum FnCallResult {
