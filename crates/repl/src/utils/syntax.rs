@@ -138,9 +138,8 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
 
                 let next_nesting =
                     nesting
-                        .iter()
-                        .skip(i)
-                        .find_map(|nesting| match nesting.action_type {
+                        .get(i + 1)
+                        .and_then(|nesting| match nesting.action_type {
                             NestingActionType::Opening(typ) | NestingActionType::Unclosed(typ) => {
                                 Some(typ)
                             }
@@ -257,70 +256,55 @@ impl<'h, 'str> Match<'h, 'str> {
         next_nesting: Option<NestingOpeningType>,
     ) -> Option<Self> {
         if let Some(must_be_in) = &rule.inside {
-            if !matches!(inside, Some((_, inside)) if must_be_in.contains(&inside)) {
+            if !must_be_in.contains(&inside?.1) {
                 return None;
             }
         }
 
         let nesting_at = inside.map(|(at, _)| at).unwrap_or(0);
 
-        let mut capture_shift = 0;
-
-        loop {
-            let (full_match_start, full_match_end, cap) = rule
-                .matches
-                .captures_at(
-                    &input[nesting_at..],
-                    range.from - nesting_at + capture_shift,
+        let (full_match_start, full_match_end, cap) = rule
+            .matches
+            .captures_at(&input[nesting_at..], range.from - nesting_at)
+            .map(|captured| {
+                (
+                    captured.get(0).unwrap().start() + nesting_at,
+                    captured.get(0).unwrap().end() + nesting_at,
+                    Self {
+                        nesting_at,
+                        start: captured.get(1).unwrap().start() + nesting_at,
+                        end: captured.get(captured.len() - 1).unwrap().end() + nesting_at,
+                        rule,
+                        _captured: captured,
+                    },
                 )
-                .map(|captured| {
-                    (
-                        captured.get(0).unwrap().start() + nesting_at,
-                        captured.get(0).unwrap().end() + nesting_at,
-                        Self {
-                            nesting_at,
-                            start: captured.get(1).unwrap().start() + nesting_at,
-                            end: captured.get(captured.len() - 1).unwrap().end() + nesting_at,
-                            rule,
-                            _captured: captured,
-                        },
-                    )
-                })?;
+            })?;
 
-            if cap.end > range.from + range.len {
+        if cap.end > range.from + range.len {
+            return None;
+        }
+
+        if let Some(preceded_by) = &rule.preceded_by {
+            if !preceded_by.is_match(&input[..full_match_start]) {
                 return None;
             }
-
-            if let Some(preceded_by) = &rule.preceded_by {
-                if !preceded_by.is_match(&input[..full_match_start]) {
-                    return None;
-                }
-            }
-
-            if let Some(followed_by) = &rule.followed_by {
-                let cap = followed_by.captures_at(input, full_match_end);
-
-                if !cap.map_or(false, |cap| cap.get(0).unwrap().start() == full_match_end) {
-                    return None;
-                }
-            }
-
-            if let Some(followed_by_nesting) = &rule.followed_by_nesting {
-                if cap.end < input.len()
-                    || !matches!(next_nesting, Some(next_nesting) if followed_by_nesting.contains(&next_nesting))
-                {
-                    capture_shift = cap.end - range.from + 1;
-
-                    if nesting_at + capture_shift >= input.len() {
-                        break None;
-                    }
-
-                    continue;
-                }
-            }
-
-            break Some(cap);
         }
+
+        if let Some(followed_by) = &rule.followed_by {
+            let cap = followed_by.captures_at(input, full_match_end)?;
+
+            if cap.get(0).unwrap().start() != full_match_end {
+                return None;
+            }
+        }
+
+        if let Some(followed_by_nesting) = &rule.followed_by_nesting {
+            if !followed_by_nesting.contains(&next_nesting?) {
+                return None;
+            }
+        }
+
+        Some(cap)
     }
 
     fn get(&self, group: usize) -> Option<CapturedGroup<'str>> {
@@ -380,7 +364,7 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
             inside: _,
             preceded_by,
             followed_by: _,
-            followed_by_nesting: _,
+            followed_by_nesting,
             style,
         } = rule;
 
@@ -390,6 +374,12 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
                     "Precedence regex '{preceded_by}' should end with a '$'"
                 ));
             }
+        }
+
+        if followed_by_nesting.is_some() && !matches.to_string().ends_with('$') {
+            return Err(
+                "Regex that requires a nesting following it should end with a '$'".to_owned(),
+            );
         }
 
         match matches.static_captures_len() {
