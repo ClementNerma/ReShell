@@ -172,14 +172,34 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let nature = format!("{}", nature.bright_red());
 
-    let mut source = source_file.content;
+    let source = source_file.content;
+
+    let line = source[..offset].chars().filter(|&c| c == '\n').count();
+
+    let extract_start_line = line.saturating_sub(3) + 1;
+
+    let extract_start_offset = if extract_start_line == 1 {
+        0
+    } else {
+        let mut line_counter = 1;
+
+        source[..offset]
+            .chars()
+            .position(|c| {
+                if c == '\n' {
+                    line_counter += 1;
+                }
+
+                line_counter == extract_start_line
+            })
+            .unwrap()
+            + 1
+    };
 
     // NOTE: we add a space at the end of the error's line
     // as the reporting library doesn't support displaying
     // offsets after a line's last character
-    if offset == source.len() || source[offset..].starts_with('\n') {
-        source.insert(offset, ' ');
-    }
+    let extract = format!("{} ", &source[extract_start_offset..]);
 
     let snippet = Snippet {
         title: Some(Annotation {
@@ -189,14 +209,17 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         }),
         footer: vec![],
         slices: vec![Slice {
-            source: &source,
-            line_start: 1,
+            source: &extract,
+            line_start: extract_start_line,
             origin: Some(&display_file),
             fold: true,
             annotations: vec![SourceAnnotation {
                 label: &msg,
                 annotation_type: AnnotationType::Error,
-                range: (offset, offset + len.max(1)),
+                range: (
+                    offset - extract_start_offset,
+                    offset - extract_start_offset + len.max(1),
+                ),
             }],
         }],
         opt: FormatOptions {
