@@ -666,8 +666,7 @@ pub fn program(
         expr.finish(
             expr_inner
                 .spanned()
-                .then_ignore(ms)
-                .then(expr_op.separated_by(ms))
+                .then(ms.ignore_then(expr_op).repeated_vec())
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
@@ -1210,6 +1209,7 @@ pub fn program(
             //
             cmd_call.spanned().map(Instruction::CmdCall),
         ))
+        .spanned()
         .then_ignore(ms)
         .then_ignore(
             silent_choice((
@@ -1224,7 +1224,6 @@ pub fn program(
         // Raw block
         instr
             .padded_by(msnl)
-            .spanned()
             .repeated_vec()
             .map(|instructions| Block { instructions })
     });
