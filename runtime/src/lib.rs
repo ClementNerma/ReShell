@@ -13,5 +13,6 @@ pub mod expr;
 pub mod files_map;
 pub mod functions;
 pub mod native_lib;
+pub mod props;
 pub mod typechecker;
 pub mod values;

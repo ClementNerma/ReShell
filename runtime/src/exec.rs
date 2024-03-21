@@ -9,6 +9,7 @@ use crate::{
     display::readable_value_type,
     errors::ExecResult,
     expr::eval_expr,
+    props::{eval_prop_access_nature, PropAccessPolicy},
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -99,7 +100,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             );
         }
 
-        Instruction::AssignVar { name, expr } => {
+        Instruction::AssignVar {
+            name,
+            prop_acc,
+            expr,
+        } => {
             let Some(var) = ctx
                 .get_var(name) else {
                     return Err(ctx.error(name.at, "variable not found"));
@@ -116,9 +121,41 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 ));
             }
 
-            let value = eval_expr(&expr.data, ctx)?;
+            let assign_value = eval_expr(&expr.data, ctx)?;
 
-            ctx.get_var_mut(name).unwrap().value = Some(LocatedValue::new(value, expr.at));
+            if ctx.get_var(name).unwrap().value.is_none() {
+                if let Some(first) = prop_acc.first() {
+                    return Err(ctx.error(
+                        first.at,
+                        "cannot access this property as this variable wasn't assigned a value yet",
+                    ));
+                }
+
+                ctx.get_var_mut(name).unwrap().value =
+                    Some(LocatedValue::new(assign_value, expr.at));
+            } else {
+                let mut left = ctx
+                    .get_var(name)
+                    .unwrap()
+                    .value
+                    .as_ref()
+                    .unwrap()
+                    .value
+                    .clone();
+
+                let mut left = &mut left;
+
+                for acc in prop_acc {
+                    left = eval_prop_access_nature(
+                        left,
+                        acc,
+                        PropAccessPolicy::TrailingAcessMayNotExist,
+                        ctx,
+                    )?;
+                }
+
+                *left = assign_value;
+            };
         }
 
         Instruction::IfCond {

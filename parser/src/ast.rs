@@ -32,6 +32,7 @@ pub enum Instruction {
 
     AssignVar {
         name: Eaten<String>,
+        prop_acc: Vec<Eaten<PropAccessNature>>,
         expr: Eaten<Expr>,
     },
 
