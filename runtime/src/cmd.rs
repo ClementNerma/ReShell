@@ -233,7 +233,7 @@ fn run_cmd_with_env_vars_set(
     }
 
     Ok(if capture_stdout {
-        // TODO: what to do if not valid UTF8?
+        // Invalid UTF-8 output will be handled with "unknown" symbols
         let mut out = String::from_utf8_lossy(&last_output.unwrap()).into_owned();
 
         if out.ends_with('\n') {
@@ -370,7 +370,13 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             let value = ctx.get_var_value(var_name)?;
 
             let RuntimeValue::List(items) = &value else {
-                return Err(ctx.error(var_name.at, format!("expected a list to spread, found a {}", readable_value_type(value))));
+                return Err(ctx.error(
+                    var_name.at,
+                    format!(
+                        "expected a list to spread, found a {}",
+                        readable_value_type(value)
+                    ),
+                ));
             };
 
             Ok(CmdArgResult::Spreaded(items.clone()))
