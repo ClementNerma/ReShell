@@ -232,6 +232,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Booleans
                 simple("\\b(true|false)\\b", [LightYellow]),
 
+                // Expansions
+                simple("\\s(\\.\\.\\.)\\$", [Red]),
+
                 // Method calls
                 method_call(),
 
