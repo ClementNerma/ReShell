@@ -38,9 +38,8 @@ fn run() -> Runner {
              fold_fn,
          },
          ArgsAt {
-             list: _,
-             init: _,
              fold_fn: fold_fn_at,
+             ..
          },
          ctx| {
             let fold_fn = LocatedValue::new(RuntimeValue::Function(fold_fn), fold_fn_at);

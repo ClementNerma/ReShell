@@ -30,6 +30,7 @@ mod make_map;
 mod map;
 mod mkdir;
 mod path_exists;
+mod pipe;
 mod pop;
 mod print_runtime_stats;
 mod range;
@@ -90,6 +91,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::values::build_fn(),
             self::mkdir::build_fn(),
             self::path_exists::build_fn(),
+            self::pipe::build_fn(),
             self::pop::build_fn(),
             self::approx_int_div::build_fn(),
             self::print_runtime_stats::build_fn(),
