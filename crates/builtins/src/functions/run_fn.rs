@@ -7,7 +7,7 @@ crate::define_internal_fn!(
 
     (
         func: RequiredArg<TypedFunctionType> = exec_fn_type(),
-        args: RequiredArg<SpreadType> = Arg::positional("spread")
+        args: RequiredArg<SpreadType> = Arg::rest("args")
     )
 
     -> None

@@ -160,6 +160,12 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
         )))
     }
 
+    pub fn rest(name: &'static str) -> Self {
+        let mut arg = Self::positional(name);
+        arg.is_rest = true;
+        arg
+    }
+
     pub fn method_self() -> Self {
         Self::positional("self")
     }
