@@ -867,8 +867,10 @@ pub fn program(
                 s.ignore_then(
                     char('\\')
                         .then(ms)
-                        .then(newline().critical("expected a newline"))
-                        .then(ms)
+                        .then(newline())
+                        .then(s.critical(
+                            "expected at least one space for identation after the newline",
+                        ))
                         .or_not(),
                 )
                 .ignore_then(cmd_arg.spanned())

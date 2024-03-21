@@ -218,6 +218,13 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     // offsets after a line's last character
     let extract = format!("{} ", &source[extract_start_offset..extract_end]);
 
+    // Same thing for the error range source
+    let range_chars_len = if offset + len.max(1) == source.len() {
+        1
+    } else {
+        source[offset..offset + len.max(1)].chars().count()
+    };
+
     let snippet = Snippet {
         title: Some(Annotation {
             label: Some(&nature),
@@ -235,8 +242,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 annotation_type: AnnotationType::Error,
                 range: (
                     offset - extract_start_offset,
-                    offset - extract_start_offset
-                        + source[offset..offset + len.max(1)].chars().count(),
+                    offset - extract_start_offset + range_chars_len,
                 ),
             }],
         }],
