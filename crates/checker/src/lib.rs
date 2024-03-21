@@ -494,6 +494,7 @@ fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) ->
                 UsedItem::Variable(_) | UsedItem::CmdAlias(_) => unreachable!(),
             }
         }
+
         ExprInnerChaining::FnCall(fn_call) => check_fn_call(fn_call, state),
     }
 }
