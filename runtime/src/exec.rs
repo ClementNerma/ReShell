@@ -198,8 +198,9 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         }
 
                         _ => {
-                            let left_type =
-                                left.get_type().render_colored(PrettyPrintOptions::inline());
+                            let left_type = left
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline());
 
                             return Err(ctx.error(
                                 list_push.at,
@@ -228,7 +229,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             cond.at,
                             format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.get_type().render_colored(PrettyPrintOptions::inline())
+                            value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                         ))
                     }
@@ -244,7 +245,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                     let cond_val = eval_expr(&cond.data, ctx)?;
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.get_type().render_colored(PrettyPrintOptions::inline()))));
+                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.get_type().render_colored(ctx, PrettyPrintOptions::inline()))));
                     };
 
                     if cond_val {
@@ -336,7 +337,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             "expected a list or range to iterate on, found a {} instead",
                             value
                                 .get_type()
-                                .render_colored(PrettyPrintOptions::inline())
+                                .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))
                 }
@@ -352,7 +353,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             cond.at,
                             format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.get_type().render_colored(PrettyPrintOptions::inline())
+                            value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                         ))
                     }
@@ -402,10 +403,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                 "cannot compare {} and {}",
                                 switch_on
                                     .get_type()
-                                    .render_colored(PrettyPrintOptions::inline()),
+                                    .render_colored(ctx, PrettyPrintOptions::inline()),
                                 case_value
                                     .get_type()
-                                    .render_colored(PrettyPrintOptions::inline())
+                                    .render_colored(ctx, PrettyPrintOptions::inline())
                             ),
                         )
                     })?;

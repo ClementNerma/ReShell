@@ -27,7 +27,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
                         "expected a function, found a {} instead",
                         value
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline())
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ))
             }
@@ -100,7 +100,9 @@ pub fn call_fn_value(
                 call_at,
                 format!(
                     "function call did not return any value, was expected to return a {}",
-                    ret_type.data.render_colored(PrettyPrintOptions::inline())
+                    ret_type
+                        .data
+                        .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             ));
         };
@@ -113,8 +115,10 @@ pub fn call_fn_value(
                     ret_val
                         .value
                         .get_type()
-                        .render_colored(PrettyPrintOptions::inline()),
-                    ret_type.data.render_colored(PrettyPrintOptions::inline())
+                        .render_colored(ctx, PrettyPrintOptions::inline()),
+                    ret_type
+                        .data
+                        .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             ));
         }
@@ -294,10 +298,10 @@ fn parse_fn_call_args(
                         fn_arg_var_name(fn_arg),
                         expected_type
                             .data
-                            .render_colored(PrettyPrintOptions::inline()),
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
                         arg_value
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline())
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ));
             }
@@ -405,7 +409,7 @@ pub fn fail_if_thrown(
             from,
             format!(
                 "function call thrown a value: {}",
-                value.render_uncolored(PrettyPrintOptions::inline())
+                value.render_uncolored(ctx, PrettyPrintOptions::inline())
             ),
         )),
     }

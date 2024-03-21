@@ -1,12 +1,14 @@
 use colored::{Color, Colorize};
 
-pub trait PrettyPrintable {
-    fn generate_pretty_data(&self) -> PrintablePiece;
+use crate::context::Context;
 
-    fn render_uncolored(&self, opts: PrettyPrintOptions) -> String {
+pub trait PrettyPrintable {
+    fn generate_pretty_data(&self, ctx: &Context) -> PrintablePiece;
+
+    fn render_uncolored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
-        self.generate_pretty_data()
+        self.generate_pretty_data(ctx)
             .render(opts, |Colored(ref string, _)| {
                 out.push_str(string);
             });
@@ -14,10 +16,10 @@ pub trait PrettyPrintable {
         out
     }
 
-    fn render_colored(&self, opts: PrettyPrintOptions) -> String {
+    fn render_colored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
-        self.generate_pretty_data()
+        self.generate_pretty_data(ctx)
             .render(opts, |Colored(ref string, color)| match color {
                 Some(color) => {
                     out.push_str(&format!("{}", string.color(*color)));

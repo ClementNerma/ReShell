@@ -120,10 +120,11 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "cannot apply this operator on a pair of {} and {}",
-                        left.get_type().render_colored(PrettyPrintOptions::inline()),
+                        left.get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
                         right
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline())
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ))
             }
@@ -135,7 +136,8 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "left operand is not a boolean but a {}",
-                        left.get_type().render_colored(PrettyPrintOptions::inline())
+                        left.get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ));
             };
@@ -147,7 +149,7 @@ fn apply_double_op(
                         "right operand is not a boolean but a {}",
                         right
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline())
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ));
             };
@@ -165,10 +167,11 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "cannot compare {} and {}",
-                        left.get_type().render_colored(PrettyPrintOptions::inline()),
+                        left.get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
                         right
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline())
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 )
             })?;
@@ -234,7 +237,7 @@ fn eval_expr_inner_content(
                             "right operand should be a boolean, found a: {}",
                             right
                                 .get_type()
-                                .render_colored(PrettyPrintOptions::inline())
+                                .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     )),
                 },
@@ -257,7 +260,7 @@ fn eval_expr_inner_content(
                             cond.at,
                             format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.get_type().render_colored(PrettyPrintOptions::inline())
+                            value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                         ))
                     }
@@ -278,7 +281,7 @@ fn eval_expr_inner_content(
                             "expected the condition to resolve to a boolean, found a {} instead",
                             cond_val
                                 .get_type()
-                                .render_colored(PrettyPrintOptions::inline())
+                                .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ));
                 };

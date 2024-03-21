@@ -56,7 +56,7 @@ impl RlCompleter for Completer {
                         Some(located_val) => located_val
                             .value
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline()),
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
 
                         None => "<value not set>".to_string(),
                     }),
@@ -80,7 +80,7 @@ impl RlCompleter for Completer {
                     description: Some(
                         item.value
                             .signature
-                            .render_uncolored(PrettyPrintOptions::inline()),
+                            .render_uncolored(ctx, PrettyPrintOptions::inline()),
                     ),
                     extra: None,
                     span,

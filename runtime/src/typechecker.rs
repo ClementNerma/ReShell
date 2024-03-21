@@ -53,12 +53,9 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Any, _) => Ok(true),
 
         (_, SingleValueType::TypeAlias(name)) => {
-            let (_, typ) = ctx
-                .all_type_aliases()
-                .find(|(c_name, _)| c_name == &&name.data)
-                .ok_or_else(|| {
-                    ctx.error(name.at, format!("type alias {} was not found", name.data))
-                })?;
+            let typ = ctx.get_exact_type_alias(name).ok_or_else(|| {
+                ctx.error(name.at, format!("type alias {} was not found", name.data))
+            })?;
 
             check_if_single_type_fits(value_type, typ, ctx)
         }
