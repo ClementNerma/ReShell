@@ -176,11 +176,12 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::List(list) => PrintablePiece::List {
                 begin: Colored::with_color("[", Color::Blue),
-                items: list
-                    .read()
-                    .iter()
-                    .map(|item| item.generate_pretty_data(ctx))
-                    .collect(),
+                items: list.with_ref(|items| {
+                    items
+                        .iter()
+                        .map(|item| item.generate_pretty_data(ctx))
+                        .collect()
+                }),
                 sep: Colored::with_color(",", Color::Blue),
                 end: Colored::with_color("]", Color::Blue),
                 suffix: None,
@@ -196,10 +197,10 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::Map(map) => PrintablePiece::List {
                 begin: Colored::with_color("map({", Color::Blue),
-                items: map
-                    .read()
-                    .iter()
-                    .map(|(key, value)|
+                items: map.with_ref(|items| {
+                    items
+                        .iter()
+                        .map(|(key, value)|
                         // Yes, that part is a hack :p
                         PrintablePiece::List {
                             begin: Colored::with_color(
@@ -219,7 +220,8 @@ impl PrettyPrintable for RuntimeValue {
                             end: Colored::empty(),
                             suffix: None
                         })
-                    .collect(),
+                        .collect()
+                }),
                 sep: Colored::with_color(",", Color::Blue),
                 end: Colored::with_color("})", Color::Blue),
                 suffix: None,
@@ -227,10 +229,10 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::Struct(obj) => PrintablePiece::List {
                 begin: Colored::with_color("{", Color::Blue),
-                items: obj
-                    .read()
-                    .iter()
-                    .map(|(field, value)|
+                items: obj.with_ref(|members| {
+                    members
+                        .iter()
+                        .map(|(field, value)|
                         // Yes, that part is a hack :p
                         PrintablePiece::List {
                             begin: Colored::with_color(
@@ -244,7 +246,8 @@ impl PrettyPrintable for RuntimeValue {
                             end: Colored::empty(),
                             suffix: None
                         })
-                    .collect(),
+                        .collect()
+                }),
                 sep: Colored::with_color(",", Color::Blue),
                 end: Colored::with_color("}", Color::Blue),
                 suffix: None,

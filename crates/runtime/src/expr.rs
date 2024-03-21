@@ -326,7 +326,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             .get_visible_var(name)
             .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
             .value
-            .read()
+            .read(name.at)
             .as_ref()
             .ok_or_else(|| {
                 ctx.error(
@@ -420,7 +420,7 @@ fn eval_computed_string_piece(
             &ctx.get_visible_var(var_name)
                 .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
                 .value
-                .read()
+                .read(var_name.at)
                 .as_ref()
                 .ok_or_else(|| {
                     ctx.error(

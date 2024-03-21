@@ -113,20 +113,21 @@ impl RuntimeValue {
             RuntimeValue::List(_) => SingleValueType::List,
             RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
             RuntimeValue::Map(_) => SingleValueType::Map,
-            RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
-                members
-                    .read()
-                    .iter()
-                    .map(|(name, value)| {
-                        MaybeEaten::Raw(StructTypeMember {
-                            name: MaybeEaten::Raw(name.clone()),
-                            typ: MaybeEaten::Raw(ValueType::Single(MaybeEaten::Raw(
-                                value.get_type(),
-                            ))),
+            RuntimeValue::Struct(members) => {
+                SingleValueType::TypedStruct(members.with_ref(|members| {
+                    members
+                        .iter()
+                        .map(|(name, value)| {
+                            MaybeEaten::Raw(StructTypeMember {
+                                name: MaybeEaten::Raw(name.clone()),
+                                typ: MaybeEaten::Raw(ValueType::Single(MaybeEaten::Raw(
+                                    value.get_type(),
+                                ))),
+                            })
                         })
-                    })
-                    .collect(),
-            ),
+                        .collect()
+                }))
+            }
             RuntimeValue::Function(content) => {
                 // TODO: performance
                 SingleValueType::Function(match &content.signature {
@@ -193,11 +194,14 @@ pub fn are_values_equal(
         (RuntimeValue::String(a), RuntimeValue::String(b)) => Ok(a == b),
         (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Ok(false),
 
-        (RuntimeValue::List(a), RuntimeValue::List(b)) => Ok(a.read().len() == b.read().len()
-            && a.read()
-                .iter()
-                .zip(b.read().iter())
-                .all(|(a, b)| are_values_equal(a, b).unwrap_or(false))),
+        (RuntimeValue::List(a), RuntimeValue::List(b)) => Ok(a.with_ref(|a| {
+            b.with_ref(|b| {
+                a.len() == b.len()
+                    && a.iter()
+                        .zip(b.iter())
+                        .all(|(a, b)| are_values_equal(a, b).unwrap_or(false))
+            })
+        })),
         (RuntimeValue::List(_), _) | (_, RuntimeValue::List(_)) => Ok(false),
 
         (
@@ -213,22 +217,32 @@ pub fn are_values_equal(
         (RuntimeValue::Range { from: _, to: _ }, _)
         | (_, RuntimeValue::Range { from: _, to: _ }) => Ok(false),
 
-        (RuntimeValue::Map(a), RuntimeValue::Map(b)) => Ok(a.read().len() == b.read().len()
-            && a.read()
-                .iter()
-                .zip(b.read().iter())
-                .all(|((a_key, a_value), (b_key, b_value))| {
-                    a_key == b_key && are_values_equal(a_value, b_value).unwrap_or(false)
-                })),
+        (RuntimeValue::Map(a), RuntimeValue::Map(b)) => Ok(a.with_ref(|a| {
+            b.with_ref(|b| {
+                a.len() == b.len()
+                    && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
+                        None => false,
+                        Some(b_value) => match are_values_equal(a_value, b_value) {
+                            Ok(equal) => equal,
+                            Err(NotComparableTypes) => false,
+                        },
+                    })
+            })
+        })),
         (RuntimeValue::Map(_), _) | (_, RuntimeValue::Map(_)) => Ok(false),
 
-        (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => Ok(a.read().len() == b.read().len()
-            && a.read()
-                .iter()
-                .zip(b.read().iter())
-                .all(|((a_key, a_value), (b_key, b_value))| {
-                    a_key == b_key && are_values_equal(a_value, b_value).unwrap_or(false)
-                })),
+        (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => Ok(a.with_ref(|a| {
+            b.with_ref(|b| {
+                a.len() == b.len()
+                    && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
+                        None => false,
+                        Some(b_value) => match are_values_equal(a_value, b_value) {
+                            Ok(equal) => equal,
+                            Err(NotComparableTypes) => false,
+                        },
+                    })
+            })
+        })),
         // (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
     }
 }

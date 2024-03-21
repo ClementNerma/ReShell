@@ -21,6 +21,10 @@ pub struct ExecError {
 
 impl ExecError {
     pub fn with_note(mut self: Box<Self>, note: impl Into<String>) -> Box<Self> {
+        // TODO: allow multiple notes
+        assert!(self.note.is_none());
+        // =======
+
         self.note = Some(note.into());
         self
     }

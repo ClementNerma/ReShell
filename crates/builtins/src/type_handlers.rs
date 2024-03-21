@@ -165,12 +165,13 @@ impl<Inner: ArgTyping> ArgSingleTyping for DetachedListType<Inner> {
             _ => return Err("expected a list".to_owned()),
         };
 
-        let values = list
-            .read()
-            .clone()
-            .into_iter()
-            .map(|item| self.inner.parse(item))
-            .collect::<Result<Vec<_>, _>>()?;
+        let values = list.with_ref(|items| {
+            items
+                .clone()
+                .into_iter()
+                .map(|item| self.inner.parse(item))
+                .collect::<Result<Vec<_>, _>>()
+        })?;
 
         Ok(values)
     }
@@ -291,26 +292,26 @@ impl<A: ArgTyping, B: ArgTyping> ArgSingleTyping for Tuple2Type<A, B> {
             _ => return Err("expected a tuple (list)".to_owned()),
         };
 
-        let items = items.read();
+        items.with_ref(|items| {
+            if items.len() != 2 {
+                return Err(format!(
+                    "tuple is expected to contain exactly 2 elements, contains {}",
+                    items.len()
+                ));
+            }
 
-        if items.len() != 2 {
-            return Err(format!(
-                "tuple is expected to contain exactly 2 elements, contains {}",
-                items.len()
-            ));
-        }
+            let a = self
+                .a
+                .parse(items[0].clone())
+                .map_err(|err| format!("error in tuple's first element: {err}"))?;
 
-        let a = self
-            .a
-            .parse(items[0].clone())
-            .map_err(|err| format!("error in tuple's first element: {err}"))?;
+            let b = self
+                .b
+                .parse(items[1].clone())
+                .map_err(|err| format!("error in tuple's second element: {err}"))?;
 
-        let b = self
-            .b
-            .parse(items[1].clone())
-            .map_err(|err| format!("error in tuple's second element: {err}"))?;
-
-        Ok((a, b))
+            Ok((a, b))
+        })
     }
 }
 
@@ -469,21 +470,21 @@ macro_rules! declare_typed_struct_type {
                         _ => return Err("expected a struct".to_owned()),
                     };
 
-                    let members = members.read();
+                    members.with_ref(|members| {
+                        $(
+                            let $member = members
+                                .get(&self.$member.0)
+                                .ok_or_else(|| format!("property '{}' is missing", self.$member.0))?;
 
-                    $(
-                        let $member = members
-                            .get(&self.$member.0)
-                            .ok_or_else(|| format!("property '{}' is missing", self.$member.0))?;
+                            let $member = self
+                                .$member
+                                .1
+                                .parse($member.clone())
+                                .map_err(|err| format!("type mismatch in struct member '{}': {err}", self.$member.0))?;
+                        )+
 
-                        let $member = self
-                            .$member
-                            .1
-                            .parse($member.clone())
-                            .map_err(|err| format!("type mismatch in struct member '{}': {err}", self.$member.0))?;
-                    )+
-
-                    Ok(( $( $member ),+ ))
+                        Ok(( $( $member ),+ ))
+                    })
                 }
             }
         )+

@@ -26,7 +26,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
             )
         })?;
 
-        let var_value = var.value.read();
+        let var_value = var.value.read(call.data.name.at);
 
         let loc_val = var_value.as_ref().ok_or_else(|| {
             ctx.error(

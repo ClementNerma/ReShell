@@ -4,25 +4,91 @@ use std::{
     rc::Rc,
 };
 
+use colored::Colorize;
+use parsy::CodeRange;
+
+use crate::{context::Context, display::dbg_loc, errors::ExecResult};
+
 // Garbage-collectable cell
 #[derive(Debug, Clone)]
 pub struct GcCell<T> {
     value: Rc<RefCell<T>>,
+    read_lock: Rc<RefCell<Option<CodeRange>>>,
 }
 
 impl<T> GcCell<T> {
     pub fn new(value: T) -> Self {
         Self {
             value: Rc::new(RefCell::new(value)),
+            read_lock: Rc::new(RefCell::new(None)),
         }
     }
 
-    pub fn read(&self) -> Ref<T> {
-        self.value.borrow()
+    pub fn with_ref<U>(&self, map: impl FnOnce(Ref<T>) -> U) -> U {
+        map(self.value.borrow())
     }
 
-    pub fn write(&self) -> RefMut<T> {
-        self.value.borrow_mut()
+    pub fn read(&self, at: CodeRange) -> GcRef<T> {
+        GcRef::new(self.value.borrow(), Rc::clone(&self.read_lock), at)
+    }
+
+    pub fn write(&self, at: CodeRange, ctx: &Context) -> ExecResult<RefMut<T>> {
+        self.value.try_borrow_mut().map_err(|_| {
+            let borrowed_at = self
+                .read_lock
+                .borrow()
+                .expect("internal error: read lock is not available in GC cell");
+
+            ctx.error(
+                at,
+                format!(
+                    "Failed to write as the parent value is currently being read from {}",
+                    dbg_loc(borrowed_at, ctx.files_map()).bright_magenta()
+                ),
+            )
+        })
+    }
+}
+
+pub struct GcRef<'a, T> {
+    inner: Ref<'a, T>,
+    read_lock: Rc<RefCell<Option<CodeRange>>>,
+    is_read_lock_initiator: bool,
+}
+
+impl<'a, T> GcRef<'a, T> {
+    fn new(inner: Ref<'a, T>, read_lock: Rc<RefCell<Option<CodeRange>>>, at: CodeRange) -> Self {
+        let mut read_lock_mut = read_lock.borrow_mut();
+
+        let initiator = read_lock_mut.is_none();
+
+        if initiator {
+            *read_lock_mut = Some(at);
+        }
+
+        drop(read_lock_mut);
+
+        Self {
+            inner,
+            read_lock,
+            is_read_lock_initiator: initiator,
+        }
+    }
+}
+
+impl<'a, T> Drop for GcRef<'a, T> {
+    fn drop(&mut self) {
+        if self.is_read_lock_initiator {
+            *self.read_lock.borrow_mut() = None;
+        }
+    }
+}
+
+impl<'a, T> Deref for GcRef<'a, T> {
+    type Target = Ref<'a, T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
     }
 }
 

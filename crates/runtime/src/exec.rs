@@ -178,7 +178,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
-            if var.value.read().is_none() {
+            if var.value.read(name.at).is_none() {
                 if let Some(first) = prop_acc.first() {
                     return Err(ctx.error(
                         first.at,
@@ -186,10 +186,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     ));
                 }
 
-                *var.value.write() = Some(LocatedValue::new(assign_value, expr.at));
+                *var.value.write(name.at, ctx)? = Some(LocatedValue::new(assign_value, expr.at));
             } else {
                 eval_props_access(
-                    &mut var.value.write().as_mut().unwrap().value,
+                    &mut var.value.write(name.at, ctx)?.as_mut().unwrap().value,
                     prop_acc.iter(),
                     match list_push {
                         Some(_) => PropAccessPolicy::ExistingOnly,
@@ -211,7 +211,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         Some(list_push) => match left {
                             PropAssignment::Existing(existing) => match existing {
                                 RuntimeValue::List(list) => {
-                                    list.write().push(assign_value);
+                                    list.write(list_push.at, ctx)?.push(assign_value);
                                     Ok(())
                                 }
 
@@ -293,7 +293,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         } => match eval_expr(&iter_on.data, ctx)? {
             RuntimeValue::List(list) => {
                 // TODO: handle locks (e.g. program tries to modify list while iterating)
-                for item in list.read().iter() {
+                for item in list.read(iter_on.at).iter() {
                     let mut loop_scope = ScopeContent::new();
 
                     loop_scope.vars.insert(

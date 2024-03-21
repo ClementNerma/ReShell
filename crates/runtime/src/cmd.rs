@@ -489,7 +489,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             ctx.get_visible_var(name)
                 .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
                 .value
-                .read()
+                .read(name.at)
                 .as_ref()
                 .ok_or_else(|| {
                     ctx.error(
@@ -515,7 +515,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 .get_visible_var(var_name)
                 .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?;
 
-            let var_value = var.value.read();
+            let var_value = var.value.read(var_name.at);
 
             let value = var_value.as_ref().ok_or_else(|| {
                 ctx.error(
@@ -537,7 +537,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 ));
             };
 
-            let items = items.read().iter().cloned().collect();
+            let items = items.read(var_name.at).iter().cloned().collect();
             Ok(CmdArgResult::Spreaded(items))
         }
     }
