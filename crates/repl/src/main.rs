@@ -19,7 +19,7 @@ use self::cmd::Args;
 use self::exec::run_script;
 use self::paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_DATA_DIR};
 use self::reports::ReportableError;
-use self::utils::threads::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
+use self::utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
 
 mod cmd;
 mod compat;

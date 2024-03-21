@@ -1,10 +1,4 @@
-// TODO: try to find a way to get rid of threads entirely?
-// And move Ctrl+C logic elsewhere
-
-use std::{
-    sync::Mutex,
-    time::{Duration, Instant},
-};
+use std::sync::Mutex;
 
 static UNTREATED_CTRL_C: Mutex<UntreatedCtrlCStatus> =
     Mutex::new(UntreatedCtrlCStatus::HandlerNotSetup);
@@ -40,17 +34,5 @@ pub fn take_pending_ctrl_c_request() -> bool {
             *untreated = UntreatedCtrlCStatus::NoUntreated;
             true
         }
-    }
-}
-
-pub fn yield_for_at_least(at_least: Duration) {
-    let started_waiting = Instant::now();
-
-    std::thread::yield_now();
-
-    let yielded_for = started_waiting.elapsed();
-
-    if yielded_for < at_least {
-        std::thread::sleep(at_least - yielded_for)
     }
 }
