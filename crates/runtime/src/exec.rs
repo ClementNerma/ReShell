@@ -102,6 +102,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
+                            is_method: false,
                             parent_scopes,
                             captured_deps: GcOnceCell::new_uninit(),
                         }),
@@ -137,6 +138,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
+                            is_method: true,
                             parent_scopes,
                             captured_deps: GcOnceCell::new_uninit(),
                         }),

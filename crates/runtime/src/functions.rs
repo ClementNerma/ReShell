@@ -180,9 +180,7 @@ fn parse_fn_call_args(
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
-    let is_method = func.signature.inner().args.data().first().is_some_and(|arg| matches!(arg, FnArg::Positional { name, is_optional: _, typ: _ } if name.data() == "self"));
-
-    let mut call_args = flatten_fn_call_args(call_at, is_method, call_args, ctx)?;
+    let mut call_args = flatten_fn_call_args(call_at, func.is_method, call_args, ctx)?;
 
     // Reverse call args so we can .pop() them! without shifting elements
     call_args.reverse();
@@ -375,7 +373,7 @@ fn parse_fn_call_args(
 
                 if let Some(typ) = typ {
                     if !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx) {
-                        let is_method_self_arg = name.data() == "self";
+                        let is_method_self_arg = func.is_method && name.data() == "self";
 
                         return Err(ctx.error(
                             loc_val.from,

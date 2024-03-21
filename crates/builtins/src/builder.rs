@@ -61,6 +61,8 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     ScopeFn {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
+                            is_method: false,
+
                             signature: RuntimeFnSignature::Owned(FnSignature {
                                 args: RuntimeEaten::Internal(
                                     args,
@@ -101,6 +103,8 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         applyable_type: on_type.clone(),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
+                            is_method: true,
+
                             signature: RuntimeFnSignature::Owned(FnSignature {
                                 args: RuntimeEaten::Internal(
                                     args,
