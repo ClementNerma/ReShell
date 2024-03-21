@@ -56,6 +56,7 @@ mod regex;
 mod replace;
 mod reverse;
 mod rm;
+mod run_cmd;
 mod runtime;
 mod set_env;
 mod slice;
@@ -138,6 +139,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::replace::build_fn(),
         self::reverse::build_fn(),
         self::rm::build_fn(),
+        self::run_cmd::build_fn(),
         self::set_env::build_fn(),
         self::slice::build_fn(),
         self::sort::build_fn(),
