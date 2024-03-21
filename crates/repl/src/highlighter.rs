@@ -275,7 +275,5 @@ fn highlight(input: &str) -> StyledText {
         ));
     }
 
-
-
     out
 }
