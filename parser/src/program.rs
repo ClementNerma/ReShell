@@ -47,17 +47,36 @@ pub fn program() -> impl Parser<Program> {
         let fn_signature = late::<FnSignature>();
 
         let single_value_type = choice::<_, SingleValueType>((
-            // TODO: use "word" instead of "just"
-            just("any").to(SingleValueType::Any),
-            just("null").to(SingleValueType::Null),
-            just("bool").to(SingleValueType::Bool),
-            just("int").to(SingleValueType::Int),
-            just("float").to(SingleValueType::Float),
-            just("string").to(SingleValueType::String),
-            just("list").to(SingleValueType::List),
-            just("map").to(SingleValueType::Map),
-            just("struct").to(SingleValueType::Struct),
-            just("error").to(SingleValueType::Error),
+            just("any")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Any),
+            just("null")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Null),
+            just("bool")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Bool),
+            just("int")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Int),
+            just("float")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Float),
+            just("string")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::String),
+            just("list")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::List),
+            just("map")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Map),
+            just("struct")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Struct),
+            just("error")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::Error),
             fn_signature.clone().map(SingleValueType::Function),
         ));
 

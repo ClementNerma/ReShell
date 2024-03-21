@@ -16,7 +16,6 @@ use reshell_runtime::files_map::{FilesMap, ScopableFilePath};
 
 use crate::{highlighting::*, reports::parsing_error_report};
 
-// TODO: full AST-based highlighter (requires to have parsing recovery in case of error)
 // TODO: highlighter error reporting is hiding autocompletion :/
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
