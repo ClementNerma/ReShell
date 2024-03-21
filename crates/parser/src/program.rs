@@ -11,13 +11,13 @@ use parsy::{
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
-        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
-        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
-        ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
-        FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
-        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        StructTypeMember, SwitchCase, Value, ValueType,
+        Block, CmdArg, CmdCall, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath,
+        CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp,
+        ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
+        ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature,
+        Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase,
+        Value, ValueType,
     },
     files::SourceFile,
 };
@@ -730,54 +730,6 @@ pub fn program(
             cmd_raw.spanned().map(CmdPath::RawString),
         ));
 
-        let cmd_env_var_value = choice::<_, CmdEnvVarValue>((
-            // Raw
-            cmd_raw.spanned().map(CmdEnvVarValue::Raw),
-            // Computed string
-            computed_string
-                .clone()
-                .spanned()
-                .map(CmdEnvVarValue::ComputedString),
-            // Expression
-            char('(')
-                .ignore_then(expr.clone().spanned().padded_by(msnl))
-                .then_ignore(
-                    char(')').critical("unclosed expression (expected a closing parenthesis)"),
-                )
-                .map(CmdEnvVarValue::Expr),
-        ));
-
-        let cmd_env_var = ident
-            .spanned()
-            .then_ignore(char('='))
-            .then(
-                cmd_env_var_value
-                    .spanned()
-                    .critical("expected a value for the provided environment variable"),
-            )
-            .followed_by(
-                s.critical("expected another assignment or the command call after the assignment"),
-            )
-            .map(|(name, value)| CmdEnvVar { name, value });
-
-        let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
-            just("--")
-                .ignore_then(
-                    first_ident_char
-                        .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
-                        .collect_string(),
-                )
-                .map(CmdFlagNameArg::Long),
-            char('-')
-                .ignore_then(first_ident_char)
-                .map(CmdFlagNameArg::Short),
-        ))
-        .followed_by(silent_choice((
-            filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
-            char('='),
-            end(),
-        )));
-
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
             // Literal values
             literal_value.spanned().map(CmdValueMakingArg::LiteralValue),
@@ -814,6 +766,38 @@ pub fn program(
             // Raw argument (but not flags, which aren't value making arguments)
             cmd_raw.spanned().map(CmdValueMakingArg::Raw),
         ));
+
+        let cmd_env_var = ident
+            .spanned()
+            .then_ignore(char('='))
+            .then(
+                cmd_value_making_arg
+                    .clone()
+                    .spanned()
+                    .critical("expected a value for the provided environment variable"),
+            )
+            .followed_by(
+                s.critical("expected another assignment or the command call after the assignment"),
+            )
+            .map(|(name, value)| CmdEnvVar { name, value });
+
+        let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
+            just("--")
+                .ignore_then(
+                    first_ident_char
+                        .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
+                        .collect_string(),
+                )
+                .map(CmdFlagNameArg::Long),
+            char('-')
+                .ignore_then(first_ident_char)
+                .map(CmdFlagNameArg::Short),
+        ))
+        .followed_by(silent_choice((
+            filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
+            char('='),
+            end(),
+        )));
 
         cmd_flag_arg.finish(
             cmd_flag_name_arg

@@ -334,14 +334,7 @@ pub struct SingleCmdCall {
 #[derive(Debug, Clone)]
 pub struct CmdEnvVar {
     pub name: Eaten<String>,
-    pub value: Eaten<CmdEnvVarValue>,
-}
-
-#[derive(Debug, Clone)]
-pub enum CmdEnvVarValue {
-    Raw(Eaten<String>),
-    ComputedString(Eaten<ComputedString>),
-    Expr(Eaten<Expr>),
+    pub value: Eaten<CmdValueMakingArg>,
 }
 
 #[derive(Debug, Clone)]
