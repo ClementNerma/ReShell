@@ -301,7 +301,7 @@ fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
         None => parser_expection_to_str(err.inner().expected()),
     };
 
-    (CodeRange::new(err.inner().at(), 0), msg)
+    (CodeRange::new(err.inner().at(), err.inner().len()), msg)
 }
 
 fn checking_error(err: &CheckerError) -> (CodeRange, String) {

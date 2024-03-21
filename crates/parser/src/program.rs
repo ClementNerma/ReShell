@@ -1256,11 +1256,16 @@ pub fn program(
             //
             just("@include")
                 .ignore_then(s)
-                .ignore_then(literal_string.spanned().critical("expected a file path"))
-                .try_map(move |path| load_file(path.data, path.at.start.file_id))
-                .and_then(move |file| {
-                    program_bis.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
-                })
+                .ignore_then(
+                    literal_string
+                        .spanned()
+                        .critical("expected a file path")
+                        .try_map(move |path| load_file(path.data, path.at.start.file_id))
+                        .and_then(move |file| {
+                            program_bis
+                                .parse_str_as_file(&file.content, FileId::SourceFile(file.id))
+                        }),
+                )
                 .map(Instruction::Include),
             //
             // Function call

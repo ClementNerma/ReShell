@@ -103,7 +103,8 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             }
         };
 
-        let content = std::fs::read_to_string(&path).map_err(|err| format!("{err}"))?;
+        let content = std::fs::read_to_string(&path)
+            .map_err(|err| format!("failed to include file: {err}"))?;
 
         Ok((SourceFileLocation::RealFile(path), content))
     }));
