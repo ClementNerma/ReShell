@@ -22,10 +22,10 @@ use crate::{
 };
 
 pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
-    eval_fn_call_type(call, FnCallType::Normal, ctx)
+    eval_fn_call_type(call, None, ctx)
 }
 
-pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: FnCallType, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
+pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: Option<FnCallType>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     let func = if call.data.is_var_name {
         let var = ctx.get_visible_var(&call.data.name).ok_or_else(|| {
             ctx.error(
@@ -459,20 +459,20 @@ fn flatten_fn_call_args(
 ) -> ExecResult<Vec<CmdSingleArgResult>> {
     let mut out = vec![];
 
-    let mut treat_call_type = |call_type: FnCallType| -> ExecResult<()> {
+    let mut treat_call_type = |call_type: Option<FnCallType>| -> ExecResult<()> {
         match call_type {
-            FnCallType::Normal => {
+            None => {
                 if is_method {
                     return Err(ctx.error(call_at, "cannot call a method like a normal function"));
                 }
             },
 
             // Methods can be called through the value piping operator
-            FnCallType::Piped(piped) => {
+            Some(FnCallType::Piped(piped)) => {
                 out.push(CmdSingleArgResult::Basic(piped))
             },
 
-            FnCallType::Method(left) => {
+            Some(FnCallType::Method(left)) => {
                 if !is_method {
                     return Err(ctx.error(call_at, "cannot call a normal function like a method"));
                 }
@@ -643,14 +643,12 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
 }
 
 pub enum FnPossibleCallArgs<'a> {
-    Parsed { call_type: FnCallType, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
-    ParsedCmdArgs { call_type: FnCallType, args: Vec<(CmdArgResult, CodeRange)> },
+    Parsed { call_type: Option<FnCallType>, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
+    ParsedCmdArgs { call_type: Option<FnCallType>, args: Vec<(CmdArgResult, CodeRange)> },
     Internal(Vec<CmdArgResult>),
 }
 
 pub enum FnCallType {
-    // TODO: remove this
-    Normal,
     Piped(LocatedValue),
     Method(LocatedValue)
 }

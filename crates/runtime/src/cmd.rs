@@ -91,14 +91,11 @@ pub fn run_cmd(
                 RuntimeCodeRange::Parsed(call_at),
                 &func,
                 FnPossibleCallArgs::ParsedCmdArgs {
-                    call_type: match pipe_type {
-                        Some(pipe_type) => {
-                            assert_eq!(pipe_type.data, CmdPipeType::Value);
+                    call_type: pipe_type.map(|pipe_type| {
+                        assert_eq!(pipe_type.data, CmdPipeType::Value);
 
-                            FnCallType::Piped(last_return_value.unwrap())
-                        }
-                        None => FnCallType::Normal,
-                    },
+                        FnCallType::Piped(last_return_value.unwrap())
+                    }),
 
                     args,
                 },

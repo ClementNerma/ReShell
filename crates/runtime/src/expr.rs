@@ -231,7 +231,10 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
             ExprInnerChaining::MethodCall(fn_call) => {
                 let result = eval_fn_call_type(
                     fn_call,
-                    FnCallType::Method(LocatedValue::new(left, RuntimeCodeRange::Parsed(left_at))),
+                    Some(FnCallType::Method(LocatedValue::new(
+                        left,
+                        RuntimeCodeRange::Parsed(left_at),
+                    ))),
                     ctx,
                 )?;
 
