@@ -24,11 +24,11 @@ _Versus NuShell:_ NuShell is a powerful shell designed as an alternative way to 
 # Compute Fibonacci sequence
 # NOTE: type annotations are not required
 
-fn fibo(n: int) -> int {
-    return if n <= 1 {
-        n
+fn fib(n: int) -> int {
+    return if $n <= 1 {
+        $n
     } else {
-        fib(n - 1) + fib(n - 2)
+        fib($n - 1) + fib($n - 2)
     }
 }
 
