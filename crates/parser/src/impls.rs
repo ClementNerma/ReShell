@@ -76,7 +76,7 @@ impl From<CodeRange> for RuntimeCodeRange {
 
 impl FnSignature {
     pub fn is_method(&self) -> bool {
-        self.args.data().get(0).map_or(false, |arg| match arg {
+        self.args.data().first().map_or(false, |arg| match arg {
             FnArg::Positional {
                 name,
                 is_optional,
