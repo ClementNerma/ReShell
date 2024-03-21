@@ -16,12 +16,17 @@ impl RlEditMode for EditMode {
     fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
         match event.into() {
             Event::FocusGained => ReedlineEvent::None, // TODO: update when reedline gets correct focus support
+
             Event::FocusLost => ReedlineEvent::None, // TODO: update when reedline gets correct focus support
+
             Event::Paste(body) => ReedlineEvent::Edit(vec![EditCommand::InsertString(
                 body.replace("\r\n", "\n").replace('\r', "\n"),
             )]),
+
             Event::Mouse(_) => ReedlineEvent::Mouse, // TODO: update when reedline gets correct mouse support
+
             Event::Resize(cols, rows) => ReedlineEvent::Resize(cols, rows),
+
             Event::Key(key) => match (key.code, key.modifiers) {
                 (KeyCode::Up, KeyModifiers::NONE) => {
                     ReedlineEvent::UntilFound(vec![ReedlineEvent::MenuUp, ReedlineEvent::Up])
@@ -106,32 +111,7 @@ impl RlEditMode for EditMode {
                         ReedlineEvent::MenuNext,
                     ]),
 
-                    // ('"', KeyModifiers::NONE) => {
-                    //     ReedlineEvent::Edit(self.insert_matching('"', '"', line, offset))
-                    // }
-
-                    // ('(', KeyModifiers::NONE) => {
-                    //     ReedlineEvent::Edit(self.insert_matching('(', ')', line, offset))
-                    // }
-
-                    // ('[', KeyModifiers::NONE) => {
-                    //     ReedlineEvent::Edit(self.insert_matching('[', ']', line, offset))
-                    // }
-
-                    // ('{', KeyModifiers::NONE) => {
-                    //     ReedlineEvent::Edit(self.insert_matching('{', '}', line, offset))
-                    // }
-                    (_, KeyModifiers::NONE) => {
-                        ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)])
-                    }
-
-                    (_, KeyModifiers::SHIFT) => {
-                        ReedlineEvent::Edit(vec![EditCommand::InsertString(
-                            c.to_uppercase().to_string(),
-                        )])
-                    }
-
-                    _ => ReedlineEvent::None,
+                    (_, _) => ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)]),
                 },
 
                 _ => ReedlineEvent::None,
