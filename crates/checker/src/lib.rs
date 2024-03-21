@@ -483,7 +483,7 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
     let ExprInner {
         content,
         prop_acc,
-        method_calls,
+        pipes,
     } = &inner.data;
 
     check_expr_inner_content(&content.data, state)?;
@@ -492,7 +492,7 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
         check_prop_access(acc, state)?;
     }
 
-    for fn_call in method_calls {
+    for fn_call in pipes {
         check_fn_call(fn_call, state)?;
     }
 
