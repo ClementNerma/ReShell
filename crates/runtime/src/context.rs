@@ -274,7 +274,7 @@ impl Context {
                         let mut decl_methods = HashMap::<_, HashMap<_, _>>::new();
 
                         for ((name, on_type), method) in methods.iter() {
-                            decl_methods.entry(on_type.clone()).or_default().insert(
+                            decl_methods.entry(*on_type).or_default().insert(
                                 name.clone(),
                                 DeclaredMethod {
                                     scope_id: method.decl_scope_id,
@@ -450,10 +450,7 @@ impl Context {
                     methods: methods
                         .iter()
                         .map(|(dep, value)| {
-                            (
-                                (dep.name.clone(), value.applyable_type.clone()),
-                                value.clone(),
-                            )
+                            ((dep.name.clone(), value.applyable_type), value.clone())
                         })
                         .collect(),
 
@@ -759,7 +756,7 @@ impl Context {
 
                     for scope in self.visible_scopes_for(decl_scope) {
                         for ((method_name, on_type), method) in &scope.content.methods {
-                            if name == method_name && on_types.insert(on_type.clone()) {
+                            if name == method_name && on_types.insert(*on_type) {
                                 captured_deps.methods.insert(
                                     Dependency {
                                         name: name.clone(),
