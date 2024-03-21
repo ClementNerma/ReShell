@@ -149,6 +149,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Symbols and operators
                 simple("\\s(\\!=|&&|\\|\\||[&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!])(?:\\s|$)", [LightYellow]),
 
+                // Escaped arguments
+                simple_preceded_by("(\\\\\\n)\\s+$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Green]),
+
                 // Command names
                 simple_preceded_by("(^|[\\|\\n;\\{]|\\->|@direct\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Blue]),
 
