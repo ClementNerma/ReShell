@@ -186,6 +186,31 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // Get the length of a string or the number of entries in a map / list
+                //
+
+                "len",
+
+                Args [ArgsAt, ArgsTy] (
+                    content: RequiredArg<Union3Type<StringType, UntypedListType, MapType>> => Arg::positional("value")
+                )
+
+                -> Some(ExactIntType::<usize>::direct_underlying_type()),
+
+                |_, Args { content }, ArgsAt { content: content_at }, _, ctx| {
+                    let len = match content {
+                        Union3Result::A(str) => str.len(),
+                        Union3Result::B(list) => list.read().len(),
+                        Union3Result::C(map) => map.read().len(),
+                    };
+
+                    let len = i64::try_from(len).map_err(|_| ctx.error(content_at.unwrap_or_else(forge_internal_loc), format!("length is too big to fit in the integer type ({len})")))?;
+
+                    Ok(Some(RuntimeValue::Int(len)))
+                }
+            ),
+            define_internal_fn!(
+                //
                 // slice a list
                 //
 
