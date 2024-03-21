@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
     sync::{Arc, Mutex},
 };
 
@@ -103,28 +104,29 @@ impl RlCompleter for Completer {
             })
             .collect::<Vec<_>>();
 
-        let starts_with_home_dir = if word.starts_with("~/") {
+        let starts_with_home_dir = if word.starts_with("~/") || word.starts_with("~\\") {
             let Some(home_dir) = self.home_dir.as_ref() else {
                 return vec![];
             };
 
-            search[0] = home_dir.trim_end_matches('/').to_string();
+            search[0] = home_dir.trim_end_matches(['/', '\\']).to_string();
 
             Some(home_dir)
         } else {
             None
         };
 
-        if word.starts_with('/') {
-            search.insert(0, "/".to_string());
+        if word.starts_with(['/', '\\']) {
+            search.insert(0, MAIN_SEPARATOR.to_string());
         }
 
-        let mut search = search.join("/");
+        let mut search = search.join(MAIN_SEPARATOR_STR);
 
         if search.is_empty() {
             search.push('*');
-        } else if word.ends_with('/') {
-            search.push_str("/*");
+        } else if word.ends_with(['/', '\\']) {
+            search.push(MAIN_SEPARATOR);
+            search.push('*');
         }
 
         let glob_options = MatchOptions {
@@ -141,7 +143,7 @@ impl RlCompleter for Completer {
             return vec![];
         };
 
-        let starts_with_dot_slash = word.starts_with("./");
+        let starts_with_dot_slash = word.starts_with("./") || word.starts_with(".\\");
 
         #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         enum FileType {
@@ -171,18 +173,20 @@ impl RlCompleter for Completer {
             let mut path_str = path.to_string_lossy().to_string();
 
             if file_type.is_dir() {
-                path_str.push('/');
+                path_str.push(MAIN_SEPARATOR);
             }
 
             if let Some(home_dir) = starts_with_home_dir {
                 path_str = format!(
-                    "~/{}",
-                    path_str.strip_prefix(&format!("{home_dir}/")).unwrap()
+                    "~{MAIN_SEPARATOR}{}",
+                    path_str
+                        .strip_prefix(&format!("{home_dir}{MAIN_SEPARATOR}"))
+                        .unwrap()
                 )
             }
 
             let mut value = if starts_with_dot_slash {
-                format!("./{path_str}")
+                format!(".{MAIN_SEPARATOR}{path_str}")
             } else {
                 path_str
             };
@@ -197,8 +201,8 @@ impl RlCompleter for Completer {
                     value,
                     description: Some(
                         match file_type_enum {
-                            FileType::Directory => "Dir",
-                            FileType::File => "File",
+                            FileType::Directory => "D",
+                            FileType::File => "F",
                             FileType::Unknown => "?",
                         }
                         .to_string(),
