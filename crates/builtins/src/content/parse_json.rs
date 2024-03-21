@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::define_internal_fn;
 
 define_internal_fn!(
-    "json",
+    "parseJson",
 
     (
         string: RequiredArg<StringType> = Arg::positional("string")
