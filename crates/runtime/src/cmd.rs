@@ -16,6 +16,7 @@ use crate::{
     errors::{ExecErrorContent, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
     functions::{call_fn, call_fn_value, FnCallResult, FnPossibleCallArgs},
+    gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{LocatedValue, RuntimeCmdAlias, RuntimeValue},
 };
@@ -311,14 +312,14 @@ fn single_call_to_chain_el(
             alias_content: _,
             parent_scopes,
             captured_deps,
-        } = cmd_alias;
+        } = &*cmd_alias;
 
         ctx.create_and_push_scope_with_deps(
-            RuntimeCodeRange::CodeRange(name_declared_at),
-            DepsScopeCreationData::CapturedDeps(captured_deps),
+            RuntimeCodeRange::CodeRange(*name_declared_at),
+            DepsScopeCreationData::CapturedDeps(captured_deps.clone()),
             // This scope won't be used anyway, it is only here to provide access to the deps scope
             ScopeContent::new(),
-            parent_scopes,
+            parent_scopes.clone(),
             None,
         );
     }
@@ -378,7 +379,7 @@ fn compute_env_var_value(value: &CmdEnvVarValue, ctx: &mut Context) -> ExecResul
 fn develop_aliases(
     call: &Eaten<SingleCmdCall>,
     ctx: &mut Context,
-) -> Option<(Eaten<SingleCmdCall>, Vec<RuntimeCmdAlias>)> {
+) -> Option<(Eaten<SingleCmdCall>, Vec<GcReadOnlyCell<RuntimeCmdAlias>>)> {
     let mut developed_call = Cow::Borrowed(call);
     let mut aliases = vec![];
 
@@ -399,7 +400,7 @@ fn develop_aliases(
             env_vars,
             path,
             args,
-        } = &*cmd_alias.alias_content;
+        } = &cmd_alias.value.alias_content.data;
 
         call.data.path.change_value(path.data.clone());
 
@@ -410,8 +411,7 @@ fn develop_aliases(
 
         call.data.args.data.splice(0..0, args.data.iter().cloned());
 
-        // TODO: avoid cloning (use a [`GcReadOnlyCell`])
-        aliases.push(cmd_alias.clone());
+        aliases.push(GcReadOnlyCell::clone(&cmd_alias.value));
 
         developed_call = Cow::Owned(call);
     }

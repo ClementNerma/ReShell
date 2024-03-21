@@ -9,7 +9,7 @@ use reshell_parser::ast::{
     StructTypeMember, ValueType,
 };
 
-use crate::context::{ScopeFn, ScopeVar};
+use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
 use crate::functions::ParsedFnCallArg;
 use crate::gc::GcReadOnlyCell;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
@@ -37,20 +37,10 @@ impl RuntimeFnSignature {
     }
 }
 
-// TODO: this struct is pretty expensive to clone, put it inside an Arc<> or something?
 #[derive(Debug, Clone)]
 pub struct RuntimeCmdAlias {
     pub name_declared_at: CodeRange,
-    pub alias_content: GcReadOnlyCell<SingleCmdCall>,
-    pub parent_scopes: IndexSet<u64>,
-    pub captured_deps: CapturedDependencies,
-}
-
-// TODO: this struct is pretty expensive to clone, put it inside an Arc<> or something?
-#[derive(Debug, Clone)]
-pub struct RuntimeTypeAlias {
-    pub name_declared_at: CodeRange,
-    pub alias_content: GcReadOnlyCell<ValueType>,
+    pub alias_content: Rc<Eaten<SingleCmdCall>>,
     pub parent_scopes: IndexSet<u64>,
     pub captured_deps: CapturedDependencies,
 }
@@ -59,7 +49,7 @@ pub struct RuntimeTypeAlias {
 pub struct CapturedDependencies {
     pub vars: HashMap<Dependency, ScopeVar>,
     pub fns: HashMap<Dependency, ScopeFn>,
-    pub cmd_aliases: HashMap<Dependency, RuntimeCmdAlias>,
+    pub cmd_aliases: HashMap<Dependency, ScopeCmdAlias>,
 }
 
 pub enum RuntimeFnBody {
@@ -131,7 +121,7 @@ impl RuntimeValue {
                 }))
             }
             RuntimeValue::Function(content) => {
-                // TODO: performance
+                // TODO: performance (use already collected data from checker?)
                 SingleValueType::Function(match &content.signature {
                     RuntimeFnSignature::Shared(shared) => RuntimeEaten::Eaten(Eaten::clone(shared)),
                     RuntimeFnSignature::Owned(owned) => RuntimeEaten::Internal(owned.clone()),
