@@ -246,6 +246,8 @@ pub enum SingleValueType {
     TypeAlias(Eaten<String>),
     CmdCall,
     ArgSpread,
+    // TODO: parsable?
+    Custom(&'static str),
 }
 
 #[derive(Debug, Clone)]

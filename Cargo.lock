@@ -648,6 +648,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26072860ba924cbfa98ea39c8c19b4dd6a4a25423dbdf219c1eca91aa0cf6964"
 
 [[package]]
+name = "pomsky"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ddec9a830740eacb682ea0690f27e4a1c0dcba391aa40dfc03e47fb0ddbf0578"
+dependencies = [
+ "pomsky-syntax",
+]
+
+[[package]]
+name = "pomsky-syntax"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01c3ed2ebe30f78d20b329173899c7758d55202ab3186fe5b43e02ce9a979cfb"
+
+[[package]]
 name = "powerfmt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -771,6 +786,8 @@ dependencies = [
  "glob",
  "indexmap",
  "parsy",
+ "pomsky",
+ "regex",
  "reshell-parser",
  "reshell-runtime",
  "serde_json",

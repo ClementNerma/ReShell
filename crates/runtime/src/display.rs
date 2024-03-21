@@ -34,7 +34,9 @@ pub fn value_to_str(
         | RuntimeValue::Function(_)
         | RuntimeValue::Error(_)
         | RuntimeValue::CmdCall { content_at: _ }
-        | RuntimeValue::ArgSpread(_) => Err(ctx
+        | RuntimeValue::ArgSpread(_)
+        | RuntimeValue::Custom(_) // TODO?
+        => Err(ctx
             .error(
                 at,
                 format!(
@@ -114,6 +116,7 @@ impl PrettyPrintable for SingleValueType {
                     .generate_pretty_data(ctx),
                 PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
             ]),
+            Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta)
         }
     }
 }
@@ -287,6 +290,8 @@ impl PrettyPrintable for RuntimeValue {
             },
 
             RuntimeValue::Function(func) => func.generate_pretty_data(ctx),
+
+            RuntimeValue::Custom(value) => value.generate_pretty_data(ctx),
         }
     }
 }
@@ -460,7 +465,7 @@ impl PrettyPrintable for CmdFlagNameArg {
     }
 }
 
-fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
+pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
     let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
         '"'.to_owned(),
         Color::BrightGreen,

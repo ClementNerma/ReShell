@@ -94,6 +94,12 @@ impl ComputableSize for String {
     }
 }
 
+impl ComputableSize for &str {
+    fn compute_heap_size(&self) -> usize {
+        0
+    }
+}
+
 impl<T: ComputableSize> ComputableSize for Option<T> {
     fn compute_heap_size(&self) -> usize {
         match self {
@@ -347,6 +353,7 @@ impl ComputableSize for SingleValueType {
             SingleValueType::TypedStruct(typed) => typed.compute_heap_size(),
             SingleValueType::Function(func) => func.compute_heap_size(),
             SingleValueType::TypeAlias(alias) => alias.compute_heap_size(),
+            SingleValueType::Custom(name) => name.compute_heap_size(),
         }
     }
 }
@@ -927,6 +934,7 @@ impl ComputableSize for RuntimeValue {
             RuntimeValue::Struct(members) => members.compute_heap_size(),
             RuntimeValue::Function(func) => func.compute_heap_size(),
             RuntimeValue::ArgSpread(spread) => spread.compute_heap_size(),
+            RuntimeValue::Custom(value) => value.compute_heap_size(),
         }
     }
 }
