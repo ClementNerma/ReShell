@@ -35,31 +35,31 @@ pub fn build_native_lib_content() -> ScopeContent {
     ScopeContent {
         fns: functions
             .into_iter()
-            .map(
-                |InternalFunction {
-                     name,
-                     args,
-                     run,
-                     ret_type,
-                 }| {
-                    (
-                        name.to_owned(),
-                        ScopeFn {
-                            name_at: forge_internal_loc(),
-                            value: GcReadOnlyCell::new(RuntimeFnValue {
-                                signature: RuntimeFnSignature::Owned(FnSignature {
-                                    args: forge_internal_token(args),
-                                    ret_type: ret_type
-                                        .map(|ret_type| forge_internal_token(Box::new(ret_type))),
-                                }),
-                                body: RuntimeFnBody::Internal(run),
-                                parent_scopes: IndexSet::new(),
-                                captured_deps: CapturedDependencies::default(),
+            .map(|func| {
+                let InternalFunction {
+                    name,
+                    args,
+                    run,
+                    ret_type,
+                } = func;
+
+                (
+                    name.to_owned(),
+                    ScopeFn {
+                        name_at: forge_internal_loc(),
+                        value: GcReadOnlyCell::new(RuntimeFnValue {
+                            signature: RuntimeFnSignature::Owned(FnSignature {
+                                args: forge_internal_token(args),
+                                ret_type: ret_type
+                                    .map(|ret_type| forge_internal_token(Box::new(ret_type))),
                             }),
-                        },
-                    )
-                },
-            )
+                            body: RuntimeFnBody::Internal(run),
+                            parent_scopes: IndexSet::new(),
+                            captured_deps: CapturedDependencies::default(),
+                        }),
+                    },
+                )
+            })
             .collect(),
 
         vars: vars
