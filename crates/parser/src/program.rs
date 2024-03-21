@@ -634,7 +634,9 @@ pub fn program(
                                     .spanned()
                                     .critical("expected an expression to match"),
                             )
-                            .then_ignore(ms)
+                            .then_ignore(msnl)
+                            .then_ignore(just("->").critical("expected an arrow (->)"))
+                            .then_ignore(msnl)
                             .then(
                                 expr.clone()
                                     .spanned()
@@ -645,7 +647,9 @@ pub fn program(
                     )
                     .then(
                         msnl.ignore_then(just("else").critical("expected an 'else' fallback"))
-                            .ignore_then(ms)
+                            .then_ignore(msnl)
+                            .then_ignore(just("->").critical("expected an arrow (->)"))
+                            .then_ignore(msnl)
                             .ignore_then(
                                 expr.clone()
                                     .map(Box::new)
