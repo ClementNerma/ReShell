@@ -127,12 +127,19 @@ impl RuntimeValue {
                     .read_promise_no_write()
                     .iter()
                     .map(|(name, value)| {
-                        RuntimeEaten::Internal(StructTypeMember {
-                            name: RuntimeEaten::Internal(name.clone()),
-                            typ: RuntimeEaten::Internal(ValueType::Single(RuntimeEaten::Internal(
-                                value.get_type(),
-                            ))),
-                        })
+                        RuntimeEaten::Internal(
+                            StructTypeMember {
+                                name: RuntimeEaten::Internal(name.clone(), "type deducer"),
+                                typ: RuntimeEaten::Internal(
+                                    ValueType::Single(RuntimeEaten::Internal(
+                                        value.get_type(),
+                                        "type deducer",
+                                    )),
+                                    "type deducer",
+                                ),
+                            },
+                            "type deducer",
+                        )
                     })
                     .collect(),
             ),
@@ -142,7 +149,9 @@ impl RuntimeValue {
                     RuntimeFnSignature::Shared(shared) => {
                         RuntimeEaten::Parsed(Eaten::clone(shared))
                     }
-                    RuntimeFnSignature::Owned(owned) => RuntimeEaten::Internal(owned.clone()),
+                    RuntimeFnSignature::Owned(owned) => {
+                        RuntimeEaten::Internal(owned.clone(), "type deducer")
+                    }
                 })
             }
             RuntimeValue::Error(_) => SingleValueType::Error,

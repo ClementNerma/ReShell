@@ -26,7 +26,9 @@ pub fn render_prompt(
         .unwrap()
         .clone();
 
-    let prompt_var_value = prompt_var.value.read(RuntimeCodeRange::Internal);
+    let prompt_var_value = prompt_var.value.read(RuntimeCodeRange::Internal(
+        "calling prompt generation function",
+    ));
 
     if matches!(prompt_var_value.value, RuntimeValue::Null) {
         return Ok(None);
@@ -98,7 +100,7 @@ pub fn render_prompt(
 
     let ret_val = ret_val.ok_or_else(|| {
         ctx.error(
-            RuntimeCodeRange::Internal,
+            RuntimeCodeRange::Internal("calling prompt generation function"),
             "prompt generation function did not return a value",
         )
     })?;

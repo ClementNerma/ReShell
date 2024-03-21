@@ -21,14 +21,20 @@ pub fn forge_basic_fn_signature(
         args: RuntimeEaten::Internal(
             args.into_iter()
                 .map(|(name, typ)| FnArg::Positional {
-                    name: RuntimeEaten::Internal(name.into()),
+                    name: RuntimeEaten::Internal(name.into(), "native library's type generator"),
                     is_optional: false,
-                    typ: Some(RuntimeEaten::Internal(typ)),
+                    typ: Some(RuntimeEaten::Internal(
+                        typ,
+                        "native library's type generator",
+                    )),
                 })
                 .collect(),
+            "native library's type generator",
         ),
 
-        ret_type: ret_type.map(|ret_type| RuntimeEaten::Internal(Box::new(ret_type))),
+        ret_type: ret_type.map(|ret_type| {
+            RuntimeEaten::Internal(Box::new(ret_type), "native library's type generator")
+        }),
     }
 }
 
@@ -81,14 +87,14 @@ pub fn call_fn_checked(
     }
 
     call_fn_value(
-        RuntimeCodeRange::Internal,
+        loc_val.from,
         func,
         FnPossibleCallArgs::Internal(
             args.into_iter()
                 .map(|arg| {
                     CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
                         arg,
-                        RuntimeCodeRange::Internal,
+                        loc_val.from,
                     )))
                 })
                 .collect(),

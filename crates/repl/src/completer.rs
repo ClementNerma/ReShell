@@ -10,7 +10,7 @@ use std::{
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
 use regex::{Captures, Regex};
-use reshell_parser::{ast::RuntimeCodeRange, DELIMITER_CHARS};
+use reshell_parser::DELIMITER_CHARS;
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     context::Context,
@@ -279,7 +279,7 @@ fn complete_var_name(
                     },
                     description: Some(
                         item.value
-                            .read(RuntimeCodeRange::Internal)
+                            .read_promise_no_write()
                             .value
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline()),

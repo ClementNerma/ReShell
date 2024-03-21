@@ -501,12 +501,12 @@ pub enum FnCallArg {
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum RuntimeEaten<T> {
     Parsed(Eaten<T>),
-    Internal(T),
+    Internal(T, &'static str),
 }
 
 /// Either a [`CodeRange`] or an internal location
 #[derive(Debug, Clone, Copy)]
 pub enum RuntimeCodeRange {
     Parsed(CodeRange),
-    Internal,
+    Internal(&'static str),
 }

@@ -258,8 +258,14 @@ impl<Inner: SingleTyping> NullableType<Inner> {
 impl<Inner: SingleTyping> Typing for NullableType<Inner> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            RuntimeEaten::Internal(self.inner.underlying_single_type()),
-            RuntimeEaten::Internal(NullType.underlying_single_type()),
+            RuntimeEaten::Internal(
+                self.inner.underlying_single_type(),
+                "native library's type generator",
+            ),
+            RuntimeEaten::Internal(
+                NullType.underlying_single_type(),
+                "native library's type generator",
+            ),
         ])
     }
 
@@ -295,7 +301,10 @@ impl TypedFunctionType {
 
 impl SingleTyping for TypedFunctionType {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Function(RuntimeEaten::Internal(self.signature.clone()))
+        SingleValueType::Function(RuntimeEaten::Internal(
+            self.signature.clone(),
+            "native library's type generator",
+        ))
     }
 
     type Parsed = GcReadOnlyCell<RuntimeFnValue>;
@@ -421,7 +430,7 @@ macro_rules! declare_typed_union_hanlder {
         {
             fn underlying_type(&self) -> ValueType {
                 ValueType::Union(vec![
-                    $( RuntimeEaten::Internal(self.$generic.underlying_single_type()) ),+
+                    $( RuntimeEaten::Internal(self.$generic.underlying_single_type(), "native library's type generator") ),+
                 ])
             }
 
@@ -478,9 +487,9 @@ macro_rules! declare_typed_struct_handler {
                     SingleValueType::TypedStruct(vec![
                         $(
                             RuntimeEaten::Internal(StructTypeMember {
-                                name: RuntimeEaten::Internal(self.$member.0.clone()),
-                                typ: RuntimeEaten::Internal(self.$member.1.underlying_type())
-                            })
+                                name: RuntimeEaten::Internal(self.$member.0.clone(), "native library's type generator"),
+                                typ: RuntimeEaten::Internal(self.$member.1.underlying_type(), "native library's type generator")
+                            }, "native library's type generator")
                         ),+
                     ])
                 }

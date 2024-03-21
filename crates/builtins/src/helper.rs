@@ -68,7 +68,10 @@ pub trait Typing {
 
 impl<T: SingleTyping> Typing for T {
     fn underlying_type(&self) -> ValueType {
-        ValueType::Single(RuntimeEaten::Internal(self.underlying_single_type()))
+        ValueType::Single(RuntimeEaten::Internal(
+            self.underlying_single_type(),
+            "native library's type generator",
+        ))
     }
 
     type Parsed = T::Parsed;
@@ -238,9 +241,15 @@ pub(super) fn generate_internal_arg_decl<
 ) -> FnArg {
     match arg.names() {
         ArgNames::Positional(name) => FnArg::Positional {
-            name: RuntimeEaten::Internal((*name).to_owned()),
+            name: RuntimeEaten::Internal(
+                (*name).to_owned(),
+                "native library's arguments declaration",
+            ),
             is_optional: arg.is_optional(),
-            typ: Some(RuntimeEaten::Internal(arg.base_typing().underlying_type())),
+            typ: Some(RuntimeEaten::Internal(
+                arg.base_typing().underlying_type(),
+                "native library's arguments declaration",
+            )),
         },
 
         ArgNames::Flag(flag) => {
@@ -249,13 +258,17 @@ pub(super) fn generate_internal_arg_decl<
                 //     FnFlagArgNames::ShortFlag(RuntimeEaten::Internal(short))
                 // }
                 //
-                ArgFlagNames::Long(long) => {
-                    FnFlagArgNames::LongFlag(RuntimeEaten::Internal(long.raw.to_owned()))
-                }
+                ArgFlagNames::Long(long) => FnFlagArgNames::LongFlag(RuntimeEaten::Internal(
+                    long.raw.to_owned(),
+                    "native library's arguments declaration",
+                )),
 
                 ArgFlagNames::LongAndShort(long, short) => FnFlagArgNames::LongAndShortFlag {
-                    long: RuntimeEaten::Internal(long.raw.to_owned()),
-                    short: RuntimeEaten::Internal(*short),
+                    long: RuntimeEaten::Internal(
+                        long.raw.to_owned(),
+                        "native library's arguments declaration",
+                    ),
+                    short: RuntimeEaten::Internal(*short, "native library's arguments declaration"),
                 },
             };
 
@@ -267,7 +280,10 @@ pub(super) fn generate_internal_arg_decl<
                 typ => FnArg::NormalFlag {
                     names,
                     is_optional: arg.is_optional(),
-                    typ: Some(RuntimeEaten::Internal(typ)),
+                    typ: Some(RuntimeEaten::Internal(
+                        typ,
+                        "native library's arguments declaration",
+                    )),
                 },
             }
         }
@@ -383,7 +399,7 @@ macro_rules! define_internal_fn {
 
             run().0
                 (call_at, args, args_at, ctx)
-                .map(|value| value.map(|value| LocatedValue::new(value, RuntimeCodeRange::Internal)))
+                .map(|value| value.map(|value| LocatedValue::new(value, RuntimeCodeRange::Internal("native library's argument parser"))))
         }
 
         struct Runner(Box<dyn Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>>>);
@@ -404,12 +420,12 @@ macro_rules! define_internal_fn {
 
             let method_on_type = args.first().and_then(|first_arg| match first_arg {
                 FnArg::Positional {
-                    name: RuntimeEaten::Internal(name),
+                    name: RuntimeEaten::Internal(name, _),
                     is_optional: false,
                     typ
                 } if name == "self" => {
                     match typ {
-                        Some(RuntimeEaten::Internal(ValueType::Single(typ))) => {
+                        Some(RuntimeEaten::Internal(ValueType::Single(typ), _)) => {
                             Some(MethodApplyableType::from_single_value_type(typ.data().clone()).unwrap_or_else(|| {
                                 panic!("invalid method applyable type in native library: {:?}", typ.data())
                             }))

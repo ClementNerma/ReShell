@@ -23,7 +23,7 @@ fn run() -> Runner {
             }))))
         }
 
-        RuntimeCodeRange::Internal => {
+        RuntimeCodeRange::Internal(_) => {
             Err(ctx.throw(at, "cannot generate an error from an internal location"))
         }
     })
