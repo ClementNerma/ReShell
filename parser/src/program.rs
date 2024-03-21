@@ -186,6 +186,7 @@ pub fn program() -> impl Parser<Program> {
                 expr.clone()
                     .spanned()
                     .map(FnCallArg::Expr)
+                    .spanned()
                     .separated_by(char(',').padded())
                     .spanned(),
             )

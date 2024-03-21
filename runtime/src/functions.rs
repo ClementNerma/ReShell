@@ -124,7 +124,7 @@ fn parse_fn_call_args(
     for arg_index in 0..args_len {
         let call_arg = match call_args {
             FnPossibleCallArgs::Parsed(parsed) => {
-                FnPossibleCallArg::Parsed(parsed.data.get(arg_index).unwrap())
+                FnPossibleCallArg::Parsed(&parsed.data.get(arg_index).unwrap().data)
             }
             FnPossibleCallArgs::Direct { at: _, ref args } => {
                 FnPossibleCallArg::Direct(args.get(arg_index).unwrap())
@@ -376,7 +376,7 @@ fn fn_arg_var_name(arg: &FnArg) -> String {
 }
 
 pub enum FnPossibleCallArgs<'a> {
-    Parsed(&'a Eaten<Vec<FnCallArg>>),
+    Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
     Direct {
         at: CodeRange,
         args: Vec<LocatedValue>,

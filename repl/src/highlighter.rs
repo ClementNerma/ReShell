@@ -543,7 +543,8 @@ impl Highlight for Eaten<FnCall> {
         h.push(&VAR_NAME, name.at);
 
         for arg in &call_args.data {
-            arg.highlight(h);
+            h.push_everything_until(&KEYWORD, arg.at);
+            arg.data.highlight(h);
         }
     }
 }

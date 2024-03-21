@@ -302,7 +302,7 @@ pub enum FnArgNames {
 pub struct FnCall {
     pub is_var_name: bool,
     pub name: Eaten<String>,
-    pub call_args: Eaten<Vec<FnCallArg>>,
+    pub call_args: Eaten<Vec<Eaten<FnCallArg>>>,
 }
 
 #[derive(Debug, Clone)]
