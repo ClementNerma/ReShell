@@ -731,7 +731,17 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
                 if chain_type != call_type {
                     return Err(CheckerError::new(
                         call.at,
-                        format!("{call_type} cannot be piped from a {chain_type}"),
+                        match (call_type, chain_type) {
+                            (CmdPathTargetType::Function, CmdPathTargetType::ExternalCommand) => {
+                                "cannot pipe the result of a function into an external command"
+                            }
+
+                            (CmdPathTargetType::ExternalCommand, CmdPathTargetType::Function) => {
+                                "cannot pipe the output of an external command into a function"
+                            }
+
+                            _ => unreachable!(),
+                        },
                     ));
                 }
 
@@ -1163,13 +1173,4 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
 enum CmdPathTargetType {
     Function,
     ExternalCommand,
-}
-
-impl std::fmt::Display for CmdPathTargetType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CmdPathTargetType::Function => write!(f, "function"),
-            CmdPathTargetType::ExternalCommand => write!(f, "external command"),
-        }
-    }
 }
