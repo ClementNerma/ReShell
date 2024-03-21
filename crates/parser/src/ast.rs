@@ -11,6 +11,7 @@ pub struct Program {
 /// A block (= set of instructions)
 #[derive(Debug, Clone)]
 pub struct Block {
+    pub id: u64,
     pub instructions: Vec<Eaten<Instruction>>,
 }
 
