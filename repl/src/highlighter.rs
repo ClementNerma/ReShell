@@ -14,48 +14,27 @@ impl RlHighlighter for Highlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         let mut h = SyntaxHighlighter::new(line);
 
-        h.highlight(
-            Regex::new(
-                "\\b(let|mut|if|for|in|while|continue|break|fn|return|throw|alias|type|do)\\b",
-            )
-            .unwrap(),
-            &[Style::new().fg(Color::Magenta).bold()],
-        );
+        macro_rules! highlight {
+            ($(($test: expr) => $regex: expr => $color: ident),+) => {
+                $(
+                    // $test
+                    h.highlight(
+                        Regex::new($regex).unwrap(),
+                        &[Style::new().fg(Color::$color)],
+                    );
+                )+
+            }
+        }
 
-        h.highlight(
-            Regex::new("\\b(any|null|bool|int|float|string|list|map|error|struct|fn)\\b").unwrap(),
-            &[Style::new().fg(Color::Magenta).bold()],
+        highlight!(
+            ("keywords") => "\\b(let|mut|if|for|in|while|continue|break|fn|return|throw|alias|type|do)\\b" => Magenta,
+            ("types") => "\\b(any|null|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
+            ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+            ("loop iterator") => "(?:^|\\n|\\s)(?:for|let|mut)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+            ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
+            ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\.]+)\\b" => LightBlue,
+            ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue
         );
-
-        h.highlight(
-            Regex::new("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b").unwrap(),
-            &[Style::new().fg(Color::Red)],
-        );
-
-        h.highlight(
-            Regex::new("(?:^|\\n|\\s)(?:for|let|mut)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b").unwrap(),
-            &[Style::new().fg(Color::Red)],
-        );
-
-        h.highlight(
-            Regex::new("\\b(\\d+(?:\\.\\d+)?)\\b").unwrap(),
-            &[Style::new().fg(Color::LightYellow)],
-        );
-
-        h.highlight(
-            Regex::new("(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\.]+)\\b").unwrap(),
-            &[Style::new().fg(Color::LightBlue)],
-        );
-
-        h.highlight(
-            Regex::new("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(").unwrap(),
-            &[Style::new().fg(Color::LightBlue)],
-        );
-
-        // h.highlight(
-        //     Regex::new("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\b").unwrap(),
-        //     &[Style::new().fg(Color::Green)],
-        // );
 
         h.finalize(Style::new().fg(Color::Green))
     }
