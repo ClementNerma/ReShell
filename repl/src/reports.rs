@@ -49,7 +49,9 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             )
         }
 
-        FileId::SourceLess { name: _ } => {
+        FileId::Custom(id) => {
+            assert_eq!(id, 0);
+
             let src = "<source-less code>";
 
             (

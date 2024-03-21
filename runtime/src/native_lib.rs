@@ -601,7 +601,7 @@ pub fn render_prompt(
                 "expected the prompt generation function to return a struct, found a {}",
                 readable_value_type(&ret_val.value)
             ),
-        ))
+        ));
     };
 
     macro_rules! get_options {

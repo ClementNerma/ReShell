@@ -8,16 +8,16 @@ name = "reshell"
 path = "src/main.rs"
 
 [dependencies]
-ariadne = "0.2.0"
+ariadne = "0.3.0"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
-parsy = "0.2.0"
-clap = { version = "4.3.4", features = ["derive"] }
-reedline = "0.20.0"
-nu-ansi-term = "0.47.0"
+parsy = "0.2.3"
+clap = { version = "4.4.2", features = ["derive"] }
+reedline = "0.23.0"
+nu-ansi-term = "0.49.0"
 glob = "0.3.1"
 once_cell = "1.18.0"
-colored = "2.0.0"
+colored = "2.0.4"
 dirs = "5.0.1"
-regex = "1.8.4"
+regex = "1.9.5"
 crossterm = { version = "0.26.1", default-features = false }

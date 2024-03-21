@@ -124,10 +124,7 @@ pub fn dbg_loc(at: CodeRange, files_map: &FilesMap) -> String {
             )
         }
         FileId::Internal => "<internal>".into(),
-        FileId::SourceLess { name } => match name {
-            Some(name) => format!("<source-less: {name}>"),
-            None => "<source-less>".into(),
-        },
+        FileId::Custom(id) => format!("<custom: {id}>"),
     }
 }
 
