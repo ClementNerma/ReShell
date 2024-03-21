@@ -161,8 +161,8 @@ pub enum Value {
 
 #[derive(Debug, Clone)]
 pub enum ValueType {
-    Single(Eaten<SingleValueType>),
-    Union(Vec<Eaten<SingleValueType>>),
+    Single(MaybeEaten<SingleValueType>),
+    Union(Vec<MaybeEaten<SingleValueType>>),
 }
 
 #[derive(Debug, Clone)]
@@ -176,10 +176,17 @@ pub enum SingleValueType {
     List,
     Range,
     Map,
-    Struct,
-    Function(FnSignature),
     Error,
+    UntypedStruct,
+    TypedStruct(Vec<MaybeEaten<StructTypeMember>>),
+    Function(FnSignature),
     TypeAlias(Eaten<String>),
+}
+
+#[derive(Debug, Clone)]
+pub struct StructTypeMember {
+    pub name: MaybeEaten<String>,
+    pub typ: MaybeEaten<ValueType>,
 }
 
 #[derive(Debug, Clone)]
@@ -348,6 +355,28 @@ impl FnArgNames {
             FnArgNames::ShortFlag(_) => None,
             FnArgNames::LongFlag(flag) => Some(flag),
             FnArgNames::LongAndShortFlag { long, short: _ } => Some(long),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MaybeEaten<T> {
+    Eaten(Eaten<T>),
+    Raw(T),
+}
+
+impl<T> MaybeEaten<T> {
+    pub fn inner(&self) -> &T {
+        match &self {
+            Self::Eaten(eaten) => &eaten.data,
+            Self::Raw(raw) => raw,
+        }
+    }
+
+    pub fn eaten(&self) -> Option<&Eaten<T>> {
+        match self {
+            MaybeEaten::Eaten(eaten) => Some(eaten),
+            MaybeEaten::Raw(_) => None,
         }
     }
 }

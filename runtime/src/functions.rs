@@ -186,21 +186,16 @@ fn parse_fn_call_args(
                                 );
                             }
 
-                            Some(typ) => match typ.data {
-                                ValueType::Single(Eaten {
-                                    at: _,
-                                    data: SingleValueType::Bool,
-                                }) => {
+                            Some(typ) => {
+                                if is_type_bool(&typ.data) {
                                     args.insert(
                                         fn_arg_var_name(flag),
                                         LocatedValue::new(RuntimeValue::Bool(true), call_arg_at),
                                     );
-                                }
-
-                                _ => {
+                                } else {
                                     opened_flag = Some((flag, call_arg_at));
                                 }
-                            },
+                            }
                         }
 
                         continue;
@@ -316,13 +311,7 @@ fn parse_fn_call_args(
             let mut value = RuntimeValue::Null;
 
             if let Some(typ) = &flag.typ {
-                if matches!(
-                    typ.data,
-                    ValueType::Single(Eaten {
-                        at: _,
-                        data: SingleValueType::Bool
-                    })
-                ) {
+                if is_type_bool(&typ.data) {
                     value = RuntimeValue::Bool(false);
                 } else if !flag.is_optional {
                     return Err(ctx.error(
@@ -372,6 +361,13 @@ fn fn_arg_var_name(arg: &FnArg) -> String {
         FnArgNames::ShortFlag(short) => short.data.to_string(),
         FnArgNames::LongFlag(long) => long.data.clone(),
         FnArgNames::LongAndShortFlag { long, short: _ } => long.data.clone(),
+    }
+}
+
+fn is_type_bool(typ: &ValueType) -> bool {
+    match typ {
+        ValueType::Single(maybe_eaten) => matches!(maybe_eaten.inner(), SingleValueType::Bool),
+        ValueType::Union(_) => false,
     }
 }
 

@@ -7,8 +7,8 @@ use parsy::{
 
 use crate::ast::{
     CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ExprInnerContent, FnArg, FnArgNames,
-    FnCall, FnCallArg, FnSignature, PropAccess, PropAccessNature, SingleCmdCall, SingleValueType,
-    ValueType,
+    FnCall, FnCallArg, FnSignature, MaybeEaten, PropAccess, PropAccessNature, SingleCmdCall,
+    SingleValueType, StructTypeMember, ValueType,
 };
 
 use super::ast::{
@@ -46,6 +46,8 @@ pub fn program() -> impl Parser<Program> {
 
         let fn_signature = late::<FnSignature>();
 
+        let value_type = late::<ValueType>();
+
         let single_value_type = choice::<_, SingleValueType>((
             just("any")
                 .not_followed_by(possible_ident_char.clone())
@@ -71,28 +73,60 @@ pub fn program() -> impl Parser<Program> {
             just("map")
                 .not_followed_by(possible_ident_char.clone())
                 .to(SingleValueType::Map),
-            just("struct")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::Struct),
             just("error")
                 .not_followed_by(possible_ident_char.clone())
                 .to(SingleValueType::Error),
+            just("struct")
+                .ignore_then(
+                    ms.ignore_then(char('{'))
+                        .ignore_then(msnl)
+                        .ignore_then(
+                            ident
+                                .clone()
+                                .spanned()
+                                .map(MaybeEaten::Eaten)
+                                .then_ignore(ms)
+                                .then_ignore(char(':').critical("expected a ':'"))
+                                .then_ignore(msnl)
+                                .then(
+                                    value_type
+                                        .clone()
+                                        .spanned()
+                                        .map(MaybeEaten::Eaten)
+                                        .critical("expected a value type"),
+                                )
+                                .map(|(name, typ)| StructTypeMember { name, typ })
+                                .spanned()
+                                .map(MaybeEaten::Eaten)
+                                .separated_by(char(',').padded()),
+                        )
+                        .then_ignore(msnl)
+                        .then_ignore(char('}').critical("expected a closing brace '}'"))
+                        .or_not(),
+                )
+                .map(|members| match members {
+                    Some(members) => SingleValueType::TypedStruct(members),
+                    None => SingleValueType::UntypedStruct,
+                }),
             fn_signature.clone().map(SingleValueType::Function),
             ident.clone().spanned().map(SingleValueType::TypeAlias),
         ));
 
-        let value_type = single_value_type
-            .clone()
-            .spanned()
-            .separated_by(char('|').padded())
-            .at_least(1)
-            .map(|mut types| {
-                if types.len() > 1 {
-                    ValueType::Union(types)
-                } else {
-                    ValueType::Single(types.remove(0))
-                }
-            });
+        value_type.finish(
+            single_value_type
+                .clone()
+                .spanned()
+                .map(MaybeEaten::Eaten)
+                .separated_by(char('|').padded())
+                .at_least(1)
+                .map(|mut types| {
+                    if types.len() > 1 {
+                        ValueType::Union(types)
+                    } else {
+                        ValueType::Single(types.remove(0))
+                    }
+                }),
+        );
 
         let fn_arg_long_flag = just("--")
             .ignore_then(
