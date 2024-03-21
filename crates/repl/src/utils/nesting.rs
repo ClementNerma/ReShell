@@ -169,8 +169,6 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                             NestingActionType::Closing { opening_offset },
                         );
 
-                        opened_strings.push((char_as_str, offset));
-
                         continue;
                     }
                 }
