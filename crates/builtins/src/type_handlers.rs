@@ -197,26 +197,46 @@ impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedListTyp
     }
 }
 
-pub struct MapType;
+pub struct DetachedMapType<Inner: Typing> {
+    inner: Inner,
+}
 
-impl SingleTyping for MapType {
+impl<Inner: Typing> DetachedMapType<Inner> {
+    pub fn new(inner: Inner) -> Self {
+        Self { inner }
+    }
+}
+
+impl<Inner: Typing> SingleTyping for DetachedMapType<Inner> {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Map
     }
 
-    type Parsed = GcCell<HashMap<String, RuntimeValue>>;
+    type Parsed = HashMap<String, Inner::Parsed>;
 
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        match value {
-            RuntimeValue::Map(map) => Ok(map),
-            _ => Err("expected a map".to_owned()),
-        }
+        let map = match value {
+            RuntimeValue::Map(map) => map,
+            _ => return Err("expected a map".to_owned()),
+        };
+
+        let values = map
+            .read_promise_no_write()
+            .iter()
+            .map(|(key, item)| {
+                self.inner
+                    .parse(item.clone())
+                    .map(|parsed| (key.clone(), parsed))
+            })
+            .collect::<Result<HashMap<_, _>, _>>()?;
+
+        Ok(values)
     }
 }
 
-impl SingleTypingDirectCreation for MapType {
+impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedMapType<Inner> {
     fn new_single_direct() -> Self {
-        Self
+        Self::new(Inner::new_direct())
     }
 }
 

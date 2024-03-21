@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "len",
 
     (
-        content: RequiredArg<Union3Type<StringType, UntypedListType, MapType>> = Arg::method_self()
+        content: RequiredArg<Union3Type<StringType, UntypedListType, UntypedMapType>> = Arg::method_self()
     )
 
     -> Some(ExactIntType::<usize>::direct_underlying_type())
