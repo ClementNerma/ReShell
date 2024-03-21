@@ -107,6 +107,24 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     // Match remaining invalid characters
     let invalid_chars = || simple("([^\\s])", [Style::new().fg(White).on(Red)]);
 
+    // Match method calls
+    let method_call = || Rule::Simple(SimpleRule {
+        matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
+        inside: None,
+        preceded_by: None,
+        followed_by: None,
+        followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+        style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2]) {
+                Color::Blue
+            } else {
+                Color::Red
+            };
+
+            vec![Style::new().fg(Color::LightYellow), Style::new().fg(color)]
+        }))
+    });
+
     // Build the rule set
     let rule_set = RuleSet {
         groups: [
@@ -215,22 +233,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(true|false)\\b", [LightYellow]),
 
                 // Method calls
-                Rule::Simple(SimpleRule {
-                    matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
-                    inside: None,
-                    preceded_by: None,
-                    followed_by: None,
-                    followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
-                    style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2]) {
-                            Color::Blue
-                        } else {
-                            Color::Red
-                        };
-
-                        vec![Style::new().fg(Color::LightYellow), Style::new().fg(color)]
-                    }))
-                }),
+                method_call(),
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\|'\"\\$]+)", [Green]),
@@ -256,6 +259,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(.)", [Green]),
             ]),
             ("expressions", vec![
+                // Method calls
+                method_call(),
+
                 // Function calls
                 simple_followed_by_nesting("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)$", [Blue], [NestingOpeningType::ExprWithParen]),
 
