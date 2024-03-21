@@ -19,7 +19,10 @@ use reshell_parser::ast::{
 
 pub use self::{
     errors::CheckerError,
-    state::{CheckerOutput, CheckerScope, DeclaredVar, Dependency, DependencyType},
+    state::{
+        CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
+        DependencyType,
+    },
 };
 
 use self::{
@@ -93,32 +96,91 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
     assert_eq!(state.curr_scope().code_range.real().unwrap(), *code_range);
 
     for instr in instructions {
-        if let Instruction::TypeAliasDecl { name, content } = &instr.data {
-            if state
-                .curr_scope_mut()
-                .type_aliases
-                .insert(name.data.clone(), name.at)
-                .is_some()
-            {
-                return Err(CheckerError::new(
-                    name.at,
-                    "duplicate type alias declaration",
-                ));
+        match &instr.data {
+            Instruction::TypeAliasDecl { name, content } => {
+                if state
+                    .curr_scope_mut()
+                    .type_aliases
+                    .insert(name.data.clone(), name.at)
+                    .is_some()
+                {
+                    return Err(CheckerError::new(
+                        name.at,
+                        "duplicate type alias declaration",
+                    ));
+                }
+
+                check_value_type(&content.data, state)?;
+
+                state
+                    .collected
+                    .type_aliases
+                    .insert(name.at, content.clone());
+
+                state
+                    .collected
+                    .type_aliases_decl
+                    .entry(*code_range)
+                    .or_default()
+                    .insert(name.data.clone(), name.at);
             }
 
-            check_value_type(&content.data, state)?;
+            Instruction::FnDecl { name, content: _ } => {
+                if state.curr_scope().fns.contains_key(&name.data) {
+                    return Err(CheckerError::new(name.at, "duplicate function declaration"));
+                }
 
-            state
-                .collected
-                .type_aliases
-                .insert(name.at, content.clone());
+                if state.curr_scope_mut().cmd_aliases.contains_key(&name.data) {
+                    return Err(CheckerError::new(
+                        name.at,
+                        "a command alias already uses this name",
+                    ));
+                }
 
-            state
-                .collected
-                .type_aliases_decl
-                .entry(*code_range)
-                .or_default()
-                .insert(name.data.clone(), name.at);
+                state.curr_scope_mut().cmd_aliases.insert(
+                    name.data.clone(),
+                    DeclaredCmdAlias {
+                        name_at: name.at,
+                        is_ready: false,
+                    },
+                );
+
+                state.curr_scope_mut().fns.insert(
+                    name.data.clone(),
+                    DeclaredFn {
+                        name_at: RuntimeCodeRange::Parsed(name.at),
+                        is_ready: false,
+                    },
+                );
+            }
+
+            Instruction::CmdAliasDecl { name, content } => {
+                if state.curr_scope_mut().cmd_aliases.contains_key(&name.data) {
+                    return Err(CheckerError::new(
+                        name.at,
+                        "duplicate command alias declaration",
+                    ));
+                }
+
+                if state.curr_scope().fns.contains_key(&name.data) {
+                    return Err(CheckerError::new(
+                        name.at,
+                        "a function already uses this name",
+                    ));
+                }
+
+                state.curr_scope_mut().cmd_aliases.insert(
+                    name.data.clone(),
+                    DeclaredCmdAlias {
+                        name_at: name.at,
+                        is_ready: false,
+                    },
+                );
+
+                state.register_cmd_alias(content.clone());
+            }
+
+            _ => {}
         }
     }
 
@@ -283,23 +345,11 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::FnDecl { name, content } => {
-            if state.curr_scope().fns.contains_key(&name.data) {
-                return Err(CheckerError::new(name.at, "duplicate function declaration"));
-            }
-
-            if state.curr_scope().cmd_aliases.contains_key(&name.data) {
-                return Err(CheckerError::new(
-                    name.at,
-                    "a command alias already uses this name",
-                ));
-            }
-
-            state
-                .curr_scope_mut()
-                .fns
-                .insert(name.data.clone(), RuntimeCodeRange::Parsed(name.at));
+            // NOTE: function was already registered during init.
 
             check_function(content, state)?;
+
+            state.mark_fn_ready(name);
         }
 
         Instruction::FnReturn { expr } => {
@@ -340,26 +390,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::CmdAliasDecl { name, content } => {
-            if state.curr_scope_mut().cmd_aliases.contains_key(&name.data) {
-                return Err(CheckerError::new(
-                    name.at,
-                    "duplicate command alias declaration",
-                ));
-            }
-
-            if state.curr_scope().fns.contains_key(&name.data) {
-                return Err(CheckerError::new(
-                    name.at,
-                    "a function already uses this name",
-                ));
-            }
-
-            state
-                .curr_scope_mut()
-                .cmd_aliases
-                .insert(name.data.clone(), name.at);
-
-            state.register_cmd_alias(content.clone());
+            // NOTE: command alias was already registered during init.
 
             state.collected.deps.insert(content.at, HashSet::new());
 
@@ -376,6 +407,8 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             check_single_cmd_call(content, state)?;
 
             state.pop_scope();
+
+            state.mark_cmd_alias_ready(name);
         }
 
         Instruction::TypeAliasDecl {
@@ -718,11 +751,32 @@ fn check_single_cmd_call(
 
     match &path.data {
         CmdPath::RawString(name) => {
-            if state.is_fn(&name.data) {
-                state.register_usage(name, DependencyType::Function)?;
-                target_type = SingleCmdCallTargetType::Function;
-            } else if state.is_cmd_alias(&name.data) {
-                state.register_usage(name, DependencyType::CmdAlias)?;
+            if let Some((is_ready, found)) = state.scopes().find_map(|scope| {
+                scope
+                    .fns
+                    .get(&name.data)
+                    .map(|func| (func.is_ready, SingleCmdCallTargetType::Function))
+                    .or_else(|| {
+                        scope
+                            .cmd_aliases
+                            .get(&name.data)
+                            .map(|cmd_alias| (cmd_alias.is_ready, SingleCmdCallTargetType::Command))
+                    })
+            }) {
+                if !is_ready {
+                    return Err(CheckerError::new(
+                        name.at,
+                        format!(
+                            "cannot use a {} before its declaration",
+                            match found {
+                                SingleCmdCallTargetType::Command => "command alias",
+                                SingleCmdCallTargetType::Function => "function",
+                            }
+                        ),
+                    ));
+                }
+
+                target_type = found;
             }
         }
         CmdPath::Direct(_) => {}

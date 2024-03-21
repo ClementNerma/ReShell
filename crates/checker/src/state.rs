@@ -63,18 +63,34 @@ impl State {
         self.scopes.iter().rev().find(|scope| scope.deps)
     }
 
-    pub fn is_fn(&self, name: &str) -> bool {
-        self.scopes
-            .iter()
-            .rev()
-            .any(|scope| scope.fns.get(name).is_some())
+    pub fn scopes(&self) -> impl Iterator<Item = &CheckerScope> {
+        self.scopes.iter().rev()
     }
 
-    pub fn is_cmd_alias(&self, name: &str) -> bool {
-        self.scopes
-            .iter()
+    pub fn mark_fn_ready(&mut self, name: &Eaten<String>) {
+        let func = self.scopes
+            .iter_mut()
             .rev()
-            .any(|scope| scope.cmd_aliases.get(name).is_some())
+            .find_map(|scope| {
+                scope.fns.get_mut(&name.data)
+            }).expect("internal error: function to mark as ready was not found");
+
+        // assert!(func.name_at == name.at);
+
+        func.is_ready = true;
+    }
+
+    pub fn mark_cmd_alias_ready(&mut self, name: &Eaten<String>) {
+        let cmd_alias = self.scopes
+            .iter_mut()
+            .rev()
+            .find_map(|scope| {
+                scope.cmd_aliases.get_mut(&name.data)
+            }).expect("internal error: command alias to mark as ready was not found");
+
+        // assert!(cmd_alias.name_at == name.at);
+
+        cmd_alias.is_ready = true;
     }
 
     pub fn register_usage(
@@ -90,19 +106,27 @@ impl State {
                 DependencyType::Variable => scope
                     .vars
                     .get(&item.data)
-                    .map(|var| FetchedDependency::new(var.name_at, var.is_mut)),
+                    .map(|var| Ok(FetchedDependency::new(var.name_at, var.is_mut))),
 
                     DependencyType::Function => scope
                     .fns
                     .get(&item.data)
-                    .map(|func_at| FetchedDependency::new(*func_at, false)),
+                    .map(|DeclaredFn { name_at, is_ready }| if *is_ready {
+                        Ok(FetchedDependency::new(*name_at, false))
+                    } else {
+                        Err(CheckerError::new(item.at, "cannot use a function before its declaration"))
+                    }),
 
                     DependencyType::CmdAlias => scope
                     .cmd_aliases
                     .get(&item.data)
-                    .map(|alias_at| FetchedDependency::new(RuntimeCodeRange::Parsed( *alias_at), false)),
+                    .map(|DeclaredCmdAlias { name_at, is_ready }| if *is_ready {
+                        Ok(FetchedDependency::new(RuntimeCodeRange::Parsed(*name_at), false))
+                    } else {
+                        Err(CheckerError::new(item.at, "cannot use a command alias before its assignment"))
+                    }),
             })
-            .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))?;
+            .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))??;
 
         let FetchedDependency {
             declared_at,
@@ -219,8 +243,8 @@ pub struct CheckerScope {
     pub code_range: RuntimeCodeRange,
     pub scope_type: Option<ScopeType>,
     pub vars: HashMap<String, DeclaredVar>,
-    pub fns: HashMap<String, RuntimeCodeRange>,
-    pub cmd_aliases: HashMap<String, CodeRange>,
+    pub fns: HashMap<String, DeclaredFn>,
+    pub cmd_aliases: HashMap<String, DeclaredCmdAlias>,
     pub type_aliases: HashMap<String, CodeRange>,
 }
 
@@ -235,6 +259,30 @@ pub enum ScopeType {
 pub struct DeclaredVar {
     pub name_at: RuntimeCodeRange,
     pub is_mut: bool,
+}
+
+#[derive(Clone, Copy)]
+pub struct DeclaredFn {
+    pub name_at: RuntimeCodeRange,
+    pub(crate) is_ready: bool
+}
+
+impl DeclaredFn {
+    pub fn ready(name_at: RuntimeCodeRange) -> Self {
+        Self {name_at, is_ready: true}
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct DeclaredCmdAlias {
+    pub name_at: CodeRange,
+    pub(crate) is_ready: bool
+}
+
+impl DeclaredCmdAlias {
+    pub fn ready(name_at: CodeRange) -> Self {
+        Self {name_at, is_ready: true}
+    }
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
