@@ -1,5 +1,3 @@
-use std::cmp::max;
-
 use nu_ansi_term::{Color, Style};
 use parsy::{Eaten, FileId, Parser};
 use reedline::{Highlighter as RlHighlighter, StyledText};
@@ -39,19 +37,33 @@ impl RlHighlighter for Highlighter {
 
                 assert!(matches!(at.start.file_id, FileId::Id(_)));
 
+                // We need to put an underline under the erroneous part. BUT:
+                // 1. The error may be *after* the end of the line (e.g. unexpected end of input)
+                // 2. The error may have a zero-width, in which case we must underline at least one char. anyway
                 let line_with_s = format!("{line} ");
+
+                let take = if at.len >= 1 {
+                    at.len
+                } else {
+                    line_with_s[at.start.offset..]
+                        .chars()
+                        .next()
+                        .unwrap()
+                        .len_utf8()
+                };
+
+                // The index separator is stored here
+                // It's the &str index of the end of the part to underline
+                let sep = at.start.offset + take;
 
                 let mut out = StyledText::new();
 
                 out.push((Style::default(), line_with_s[..at.start.offset].to_string()));
                 out.push((
                     Style::default().fg(Color::Red).underline(),
-                    line_with_s[at.start.offset..at.start.offset + max(at.len, 1)].to_string(),
+                    line_with_s[at.start.offset..sep].to_string(),
                 ));
-                out.push((
-                    Style::default(),
-                    line_with_s[at.start.offset + max(at.len, 1)..].to_string(),
-                ));
+                out.push((Style::default(), line_with_s[sep..].to_string()));
                 out.push((
                     Style::default().fg(Color::Red),
                     format!(" [{}]", parsing_error_report(&err, &files).msg),
