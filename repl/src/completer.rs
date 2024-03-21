@@ -122,25 +122,26 @@ impl RlCompleter for Completer {
             search.push_str("/*");
         }
 
-        let Ok(results) = glob(&search) else {
+        let Ok(entries) = glob(&search) else {
+            return vec![];
+        };
+
+        let Ok(paths) = entries.collect::<Result<Vec<_>, _>>() else {
             return vec![];
         };
 
         let starts_with_dot_slash = word.starts_with("./");
 
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         enum FileType {
             Directory,
             File,
             Unknown,
         }
 
-        let mut dirs = vec![];
-        let mut files = vec![];
-        let mut unknowns = vec![];
+        let mut out = vec![];
 
-        for result in results {
-            let Ok(path) = result else { return vec![] };
-
+        for path in paths {
             let Ok(metadata) = path.metadata() else { return vec![] };
 
             let file_type = metadata.file_type();
@@ -167,35 +168,31 @@ impl RlCompleter for Completer {
                 )
             }
 
-            let sugg = Suggestion {
-                value: if starts_with_dot_slash {
-                    format!("./{path_str}")
-                } else {
-                    path_str
+            out.push((
+                file_type_enum,
+                Suggestion {
+                    value: if starts_with_dot_slash {
+                        format!("./{path_str}")
+                    } else {
+                        path_str
+                    },
+                    description: Some(
+                        match file_type_enum {
+                            FileType::Directory => "Dir",
+                            FileType::File => "File",
+                            FileType::Unknown => "?",
+                        }
+                        .to_string(),
+                    ),
+                    extra: None,
+                    span,
+                    append_whitespace: !file_type.is_dir(),
                 },
-                description: Some(
-                    match file_type_enum {
-                        FileType::Directory => "Dir",
-                        FileType::File => "File",
-                        FileType::Unknown => "?",
-                    }
-                    .to_string(),
-                ),
-                extra: None,
-                span,
-                append_whitespace: !file_type.is_dir(),
-            };
-
-            match file_type_enum {
-                FileType::Directory => dirs.push(sugg),
-                FileType::File => files.push(sugg),
-                FileType::Unknown => unknowns.push(sugg),
-            }
+            ));
         }
 
-        dirs.append(&mut files);
-        dirs.append(&mut unknowns);
+        out.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.value.cmp(&b.1.value)));
 
-        dirs
+        out.into_iter().map(|(_, sugg)| sugg).collect()
     }
 }
