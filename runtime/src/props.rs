@@ -52,7 +52,7 @@ pub fn eval_prop_access_suite<'a, 'b>(
                                     at,
                                     format!(
                                         "expected an index (integer), found a {}",
-                                        readable_value_type(&value, ctx)
+                                        readable_value_type(&value)
                                     ),
                                 )
                             }));
@@ -82,7 +82,7 @@ pub fn eval_prop_access_suite<'a, 'b>(
                                     at,
                                     format!(
                                         "expected a key (string), found a {}",
-                                        readable_value_type(&value, ctx)
+                                        readable_value_type(&value)
                                     ),
                                 )
                             }));
@@ -118,7 +118,7 @@ pub fn eval_prop_access_suite<'a, 'b>(
                             at,
                             format!(
                                 "left operand is not a map nor a list, but a {}",
-                                readable_value_type(&left, ctx)
+                                readable_value_type(&left)
                             ),
                         )
                     }));
@@ -153,7 +153,7 @@ pub fn eval_prop_access_suite<'a, 'b>(
                             at,
                             format!(
                                 "left operand is not a struct, but a {}",
-                                readable_value_type(&left, ctx)
+                                readable_value_type(&left)
                             ),
                         )
                     }));

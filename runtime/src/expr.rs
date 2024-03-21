@@ -119,8 +119,8 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "cannot apply this operator on a pair of {} and {}",
-                        readable_value_type(&left, ctx),
-                        readable_value_type(&right, ctx)
+                        readable_value_type(&left),
+                        readable_value_type(&right)
                     ),
                 ))
             }
@@ -128,11 +128,11 @@ fn apply_double_op(
 
         DoubleOp::And | DoubleOp::Or => {
             let RuntimeValue::Bool(left) = left else {
-                return Err(ctx.error(op.at, format!("left operand is not a boolean but a {}", readable_value_type(&left, ctx))));
+                return Err(ctx.error(op.at, format!("left operand is not a boolean but a {}", readable_value_type(&left))));
             };
 
             let RuntimeValue::Bool(right) = right else {
-                return Err(ctx.error(op.at, format!("right operand is not a boolean but a {}", readable_value_type(&right, ctx))));
+                return Err(ctx.error(op.at, format!("right operand is not a boolean but a {}", readable_value_type(&right))));
             };
 
             match op.data {
@@ -155,8 +155,8 @@ fn apply_double_op(
                         op.at,
                         format!(
                             "cannot compare {} and {}",
-                            readable_value_type(&left, ctx),
-                            readable_value_type(&right, ctx)
+                            readable_value_type(&left),
+                            readable_value_type(&right)
                         ),
                     ))
                 }

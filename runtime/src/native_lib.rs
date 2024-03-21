@@ -9,11 +9,12 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 
 use crate::context::{Context, Scope, ScopeFn, ScopeVar};
-use crate::display::{dbg_fn_signature, dbg_loc, dbg_value, readable_value_type};
+use crate::display::{dbg_loc, readable_value_type};
 use crate::errors::ExecResult;
 use crate::exec::run_program;
 use crate::files_map::ScopableFilePath;
 use crate::functions::{call_fn_value, FnPossibleCallArgs};
+use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::typechecker::check_fn_equality;
 use crate::values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue};
 
@@ -191,14 +192,15 @@ pub fn generate_native_lib() -> Scope {
         // debug a value
         //
         native_fn!(dbg (value: Any [at]) [ctx] {
-            println!("dbg [{}]: {}", dbg_loc(at, ctx), dbg_value(&value, ctx));
-            Ok(None)
-        }),
-        //
-        // debug a value's AST
-        //
-        native_fn!(dbg_ast (value: Any [at]) [ctx] {
-            println!("dbg [{}]: {:#?}", dbg_loc(at, ctx), value);
+            // TODO: disable color if we're not in a terminal
+            println!("dbg [{}]: {}", dbg_loc(at, ctx), value.render_colored(PrettyPrintOptions {
+                pretty: true,
+                max_line_size: match termsize::get() {
+                    Some(size) => size.cols.into(),
+                    None => 30 // todo: make this a static?
+                },
+                tab_size: 4 // todo: make this configurable?
+            }));
             Ok(None)
         }),
         //
@@ -553,7 +555,7 @@ pub fn render_prompt(
             ret_val.from,
             format!(
                 "expected the prompt generation function to return a struct, found a {}",
-                readable_value_type(&ret_val.value, ctx)
+                readable_value_type(&ret_val.value)
             ),
         ))
     };
@@ -574,7 +576,7 @@ pub fn render_prompt(
                         RuntimeValue::String(string) => Some(string.clone()),
                         value => return Err(ctx.error(
                             $from_at,
-                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), readable_value_type(&value, ctx))
+                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), readable_value_type(&value))
                         ))
                     }
                 };
@@ -608,8 +610,8 @@ fn call_fn_checked(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    dbg_fn_signature(expected_signature, ctx),
-                    readable_value_type(value, ctx)
+                    expected_signature.render(PrettyPrintOptions::inline()),
+                    readable_value_type(value)
                 ),
             ))
         }
@@ -620,8 +622,8 @@ fn call_fn_checked(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                dbg_fn_signature(expected_signature, ctx),
-                readable_value_type(&loc_val.value, ctx)
+                expected_signature.render(PrettyPrintOptions::inline()),
+                readable_value_type(&loc_val.value)
             ),
         ));
     }

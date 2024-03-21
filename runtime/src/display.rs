@@ -1,10 +1,15 @@
 use std::borrow::Cow;
 
+use colored::Color;
 use parsy::{CodeRange, FileId};
-use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, ValueType};
+use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 
 use crate::{
-    context::Context, errors::ExecResult, files_map::ScopableFilePath, values::RuntimeValue,
+    context::Context,
+    errors::ExecResult,
+    files_map::ScopableFilePath,
+    pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrintablePiece},
+    values::RuntimeValue,
 };
 
 pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecResult<String> {
@@ -23,29 +28,31 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
             at,
             format!(
                 "cannot convert a {} to a string",
-                readable_value_type(value, ctx)
+                readable_value_type(value)
             ),
         )),
     }
 }
 
-pub fn readable_value_type(value: &RuntimeValue, ctx: &Context) -> Cow<'static, str> {
-    readable_single_type(&value.get_type(), ctx)
+pub fn readable_value_type(value: &RuntimeValue /*ctx: &Context*/) -> Cow<'static, str> {
+    readable_single_type(&value.get_type())
 }
 
-pub fn readable_type(value_type: &ValueType, ctx: &Context) -> Cow<'static, str> {
+pub fn readable_type(value_type: &ValueType /*, ctx: &Context*/) -> Cow<'static, str> {
     match value_type {
-        ValueType::Single(single) => readable_single_type(single.data(), ctx),
+        ValueType::Single(single) => readable_single_type(single.data()),
         ValueType::Union(types) => types
             .iter()
-            .map(|typ| readable_single_type(typ.data(), ctx))
+            .map(|typ| readable_single_type(typ.data()))
             .collect::<Vec<_>>()
             .join(" | ")
             .into(),
     }
 }
 
-pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<'static, str> {
+pub fn readable_single_type(
+    value_type: &SingleValueType, /* , ctx: &Context*/
+) -> Cow<'static, str> {
     match value_type {
         SingleValueType::Any => "any".into(),
         SingleValueType::Null => "null value".into(),
@@ -62,96 +69,29 @@ pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<
         {
             "struct".into()
         }
-        SingleValueType::Function(signature) => dbg_fn_signature(signature, ctx).into(),
-        SingleValueType::Error => "error".into(),
-        SingleValueType::TypeAlias(name) => format!(
-            "{} {}",
-            name.data,
-            match ctx
-                .all_type_aliases()
-                .find_map(|(alias_name, typ)| if alias_name == &name.data {
-                    Some(typ)
-                } else {
-                    None
-                }) {
-                Some(typ) => format!("({})", readable_type(typ, ctx)),
-                None => "(unknown type alias)".to_string(),
-            }
-        )
-        .into(),
-    }
-}
-
-pub fn dbg_value(value: &RuntimeValue, ctx: &Context) -> String {
-    match value {
-        RuntimeValue::Null => "null".to_string(),
-        RuntimeValue::Bool(bool) => bool.to_string(),
-        RuntimeValue::Int(int) => int.to_string(),
-        RuntimeValue::Float(float) => float.to_string(),
-        RuntimeValue::String(string) => format!("\"{string}\""),
-        RuntimeValue::List(items) => format!(
-            "[{}]",
-            items
-                .iter()
-                .map(|value| dbg_value(value, ctx))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        RuntimeValue::Range { from, to } => format!("range({from}, {to})"),
-        RuntimeValue::Map(members) => format!(
-            "map([{}])",
-            members
-                .iter()
-                .map(|(key, value)| format!("{key} => {}", dbg_value(value, ctx)))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        RuntimeValue::Struct(props) => format!(
-            "{{ {} }}",
-            props
-                .iter()
-                .map(|(key, value)| format!("{key}: {}", dbg_value(value, ctx)))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        RuntimeValue::Function(func) => dbg_fn_signature(&func.signature, ctx),
-        RuntimeValue::Error { at: _, msg } => format!("error(\"{msg}\")"),
-    }
-}
-
-pub fn dbg_fn_signature(signature: &FnSignature, ctx: &Context) -> String {
-    let FnSignature { args, ret_type } = signature;
-
-    format!(
-        "({}){}",
-        args.iter()
-            .map(|arg| {
-                let names = match &arg.names {
-                    FnArgNames::NotFlag(name) => name.data.clone(),
-                    FnArgNames::ShortFlag(short) => format!("-{}", short.data),
-                    FnArgNames::LongFlag(long) => format!("--{}", long.data),
-                    FnArgNames::LongAndShortFlag { long, short } => {
-                        format!("--{} (-{})", long.data, short.data)
-                    }
-                };
-
-                format!(
-                    "{}{}{}",
-                    names,
-                    if arg.is_optional { "?" } else { "" },
-                    match &arg.typ {
-                        Some(typ) => format!(": {}", readable_type(&typ.data, ctx)),
-                        None => String::new(),
-                    }
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(", "),
-        match ret_type {
-            None => String::new(),
-            Some(ret_type) => format!(" -> {}", readable_type(&ret_type.data, ctx)),
+        SingleValueType::Function(signature) => {
+            signature.render(PrettyPrintOptions::inline()).into()
         }
-    )
+        SingleValueType::Error => "error".into(),
+        SingleValueType::TypeAlias(name) => {
+            //     format!(
+            //     "{} {}",
+            //     name.data,
+            //     match ctx
+            //         .all_type_aliases()
+            //         .find_map(|(alias_name, typ)| if alias_name == &name.data {
+            //             Some(typ)
+            //         } else {
+            //             None
+            //         }) {
+            //         Some(typ) => format!("({})", readable_type(typ, ctx)),
+            //         None => "(unknown type alias)".to_string(),
+            //     }
+            // )
+            // .into()
+            name.data.clone().into()
+        }
+    }
 }
 
 pub fn dbg_loc(at: CodeRange, ctx: &Context) -> String {
@@ -188,5 +128,135 @@ pub fn dbg_loc(at: CodeRange, ctx: &Context) -> String {
             Some(name) => format!("<source-less: {name}>"),
             None => "<source-less>".into(),
         },
+    }
+}
+
+impl PrettyPrintable for RuntimeValue {
+    fn generate_pretty_data(&self) -> PrintablePiece {
+        match self {
+            RuntimeValue::Null => {
+                PrintablePiece::colored_atomic("null".to_string(), Color::BrightYellow)
+            }
+            RuntimeValue::Bool(bool) => {
+                PrintablePiece::colored_atomic(bool.to_string(), Color::BrightYellow)
+            }
+            RuntimeValue::Int(int) => {
+                PrintablePiece::colored_atomic(int.to_string(), Color::BrightYellow)
+            }
+            RuntimeValue::Float(float) => {
+                PrintablePiece::colored_atomic(float.to_string(), Color::BrightYellow)
+            }
+            RuntimeValue::String(string) => PrintablePiece::colored_atomic(
+                format!(
+                    "\"{}\"",
+                    string
+                        .replace('\\', "\\\\")
+                        .replace('\"', "\\\"")
+                        .replace('\n', "\\n")
+                ),
+                Color::BrightGreen,
+            ),
+            RuntimeValue::List(list) => PrintablePiece::List {
+                begin: Colored::with_color("[".to_string(), Color::BrightBlue),
+                items: list
+                    .iter()
+                    .map(|item| item.generate_pretty_data())
+                    .collect(),
+                sep: Colored::with_color(",".to_string(), Color::BrightCyan),
+                end: Colored::with_color("]".to_string(), Color::BrightBlue),
+                suffix: None,
+            },
+            RuntimeValue::Range { from, to } => todo!(),
+            RuntimeValue::Map(_) => todo!(),
+            RuntimeValue::Struct(_) => todo!(),
+            RuntimeValue::Function(func) =>
+            // TODO: show something like { ... } after the fn to show it's a value and not a type
+            {
+                func.signature.generate_pretty_data()
+            }
+            RuntimeValue::Error { at, msg } => todo!(),
+        }
+    }
+}
+
+impl PrettyPrintable for FnSignature {
+    fn generate_pretty_data(&self) -> PrintablePiece {
+        let Self { args, ret_type } = self;
+
+        PrintablePiece::List {
+            begin: Colored::with_color("(".to_string(), Color::BrightBlue),
+            items: args
+                .iter()
+                .map(|item| item.generate_pretty_data())
+                .collect(),
+            sep: Colored::with_color(",".to_string(), Color::BrightCyan),
+            end: Colored::with_color(")".to_string(), Color::BrightCyan),
+            suffix: ret_type.as_ref().map(|ret_type| {
+                // TODO: colors for return type?
+                Colored::with_color(
+                    format!(" -> {}", readable_type(&ret_type.data)),
+                    Color::BrightMagenta,
+                )
+            }),
+        }
+    }
+}
+
+impl PrettyPrintable for FnArg {
+    fn generate_pretty_data(&self) -> PrintablePiece {
+        let Self {
+            names,
+            is_optional,
+            is_rest,
+            typ,
+        } = self;
+
+        let mut out = vec![];
+
+        if *is_rest {
+            out.push(Colored::with_color("...".to_string(), Color::BrightYellow));
+        }
+
+        match names {
+            FnArgNames::NotFlag(name) => {
+                out.extend([Colored::with_color(name.data.clone(), Color::BrightRed)]);
+            }
+            FnArgNames::ShortFlag(short) => {
+                out.extend([
+                    Colored::with_color("-".to_string(), Color::BrightYellow),
+                    Colored::with_color(short.data.to_string(), Color::BrightRed),
+                ]);
+            }
+            FnArgNames::LongFlag(long) => {
+                out.extend([
+                    Colored::with_color("--".to_string(), Color::BrightYellow),
+                    Colored::with_color(long.data.clone(), Color::BrightRed),
+                ]);
+            }
+            FnArgNames::LongAndShortFlag { long, short } => {
+                out.extend([
+                    Colored::with_color("--".to_string(), Color::BrightYellow),
+                    Colored::with_color(long.data.clone(), Color::BrightRed),
+                    Colored::with_color(" (".to_string(), Color::BrightBlue),
+                    Colored::with_color("-".to_string(), Color::BrightYellow),
+                    Colored::with_color(short.data.to_string(), Color::BrightYellow),
+                    Colored::with_color(")".to_string(), Color::BrightBlue),
+                ]);
+            }
+        }
+
+        if *is_optional {
+            out.push(Colored::with_color("?".to_string(), Color::BrightYellow));
+        }
+
+        if let Some(typ) = typ {
+            out.push(Colored::with_color(": ".to_string(), Color::BrightYellow));
+            out.push(Colored::with_color(
+                readable_type(&typ.data).into_owned(),
+                Color::BrightMagenta,
+            ));
+        }
+
+        PrintablePiece::Suite(out)
     }
 }
