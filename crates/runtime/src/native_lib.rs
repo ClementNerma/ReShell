@@ -1,7 +1,6 @@
 use std::{collections::HashMap, env::VarError, fs, path::Path, time::Instant};
 
 use colored::Colorize;
-use fork::{fork, Fork};
 use glob::glob;
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
@@ -393,20 +392,20 @@ pub fn generate_native_lib() -> Scope {
                 None => RuntimeValue::Null
             }))
         }),
-        //
-        // run a closure detached from the terminal
-        //
-        native_fn!(detached (closure: Any [closure_at]) [ctx, at] {
-            let fork = fork().map_err(|_| ctx.error(at, "failed to fork the process (unknown error occurred)"))?;
+        // //
+        // // run a closure detached from the terminal
+        // //
+        // native_fn!(detached (closure: Any [closure_at]) [ctx, at] {
+        //     let fork = fork().map_err(|_| ctx.error(at, "failed to fork the process (unknown error occurred)"))?;
 
-            match fork {
-                Fork::Child => {
-                    call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: forge_internal_token(vec![]), ret_type: None }, vec![], ctx)?;
-                    Err(ctx.exit(at, None))
-                },
-                Fork::Parent(_) => Ok(None)
-            }
-        }),
+        //     match fork {
+        //         Fork::Child => {
+        //             call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: forge_internal_token(vec![]), ret_type: None }, vec![], ctx)?;
+        //             Err(ctx.exit(at, None))
+        //         },
+        //         Fork::Parent(_) => Ok(None)
+        //     }
+        // }),
         //
         // get PID of the current process
         //

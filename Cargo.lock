@@ -282,15 +282,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fork"
-version = "0.1.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf2ca97a59201425e7ee4d197c9c4fea282fe87a97d666a580bda889b95b8e88"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -671,7 +662,6 @@ name = "reshell-runtime"
 version = "0.1.0"
 dependencies = [
  "colored",
- "fork",
  "glob",
  "indexmap",
  "parsy",
