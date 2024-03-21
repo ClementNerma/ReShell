@@ -581,6 +581,7 @@ impl ComputableSize for EscapableChar {
     fn compute_heap_size(&self) -> usize {
         match self {
             EscapableChar::Newline => 0,
+            EscapableChar::CarriageReturn => 0,
             EscapableChar::DoubleQuote => 0,
             EscapableChar::Backslash => 0,
             EscapableChar::DollarSign => 0,

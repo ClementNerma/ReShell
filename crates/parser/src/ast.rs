@@ -306,6 +306,7 @@ pub enum ComputedStringPiece {
 #[derive(Debug, Clone, Copy)]
 pub enum EscapableChar {
     Newline,
+    CarriageReturn,
     DoubleQuote,
     Backslash,
     DollarSign,

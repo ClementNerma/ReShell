@@ -171,9 +171,7 @@ impl PrettyPrintable for RuntimeValue {
                 PrettyPrintablePiece::colored_atomic(float.to_string(), Color::BrightYellow)
             }
 
-            RuntimeValue::String(string) => {
-                PrettyPrintablePiece::colored_atomic(format!("\"{string}\"",), Color::BrightGreen)
-            }
+            RuntimeValue::String(string) => pretty_print_string(string),
 
             RuntimeValue::Range { from, to } => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("range(", Color::Blue),
@@ -188,15 +186,7 @@ impl PrettyPrintable for RuntimeValue {
 
                 PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic("error(", Color::Red),
-                    PrettyPrintablePiece::colored_atomic(
-                        format!(
-                            "\"{}\"",
-                            msg.replace('\\', "\\\\")
-                                .replace('\"', "\\\"")
-                                .replace('\n', "\\n")
-                        ),
-                        Color::Green,
-                    ),
+                    pretty_print_string(msg),
                     PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
                     PrettyPrintablePiece::colored_atomic(
                         dbg_loc(*at, ctx.files_map()),
@@ -453,4 +443,51 @@ impl PrettyPrintable for CmdFlagNameArg {
 
         PrettyPrintablePiece::colored_atomic(name, Color::BrightYellow)
     }
+}
+
+fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
+    let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
+        '"'.to_owned(),
+        Color::BrightGreen,
+    )];
+
+    let mut shift = 0;
+
+    while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '"']) {
+        pos += shift;
+
+        if pos > shift {
+            pieces.push(PrettyPrintablePiece::colored_atomic(
+                string[shift..pos].to_owned(),
+                Color::BrightGreen,
+            ));
+        }
+
+        let to_escape = match &string[pos..pos + 1] {
+            "\r" => "r",
+            "\n" => "n",
+            str => str,
+        };
+
+        pieces.push(PrettyPrintablePiece::colored_atomic(
+            format!("\\{to_escape}"),
+            Color::Cyan,
+        ));
+
+        shift = pos + 1;
+    }
+
+    if shift + 1 < string.len() {
+        pieces.push(PrettyPrintablePiece::colored_atomic(
+            string[shift..].to_owned(),
+            Color::BrightGreen,
+        ));
+    }
+
+    pieces.push(PrettyPrintablePiece::colored_atomic(
+        '"'.to_owned(),
+        Color::BrightGreen,
+    ));
+
+    PrettyPrintablePiece::Join(pieces)
 }
