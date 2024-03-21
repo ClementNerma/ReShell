@@ -6,22 +6,27 @@ define_internal_fn!(
     "toJson",
 
     (
-        value: RequiredArg<AnyType> = Arg::positional("value")
+        value: RequiredArg<AnyType> = Arg::positional("value"),
+        pretty: PresenceFlag = Arg::long_and_short_flag("pretty", 'p')
     )
 
     -> Some(StringType::direct_underlying_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { value }, ArgsAt { value: value_at }, ctx| {
+    Runner::new(|_, Args { value, pretty }, args_at, ctx| {
         let value = value_to_serde_json(value).map_err(|err| {
             ctx.throw(
-                value_at,
+                args_at.value,
                 format!("failed to stringify value to JSON: {err}"),
             )
         })?;
 
-        Ok(Some(RuntimeValue::String(value.to_string())))
+        Ok(Some(RuntimeValue::String(if pretty {
+            serde_json::to_string_pretty(&value).unwrap()
+        } else {
+            serde_json::to_string(&value).unwrap()
+        })))
     })
 }
 
