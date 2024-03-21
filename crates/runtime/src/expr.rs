@@ -472,6 +472,31 @@ fn eval_expr_inner_content(
             .get_visible_fn_value(name)
             .map(|func| RuntimeValue::Function(GcReadOnlyCell::clone(func))),
 
+        ExprInnerContent::Throw(expr) => {
+            let message = match eval_expr(&expr.data, ctx)? {
+                RuntimeValue::String(string) => string,
+                value => {
+                    return Err(ctx.error(
+                        expr.at,
+                        format!(
+                            "expected a string, found a {}",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
+            };
+
+            Err(ctx.error(
+                expr.at,
+                ExecErrorNature::Thrown {
+                    at: RuntimeCodeRange::Parsed(expr.at),
+                    message,
+                },
+            ))
+        }
+
         ExprInnerContent::Value(value) => eval_value(value, ctx),
     }
 }

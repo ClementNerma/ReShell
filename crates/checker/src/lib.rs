@@ -633,6 +633,10 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
                 );
             })?;
         }
+
+        ExprInnerContent::Throw(expr) => {
+            check_expr(&expr.data, state)?;
+        }
     }
 
     Ok(())
