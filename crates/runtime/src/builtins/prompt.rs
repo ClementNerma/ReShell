@@ -1,4 +1,5 @@
-use indexmap::IndexMap;
+use std::collections::HashMap;
+
 use parsy::MaybeEaten;
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 
@@ -60,7 +61,7 @@ pub fn render_prompt(
                 duration_ms,
             } = status;
 
-            RuntimeValue::Struct(GcCell::new(IndexMap::from([
+            RuntimeValue::Struct(GcCell::new(HashMap::from([
                 ("success".to_string(), RuntimeValue::Bool(success)),
                 (
                     "exit_code".to_string(),
@@ -77,7 +78,7 @@ pub fn render_prompt(
         }
     };
 
-    let prompt_data = RuntimeValue::Struct(GcCell::new(IndexMap::from([(
+    let prompt_data = RuntimeValue::Struct(GcCell::new(HashMap::from([(
         "last_cmd_status".to_string(),
         last_cmd_status,
     )])));

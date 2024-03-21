@@ -645,7 +645,6 @@ dependencies = [
 name = "reshell-checker"
 version = "0.1.0"
 dependencies = [
- "indexmap",
  "parsy",
  "reshell-parser",
 ]

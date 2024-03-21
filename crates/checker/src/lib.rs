@@ -7,7 +7,6 @@ mod state;
 
 use std::collections::{HashMap, HashSet};
 
-use indexmap::IndexSet;
 use parsy::Eaten;
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
@@ -324,7 +323,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 .cmd_aliases
                 .insert(name.data.clone(), name.at);
 
-            state.collected.deps.insert(content.at, IndexSet::new());
+            state.collected.deps.insert(content.at, HashSet::new());
 
             state.push_scope(CheckerScope {
                 code_range: content.at,
@@ -710,7 +709,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     state
         .collected
         .deps
-        .insert(body.data.code_range, IndexSet::new());
+        .insert(body.data.code_range, HashSet::new());
 
     check_block_with(body, state, |scope| {
         scope.deps = true;

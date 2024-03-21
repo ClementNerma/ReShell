@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, MaybeEaten};
 use reshell_checker::Dependency;
 use reshell_parser::ast::{
@@ -84,8 +84,8 @@ pub enum RuntimeValue {
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
     List(GcCell<Vec<RuntimeValue>>),
-    Map(GcCell<IndexMap<String, RuntimeValue>>),
-    Struct(GcCell<IndexMap<String, RuntimeValue>>),
+    Map(GcCell<HashMap<String, RuntimeValue>>),
+    Struct(GcCell<HashMap<String, RuntimeValue>>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
 }
 
