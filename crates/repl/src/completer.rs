@@ -87,6 +87,9 @@ pub fn generate_completions(
         return vec![];
     }
 
+    let after_pipe = line[..word_start].trim_end().ends_with('|')
+        && !line[..word_start].trim_end().ends_with("||");
+
     let next_char = line[word_end..].chars().next();
 
     if let Some(s_word) = word.strip_prefix('$') {
@@ -98,17 +101,26 @@ pub fn generate_completions(
     }
 
     if let Some(s_word) = word.strip_prefix('@') {
-        return complete_fn_name(s_word, next_char, Some("@"), span, ctx);
+        return sort_results(
+            word,
+            build_fn_completions(s_word, next_char, Some("@"), span, ctx).collect(),
+        );
     }
 
-    if line[..word_start].trim_end().ends_with(" |") {
+    if after_pipe {
+        if let Some(s_word) = word.strip_prefix('.') {
+            return sort_results(
+                word,
+                build_method_completions(s_word, Some("."), span, ctx).collect(),
+            );
+        }
+
         let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
             .unwrap_or_default();
 
         cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
-        cmd_comp.extend(build_method_completions(word, next_char, None, span, ctx));
 
         return sort_results(word, cmd_comp);
     }
@@ -167,15 +179,12 @@ fn build_fn_completions<'a>(
 
 fn build_method_completions<'a>(
     word: &str,
-    next_char: Option<char>,
     add_prefix: Option<&str>,
     span: Span,
     ctx: &'a Context,
 ) -> impl Iterator<Item = SortableSuggestion> + 'a {
     let word = word.to_lowercase();
     let add_prefix = add_prefix.map(str::to_owned);
-
-    let append_whitespace = next_char != Some(' ') && next_char != Some('(');
 
     ctx.visible_scopes_content()
         .flat_map(|scope| scope.methods.iter())
@@ -197,23 +206,10 @@ fn build_method_completions<'a>(
                     style: None,
                     extra: None,
                     span,
-                    append_whitespace,
+                    append_whitespace: false,
                 },
             )
         })
-}
-
-fn complete_fn_name(
-    word: &str,
-    next_char: Option<char>,
-    add_prefix: Option<&str>,
-    span: Span,
-    ctx: &Context,
-) -> Vec<Suggestion> {
-    sort_results(
-        word,
-        build_fn_completions(word, next_char, add_prefix, span, ctx).collect(),
-    )
 }
 
 fn build_cmd_completions(
