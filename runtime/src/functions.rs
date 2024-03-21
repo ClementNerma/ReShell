@@ -87,8 +87,6 @@ pub fn call_fn_value(
                 );
             }
 
-            // TODO: when a function exits (= back from call stack entry) the original scope (just before the call) must be used again!
-
             let instr_ret = run_called_block(
                 &body.data,
                 ctx,
