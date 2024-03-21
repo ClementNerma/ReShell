@@ -55,11 +55,11 @@ pub fn check_if_single_type_fits_single(
         (_, SingleValueType::TypeAlias(name)) => {
             let (_, typ) = ctx
                 .visible_scopes()
-                .flat_map(|scope| scope.content.types.iter())
+                .flat_map(|scope| scope.type_aliases.iter())
                 .find(|(typename, _)| typename == &&name.data)
                 .ok_or_else(|| ctx.error(name.at, format!("type '{}' was not found", name.data)))?;
 
-            check_if_single_type_fits(value_type, typ, ctx)
+            check_if_single_type_fits(value_type, &typ.alias_content, ctx)
         }
 
         (SingleValueType::TypeAlias(_), _) => {

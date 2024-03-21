@@ -5,7 +5,7 @@
 mod errors;
 mod state;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten};
@@ -25,8 +25,7 @@ use self::{errors::CheckerResult, state::State};
 
 #[derive(Debug)]
 pub struct CheckerOutput {
-    pub fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-    // TODO: scoped type aliases and cmd aliases???
+    pub deps: IndexMap<CodeRange, IndexSet<Dependency>>,
 }
 
 pub fn check(
@@ -44,9 +43,7 @@ pub fn check(
 
     check_block_without_push(content, &mut state)?;
 
-    Ok(CheckerOutput {
-        fn_deps: state.fn_deps,
-    })
+    Ok(CheckerOutput { deps: state.deps })
 }
 
 fn check_block(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
@@ -65,11 +62,12 @@ fn check_block_with(
 
     let mut scope = CheckerScope {
         code_range: *code_range,
-        fn_args_at: None, // can be changed with "fill_scope"
+        deps: false,      // can be changed later on with "fill_scope"
+        fn_args_at: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
-        types: HashSet::new(),
-        cmd_aliases: HashSet::new(),
+        type_aliases: HashMap::new(),
+        cmd_aliases: HashMap::new(),
     };
 
     fill_scope(&mut scope);
@@ -106,7 +104,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             init_expr,
         } => {
             if state.curr_scope().vars.contains_key(&name.data) {
-                return Err(CheckerError::new(name.at, "Duplicate variable declaration"));
+                return Err(CheckerError::new(name.at, "duplicate variable declaration"));
             }
 
             if let Some(init_expr) = init_expr {
@@ -128,14 +126,15 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             list_push: _,
             expr,
         } => {
-            let var = state.register_var_usage_and_get(name)?;
+            state.register_usage(name, DependencyType::Variable)?;
 
-            if !var.is_mut {
-                return Err(CheckerError::new(
-                    name.at,
-                    "Cannot assign to immutable variable",
-                ));
-            }
+            // TODO
+            // if !var.is_mut {
+            //     return Err(CheckerError::new(
+            //         name.at,
+            //         "Cannot assign to immutable variable",
+            //     ));
+            // }
 
             for nature in prop_acc {
                 check_prop_access_nature(nature, state)?;
@@ -208,7 +207,14 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::FnDecl { name, content } => {
             if state.curr_scope().fns.contains_key(&name.data) {
-                return Err(CheckerError::new(name.at, "Duplicate function declaration"));
+                return Err(CheckerError::new(name.at, "duplicate function declaration"));
+            }
+
+            if state.curr_scope().cmd_aliases.contains_key(&name.data) {
+                return Err(CheckerError::new(
+                    name.at,
+                    "a command alias already uses this name",
+                ));
             }
 
             state
@@ -248,7 +254,44 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             })?;
         }
 
-        Instruction::CmdAliasDecl { name, content } => todo!(),
+        Instruction::CmdAliasDecl { name, content } => {
+            if state.curr_scope_mut().cmd_aliases.contains_key(&name.data) {
+                return Err(CheckerError::new(
+                    name.at,
+                    "duplicate command alias declaration",
+                ));
+            }
+
+            if state.curr_scope().fns.contains_key(&name.data) {
+                return Err(CheckerError::new(
+                    name.at,
+                    "a function already uses this name",
+                ));
+            }
+
+            state
+                .curr_scope_mut()
+                .cmd_aliases
+                .insert(name.data.clone(), name.at);
+
+            state.deps.insert(content.at, IndexSet::new());
+
+            state.push_scope(CheckerScope {
+                code_range: content.at,
+                deps: true,
+                fn_args_at: None,
+                vars: HashMap::new(),
+                fns: HashMap::new(),
+                type_aliases: HashMap::new(),
+                // TODO: inject the this cmd alias into the created scope (allows inner usage) - first check if it doesn't create an infinite loop
+                // and test this throroughtly!
+                cmd_aliases: HashMap::new(),
+            });
+
+            check_single_cmd_call(content, state)?;
+
+            state.pop_scope();
+        }
 
         Instruction::TypeAliasDecl { name, content } => todo!(),
 
@@ -396,11 +439,11 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
 
             Ok(())
         }
-        Value::Variable(var) => state.register_var_usage(var),
+        Value::Variable(var) => state.register_usage(var, DependencyType::Variable),
         Value::FnCall(fn_call) => check_fn_call(fn_call, state),
         Value::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
         Value::CmdSuccess(cmd_call) => check_cmd_call(cmd_call, state),
-        Value::FnAsValue(func_name) => state.register_fn_usage(func_name),
+        Value::FnAsValue(func_name) => state.register_usage(func_name, DependencyType::Function),
         Value::Closure(func) => check_function(func, state),
     }
 }
@@ -433,7 +476,7 @@ fn check_computed_string_piece(
     match &piece.data {
         ComputedStringPiece::Literal(_) => Ok(()),
         ComputedStringPiece::Escaped(_) => Ok(()),
-        ComputedStringPiece::Variable(var) => state.register_var_usage(var),
+        ComputedStringPiece::Variable(var) => state.register_usage(var, DependencyType::Variable),
         ComputedStringPiece::Expr(expr) => check_expr(&expr.data, state),
         ComputedStringPiece::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
     }
@@ -447,9 +490,9 @@ fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
     } = &fn_call.data;
 
     if *is_var_name {
-        state.register_var_usage(name)?;
+        state.register_usage(name, DependencyType::Variable)?;
     } else {
-        state.register_fn_usage(name)?;
+        state.register_usage(name, DependencyType::Function)?;
     }
 
     for arg in &call_args.data {
@@ -484,7 +527,7 @@ fn check_single_cmd_call(
 ) -> CheckerResult {
     let SingleCmdCall {
         env_vars,
-        method: _,
+
         path,
         args,
     } = &single_cmd_call.data;
@@ -494,7 +537,15 @@ fn check_single_cmd_call(
     }
 
     match &path.data {
-        CmdPath::Raw(_) => {}
+        CmdPath::RawString(name) => {
+            if state.is_fn(&name.data) {
+                state.register_usage(name, DependencyType::Function)?;
+            } else if state.is_cmd_alias(&name.data) {
+                state.register_usage(name, DependencyType::CmdAlias)?;
+            }
+        }
+        CmdPath::Direct(_) => {}
+        CmdPath::CallVariable(var) => state.register_usage(var, DependencyType::Variable)?,
         CmdPath::ComputedString(computed_string) => check_computed_string(computed_string, state)?,
     }
 
@@ -531,10 +582,10 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
         CmdArg::ComputedString(computed_string) => check_computed_string(computed_string, state),
         CmdArg::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
         CmdArg::ParenExpr(expr) => check_expr(&expr.data, state),
-        CmdArg::VarName(var) => state.register_var_usage(var),
-        CmdArg::FnAsValue(func) => state.register_fn_usage(func),
+        CmdArg::VarName(var) => state.register_usage(var, DependencyType::Variable),
+        CmdArg::FnAsValue(func) => state.register_usage(func, DependencyType::Function),
         CmdArg::Raw(_) => Ok(()),
-        CmdArg::SpreadVar(var) => state.register_var_usage(var),
+        CmdArg::SpreadVar(var) => state.register_usage(var, DependencyType::Variable),
     }
 }
 
@@ -573,7 +624,10 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
     }
 
+    state.deps.insert(body.data.code_range, IndexSet::new());
+
     check_block_with(body, state, |scope| {
+        scope.deps = true;
         scope.fn_args_at = Some(args.at);
 
         for (name, var) in vars {

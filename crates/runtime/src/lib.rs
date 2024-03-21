@@ -5,6 +5,7 @@
 #![allow(clippy::result_large_err)]
 
 pub mod cmd;
+pub mod conf;
 pub mod context;
 pub mod display;
 pub mod errors;

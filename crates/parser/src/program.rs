@@ -2,15 +2,14 @@ use std::collections::HashMap;
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, empty, end, filter, just, late, lookahead, not, recursive, whitespaces,
-    MaybeEaten, Parser,
+    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, MaybeEaten,
+    Parser,
 };
 
 use crate::ast::{
-    CmdCallMethod, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr,
-    EscapableChar, ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function,
-    PropAccess, PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase,
-    ValueType,
+    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, EscapableChar,
+    ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, PropAccess,
+    PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase, ValueType,
 };
 
 use super::ast::{
@@ -571,13 +570,28 @@ pub fn program() -> impl Parser<Program> {
         .collect_string();
 
         let cmd_path = choice::<_, CmdPath>((
-            // Raw
-            cmd_raw.clone().spanned().map(CmdPath::Raw),
+            // Direct
+            just("@direct")
+                .ignore_then(ms)
+                .ignore_then(
+                    cmd_raw
+                        .clone()
+                        .critical("expected a command name")
+                        .spanned(),
+                )
+                .map(CmdPath::Direct),
+            // Call variable
+            just("@var")
+                .ignore_then(ms)
+                .ignore_then(ident.clone().critical("expected a variable name").spanned())
+                .map(CmdPath::CallVariable),
             // Computed string
             computed_string
                 .clone()
                 .spanned()
                 .map(CmdPath::ComputedString),
+            // Raw string
+            cmd_raw.clone().spanned().map(CmdPath::RawString),
         ));
 
         let cmd_env_var_value = choice::<_, CmdEnvVarValue>((
@@ -666,24 +680,10 @@ pub fn program() -> impl Parser<Program> {
             .spanned()
             .separated_by(s)
             .spanned()
-            .then(choice::<_, CmdCallMethod>((
-                just("@raw")
-                    .to(())
-                    .spanned()
-                    .then_ignore(s)
-                    .map(CmdCallMethod::Raw),
-                just("@callVar")
-                    .to(())
-                    .spanned()
-                    .then_ignore(s)
-                    .map(CmdCallMethod::Var),
-                empty().to(CmdCallMethod::Normal),
-            )))
             .then(cmd_path.clone().spanned())
             .then(s.ignore_then(cmd_arg.spanned()).repeated_vec().spanned())
-            .map(|(((env_vars, method), path), args)| SingleCmdCall {
+            .map(|((env_vars, path), args)| SingleCmdCall {
                 env_vars,
-                method,
                 path,
                 args,
             });

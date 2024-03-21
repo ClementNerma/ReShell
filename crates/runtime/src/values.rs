@@ -3,9 +3,12 @@ use std::{collections::HashMap, fmt::Debug};
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, MaybeEaten};
 use reshell_checker::Dependency;
-use reshell_parser::ast::{Block, FnSignature, SingleValueType, StructTypeMember, ValueType};
+use reshell_parser::ast::{
+    Block, FnSignature, SingleCmdCall, SingleValueType, StructTypeMember, ValueType,
+};
 
 use crate::context::{ScopeFn, ScopeVar};
+use crate::gc::GcReadOnlyCell;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 // TODO: this struct is ultra expensive to clone, put it inside an Arc<> or something?
@@ -17,10 +20,30 @@ pub struct RuntimeFnValue {
     pub captured_deps: CapturedDependencies,
 }
 
+// TODO: this struct is pretty expensive to clone, put it inside an Arc<> or something?
+#[derive(Debug, Clone)]
+pub struct RuntimeCmdAlias {
+    pub name_declared_at: CodeRange,
+    pub alias_content: GcReadOnlyCell<SingleCmdCall>,
+    pub parent_scopes: IndexSet<u64>,
+    pub captured_deps: CapturedDependencies,
+}
+
+// TODO: this struct is pretty expensive to clone, put it inside an Arc<> or something?
+#[derive(Debug, Clone)]
+pub struct RuntimeTypeAlias {
+    pub name_declared_at: CodeRange,
+    pub alias_content: GcReadOnlyCell<ValueType>,
+    pub parent_scopes: IndexSet<u64>,
+    pub captured_deps: CapturedDependencies,
+}
+
 #[derive(Debug, Clone)]
 pub struct CapturedDependencies {
     pub vars: HashMap<Dependency, ScopeVar>,
     pub fns: HashMap<Dependency, ScopeFn>,
+    pub cmd_aliases: HashMap<Dependency, RuntimeCmdAlias>,
+    pub type_aliases: HashMap<Dependency, RuntimeTypeAlias>,
 }
 
 #[derive(Clone)]
@@ -29,8 +52,11 @@ pub enum RuntimeFnBody {
     Internal(InternalFnBody),
 }
 
-pub type InternalFnBody =
-    fn(CodeRange, HashMap<String, LocatedValue>, &mut Context) -> ExecResult<Option<LocatedValue>>;
+pub type InternalFnBody = fn(
+    CodeRange,
+    HashMap<Eaten<String>, LocatedValue>,
+    &mut Context,
+) -> ExecResult<Option<LocatedValue>>;
 
 impl Debug for RuntimeFnBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

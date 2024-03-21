@@ -5,6 +5,7 @@ use fork::{fork, Fork};
 use glob::glob;
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
+use reshell_checker::Dependency;
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
@@ -31,11 +32,14 @@ macro_rules! native_fn {
 
             #[allow(unused_variables)]
             #[allow(unused_mut)]
-            mut args: HashMap<String, LocatedValue>,
+            mut args: HashMap<Eaten<String>, LocatedValue>,
 
             #[allow(unused_variables)]
             ctx: &mut Context
         ) -> ExecResult<Option<LocatedValue>> {
+            #[allow(unused_mut, unused_variables)]
+            let mut args = args.into_iter().map(|(arg, value)| ((arg.data, value))).collect::<HashMap<_, _>>();
+
             $(
                 let arg = args.remove(stringify!($arg_name)).unwrap();
 
@@ -82,7 +86,9 @@ macro_rules! native_fn {
                     parent_scopes: IndexSet::new(),
                     captured_deps: CapturedDependencies {
                         vars: HashMap::new(),
-                        fns: HashMap::new()
+                        fns: HashMap::new(),
+                        type_aliases: HashMap::new(),
+                        cmd_aliases: HashMap::new()
                     }
                 }),
             }
@@ -506,6 +512,35 @@ pub fn generate_native_lib() -> Scope {
 
             Ok(None)
         }),
+        //
+        // debug dependencies
+        //
+        native_fn!(__dbg_fn_deps (value: Any [value_at]) [ctx] {
+            let func = match value {
+                RuntimeValue::Function(func) => func,
+                _ => return Err(ctx.error(value_at, format!("expected a function, got a {}", value.get_type().render_colored(ctx, PrettyPrintOptions::inline()))))
+            };
+
+            match func.read().body {
+                RuntimeFnBody::Internal(_) => return Err(ctx.error(value_at, "this is an internal function")),
+                RuntimeFnBody::Block(ref block) => {
+                    eprintln!("== |> Dependencies for function at: {}", dbg_loc(value_at, ctx.files_map()).bright_magenta());
+
+                    for dep in ctx.deps_for_debug(&block.data.code_range).unwrap() {
+                        let Dependency { dep_type, name, declared_at } = dep;
+
+                        eprintln!(
+                            "=> {name} ({dep_type}) declared at {}",
+                            dbg_loc(*declared_at, ctx.files_map()).bright_magenta()
+                        );
+                    }
+
+                    eprintln!("== Done");
+                }
+            };
+
+            Ok(None)
+        }),
         // //
         // // create a directory
         // //
@@ -553,9 +588,11 @@ pub fn generate_native_lib() -> Scope {
         id: NATIVE_LIB_SCOPE_ID,
         range: ScopeRange::SourceLess,
         parent_scopes: IndexSet::new(),
+        content,
         call_stack: CallStack::empty(),
         call_stack_entry: None,
-        content,
+        previous_scope: None,
+        deps_scope: None,
     }
 }
 

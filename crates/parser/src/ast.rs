@@ -281,16 +281,8 @@ pub struct CmdCall {
 #[derive(Debug, Clone)]
 pub struct SingleCmdCall {
     pub env_vars: Eaten<Vec<Eaten<CmdEnvVar>>>,
-    pub method: CmdCallMethod,
     pub path: Eaten<CmdPath>,
     pub args: Eaten<Vec<Eaten<CmdArg>>>,
-}
-
-#[derive(Debug, Clone)]
-pub enum CmdCallMethod {
-    Normal,
-    Raw(Eaten<()>),
-    Var(Eaten<()>),
 }
 
 #[derive(Debug, Clone)]
@@ -308,7 +300,9 @@ pub enum CmdEnvVarValue {
 
 #[derive(Debug, Clone)]
 pub enum CmdPath {
-    Raw(Eaten<String>),
+    RawString(Eaten<String>),
+    Direct(Eaten<String>),
+    CallVariable(Eaten<String>),
     ComputedString(Eaten<ComputedString>),
 }
 

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId, Location};
@@ -7,23 +7,24 @@ use crate::{errors::CheckerResult, CheckerError};
 
 pub struct State {
     scopes: Vec<CheckerScope>,
-    pub fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
+
+    pub deps: IndexMap<CodeRange, IndexSet<Dependency>>,
+    pub type_alias_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
+    pub cmd_alias_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
             scopes: vec![],
-            fn_deps: IndexMap::new(),
+            deps: IndexMap::new(),
+            type_alias_deps: IndexMap::new(),
+            cmd_alias_deps: IndexMap::new(),
         }
     }
 
     pub fn push_scope(&mut self, scope: CheckerScope) {
-        if scope.fn_args_at.is_some() {
-            let dup = self.fn_deps.insert(scope.code_range, IndexSet::new());
-
-            assert!(dup.is_none());
-        }
+        assert!(scope.fn_args_at.is_none() || scope.deps);
 
         self.scopes.push(scope);
     }
@@ -40,127 +41,90 @@ impl State {
         self.scopes.last_mut().unwrap()
     }
 
-    fn current_function_scope(&self) -> Option<(&CheckerScope, CodeRange)> {
+    fn current_deps_scope(&self) -> Option<&CheckerScope> {
+        self.scopes.iter().rev().find(|scope| scope.deps)
+    }
+
+    pub fn is_fn(&self, name: &str) -> bool {
         self.scopes
             .iter()
             .rev()
-            .find_map(|scope| scope.fn_args_at.map(|fn_args_at| (scope, fn_args_at)))
+            .any(|scope| scope.fns.get(name).is_some())
     }
 
-    pub fn register_var_usage(&mut self, var: &Eaten<String>) -> CheckerResult {
-        self.register_var_usage_and_get(var).map(|_| ())
+    pub fn is_cmd_alias(&self, name: &str) -> bool {
+        self.scopes
+            .iter()
+            .rev()
+            .any(|scope| scope.cmd_aliases.get(name).is_some())
     }
 
-    pub fn register_var_usage_and_get(
+    pub fn register_usage(
         &mut self,
-        var: &Eaten<String>,
-    ) -> CheckerResult<DeclaredVar> {
-        let declared_var = self
-            .scopes
-            .iter()
-            .rev()
-            .find_map(|scope| scope.vars.get(&var.data))
-            .copied()
-            .ok_or_else(|| CheckerError::new(var.at, "variable was not found"))?;
-
-        if matches!(declared_var.name_at.start.file_id, FileId::Internal) {
-            return Ok(declared_var);
-        }
-
-        if let Some((fn_scope, fn_args_at)) = self.current_function_scope() {
-            let var_declared_in_fn_scope = fn_scope
-                .code_range
-                .contains(declared_var.name_at)
-                .map_err(|err| {
-                    CheckerError::new(
-                        CodeRange::new(Location { file_id: var.at.start.file_id, offset: 0 }, 0),
-                        format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
-                    )
-                })?;
-
-            if var_declared_in_fn_scope {
-                return Ok(declared_var);
-            }
-
-            let var_declared_in_fn_args = fn_args_at
-                .contains(declared_var.name_at)
-                .map_err(|err| {
-                    CheckerError::new(
-                        CodeRange::new(Location { file_id: var.at.start.file_id, offset: 0 }, 0),
-                        format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
-                    )
-                })?;
-
-            if var_declared_in_fn_args {
-                return Ok(declared_var);
-            }
-
-            let code_range = fn_scope.code_range;
-
-            self.fn_deps
-                .get_mut(&code_range)
-                .unwrap()
-                .insert(Dependency {
-                    name: var.data.clone(),
-                    name_declared_at: declared_var.name_at,
-                    dep_type: DependencyType::Variable,
-                });
-        }
-
-        Ok(declared_var)
+        item: &Eaten<String>,
+        dep_type: DependencyType,
+    ) -> CheckerResult {
+        self.register_usage_and_get(item, dep_type).map(|_| ())
     }
 
-    pub fn register_fn_usage(&mut self, func: &Eaten<String>) -> CheckerResult {
-        let declared_fn_at = self
+    pub fn register_usage_and_get(
+        &mut self,
+        item: &Eaten<String>,
+        dep_type: DependencyType,
+    ) -> CheckerResult {
+        let declared_at = self
             .scopes
             .iter()
             .rev()
-            .find_map(|scope| scope.fns.get(&func.data))
-            .copied()
-            .ok_or_else(|| CheckerError::new(func.at, "function was not found"))?;
+            .find_map(|scope| match dep_type {
+                DependencyType::Variable => scope.vars.get(&item.data).map(|var| var.name_at),
+                DependencyType::Function => scope.fns.get(&item.data).copied(),
+                DependencyType::CmdAlias => scope.cmd_aliases.get(&item.data).copied(),
+                DependencyType::TypeAlias => scope.type_aliases.get(&item.data).copied(),
+            })
+            .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))?;
 
-        if matches!(declared_fn_at.start.file_id, FileId::Internal) {
+        if matches!(declared_at.start.file_id, FileId::Internal) {
             return Ok(());
         }
 
-        if let Some((fn_scope, fn_args_at)) = self.current_function_scope() {
-            let fn_declared_in_fn_scope = fn_scope
+        if let Some(deps_scope) = self.current_deps_scope() {
+            let var_declared_in_deps_scope = deps_scope
                 .code_range
-                .contains(declared_fn_at)
+                .contains(declared_at)
                 .map_err(|err| {
                     CheckerError::new(
-                        CodeRange::new(Location { file_id: declared_fn_at.start.file_id, offset: 0 }, 0),
+                        CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
                         format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
                     )
                 })?;
 
-            if fn_declared_in_fn_scope {
+            if var_declared_in_deps_scope {
                 return Ok(());
             }
 
-            let fn_declared_in_fn_args = fn_args_at
-                .contains(declared_fn_at)
+            if let Some(fn_args_at) = deps_scope.fn_args_at {
+                let var_declared_in_fn_args = fn_args_at
+                .contains(declared_at)
                 .map_err(|err| {
                     CheckerError::new(
-                        CodeRange::new(Location { file_id: declared_fn_at.start.file_id, offset: 0 }, 0),
+                        CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
                         format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
                     )
                 })?;
 
-            if fn_declared_in_fn_args {
-                return Ok(());
+                if var_declared_in_fn_args {
+                    return Ok(());
+                }
             }
 
-            let code_range = fn_scope.code_range;
+            let code_range = deps_scope.code_range;
 
-            self.fn_deps
-                .get_mut(&code_range)
-                .unwrap()
-                .insert(Dependency {
-                    name: func.data.clone(),
-                    name_declared_at: declared_fn_at,
-                    dep_type: DependencyType::Function,
-                });
+            self.deps.get_mut(&code_range).unwrap().insert(Dependency {
+                name: item.data.clone(),
+                declared_at,
+                dep_type,
+            });
         }
 
         Ok(())
@@ -169,12 +133,13 @@ impl State {
 
 #[derive(Clone)]
 pub struct CheckerScope {
+    pub deps: bool,
     pub code_range: CodeRange,         /* for fns, body range */
     pub fn_args_at: Option<CodeRange>, /* fns only */
     pub vars: HashMap<String, DeclaredVar>,
     pub fns: HashMap<String, CodeRange /* fn name at */>,
-    pub types: HashSet<String>,
-    pub cmd_aliases: HashSet<String>,
+    pub cmd_aliases: HashMap<String, CodeRange>,
+    pub type_aliases: HashMap<String, CodeRange>,
 }
 
 #[derive(Clone, Copy)]
@@ -186,7 +151,7 @@ pub struct DeclaredVar {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Dependency {
     pub name: String,
-    pub name_declared_at: CodeRange,
+    pub declared_at: CodeRange,
     pub dep_type: DependencyType,
 }
 
@@ -194,4 +159,17 @@ pub struct Dependency {
 pub enum DependencyType {
     Variable,
     Function,
+    CmdAlias,
+    TypeAlias,
+}
+
+impl std::fmt::Display for DependencyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencyType::Variable => write!(f, "variable"),
+            DependencyType::Function => write!(f, "function"),
+            DependencyType::CmdAlias => write!(f, "command alias"),
+            DependencyType::TypeAlias => write!(f, "type alias"),
+        }
+    }
 }

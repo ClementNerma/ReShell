@@ -106,10 +106,10 @@ fn highlight(input: &str) -> StyledText {
         "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
 
         // command markers
-        "(?:^|[\\{;]|\\$\\()\\s*(@raw|@callVar)\\b" => Magenta,
+        "(?:^|[\\{;]|\\$\\()\\s*(@raw|@var)\\b" => Magenta,
 
         // command call
-        "(?:^|[\\{;]|\\$\\(|@raw|@callVar\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$]+)\\b" => LightBlue,
+        "(?:^|[\\{;]|\\$\\(|@raw|@var\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$]+)\\b" => LightBlue,
 
         // function calls
         "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
