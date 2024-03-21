@@ -6,9 +6,9 @@ use crate::{
     define_internal_fn,
     helper::{Arg, ArgNames, ArgTypingDirectCreation, OptionalArg, RequiredArg},
     type_handlers::{
-        AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType, RangeType,
-        StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type, Union3Result,
-        Union3Type, UntypedListType, UntypedStructType,
+        AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType, NullType,
+        RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type,
+        Union3Result, Union3Type, UntypedListType, UntypedStructType,
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
@@ -210,6 +210,23 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     let sliced = list.read().iter().skip(from).take(length.unwrap_or(usize::MAX)).cloned().collect::<Vec<_>>();
 
                     Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // pop a value from a list
+                //
+
+                "pop",
+
+                Args [ArgsAt, ArgsTy] (
+                    list: RequiredArg<UntypedListType> => Arg::positional("list")
+                )
+
+                -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type()),
+
+                |_, Args { list }, _, _, _| {
+                    Ok(Some(list.write().pop().unwrap_or(RuntimeValue::Null)))
                 }
             ),
             define_internal_fn!(
