@@ -14,7 +14,7 @@ use reshell_parser::{
 use reshell_runtime::{
     context::CallStackEntry,
     display::dbg_loc,
-    errors::{ExecError, ExecErrorNature},
+    errors::{ExecError, ExecErrorInfoType, ExecErrorNature},
 };
 
 #[derive(Debug)]
@@ -207,16 +207,29 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     eprintln!("{}", DisplayList::from(snippet));
 
-    let note = match err {
-        ReportableError::Parsing(_) => None,
+    let infos = match err {
+        ReportableError::Parsing(_) => vec![],
         ReportableError::Checking(_) => {
-            Some("Error was encountered before running the program".to_owned())
+            vec![(
+                ExecErrorInfoType::Note,
+                "Error was encountered before running the program".to_owned(),
+            )]
         }
-        ReportableError::Runtime(err, _) => err.note.clone(),
+        ReportableError::Runtime(err, _) => err.infos.clone(),
     };
 
-    if let Some(note) = note {
-        eprintln!("  = {} {note}", "note:".cyan());
+    for (info_type, content) in infos {
+        eprintln!(
+            "  = {} {content}",
+            format!(
+                "{}:",
+                match info_type {
+                    ExecErrorInfoType::Note => "note",
+                    ExecErrorInfoType::Tip => "tip ",
+                }
+            )
+            .cyan()
+        );
     }
 
     if let Some(call_stack) = call_stack {

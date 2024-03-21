@@ -11,7 +11,7 @@ use reshell_parser::{
 use crate::{
     cmd::{CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
     context::Context,
-    errors::ExecResult,
+    errors::{ExecErrorInfoType, ExecResult},
     pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece},
     values::{ErrorValueContent, RuntimeFnBody, RuntimeValue},
 };
@@ -43,7 +43,8 @@ pub fn value_to_str(
                         .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             )
-            .with_note(
+            .with_info(
+                ExecErrorInfoType::Tip,
                 "this conversion happens because external commands can only take string-like arguments",
             )),
     }
