@@ -453,6 +453,27 @@ impl Context {
         self.scopes.insert(scope.id, scope);
     }
 
+    /// Run an imported program
+    pub fn inside_imported_program<T>(
+        &mut self,
+        program: &Eaten<Program>,
+        run: impl FnOnce(&mut Self) -> T,
+    ) -> T {
+        fn current_scope_mut(ctx: &mut Context) -> &mut Scope {
+            ctx.scopes.get_mut(&ctx.current_scope).unwrap()
+        }
+
+        let prev = current_scope_mut(self).range;
+
+        current_scope_mut(self).range = RuntimeCodeRange::Parsed(program.at);
+
+        let result = run(self);
+
+        current_scope_mut(self).range = prev;
+
+        result
+    }
+
     /// Generate the list of all scopes parent ot the current one
     pub fn generate_parent_scopes_list(&self) -> IndexSet<u64> {
         let current_scope = self.current_scope();

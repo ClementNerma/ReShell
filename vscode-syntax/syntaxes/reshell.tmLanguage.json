@@ -25,6 +25,17 @@
 					]
 				},
 				{
+					"begin": "'",
+					"end": "'",
+					"name": "string.quoted.single",
+					"patterns": [
+						{
+							"match": "\\\\.",
+							"name": "constant.character.escape"
+						}
+					]
+				},
+				{
 					"begin": "#",
 					"end": "$",
 					"name": "comment"
