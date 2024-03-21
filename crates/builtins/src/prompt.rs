@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-use reshell_parser::ast::{FnArg, FnArgNames, FnSignature};
-
 use reshell_runtime::{
     context::Context,
     errors::ExecResult,

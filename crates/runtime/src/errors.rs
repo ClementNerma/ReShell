@@ -5,7 +5,7 @@ use crate::{
     files_map::SourceFile,
 };
 
-pub type ExecResult<T> = Result<T, ExecError>;
+pub type ExecResult<T> = Result<T, Box<ExecError>>;
 
 #[derive(Debug)]
 pub struct ExecError {
@@ -20,7 +20,7 @@ pub struct ExecError {
 }
 
 impl ExecError {
-    pub fn with_note(mut self, note: impl Into<String>) -> Self {
+    pub fn with_note(mut self: Box<Self>, note: impl Into<String>) -> Box<Self> {
         self.note = Some(note.into());
         self
     }

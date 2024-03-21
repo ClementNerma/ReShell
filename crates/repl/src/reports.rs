@@ -13,7 +13,7 @@ use reshell_runtime::{
 pub enum ReportableError {
     Parsing(ParsingError),
     Checking(CheckerError),
-    Runtime(ExecError),
+    Runtime(Box<ExecError>),
 }
 
 pub fn print_error(err: &ReportableError, files: &FilesMap) {
@@ -93,13 +93,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let mut bottom = String::new();
 
-    if let ReportableError::Runtime(ExecError {
-        scope_range: ScopeRange::CodeRange(range),
-        ..
-    }) = err
-    {
-        let curr_scope_msg = format!("* In scope : {}", dbg_loc(*range, files).bright_magenta());
-        bottom = format!("{}", curr_scope_msg.bright_yellow());
+    if let ReportableError::Runtime(err) = err {
+        if let ScopeRange::CodeRange(range) = err.scope_range {
+            let curr_scope_msg = format!("* In scope : {}", dbg_loc(range, files).bright_magenta());
+            bottom = format!("{}", curr_scope_msg.bright_yellow());
+        }
     }
 
     if let Some(call_stack) = call_stack {
