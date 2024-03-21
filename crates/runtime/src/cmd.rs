@@ -7,7 +7,7 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdPath, CmdPipe,
-    CmdPipeType, Expr, FnCall, FnCallArg, RuntimeCodeRange, SingleCmdCall,
+    CmdPipeType, CmdValueMakingArg, Expr, FnCall, FnCallArg, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
@@ -523,62 +523,21 @@ fn check_if_cmd_is_fn(
 }
 
 pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult> {
-    let (value_at, value) = match arg {
-        CmdArg::LiteralValue(lit_val) => (lit_val.at, eval_literal_value(&lit_val.data)),
+    match arg {
+        CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
+            .map(|value| CmdArgResult::Single(CmdSingleArgResult::Basic(value))),
 
-        CmdArg::ComputedString(computed_str) => (
-            computed_str.at,
-            RuntimeValue::String(eval_computed_string(computed_str, ctx)?),
-        ),
-
-        CmdArg::VarName(name) => (
-            name.at,
-            ctx.get_visible_var(name)
-                .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
-                .value
-                .read(name.at)
-                .as_ref()
-                .ok_or_else(|| {
-                    ctx.error(
-                        name.at,
-                        "trying to use variable before it is assigned a value",
-                    )
-                })?
-                .value
-                .clone(),
-        ),
-
-        CmdArg::FnAsValue(name) => (
-            name.at,
-            RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
-        ),
-
-        CmdArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
-
-        CmdArg::CmdCall(call) => (
-            call.at,
-            RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap()),
-        ),
-
-        CmdArg::Raw(raw) => (raw.at, RuntimeValue::String(treat_cwd_raw(raw, ctx)?)),
-
-        CmdArg::RestSeparator => {
-            return Ok(CmdArgResult::Single(CmdSingleArgResult::RestSeparator))
-        }
+        CmdArg::RestSeparator => Ok(CmdArgResult::Single(CmdSingleArgResult::RestSeparator)),
 
         CmdArg::Flag(CmdFlagArg { name, value, raw }) => {
-            return Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
+            Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
                 name: name.clone(),
                 value: value
                     .as_ref()
-                    .map(|expr| {
-                        eval_expr(&expr.data, ctx).map(|value| {
-                            LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))
-                        })
-                    })
+                    .map(|expr| eval_cmd_value_making_arg(&expr.data, ctx))
                     .transpose()?,
                 raw: raw.clone(),
-            }));
+            }))
         }
 
         CmdArg::SpreadVar(var_name) => {
@@ -608,13 +567,56 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 ));
             };
 
-            return Ok(CmdArgResult::Spreaded(Vec::clone(items)));
+            Ok(CmdArgResult::Spreaded(Vec::clone(items)))
         }
+    }
+}
+
+pub fn eval_cmd_value_making_arg(
+    arg: &CmdValueMakingArg,
+    ctx: &mut Context,
+) -> ExecResult<LocatedValue> {
+    let (value_at, value) = match arg {
+        CmdValueMakingArg::LiteralValue(lit_val) => (lit_val.at, eval_literal_value(&lit_val.data)),
+
+        CmdValueMakingArg::ComputedString(computed_str) => (
+            computed_str.at,
+            RuntimeValue::String(eval_computed_string(computed_str, ctx)?),
+        ),
+
+        CmdValueMakingArg::VarName(name) => (
+            name.at,
+            ctx.get_visible_var(name)
+                .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
+                .value
+                .read(name.at)
+                .as_ref()
+                .ok_or_else(|| {
+                    ctx.error(
+                        name.at,
+                        "trying to use variable before it is assigned a value",
+                    )
+                })?
+                .value
+                .clone(),
+        ),
+
+        CmdValueMakingArg::FnAsValue(name) => (
+            name.at,
+            RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
+        ),
+
+        CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
+
+        CmdValueMakingArg::CmdCall(call) => (
+            call.at,
+            RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap()),
+        ),
+
+        CmdValueMakingArg::Raw(raw) => (raw.at, RuntimeValue::String(treat_cwd_raw(raw, ctx)?)),
     };
 
-    Ok(CmdArgResult::Single(CmdSingleArgResult::Basic(
-        LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at)),
-    )))
+    Ok(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at)))
 }
 
 fn treat_cwd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {

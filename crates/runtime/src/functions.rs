@@ -239,7 +239,7 @@ fn parse_fn_call_args(
                                 return Err(ctx.error(
                                     loc_val.from,
                                     format!(
-                                        "type mismatch: expected: {}, found: {}",
+                                        "type mismatch: expected {}, found {}",
                                         loc_val
                                             .value
                                             .get_type()
@@ -273,7 +273,7 @@ fn parse_fn_call_args(
                         return Err(ctx.error(
                             loc_val.from,
                             format!(
-                                "type mismatch: expected: {}, found: {}",
+                                "type mismatch: expected {}, found {}",
                                 loc_val
                                     .value
                                     .get_type()

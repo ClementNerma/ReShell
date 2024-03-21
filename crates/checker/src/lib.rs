@@ -10,9 +10,9 @@ use std::collections::{HashMap, HashSet};
 use parsy::Eaten;
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdPath, CmdPipe,
-    ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
-    ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function,
-    Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeCodeRange,
+    CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr,
+    ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature,
+    Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeCodeRange,
     RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
     ValueType,
 };
@@ -725,32 +725,48 @@ fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> Check
 
 fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
-        CmdArg::LiteralValue(lit) => check_literal_value(lit, state),
-        CmdArg::ComputedString(computed_string) => check_computed_string(computed_string, state),
-        CmdArg::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
-        CmdArg::ParenExpr(expr) => check_expr(&expr.data, state),
-        CmdArg::VarName(var) => {
-            state.register_usage(var, DependencyType::Variable)?;
-            Ok(())
+        CmdArg::ValueMaking(value_making) => check_cmd_value_making_arg(value_making, state),
+
+        CmdArg::Flag(flag_arg) => {
+            let CmdFlagArg {
+                name: _,
+                value,
+                raw: _,
+            } = flag_arg;
+
+            match value {
+                Some(value) => check_cmd_value_making_arg(&value.data, state),
+                None => Ok(()),
+            }
         }
-        CmdArg::FnAsValue(func) => {
-            state.register_usage(func, DependencyType::Function)?;
-            Ok(())
-        }
-        CmdArg::Flag(CmdFlagArg {
-            name: _,
-            value,
-            raw: _,
-        }) => match value {
-            Some(value) => check_expr(&value.data, state),
-            None => Ok(()),
-        },
-        CmdArg::Raw(_) => Ok(()),
+
         CmdArg::SpreadVar(var) => {
             state.register_usage(var, DependencyType::Variable)?;
             Ok(())
         }
+
         CmdArg::RestSeparator => Ok(()),
+    }
+}
+
+fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> CheckerResult {
+    match arg {
+        CmdValueMakingArg::LiteralValue(lit) => check_literal_value(lit, state),
+        CmdValueMakingArg::ComputedString(computed_string) => {
+            check_computed_string(computed_string, state)
+        }
+        CmdValueMakingArg::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
+        CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
+        CmdValueMakingArg::VarName(var) => {
+            state.register_usage(var, DependencyType::Variable)?;
+            Ok(())
+        }
+        CmdValueMakingArg::FnAsValue(func) => {
+            state.register_usage(func, DependencyType::Function)?;
+            Ok(())
+        }
+
+        CmdValueMakingArg::Raw(_) => Ok(()),
     }
 }
 

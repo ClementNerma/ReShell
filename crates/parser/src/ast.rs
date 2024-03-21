@@ -316,22 +316,27 @@ pub enum CmdPath {
 
 #[derive(Debug, Clone)]
 pub enum CmdArg {
+    ValueMaking(CmdValueMakingArg),
+    Flag(CmdFlagArg),
+    SpreadVar(Eaten<String>),
+    RestSeparator,
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdValueMakingArg {
     LiteralValue(Eaten<LiteralValue>),
     ComputedString(Eaten<ComputedString>),
     CmdCall(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
     VarName(Eaten<String>),
     FnAsValue(Eaten<String>),
-    Flag(CmdFlagArg),
     Raw(Eaten<String>),
-    SpreadVar(Eaten<String>),
-    RestSeparator,
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdFlagArg {
     pub name: Eaten<CmdFlagNameArg>,
-    pub value: Option<Eaten<Expr>>,
+    pub value: Option<Eaten<CmdValueMakingArg>>,
     pub raw: String,
 }
 
