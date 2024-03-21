@@ -282,6 +282,35 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // Get the value of an environment variable
+                //
+
+                "env",
+
+                Args [ArgsAt, ArgsTy] (
+                    var_name: RequiredArg<StringType> => Arg::positional("var_name"),
+                    lossy: OptionalArg<BoolType> => Arg::long_flag("lossy")
+                )
+
+                -> Some(StringType::direct_underlying_type()),
+
+                |_, Args { var_name, lossy }, ArgsAt { var_name: var_name_at, .. }, _, ctx| {
+                    let var_value = std::env::var_os(&var_name).ok_or_else(|| ctx.error(var_name_at, format!("environment variable '{var_name}' is not set")))?;
+
+                    let var_value = if lossy == Some(true) {
+                        var_value.to_string_lossy().into_owned()
+                    } else {
+                        var_value
+                            .to_str()
+                            .ok_or_else(|| ctx.error(var_name_at, format!("environment variable '{var_name}' contains invalid UTF-8 characters: '{}'", var_value.to_string_lossy())))?
+                            .to_owned()
+                    };
+
+                    Ok(Some(RuntimeValue::String(var_value)))
+                }
+            ),
+            define_internal_fn!(
+                //
                 // Change the current directory
                 //
 
