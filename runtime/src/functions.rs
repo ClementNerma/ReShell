@@ -9,7 +9,7 @@ use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{Context, ScopeVar},
     display::{readable_type, readable_value_type},
-    errors::ExecResult,
+    errors::{ExecResult, StackTraceEntry},
     exec::{run_block, InstrRet, InstrRetType},
     expr::eval_expr,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -53,7 +53,9 @@ pub fn call_fn_value(
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
-            let mut fn_scope = ctx.create_scope();
+            let mut fn_scope = ctx.create_scope_with_history_entry(StackTraceEntry {
+                fn_called_at: call_at,
+            });
 
             for (name, loc_value) in call_args {
                 fn_scope.vars.insert(

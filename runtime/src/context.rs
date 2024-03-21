@@ -4,7 +4,7 @@ use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{SingleCmdCall, ValueType};
 
 use crate::{
-    errors::{ExecError, ExecErrorContent, ExecResult},
+    errors::{ExecError, ExecErrorContent, ExecResult, StackTrace, StackTraceEntry},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     native_lib::generate_native_lib,
     values::{LocatedValue, RuntimeFnValue, RuntimeValue},
@@ -38,6 +38,7 @@ impl Context {
             file: self.current_file().clone(),
             content: content.into(),
             in_fork: self.in_fork,
+            stack_trace: self.stack_trace(),
         }
     }
 
@@ -53,6 +54,16 @@ impl Context {
         self.home_dir.as_ref()
     }
 
+    pub fn stack_trace(&self) -> StackTrace {
+        let history = self
+            .scopes
+            .iter()
+            .filter_map(|scope| scope.history_entry.clone())
+            .collect();
+
+        StackTrace { history }
+    }
+
     pub fn create_scope(&self) -> Scope {
         Scope {
             vars: HashMap::new(),
@@ -60,6 +71,18 @@ impl Context {
             aliases: HashMap::new(),
             types: HashMap::new(),
             in_file_id: self.scopes.last().unwrap().in_file_id,
+            history_entry: None,
+        }
+    }
+
+    pub fn create_scope_with_history_entry(&self, history_entry: StackTraceEntry) -> Scope {
+        Scope {
+            vars: HashMap::new(),
+            fns: HashMap::new(),
+            aliases: HashMap::new(),
+            types: HashMap::new(),
+            in_file_id: self.scopes.last().unwrap().in_file_id,
+            history_entry: Some(history_entry),
         }
     }
 
@@ -89,6 +112,7 @@ impl Context {
             aliases: HashMap::new(),
             types: HashMap::new(),
             in_file_id: self.files_map.register_file(path, content),
+            history_entry: None,
         }
     }
 
@@ -204,6 +228,7 @@ pub struct Scope {
     pub aliases: HashMap<String, SingleCmdCall>,
     pub types: HashMap<String, ValueType>,
     pub in_file_id: u64,
+    pub history_entry: Option<StackTraceEntry>,
 }
 
 impl Scope {
@@ -214,6 +239,7 @@ impl Scope {
             aliases: HashMap::new(),
             types: HashMap::new(),
             in_file_id,
+            history_entry: None,
         }
     }
 }

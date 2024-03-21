@@ -203,7 +203,7 @@ pub fn generate_native_lib() -> Scope {
         //
         native_fn!(dbg (value: Any [at]) [ctx] {
             // TODO: disable color if we're not in a terminal
-            let at = format!("dbg [{}]:", dbg_loc(at, ctx)).bright_magenta();
+            let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map())).bright_magenta();
 
             println!("{at} {}", value.render_colored(PrettyPrintOptions {
                 pretty: true,
