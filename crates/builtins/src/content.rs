@@ -111,7 +111,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             // Debug a value's type
             //
             define_internal_fn!(
-                "dbg-type",
+                "dbg_type",
 
                 Args [ArgsAt, ArgsTy] (
                     value: RequiredArg<AnyType> => Arg::positional("value"),
