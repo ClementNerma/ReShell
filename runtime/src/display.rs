@@ -57,7 +57,7 @@ pub fn readable_single_type(
 ) -> Cow<'static, str> {
     match value_type {
         SingleValueType::Any => "any".into(),
-        SingleValueType::Null => "null value".into(),
+        SingleValueType::Null => "null".into(),
         SingleValueType::Bool => "boolean".into(),
         SingleValueType::Int => "int".into(),
         SingleValueType::Float => "float".into(),
