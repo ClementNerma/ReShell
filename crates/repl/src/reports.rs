@@ -142,12 +142,12 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let mut bottom = String::new();
 
-    if let ReportableError::Runtime(err, _) = err {
-        if let RuntimeCodeRange::Parsed(range) = err.scope_range {
-            let curr_scope_msg = format!("* In scope : {}", dbg_loc(range, files).bright_magenta());
-            bottom = format!("{}", curr_scope_msg.bright_yellow());
-        }
-    }
+    // if let ReportableError::Runtime(err, _) = err {
+    //     if let RuntimeCodeRange::Parsed(range) = err.scope_range {
+    //         let curr_scope_msg = format!("* In scope : {}", dbg_loc(range, files).bright_magenta());
+    //         bottom = format!("{}", curr_scope_msg.bright_yellow());
+    //     }
+    // }
 
     if let Some(call_stack) = call_stack {
         for entry in call_stack.history().iter().rev() {

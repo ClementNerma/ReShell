@@ -339,11 +339,8 @@ impl Context {
 
         Box::new(ExecError {
             at: at.into(),
-            in_file: current_scope.in_file_id(),
-            source_file: self.current_source_file().cloned(),
             nature: nature.into(),
             call_stack: current_scope.call_stack.clone(),
-            scope_range: current_scope.range,
             note: None, // can be changed with .with_note()
         })
     }

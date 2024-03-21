@@ -1,24 +1,28 @@
 use std::borrow::Cow;
 
-use parsy::{FileId, ParsingError};
+use parsy::ParsingError;
 use reshell_parser::ast::RuntimeCodeRange;
 
-use crate::{context::CallStack, files_map::SourceFile, values::LocatedValue};
+use crate::{context::CallStack, values::LocatedValue};
 
+/// Result of an action that may have resulted in an execution error
 pub type ExecResult<T> = Result<T, Box<ExecError>>;
 
+/// An error that occured during execution (runtime)
 #[derive(Debug)]
 pub struct ExecError {
+    /// Location where the error happened
     pub at: RuntimeCodeRange,
-    pub in_file: Option<FileId>,
-    pub source_file: Option<SourceFile>,
+    /// Nature of the error
     pub nature: ExecErrorNature,
+    /// Call stack
     pub call_stack: CallStack,
-    pub scope_range: RuntimeCodeRange,
+    /// Optional note on the error
     pub note: Option<String>,
 }
 
 impl ExecError {
+    /// Add a note to the error
     pub fn with_note(mut self: Box<Self>, note: impl Into<String>) -> Box<Self> {
         // TODO: allow multiple notes
         assert!(self.note.is_none());
@@ -29,20 +33,22 @@ impl ExecError {
     }
 }
 
+/// Nature of an execution error
 #[derive(Debug)]
 pub enum ExecErrorNature {
-    Custom(Cow<'static, str>),
+    /// Parsing of a program failed
     ParsingErr(ParsingError),
+    /// A command couldn't be started or failed
     CommandFailed {
         message: String,
         exit_status: Option<i32>,
     },
-    Exit {
-        code: Option<u8>,
-    },
-    Thrown {
-        value: LocatedValue,
-    },
+    /// A value was thrown and stayed uncaught
+    Thrown { value: LocatedValue },
+    /// Program requested to exit
+    Exit { code: Option<u8> },
+    /// Any other error, represented by a custom message
+    Custom(Cow<'static, str>),
 }
 
 impl From<&'static str> for ExecErrorNature {
