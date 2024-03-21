@@ -163,7 +163,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             // Debug a value's type
             //
             define_internal_fn!(
-                "dbg_type",
+                "dbgType",
 
                 Args [ArgsAt] (
                     value: RequiredArg<AnyType> = Arg::positional("value"),
@@ -174,7 +174,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 -> None,
 
                 |at, Args { value, tab_size, max_line_size }, _, ctx| {
-                    let at = format!("dbg-type [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
+                    let at = format!("dbgType [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
 
                     println!("{} {}", at.bright_magenta(), value.get_type().render_colored(ctx, PrettyPrintOptions {
                         pretty: true,
@@ -265,6 +265,23 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // pop a value from a list
+                //
+
+                "pop",
+
+                Args [ArgsAt] (
+                    list: RequiredArg<UntypedListType> = Arg::positional("list")
+                )
+
+                -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type()),
+
+                |_, Args { list }, ArgsAt { list: list_at }, ctx| {
+                    Ok(Some(list.write(list_at, ctx)?.pop().unwrap_or(RuntimeValue::Null)))
+                }
+            ),
+            define_internal_fn!(
+                //
                 // slice a list
                 //
 
@@ -286,19 +303,40 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
-                // pop a value from a list
+                // join all strings in a list
                 //
 
-                "pop",
+                "join",
 
                 Args [ArgsAt] (
-                    list: RequiredArg<UntypedListType> = Arg::positional("list")
+                    list: RequiredArg<DetachedListType<StringType>> = Arg::positional("list"),
+                    glue: RequiredArg<StringType> = Arg::positional("glue")
                 )
 
-                -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type()),
+                -> Some(StringType::direct_underlying_type()),
 
-                |_, Args { list }, ArgsAt { list: list_at }, ctx| {
-                    Ok(Some(list.write(list_at, ctx)?.pop().unwrap_or(RuntimeValue::Null)))
+                |_, Args { list, glue }, _, _| {
+                    Ok(Some(RuntimeValue::String(list.join(&glue))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // split a string to produce a list
+                //
+
+                "split",
+
+                Args [ArgsAt] (
+                    string: RequiredArg<StringType> = Arg::positional("string"),
+                    sep: RequiredArg<StringType> = Arg::positional("sep")
+                )
+
+                -> Some(DetachedListType::<StringType>::direct_underlying_type()),
+
+                |_, Args { string, sep }, _, _| {
+                    let split = string.split(&sep).map(|piece| RuntimeValue::String(piece.to_owned())).collect();
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(split))))
                 }
             ),
             //
@@ -409,6 +447,55 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 |_, Args { path }, _, _| {
                     Ok(Some(RuntimeValue::Bool(Path::new(&path).is_file())))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Read a file
+                //
+
+                "readFile",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path")
+                )
+
+                -> Some(StringType::direct_underlying_type()),
+
+                |at, Args { path }, ArgsAt { path: path_at }, ctx| {
+                    let path = Path::new(&path);
+
+                    if !path.is_file() {
+                        return Err(ctx.error(path_at, format!("provided file path '{}' does not exist", path.display())));
+                    }
+
+                    let content = std::fs::read_to_string(path)
+                        .map_err(|err| ctx.error(at, format!("failed to read file '{}': {err}", path.display())))?;
+
+                    Ok(Some(RuntimeValue::String(content)))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Write to a file
+                //
+
+                "writeFile",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path"),
+                    content: RequiredArg<StringType> = Arg::positional("content")
+                )
+
+                -> None,
+
+                |at, Args { path, content }, _, ctx| {
+                    let path = Path::new(&path);
+
+                     std::fs::write(path, content)
+                        .map_err(|err| ctx.error(at, format!("failed to write file '{}': {err}", path.display())))?;
+
+                    Ok(None)
                 }
             ),
             //
