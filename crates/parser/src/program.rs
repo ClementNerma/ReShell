@@ -27,7 +27,7 @@ pub fn program(
     load_file: impl Fn(String, FileId) -> Result<SourceFile, String> + 'static,
 ) -> impl Parser<Program> {
     let program = late::<Program>();
-    let outer = program.clone();
+    let program_bis = program.clone();
 
     let comment = char('#').then(filter(|c| c != '\r' && c != '\n').repeated());
 
@@ -1238,7 +1238,7 @@ pub fn program(
                 .ignore_then(literal_string.spanned().critical("expected a file path"))
                 .try_map(move |path| load_file(path.data, path.at.start.file_id))
                 .and_then(move |file| {
-                    program.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
+                    program_bis.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
                 })
                 .map(Instruction::Include),
             //
@@ -1269,7 +1269,7 @@ pub fn program(
             .map(|instructions| Block { instructions })
     });
 
-    outer.finish(
+    program.finish(
         raw_block
             .spanned()
             .padded_by(msnl)
@@ -1278,7 +1278,7 @@ pub fn program(
             .map(|content| Program { content }),
     );
 
-    outer
+    program
 }
 
 pub static DELIMITER_CHARS: LazyLock<HashSet<char>> = LazyLock::new(|| {
