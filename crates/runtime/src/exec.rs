@@ -11,7 +11,7 @@ use crate::{
     cmd::run_cmd,
     context::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
-        ScopeVar, FIRST_SCOPE_ID,
+        ScopeVar,
     },
     errors::{ExecErrorNature, ExecResult},
     expr::eval_expr,
@@ -603,7 +603,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::CmdCall(call) => {
             let (_, last_return_value) = run_cmd(call, ctx, false)?;
 
-            if ctx.current_scope().id == FIRST_SCOPE_ID {
+            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
                 if let Some(last_return_value) = last_return_value {
                     ctx.set_wandering_value(last_return_value.value);
                 }
@@ -613,7 +613,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::FnCall(call) => {
             let returned = eval_fn_call(call, ctx)?;
 
-            if ctx.current_scope().id == FIRST_SCOPE_ID {
+            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
                 if let Some(returned) = returned {
                     ctx.set_wandering_value(returned.value);
                 }

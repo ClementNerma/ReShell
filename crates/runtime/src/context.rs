@@ -181,6 +181,11 @@ impl Context {
         &self.files_map
     }
 
+    /// Get the current program's main scope ID
+    pub fn program_main_scope(&self) -> Option<u64> {
+        self.program_main_scope
+    }
+
     /// Get the  list of all scopes visible by the current one
     /// Iterating in visibility order
     pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
