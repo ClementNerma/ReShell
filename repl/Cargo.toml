@@ -12,7 +12,7 @@ ariadne = "0.2.0"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
 parsy = "0.1.0"
-clap = { version = "4.2.7", features = ["derive"] }
+clap = { version = "4.3.0", features = ["derive"] }
 reedline = { git = "https://github.com/ClementNerma/reedline.git" }
 nu-ansi-term = "0.47.0"
 glob = "0.3.1"
