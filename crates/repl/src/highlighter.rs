@@ -116,8 +116,8 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
             ("strings", vec![
                 // Strings
                 nested(
-                    simple_rule("(\")", [Green]),
-                    simple_rule("(\")", [Green]),
+                    simple_rule("(?:^|[^\\\\])(\")", [Green]),
+                    simple_rule("(?:^|[^\\\\])(\")", [Green]),
                     vec![
                         // Commands
                         nested(
