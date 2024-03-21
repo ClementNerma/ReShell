@@ -380,7 +380,7 @@ pub struct CmdFlagValueArg {
     pub value: Eaten<CmdValueMakingArg>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlagValueSeparator {
     Space,
     Equal,
@@ -440,7 +440,10 @@ pub struct FnCall {
 #[derive(Debug, Clone)]
 pub enum FnCallArg {
     Expr(Eaten<Expr>),
-    Flag(Eaten<CmdFlagArg>),
+    Flag {
+        name: Eaten<CmdFlagNameArg>,
+        value: Eaten<Expr>,
+    },
     CmdArg(Eaten<CmdArg>),
 }
 

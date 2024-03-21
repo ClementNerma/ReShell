@@ -262,20 +262,38 @@ pub fn program(
                 .map(|(args, ret_type)| FnSignature { args, ret_type }),
         );
 
+        let fn_call_arg = choice::<_, FnCallArg>((
+            ident
+                .clone()
+                .spanned()
+                .then_ignore(ms)
+                .then_ignore(char('='))
+                .then_ignore(msnl)
+                .then(expr.clone().spanned())
+                .map(|(name, value)| FnCallArg::Flag {
+                    name: name.map(|name| {
+                        if name.chars().nth(1).is_some() {
+                            CmdFlagNameArg::Long(name)
+                        } else {
+                            CmdFlagNameArg::Short(name.chars().next().unwrap())
+                        }
+                    }),
+                    value,
+                }),
+            expr.clone().spanned().map(FnCallArg::Expr),
+        ));
+
         let fn_call = char('$')
             .or_not()
             .then(ident.clone())
             .spanned()
             .then_ignore(char('('))
             .then(
-                choice::<_, FnCallArg>((
-                    cmd_flag_arg.clone().spanned().map(FnCallArg::Flag),
-                    expr.clone().spanned().map(FnCallArg::Expr),
-                ))
-                .spanned()
-                .padded()
-                .separated_by(char(','))
-                .spanned(),
+                fn_call_arg
+                    .spanned()
+                    .padded()
+                    .separated_by(char(','))
+                    .spanned(),
             )
             .then_ignore(char(')').critical("expected an expression"))
             .map(|(name, call_args)| FnCall {
