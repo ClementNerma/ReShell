@@ -124,7 +124,7 @@ impl BinariesResolver {
                                     use std::os::unix::fs::PermissionsExt;
 
                                     // Ensure exec permissions are present
-                                    if mt.permissions().mode() & 111 != 0 {
+                                    if mt.permissions().mode() & 0o111 != 0 {
                                         Some(path)
                                     } else {
                                         None
