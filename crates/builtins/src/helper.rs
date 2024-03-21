@@ -76,6 +76,9 @@ pub trait ArgHandler {
     fn is_rest(&self) -> bool;
     fn names(&self) -> ArgNames;
 
+    type FixedOptionality<Z>;
+    fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z>;
+
     type Parsed;
     fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String>;
 
@@ -142,6 +145,12 @@ impl<T: ArgTyping> ArgHandler for Arg<false, T> {
         self.is_rest
     }
 
+    type FixedOptionality<Z> = Z;
+
+    fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
+        value.unwrap()
+    }
+
     type Parsed = T::Parsed;
 
     fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
@@ -169,6 +178,12 @@ impl<T: ArgTyping> ArgHandler for Arg<true, T> {
 
     fn is_rest(&self) -> bool {
         self.is_rest
+    }
+
+    type FixedOptionality<Z> = Option<Z>;
+
+    fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
+        value
     }
 
     type Parsed = Option<T::Parsed>;
@@ -241,7 +256,7 @@ macro_rules! define_internal_fn {
         struct $args_loc_struct_name {
             $(
                 #[allow(dead_code)]
-                $arg_name: Option<CodeRange>
+                $arg_name: <$arg_handler as ArgHandler>::FixedOptionality<CodeRange>
             ),*
         }
 
@@ -264,8 +279,12 @@ macro_rules! define_internal_fn {
                 $( $arg_name: $gen ),*
             };
 
-            let args_at = $args_loc_struct_name {
-                $( $arg_name: args.get(&args_ty.$arg_name.names().static_name()).map(|(at, _)| *at) ),*
+            struct PlaceholderArgsAt {
+                $( $arg_name: Option<CodeRange> ),*
+            }
+
+            let placeholder_args_at = PlaceholderArgsAt {
+                $( $arg_name: None ),*
             };
 
             let parsed = $args_struct_name {
@@ -273,7 +292,11 @@ macro_rules! define_internal_fn {
                     let arg = args.remove(&args_ty.$arg_name.names().static_name());
 
                     let arg_may_be_at = match arg {
-                        Some((at, _)) => at,
+                        Some((at, _)) => {
+                            placeholder_args_at.$arg_name = Some(at);
+                            at
+                        },
+
                         None => call_at
                     };
 
@@ -282,6 +305,10 @@ macro_rules! define_internal_fn {
 
                     parsed
                 } ),*
+            };
+
+            let args_at = $args_loc_struct_name {
+                $( $arg_name: <$arg_handler as ArgHandler>::min_unwrap(placeholder_args_at.$arg_name) ),*
             };
 
             if args.is_empty() {

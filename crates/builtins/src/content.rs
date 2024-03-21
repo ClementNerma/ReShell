@@ -200,11 +200,11 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 |_, Args { content }, ArgsAt { content: content_at }, _, ctx| {
                     let len = match content {
                         Union3Result::A(str) => str.len(),
-                        Union3Result::B(list) => list.read(content_at.unwrap()).len(),
-                        Union3Result::C(map) => map.read(content_at.unwrap()).len(),
+                        Union3Result::B(list) => list.read(content_at).len(),
+                        Union3Result::C(map) => map.read(content_at).len(),
                     };
 
-                    let len = i64::try_from(len).map_err(|_| ctx.error(content_at.unwrap_or_else(forge_internal_loc), format!("length is too big to fit in the integer type ({len})")))?;
+                    let len = i64::try_from(len).map_err(|_| ctx.error(content_at, format!("length is too big to fit in the integer type ({len})")))?;
 
                     Ok(Some(RuntimeValue::Int(len)))
                 }
@@ -225,7 +225,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 -> Some(UntypedListType::direct_underlying_type()),
 
                 |_, Args { list, from, length }, ArgsAt { list: list_at, .. }, _, _| {
-                    let sliced = list.read(list_at.unwrap()).iter().skip(from).take(length.unwrap_or(usize::MAX)).cloned().collect::<Vec<_>>();
+                    let sliced = list.read(list_at).iter().skip(from).take(length.unwrap_or(usize::MAX)).cloned().collect::<Vec<_>>();
 
                     Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
                 }
@@ -244,7 +244,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type()),
 
                 |_, Args { list }, ArgsAt { list: list_at }, _, ctx| {
-                    Ok(Some(list.write(list_at.unwrap(), ctx)?.pop().unwrap_or(RuntimeValue::Null)))
+                    Ok(Some(list.write(list_at, ctx)?.pop().unwrap_or(RuntimeValue::Null)))
                 }
             ),
             define_internal_fn!(
@@ -268,10 +268,10 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 -> Some(UntypedListType::direct_underlying_type()),
 
                 |_, Args { list, mapper }, ArgsAt { list: _, mapper: mapper_at }, ArgsTy { list: _, mapper: mapper_ty }, ctx| {
-                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at.unwrap_or_else(forge_internal_loc));
+                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
 
                     let mapped = list
-                        .read(mapper_at.unwrap())
+                        .read(mapper_at)
                         .iter()
                         .enumerate()
                         .map(|(index, value)| -> ExecResult<RuntimeValue> {
