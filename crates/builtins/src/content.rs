@@ -668,6 +668,41 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // Delete a file
+                //
+
+                "rm",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path"),
+                    recursive: OptionalArg<BoolType> = Arg::long_and_short_flag("recursive", 'r')
+                )
+
+                -> None,
+
+                |at, Args { path, recursive }, ArgsAt { path: path_at, .. }, ctx| {
+                    let path = Path::new(&path);
+
+                    let file_type = path.metadata()
+                        .map_err(|_| ctx.error(path_at, format!("provided path '{}' does not exist", path.display())))?;
+
+                    let result = if file_type.is_dir() {
+                        if recursive != Some(true) {
+                            return Err(ctx.error(path_at, "provided path is a directory ; to remove it, use the '--recursive' / '-r' flag."));
+                        }
+
+                        fs::remove_dir_all(path)
+                    } else {
+                        fs::remove_file(path)
+                    };
+
+                    result.map_err(|err| ctx.error(at, format!("failed to remove item: {err}")))?;
+
+                    Ok(None)
+                }
+            ),
+            define_internal_fn!(
+                //
                 // Read a file
                 //
 
@@ -683,7 +718,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     let path = Path::new(&path);
 
                     if !path.is_file() {
-                        return Err(ctx.error(path_at, format!("provided file path '{}' does not exist", path.display())));
+                        return Err(ctx.error(path_at, format!("no file exists at path '{}'", path.display())));
                     }
 
                     let content = fs::read_to_string(path)
