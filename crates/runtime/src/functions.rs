@@ -348,11 +348,17 @@ fn parse_fn_call_args(
 
                 if let Some(typ) = typ {
                     if !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx) {
+                        let is_method_self_arg = name.data() == "self";
+
                         return Err(ctx.error(
-                            loc_val.from,
+                        loc_val.from,
                             format!(
-                                "type mismatch: argument '{}' expected type '{}', found '{}'",
-                                name.data(),
+                                "type mismatch: {} '{}', found '{}'",
+                                if is_method_self_arg {
+                                    "method can only be applied on type".to_owned()
+                                } else {
+                                    format!("argument '{}' expected type", name.data())
+                                },
                                 typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
                                 loc_val
                                     .value
