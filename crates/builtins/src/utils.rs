@@ -1,4 +1,3 @@
-use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_parser::ast::{
     FnArg, FnArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
 };

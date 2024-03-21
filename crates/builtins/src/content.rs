@@ -271,7 +271,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 -> Some(UntypedListType::direct_underlying_type()),
 
                 |_, Args { list, mapper }, ArgsAt { list: _, mapper: mapper_at }, ArgsTy { list: _, mapper: mapper_ty }, ctx| {
-                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at.into());
+                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
 
                     let mapped = list
                         .read(mapper_at)
