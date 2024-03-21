@@ -49,7 +49,8 @@ pub struct SimpleRule {
     pub matches: Regex,
     pub inside: Option<HashSet<NestingOpeningType>>,
     pub preceded_by: Option<Regex>,
-    pub followed_by: Option<HashSet<NestingOpeningType>>,
+    pub followed_by: Option<Regex>,
+    pub followed_by_nesting: Option<HashSet<NestingOpeningType>>,
     pub style: Vec<Style>,
 }
 
@@ -266,7 +267,7 @@ impl<'h, 'str> Match<'h, 'str> {
         let mut capture_shift = 0;
 
         loop {
-            let (regex_matched_at, cap) = rule
+            let (full_match_start, full_match_end, cap) = rule
                 .matches
                 .captures_at(
                     &input[nesting_at..],
@@ -275,6 +276,7 @@ impl<'h, 'str> Match<'h, 'str> {
                 .map(|captured| {
                     (
                         captured.get(0).unwrap().start() + nesting_at,
+                        captured.get(0).unwrap().end() + nesting_at,
                         Self {
                             nesting_at,
                             start: captured.get(1).unwrap().start() + nesting_at,
@@ -290,14 +292,22 @@ impl<'h, 'str> Match<'h, 'str> {
             }
 
             if let Some(preceded_by) = &rule.preceded_by {
-                if !preceded_by.is_match(&input[..regex_matched_at]) {
+                if !preceded_by.is_match(&input[..full_match_start]) {
                     return None;
                 }
             }
 
             if let Some(followed_by) = &rule.followed_by {
+                let cap = followed_by.captures_at(input, full_match_end);
+
+                if !cap.map_or(false, |cap| cap.get(0).unwrap().start() == full_match_end) {
+                    return None;
+                }
+            }
+
+            if let Some(followed_by_nesting) = &rule.followed_by_nesting {
                 if cap.end < input.len()
-                    || !matches!(next_nesting, Some(next_nesting) if followed_by.contains(&next_nesting))
+                    || !matches!(next_nesting, Some(next_nesting) if followed_by_nesting.contains(&next_nesting))
                 {
                     capture_shift = cap.end - range.from + 1;
 
@@ -368,8 +378,9 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         let SimpleRule {
             matches,
             inside: _,
-            followed_by: _,
             preceded_by,
+            followed_by: _,
+            followed_by_nesting: _,
             style,
         } = rule;
 
