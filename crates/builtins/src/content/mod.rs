@@ -3,6 +3,7 @@
 //!
 //! Each function has its own dedicated module.
 
+mod approx_int_div;
 mod cd;
 mod clone;
 mod current_dir;
@@ -78,6 +79,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::mkdir::build_fn(),
             self::path_exists::build_fn(),
             self::pop::build_fn(),
+            self::approx_int_div::build_fn(),
             self::print_runtime_stats::build_fn(),
             self::range::build_fn(),
             self::read_file::build_fn(),
