@@ -12,6 +12,8 @@ use reshell_runtime::{
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
+use crate::helper::Typing;
+
 pub fn forge_basic_fn_signature(
     args: Vec<(impl Into<String>, ValueType)>,
     ret_type: Option<ValueType>,
@@ -91,4 +93,20 @@ pub fn call_fn_checked(
         ),
         ctx,
     )
+}
+
+pub fn expect_returned_value<T>(
+    value: Option<LocatedValue>,
+    at: RuntimeCodeRange,
+    type_parser: impl Typing<Parsed = T>,
+    ctx: &Context,
+) -> ExecResult<T> {
+    let loc_val = value.ok_or_else(|| {
+        ctx.error(
+            at,
+            "internal error: got no return value (should have been caught before returning)",
+        )
+    })?;
+
+    type_parser.parse(loc_val.value).map_err(|err| ctx.error(at, format!("internal error: got invalid return value (should have been caught before returning).\nDetails:\n> {err}")))
 }
