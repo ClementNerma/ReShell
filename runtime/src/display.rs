@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use parsy::{CodeRange, FileId};
-use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType};
+use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, ValueType};
 
 use crate::{
     context::Context, errors::ExecResult, files_map::ScopableFilePath, values::RuntimeValue,
@@ -35,10 +35,10 @@ pub fn readable_value_type(value: &RuntimeValue, ctx: &Context) -> Cow<'static, 
 
 pub fn readable_type(value_type: &ValueType, ctx: &Context) -> Cow<'static, str> {
     match value_type {
-        ValueType::Single(single) => readable_single_type(&single.data, ctx),
+        ValueType::Single(single) => readable_single_type(single.data(), ctx),
         ValueType::Union(types) => types
             .iter()
-            .map(|typ| readable_single_type(&typ.data(), ctx))
+            .map(|typ| readable_single_type(typ.data(), ctx))
             .collect::<Vec<_>>()
             .join(" | ")
             .into(),
@@ -56,7 +56,12 @@ pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<
         SingleValueType::List => "list".into(),
         SingleValueType::Range => "range".into(),
         SingleValueType::Map => "map".into(),
-        SingleValueType::Struct => "struct".into(),
+        SingleValueType::UntypedStruct => "struct".into(),
+        SingleValueType::TypedStruct(_) =>
+        // TODO: full type
+        {
+            "struct".into()
+        }
         SingleValueType::Function(signature) => dbg_fn_signature(signature, ctx).into(),
         SingleValueType::Error => "error".into(),
         SingleValueType::TypeAlias(name) => format!(
