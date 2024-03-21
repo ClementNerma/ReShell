@@ -42,10 +42,7 @@ pub fn run_program(program: &Program, ctx: &mut Context, init_scope: Scope) -> E
 
     match instr_ret {
         None => Ok(scope),
-        Some(instr_ret) => Err(ctx.error(
-            instr_ret.from,
-            "cannot exit the program with this instruction",
-        )),
+        Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
     }
 }
 
@@ -54,10 +51,7 @@ fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecRes
 
     match instr_ret {
         None => Ok(()),
-        Some(instr_ret) => Err(ctx.error(
-            instr_ret.from,
-            "cannot exit the program with this instruction",
-        )),
+        Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
     }
 }
 

@@ -47,8 +47,10 @@ macro_rules! native_fn {
                 $( let $at = at; )?
             )?
 
-            let ret = $body;
+            #[allow(unused_variables)]
+            let ret: ExecResult<Option<RuntimeValue>> = $body;
 
+            #[allow(unreachable_code)]
             ret.map(|ret| ret.map(|value| LocatedValue::new(value, forge_internal_loc())))
         }
 
@@ -408,6 +410,7 @@ pub fn generate_native_lib() -> Scope {
         }),
         //
         // list all items matching a glob
+        //
         native_fn!(glob (pattern: String) [ctx, at] -> (List) {
             let files = glob(&pattern).map_err(|err| ctx.error(at, format!("failed to run glob: {err}")))?;
 
@@ -432,6 +435,12 @@ pub fn generate_native_lib() -> Scope {
             call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: vec![], ret_type: None }, vec![], ctx)?;
 
             Ok(Some(RuntimeValue::Int(start.elapsed().as_millis() as i64)))
+        }),
+        //
+        // exit the program
+        //
+        native_fn!(exit (code: Int) {
+            std::process::exit(code as i32);
         }),
         // //
         // // create a directory
