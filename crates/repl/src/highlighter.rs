@@ -129,9 +129,6 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Types
                 rule!(@simple "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => [Magenta]),
 
-                // Type aliases
-                rule!(@simple "\\b([A-Z][a-zA-Z0-9_]*)\\b" => [LightYellow]),
-
                 // Booleans
                 rule!(@simple "\\b(true|false)\\b" => [LightYellow]),
 
