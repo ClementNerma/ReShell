@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parsy::{CodeRange, Eaten, MaybeEaten};
+use parsy::{CodeRange, Eaten};
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -186,8 +186,8 @@ pub enum Value {
 
 #[derive(Debug, Clone)]
 pub enum ValueType {
-    Single(MaybeEaten<SingleValueType>),
-    Union(Vec<MaybeEaten<SingleValueType>>),
+    Single(RuntimeEaten<SingleValueType>),
+    Union(Vec<RuntimeEaten<SingleValueType>>),
 }
 
 #[derive(Debug, Clone)]
@@ -203,15 +203,15 @@ pub enum SingleValueType {
     Map,
     Error,
     UntypedStruct,
-    TypedStruct(Vec<MaybeEaten<StructTypeMember>>),
-    Function(MaybeEaten<FnSignature>),
+    TypedStruct(Vec<RuntimeEaten<StructTypeMember>>),
+    Function(RuntimeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
 }
 
 #[derive(Debug, Clone)]
 pub struct StructTypeMember {
-    pub name: MaybeEaten<String>,
-    pub typ: MaybeEaten<ValueType>,
+    pub name: RuntimeEaten<String>,
+    pub typ: RuntimeEaten<ValueType>,
 }
 
 #[derive(Debug, Clone)]
@@ -362,4 +362,33 @@ pub struct FnCall {
 pub enum FnCallArg {
     Expr(Eaten<Expr>),
     CmdArg(Eaten<CmdArg>),
+}
+
+/// A token that's either eaten from a real input or generated at runtime
+#[derive(Debug, Clone, Copy)]
+pub enum RuntimeEaten<T> {
+    Eaten(Eaten<T>),
+    Raw(T),
+}
+
+impl<T> RuntimeEaten<T> {
+    pub fn data(&self) -> &T {
+        match &self {
+            Self::Eaten(eaten) => &eaten.data,
+            Self::Raw(raw) => raw,
+        }
+    }
+
+    pub fn eaten(&self) -> Option<&Eaten<T>> {
+        match self {
+            RuntimeEaten::Eaten(eaten) => Some(eaten),
+            RuntimeEaten::Raw(_) => None,
+        }
+    }
+}
+
+/// Either a [`CodeRange`] or an internal location
+pub enum RuntimeCodeRange {
+    CodeRange(CodeRange),
+    Internal,
 }

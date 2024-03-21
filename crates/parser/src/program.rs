@@ -2,19 +2,15 @@ use std::collections::HashMap;
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, MaybeEaten,
-    Parser,
+    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, Parser,
 };
 
 use crate::ast::{
-    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, EscapableChar,
-    ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, PropAccess,
-    PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase, ValueType,
-};
-
-use super::ast::{
-    Block, CmdArg, CmdCall, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, Expr, ExprInner,
-    ExprOp, Instruction, LiteralValue, Program, SingleOp, Value,
+    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType,
+    ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
+    ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature,
+    Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten,
+    SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub fn program() -> impl Parser<Program> {
@@ -78,7 +74,7 @@ pub fn program() -> impl Parser<Program> {
             just("fn")
                 .ignore_then(fn_signature.clone())
                 .spanned()
-                .map(MaybeEaten::Eaten)
+                .map(RuntimeEaten::Eaten)
                 .map(SingleValueType::Function),
             just("struct")
                 .ignore_then(ms)
@@ -88,7 +84,7 @@ pub fn program() -> impl Parser<Program> {
                     ident
                         .clone()
                         .spanned()
-                        .map(MaybeEaten::Eaten)
+                        .map(RuntimeEaten::Eaten)
                         .then_ignore(ms)
                         .then_ignore(char(':').critical("expected a ':'"))
                         .then_ignore(msnl)
@@ -96,12 +92,12 @@ pub fn program() -> impl Parser<Program> {
                             value_type
                                 .clone()
                                 .spanned()
-                                .map(MaybeEaten::Eaten)
+                                .map(RuntimeEaten::Eaten)
                                 .critical("expected a value type"),
                         )
                         .map(|(name, typ)| StructTypeMember { name, typ })
                         .spanned()
-                        .map(MaybeEaten::Eaten)
+                        .map(RuntimeEaten::Eaten)
                         .separated_by(char(',').padded()),
                 )
                 .then_ignore(msnl)
@@ -118,7 +114,7 @@ pub fn program() -> impl Parser<Program> {
             single_value_type
                 .clone()
                 .spanned()
-                .map(MaybeEaten::Eaten)
+                .map(RuntimeEaten::Eaten)
                 .map(ValueType::Single),
             // Type union
             char('(')
@@ -127,7 +123,7 @@ pub fn program() -> impl Parser<Program> {
                     single_value_type
                         .clone()
                         .spanned()
-                        .map(MaybeEaten::Eaten)
+                        .map(RuntimeEaten::Eaten)
                         .separated_by(char('|').padded())
                         .at_least(2)
                         .critical("expected at least 2 types in union"),

@@ -2,10 +2,10 @@ use std::rc::Rc;
 use std::{collections::HashMap, fmt::Debug};
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, MaybeEaten};
+use parsy::{CodeRange, Eaten};
 use reshell_checker::Dependency;
 use reshell_parser::ast::{
-    Block, FnSignature, SingleCmdCall, SingleValueType, StructTypeMember, ValueType,
+    Block, FnSignature, RuntimeEaten, SingleCmdCall, SingleValueType, StructTypeMember, ValueType,
 };
 
 use crate::context::{ScopeFn, ScopeVar};
@@ -118,9 +118,9 @@ impl RuntimeValue {
                     members
                         .iter()
                         .map(|(name, value)| {
-                            MaybeEaten::Raw(StructTypeMember {
-                                name: MaybeEaten::Raw(name.clone()),
-                                typ: MaybeEaten::Raw(ValueType::Single(MaybeEaten::Raw(
+                            RuntimeEaten::Raw(StructTypeMember {
+                                name: RuntimeEaten::Raw(name.clone()),
+                                typ: RuntimeEaten::Raw(ValueType::Single(RuntimeEaten::Raw(
                                     value.get_type(),
                                 ))),
                             })
@@ -131,8 +131,8 @@ impl RuntimeValue {
             RuntimeValue::Function(content) => {
                 // TODO: performance
                 SingleValueType::Function(match &content.signature {
-                    RuntimeFnSignature::Shared(shared) => MaybeEaten::Eaten(Eaten::clone(shared)),
-                    RuntimeFnSignature::Owned(owned) => MaybeEaten::Raw(owned.clone()),
+                    RuntimeFnSignature::Shared(shared) => RuntimeEaten::Eaten(Eaten::clone(shared)),
+                    RuntimeFnSignature::Owned(owned) => RuntimeEaten::Raw(owned.clone()),
                 })
             }
             RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
