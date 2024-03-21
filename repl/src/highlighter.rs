@@ -14,7 +14,7 @@ use reshell_parser::{
 };
 use reshell_runtime::files_map::{FilesMap, ScopableFilePath};
 
-use crate::{highlighting::HighlightList, reports::parsing_error_report};
+use crate::{highlighting::*, reports::parsing_error_report};
 
 // TODO: full AST-based highlighter (requires to have parsing recovery in case of error)
 // TODO: highlighter error reporting is hiding autocompletion :/
@@ -95,7 +95,7 @@ impl Highlight for Instruction {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
             Instruction::Comment { content } => {
-                h.comment(content.at);
+                h.push(&COMMENT, content.at);
             }
 
             Instruction::Include(path) => {
@@ -107,7 +107,7 @@ impl Highlight for Instruction {
                 mutable: _,
                 init_expr,
             } => {
-                h.var_name(name.at);
+                h.push(&VAR_NAME, name.at);
 
                 if let Some(init_expr) = init_expr {
                     init_expr.data.highlight(h);
@@ -115,7 +115,7 @@ impl Highlight for Instruction {
             }
 
             Instruction::AssignVar { name, expr } => {
-                h.var_name(name.at);
+                h.push(&VAR_NAME, name.at);
                 expr.data.highlight(h);
             }
 
@@ -142,7 +142,7 @@ impl Highlight for Instruction {
                 iter_on,
                 body,
             } => {
-                h.var_name(iter_var.at);
+                h.push(&VAR_NAME, iter_var.at);
 
                 iter_on.data.highlight(h);
                 body.data.highlight(h);
@@ -168,7 +168,7 @@ impl Highlight for Instruction {
                 signature,
                 body,
             } => {
-                h.fn_name(name.at);
+                h.push(&FN_NAME, name.at);
 
                 signature.highlight(h);
                 body.data.highlight(h);
@@ -244,12 +244,12 @@ impl Highlight for FnArg {
 impl Highlight for FnArgNames {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
-            FnArgNames::NotFlag(name) => h.var_name(name.at),
-            FnArgNames::ShortFlag(flag) => h.flag(flag.at),
-            FnArgNames::LongFlag(flag) => h.flag(flag.at),
+            FnArgNames::NotFlag(name) => h.push(&VAR_NAME, name.at),
+            FnArgNames::ShortFlag(flag) => h.push(&FLAG, flag.at),
+            FnArgNames::LongFlag(flag) => h.push(&FLAG, flag.at),
             FnArgNames::LongAndShortFlag { long, short } => {
-                h.flag(long.at);
-                h.flag(short.at);
+                h.push(&FLAG, long.at);
+                h.push(&FLAG, short.at);
             }
         }
     }
@@ -281,7 +281,7 @@ impl Highlight for Eaten<SingleValueType> {
             | SingleValueType::Range
             | SingleValueType::Map
             | SingleValueType::Error
-            | SingleValueType::Struct => h.type_name(self.at),
+            | SingleValueType::Struct => h.push(&TYPE_NAME, self.at),
             SingleValueType::Function(signature) => signature.highlight(h),
         }
     }
@@ -323,7 +323,7 @@ impl Highlight for CmdEnvVar {
     fn highlight(&self, h: &mut HighlightList) {
         let Self { name, value } = self;
 
-        h.env_var_name(name.at);
+        h.push(&ENV_VAR_NAME, name.at);
 
         value.data.highlight(h);
     }
@@ -332,7 +332,7 @@ impl Highlight for CmdEnvVar {
 impl Highlight for CmdEnvVarValue {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
-            CmdEnvVarValue::Raw(raw) => h.raw_str(raw.at),
+            CmdEnvVarValue::Raw(raw) => h.push(&RAW_STR, raw.at),
             CmdEnvVarValue::ComputedString(computed_str) => computed_str.highlight(h),
             CmdEnvVarValue::Expr(expr) => expr.data.highlight(h),
         }
@@ -342,7 +342,7 @@ impl Highlight for CmdEnvVarValue {
 impl Highlight for CmdPath {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
-            CmdPath::Raw(raw) => h.path(raw.at),
+            CmdPath::Raw(raw) => h.push(&PATH, raw.at),
             CmdPath::ComputedString(computed_str) => computed_str.highlight(h),
         }
     }
@@ -355,10 +355,10 @@ impl Highlight for CmdArg {
             CmdArg::ComputedString(computed_str) => computed_str.highlight(h),
             CmdArg::CmdCall(call) => call.data.highlight(h),
             CmdArg::ParenExpr(expr) => expr.data.highlight(h),
-            CmdArg::VarName(name) => h.var_name(name.at),
-            CmdArg::FnAsValue(name) => h.fn_name(name.at),
-            CmdArg::Raw(raw) => h.path(raw.at),
-            CmdArg::SpreadVar(name) => h.var_name(name.at), // TODO: change?
+            CmdArg::VarName(name) => h.push(&VAR_NAME, name.at),
+            CmdArg::FnAsValue(name) => h.push(&FN_NAME, name.at),
+            CmdArg::Raw(raw) => h.push(&PATH, raw.at),
+            CmdArg::SpreadVar(name) => h.push(&VAR_NAME, name.at), // TODO: change?
         }
     }
 }
@@ -384,9 +384,9 @@ impl Highlight for Eaten<ComputedString> {
 impl Highlight for ComputedStringPiece {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
-            ComputedStringPiece::Literal(lit) => h.string(lit.at),
-            ComputedStringPiece::Escaped(escaped) => h.escaped_char(escaped.at),
-            ComputedStringPiece::Variable(name) => h.var_name(name.at),
+            ComputedStringPiece::Literal(lit) => h.push(&STRING, lit.at),
+            ComputedStringPiece::Escaped(escaped) => h.push(&ESCAPED_CHAR, escaped.at),
+            ComputedStringPiece::Variable(name) => h.push(&VAR_NAME, name.at),
             ComputedStringPiece::Expr(expr) => expr.data.highlight(h),
             ComputedStringPiece::CmdCall(call) => call.data.highlight(h),
         }
@@ -442,7 +442,7 @@ impl Highlight for PropAccessNature {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
             PropAccessNature::Key(expr) => expr.data.highlight(h),
-            PropAccessNature::Prop(name) => h.prop_name(name.at),
+            PropAccessNature::Prop(name) => h.push(&PROP_NAME, name.at),
         }
     }
 }
@@ -458,7 +458,7 @@ impl Highlight for ExprOp {
 impl Highlight for Eaten<Value> {
     fn highlight(&self, h: &mut HighlightList) {
         match &self.data {
-            Value::Null => h.keyword(self.at), // TODO: change?
+            Value::Null => h.push(&KEYWORD, self.at), // TODO: change?
             Value::Literal(lit_val) => lit_val.highlight(h),
             Value::ComputedString(computed_str) => computed_str.highlight(h),
             Value::List(list) => {
@@ -472,11 +472,11 @@ impl Highlight for Eaten<Value> {
                     expr.data.highlight(h);
                 }
             }
-            Value::Variable(name) => h.var_name(name.at),
+            Value::Variable(name) => h.push(&VAR_NAME, name.at),
             Value::FnCall(call) => call.data.highlight(h),
             Value::CmdOutput(call) => call.data.highlight(h),
             Value::CmdSuccess(call) => call.data.highlight(h),
-            Value::FnAsValue(name) => h.fn_name(name.at),
+            Value::FnAsValue(name) => h.push(&FN_NAME, name.at),
             Value::Closure { signature, body } => {
                 signature.highlight(h);
                 body.data.highlight(h);
@@ -488,9 +488,9 @@ impl Highlight for Eaten<Value> {
 impl Highlight for Eaten<LiteralValue> {
     fn highlight(&self, h: &mut HighlightList) {
         match &self.data {
-            LiteralValue::Boolean(_) => h.bool(self.at),
-            LiteralValue::Integer(_) => h.int(self.at),
-            LiteralValue::Float(_) => h.float(self.at),
+            LiteralValue::Boolean(_) => h.push(&BOOL, self.at),
+            LiteralValue::Integer(_) => h.push(&INT, self.at),
+            LiteralValue::Float(_) => h.push(&FLOAT, self.at),
         }
     }
 }
@@ -503,7 +503,7 @@ impl Highlight for FnCall {
             call_args,
         } = self;
 
-        h.var_name(name.at);
+        h.push(&VAR_NAME, name.at);
 
         for arg in &call_args.data {
             arg.highlight(h);

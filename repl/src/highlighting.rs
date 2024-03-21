@@ -1,4 +1,5 @@
 use nu_ansi_term::{Color, Style};
+use once_cell::sync::Lazy;
 use parsy::CodeRange;
 use reedline::StyledText;
 
@@ -24,7 +25,7 @@ impl<'a> HighlightList<'a> {
 }
 
 impl<'a> HighlightList<'a> {
-    fn push(&mut self, at: CodeRange, style: Style) {
+    pub fn push(&mut self, style: &Style, at: CodeRange) {
         assert!(at.start.offset >= self.prev);
 
         let start = at.start.offset;
@@ -33,7 +34,7 @@ impl<'a> HighlightList<'a> {
         self.push_untreated_bit(start);
 
         self.rendered
-            .push((style, self.source[start..end].to_string()));
+            .push((style.clone(), self.source[start..end].to_string()));
 
         self.prev = start + at.len;
     }
@@ -44,68 +45,20 @@ impl<'a> HighlightList<'a> {
                 .push((Style::default(), self.source[self.prev..start].to_string()));
         }
     }
-
-    pub fn keyword(&mut self, at: CodeRange) {
-        self.push(at, Color::Cyan.into());
-    }
-
-    // pub fn special_symbol(&mut self, at: CodeRange) {
-    //     self.push(at, Color::Cyan.into());
-    // }
-
-    pub fn comment(&mut self, comment: CodeRange) {
-        self.push(comment, Color::DarkGray.into());
-    }
-
-    pub fn var_name(&mut self, at: CodeRange) {
-        self.push(at, Color::LightPurple.into());
-    }
-
-    pub fn env_var_name(&mut self, at: CodeRange) {
-        self.push(at, Style::new().fg(Color::Blue).bold());
-    }
-
-    pub fn fn_name(&mut self, at: CodeRange) {
-        self.push(at, Style::new().fg(Color::LightPurple).bold());
-    }
-
-    pub fn prop_name(&mut self, at: CodeRange) {
-        self.push(at, Color::LightPurple.into());
-    }
-
-    pub fn flag(&mut self, at: CodeRange) {
-        self.push(at, Style::new().fg(Color::LightMagenta).bold());
-    }
-
-    pub fn type_name(&mut self, at: CodeRange) {
-        self.push(at, Style::new().fg(Color::LightYellow).bold());
-    }
-
-    pub fn bool(&mut self, at: CodeRange) {
-        self.push(at, Color::Yellow.into());
-    }
-
-    pub fn int(&mut self, at: CodeRange) {
-        self.push(at, Color::Green.into());
-    }
-
-    pub fn float(&mut self, at: CodeRange) {
-        self.push(at, Color::Green.into());
-    }
-
-    pub fn string(&mut self, at: CodeRange) {
-        self.push(at, Color::LightGreen.into());
-    }
-
-    pub fn escaped_char(&mut self, at: CodeRange) {
-        self.push(at, Color::Cyan.into())
-    }
-
-    pub fn raw_str(&mut self, at: CodeRange) {
-        self.push(at, Style::new());
-    }
-
-    pub fn path(&mut self, at: CodeRange) {
-        self.push(at, Color::Blue.into());
-    }
 }
+
+pub static KEYWORD: Lazy<Style> = Lazy::new(|| Color::Cyan.into());
+pub static COMMENT: Lazy<Style> = Lazy::new(|| Color::DarkGray.into());
+pub static VAR_NAME: Lazy<Style> = Lazy::new(|| Color::LightPurple.into());
+pub static ENV_VAR_NAME: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::Blue).bold());
+pub static FN_NAME: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::LightPurple).bold());
+pub static PROP_NAME: Lazy<Style> = Lazy::new(|| Color::LightPurple.into());
+pub static FLAG: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::LightMagenta).bold());
+pub static TYPE_NAME: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::LightYellow).bold());
+pub static BOOL: Lazy<Style> = Lazy::new(|| Color::Yellow.into());
+pub static INT: Lazy<Style> = Lazy::new(|| Color::Green.into());
+pub static FLOAT: Lazy<Style> = Lazy::new(|| Color::Green.into());
+pub static STRING: Lazy<Style> = Lazy::new(|| Color::LightGreen.into());
+pub static ESCAPED_CHAR: Lazy<Style> = Lazy::new(|| Color::Cyan.into());
+pub static RAW_STR: Lazy<Style> = Lazy::new(|| Style::new());
+pub static PATH: Lazy<Style> = Lazy::new(|| Color::Blue.into());
