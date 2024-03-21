@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    rc::Rc,
+    sync::Arc,
 };
 
 use indexmap::IndexSet;
@@ -602,16 +602,16 @@ impl Context {
 
     /// Get a specific type signature from its location
     /// Avoids cloning the entire (heavy) [`FnSignature`] value
-    pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Rc<Eaten<FnSignature>>> {
+    pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Arc<Eaten<FnSignature>>> {
         #[allow(clippy::map_clone)]
-        self.collected.fn_signatures.get(&from.at).map(Rc::clone)
+        self.collected.fn_signatures.get(&from.at).map(Arc::clone)
     }
 
     /// Get a specific function's body from its location
     /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
-    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Rc<Eaten<Block>>> {
+    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Arc<Eaten<Block>>> {
         #[allow(clippy::map_clone)]
-        self.collected.fn_bodies.get(&from.at).map(Rc::clone)
+        self.collected.fn_bodies.get(&from.at).map(Arc::clone)
     }
 
     /// Get a specific command alias' content from its location
@@ -619,9 +619,9 @@ impl Context {
     pub fn get_cmd_alias_content(
         &self,
         from: &Eaten<SingleCmdCall>,
-    ) -> Option<Rc<Eaten<SingleCmdCall>>> {
+    ) -> Option<Arc<Eaten<SingleCmdCall>>> {
         #[allow(clippy::map_clone)]
-        self.collected.cmd_aliases.get(&from.at).map(Rc::clone)
+        self.collected.cmd_aliases.get(&from.at).map(Arc::clone)
     }
 
     /// Get a specific command alias' content from a developed version
@@ -629,9 +629,9 @@ impl Context {
     pub fn get_developed_cmd_alias_content(
         &self,
         from: &DevelopedCmdAliasCall,
-    ) -> Rc<Eaten<SingleCmdCall>> {
+    ) -> Arc<Eaten<SingleCmdCall>> {
         match self.collected.cmd_aliases.get(&from.alias_content_at) {
-            Some(developed) => Rc::clone(developed),
+            Some(developed) => Arc::clone(developed),
 
             None => self.panic(
                 from.alias_content_at,
@@ -645,9 +645,9 @@ impl Context {
     pub fn get_developed_cmd_call(
         &self,
         from: &Eaten<SingleCmdCall>,
-    ) -> Rc<DevelopedSingleCmdCall> {
+    ) -> Arc<DevelopedSingleCmdCall> {
         match self.collected.cmd_calls.get(&from.at) {
-            Some(developed) => Rc::clone(developed),
+            Some(developed) => Arc::clone(developed),
 
             None => self.panic(
                 from.at,
@@ -658,9 +658,9 @@ impl Context {
 
     /// Get a specific command call used as a value
     /// Avoids cloning the entire (heavy) [`Eaten<CmdCall>`]
-    pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Rc<Eaten<CmdCall>> {
+    pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Arc<Eaten<CmdCall>> {
         match self.collected.cmd_call_values.get(&at) {
-            Some(cmd_call) => Rc::clone(cmd_call),
+            Some(cmd_call) => Arc::clone(cmd_call),
 
             None => self.panic(at, "command call data is missing (= bug in checker)"),
         }

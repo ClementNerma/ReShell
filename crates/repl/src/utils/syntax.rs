@@ -11,8 +11,12 @@ use std::{
 
 use nu_ansi_term::Style;
 use regex::{Captures, Regex};
+use reshell_runtime::context::Context;
 
-use crate::utils::nesting::{NestingAction, NestingActionType};
+use crate::{
+    repl::SHARED_CONTEXT,
+    utils::nesting::{NestingAction, NestingActionType},
+};
 
 use super::{
     covering::{InputCovering, InputRange},
@@ -38,21 +42,37 @@ pub struct NestedContentRules {
     pub rules: Vec<Rule>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Rule {
     Simple(SimpleRule),
     Group(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SimpleRule {
     pub matches: Regex,
     pub inside: Option<HashSet<NestingOpeningType>>,
     pub preceded_by: Option<Regex>,
     pub followed_by: Option<Regex>,
     pub followed_by_nesting: Option<HashSet<NestingOpeningType>>,
-    pub style: Vec<Style>,
+    pub style: RuleStylization,
 }
+
+pub enum RuleStylization {
+    Static(Vec<Style>),
+    Dynamic(DynamicRuleStylizer),
+}
+
+impl std::fmt::Debug for RuleStylization {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Static(styles) => f.debug_tuple("Static").field(styles).finish(),
+            Self::Dynamic(_) => f.debug_tuple("Dynamic").finish(),
+        }
+    }
+}
+
+pub type DynamicRuleStylizer = Box<dyn Fn(&mut Context, &str) -> Style + Send + Sync + 'static>;
 
 pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec<HighlightPiece> {
     let ValidatedRuleSet(rule_set) = rule_set;
@@ -200,7 +220,17 @@ fn find_matching_rule<'h, 'str>(
 fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<HighlightPiece>) {
     covering.mark_as_covered(matched.start, matched.end - matched.start);
 
-    for (i, style) in matched.rule.style.iter().enumerate() {
+    let style = match &matched.rule.style {
+        RuleStylization::Static(style) => style.clone(),
+        RuleStylization::Dynamic(stylizer) => {
+            vec![stylizer(
+                SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
+                matched.get(0).unwrap().extract,
+            )]
+        }
+    };
+
+    for (i, style) in style.iter().enumerate() {
         let Some(captured) = matched.get(i + 1) else {
             continue;
         };
@@ -382,10 +412,24 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
 
                 if static_len == 0 {
                     Err(format!("Regex '{matches}' does not have any capture group"))
-                } else if style.len() != static_len {
-                    Err(format!("Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it", style.len()))
                 } else {
-                    Ok(())
+                    match &style {
+                        RuleStylization::Static(style) => {
+                            if style.len() != static_len {
+                                Err(format!("Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it", style.len()))
+                            } else {
+                                Ok(())
+                            }
+                        }
+
+                        RuleStylization::Dynamic(_) => {
+                            if static_len != 1 {
+                                Err(format!("Regex '{matches}' has {static_len} capture groups but it should only be 1 for dynamic styling"))
+                            } else {
+                                Ok(())
+                            }
+                        }
+                    }
                 }
             }
         }

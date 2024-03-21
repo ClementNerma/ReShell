@@ -9,7 +9,5 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { value }, _, _| {
-        Ok(Some(RuntimeValue::Bool(value.is_empty())))
-    })
+    Runner::new(|_, Args { value }, _, _| Ok(Some(RuntimeValue::Bool(value.is_empty()))))
 }
