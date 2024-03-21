@@ -186,6 +186,7 @@ pub struct ElsIfExpr {
 pub enum ExprInnerChaining {
     PropAccess(Eaten<PropAccess>),
     MethodCall(Eaten<FnCall>),
+    FnCall(Eaten<FnCall>),
 }
 
 #[derive(Debug, Clone)]

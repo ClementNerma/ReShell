@@ -653,10 +653,15 @@ pub fn program(
             });
 
         let expr_inner_chaining = choice::<_, ExprInnerChaining>((
-            silent_choice((char('.'), msnl.then(just("->")).then(msnl)))
+            char('.')
                 .ignore_then(fn_call.clone())
                 .spanned()
                 .map(ExprInnerChaining::MethodCall),
+            just("->")
+                .padded_by(msnl)
+                .ignore_then(fn_call.clone())
+                .spanned()
+                .map(ExprInnerChaining::FnCall),
             prop_access.spanned().map(ExprInnerChaining::PropAccess),
         ));
 
