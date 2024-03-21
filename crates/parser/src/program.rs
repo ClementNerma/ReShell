@@ -950,7 +950,7 @@ pub fn program(
                 .then(prop_access_nature.spanned().repeated_vec())
                 .then(just("[]").to(()).spanned().or_not())
                 .then_ignore(ms)
-                .then_ignore(char('=').critical("expected the assignment operator '='"))
+                .then_ignore(char('='))
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
