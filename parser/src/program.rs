@@ -1006,8 +1006,7 @@ pub fn program() -> impl Parser<Program> {
 
         // Raw block
         custom(move |input| {
-            let id = scopes_counter.load(Ordering::Acquire);
-            scopes_counter.store(id + 1, Ordering::Release);
+            let id = scopes_counter.fetch_add(1, Ordering::AcqRel) + 1;
 
             scopes_history.borrow_mut().push(id);
 
