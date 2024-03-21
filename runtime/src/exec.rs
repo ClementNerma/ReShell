@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
+use reshell_parser::ast::{Block, ElsIf, Function, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
@@ -373,11 +373,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         }
 
-        Instruction::FnDecl {
-            name,
-            signature,
-            body,
-        } => {
+        Instruction::FnDecl { name, content } => {
             let parent_scopes = ctx.generate_parent_scopes();
 
             let fns = &mut ctx.current_scope_content_mut().fns;
@@ -385,6 +381,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             if fns.contains_key(&name.data) {
                 return Err(ctx.error(name.at, "duplicate name declaration".to_string()));
             }
+
+            let Function { signature, body } = content;
 
             fns.insert(
                 name.data.clone(),
