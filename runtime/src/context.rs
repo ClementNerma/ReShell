@@ -251,7 +251,7 @@ impl Scope {
             ScopeRange::Global => None,
             ScopeRange::CodeRange(range) => match range.start.file_id {
                 FileId::None | FileId::Internal | FileId::Custom(_) => None,
-                FileId::Id(id) => Some(id),
+                FileId::SourceFile(id) => Some(id),
             },
         }
     }
