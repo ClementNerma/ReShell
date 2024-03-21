@@ -22,7 +22,6 @@ pub fn program() -> impl Parser<Program> {
         let ms = whitespaces().no_newline();
         let s = ms.at_least_one();
         let msnl = whitespaces();
-        // let snl = msnl.at_least_one();
 
         let block = char('{')
             .critical("expected an opening brace '{'")
@@ -422,22 +421,6 @@ pub fn program() -> impl Parser<Program> {
             just(">").to(DoubleOp::Gt),
             just("??").to(DoubleOp::NullFallback),
         ));
-
-        // let block_expr = char('{')
-        //     .critical("expected an opening brace '{'")
-        //     .ignore_then(msnl)
-        //     .ignore_then(raw_block.map(Box::new))
-        //     .then_ignore(msnl)
-        //     .then(
-        //         expr.clone()
-        //             .map(Box::new)
-        //             .spanned()
-
-        //             .critical("expected an expression"),
-        //     )
-        //     .then_ignore(msnl)
-        //     .then_ignore(char('}').critical("expected a closing brace '}'"))
-        //     .map(|(base, produce)| BlockExpr { base, produce });
 
         let braces_expr_body = char('{')
             .critical("expected an opening brace '{'")
@@ -889,10 +872,7 @@ pub fn program() -> impl Parser<Program> {
             //
             // Loop breakage
             //
-            just("break")
-                // .ignore_then(s.ignore_then(expr.clone().spanned()).or_not())
-                // .map(|ret| Instruction::LoopBreak { ret }),
-                .to(Instruction::LoopBreak),
+            just("break").to(Instruction::LoopBreak),
             //
             // Switch
             //
@@ -1072,7 +1052,6 @@ pub fn program() -> impl Parser<Program> {
         .map(|content| Program { content })
 }
 
-#[allow(dead_code)]
-fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
-    println!("{d:#?}");
-}
+// fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
+//     println!("{d:#?}");
+// }
