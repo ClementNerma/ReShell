@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 use parsy::{CodeRange, Eaten, Location};
 use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdCall, Block};
@@ -301,6 +301,98 @@ impl std::fmt::Display for DependencyType {
             DependencyType::Variable => write!(f, "variable"),
             DependencyType::Function => write!(f, "function"),
             DependencyType::CmdAlias => write!(f, "command alias"),
+        }
+    }
+}
+
+/// Scope in the checker
+#[derive(Clone)]
+pub struct CheckerScope {
+    /// Code range covered by the scope
+    pub code_range: RuntimeCodeRange,
+
+    /// Optional special scope type
+    pub special_scope_type: Option<SpecialScopeType>,
+
+    /// List of variables declared in this scope
+    pub vars: HashMap<String, DeclaredVar>,
+
+    /// List of functions declared in this scope
+    pub fns: HashMap<String, DeclaredFn>,
+
+    /// List of command aliases declared in this scope
+    pub cmd_aliases: HashMap<String, DeclaredCmdAlias>,
+
+    /// List of type aliases declared in this scope
+    pub type_aliases: HashMap<String, CodeRange>,
+}
+
+#[derive(Clone, Copy)]
+pub enum SpecialScopeType {
+    /// Inside the body of a function
+    /// Will provoke dependencies collection inside it
+    Function { args_at: CodeRange },
+
+    /// Inside the content of a command alias
+    /// Will provoke dependencies collection inside it
+    CmdAlias,
+
+    /// Inside the body of a loop
+    Loop,
+}
+
+impl SpecialScopeType {
+    pub fn captures(&self) -> bool {
+        match self {
+            SpecialScopeType::Function { args_at: _ } | SpecialScopeType::CmdAlias => true,
+            SpecialScopeType::Loop => false,
+        }
+    }
+}
+
+/// Variable declaration
+#[derive(Clone, Copy)]
+pub struct DeclaredVar {
+    /// Location of the variable's name in its declaration
+    pub name_at: RuntimeCodeRange,
+
+    /// Is the variable mutable?
+    pub is_mut: bool,
+}
+
+/// Function declaration
+#[derive(Clone, Copy)]
+pub struct DeclaredFn {
+    /// Location of the function's name in its declaration
+    pub name_at: RuntimeCodeRange,
+}
+
+impl DeclaredFn {
+    pub fn new(name_at: RuntimeCodeRange) -> Self {
+        Self { name_at }
+    }
+}
+
+/// Command alias declaration
+#[derive(Clone, Copy)]
+pub struct DeclaredCmdAlias {
+    /// Location of the command alias' name in its declaration
+    pub name_at: CodeRange,
+
+    /// Location of the command alias' content in its declaration
+    pub content_at: CodeRange,
+
+    /// Is the declared alias ready?
+    /// See [`Context::mark_cmd_alias_as_ready`]
+    pub(crate) is_ready: bool,
+}
+
+impl DeclaredCmdAlias {
+    pub fn ready(name_at: CodeRange, content_at: CodeRange) -> Self {
+        Self {
+            name_at,
+            content_at,
+            is_ready: true,
         }
     }
 }

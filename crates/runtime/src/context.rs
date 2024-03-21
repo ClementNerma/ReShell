@@ -5,9 +5,9 @@ use parsy::{CodeRange, Eaten, FileId, SourceFileID};
 use reshell_checker::{
     long_flag_var_name,
     output::{
-        CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
-        DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+        CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
+    CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar,
 };
 use reshell_parser::{
     ast::{

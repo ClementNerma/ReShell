@@ -27,9 +27,12 @@ use reshell_parser::ast::{
     SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
-pub use self::errors::CheckerError;
+pub use self::{
+    errors::CheckerError,
+    state::{CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, SpecialScopeType, State},
+};
 
-use self::{errors::CheckerResult, output::*, state::State};
+use crate::{errors::CheckerResult, output::*};
 
 pub fn check(
     program: &Program,
