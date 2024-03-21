@@ -412,7 +412,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
-        Instruction::Imported(program) => {
+        Instruction::Include(program) => {
             let curr_at = state.curr_scope().code_range;
 
             state.curr_scope_mut().code_range = RuntimeCodeRange::Parsed(program.data.content.at);

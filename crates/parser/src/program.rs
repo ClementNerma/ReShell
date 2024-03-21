@@ -1240,7 +1240,7 @@ pub fn program(
                 .and_then(move |file| {
                     program.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
                 })
-                .map(Instruction::Imported),
+                .map(Instruction::Include),
             //
             // Function call
             //
