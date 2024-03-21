@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::fs;
 use std::time::Instant;
 use std::{collections::HashMap, env::VarError, path::Path};
@@ -522,6 +523,45 @@ pub fn generate_native_lib() -> Scope {
         call_stack: CallStack::empty(),
         call_stack_entry: None,
         content,
+    }
+}
+
+pub fn generate_native_lib_for_checker() -> reshell_checker::Scope {
+    let Scope { content, .. } = generate_native_lib();
+
+    let ScopeContent {
+        vars,
+        fns,
+        cmd_aliases,
+        types,
+    } = content;
+
+    // For now
+    assert!(cmd_aliases.is_empty());
+    assert!(types.is_empty());
+    //////////
+
+    reshell_checker::Scope {
+        is_fn_body: false,
+        code_range: forge_internal_loc(),
+        cmd_aliases: HashSet::new(),
+        types: HashSet::new(),
+        fns: fns
+            .keys()
+            .map(|name| (name.clone(), forge_internal_loc()))
+            .collect(),
+        vars: vars
+            .into_iter()
+            .map(|(name, decl)| {
+                (
+                    name,
+                    reshell_checker::DeclaredVar {
+                        is_mut: decl.read().is_mut,
+                        name_at: forge_internal_loc(),
+                    },
+                )
+            })
+            .collect(),
     }
 }
 

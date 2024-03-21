@@ -1,21 +1,19 @@
 use std::time::Instant;
 
-use parsy::{CodeRange, FileId, Location, Parser};
 use reedline::{Reedline, Signal};
-use reshell_parser::ast::Program;
 use reshell_runtime::{
-    context::{ScopeContent, ScopeRange},
     errors::{ExecErrorContent, ExecResult},
-    exec::run_program_in_current_scope,
     files_map::ScopableFilePath,
     native_lib::{render_prompt, LastCmdStatus, PromptRendering},
 };
 
 use crate::{
-    completer, edit_mode, highlighter, hinter, history,
+    completer, edit_mode,
+    exec::{run_script, ExecOptions},
+    highlighter, hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
-    state::{with_writable_rt_ctx, RUNTIME_CONTEXT},
+    state::RUNTIME_CONTEXT,
     validator,
 };
 
@@ -43,7 +41,7 @@ pub fn start() {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
                 reports::print_error(
-                    &ReportableError::ExecError(err),
+                    &ReportableError::Runtime(err),
                     RUNTIME_CONTEXT.read().unwrap().files_map(),
                 );
                 PromptRendering::default()
@@ -62,36 +60,24 @@ pub fn start() {
             }
         };
 
-        with_writable_rt_ctx(|ctx| {
-            counter += 1;
-
-            let file_id = ctx.register_file(
-                ScopableFilePath::InMemoryWithCounter("repl", counter),
-                input.clone(),
-            );
-
-            ctx.create_and_push_scope(
-                ScopeRange::CodeRange(CodeRange::new(
-                    Location {
-                        file_id: FileId::SourceFile(file_id),
-                        offset: 0,
-                    },
-                    input.len(),
-                )),
-                ScopeContent::new(),
-            );
-        });
-
         let start = Instant::now();
 
-        let ret = eval(&input, &parser);
+        counter += 1;
+
+        let ret = run_script(
+            &input,
+            ScopableFilePath::InMemoryWithCounter("repl", counter),
+            &parser,
+            ExecOptions::default(),
+        );
 
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
             duration_ms: start.elapsed().as_millis(),
             exit_code: ret.as_ref().err().and_then(|err| match err {
-                ReportableError::ParsingError(_) => None,
-                ReportableError::ExecError(err) => match err.content {
+                ReportableError::Parsing(_) => None,
+                ReportableError::Checking(_) => None,
+                ReportableError::Runtime(err) => match err.content {
                     ExecErrorContent::Str(_) => None,
                     ExecErrorContent::String(_) => None,
                     ExecErrorContent::ParsingErr(_) => None,
@@ -113,17 +99,4 @@ fn repl_try_render_prompt(
     last_cmd_status: Option<LastCmdStatus>,
 ) -> ExecResult<Option<PromptRendering>> {
     render_prompt(&mut RUNTIME_CONTEXT.write().unwrap(), last_cmd_status)
-}
-
-pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), ReportableError> {
-    let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
-
-    let parsed = parser
-        .parse_str_as_file(
-            input,
-            FileId::SourceFile(ctx.current_scope().source_file_id().unwrap()),
-        )
-        .map_err(ReportableError::ParsingError)?;
-
-    run_program_in_current_scope(&parsed.data, ctx).map_err(ReportableError::ExecError)
 }

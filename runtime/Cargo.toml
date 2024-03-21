@@ -11,4 +11,5 @@ indexmap = "2.0.2"
 parsy = "0.2.3"
 rand = "0.8.5"
 reshell-parser = { path = "../parser" }
+reshell-checker = { path = "../checker" }
 terminal_size = "0.3.0"

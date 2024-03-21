@@ -55,6 +55,6 @@ pub struct SourceFile {
 #[derive(Debug, Clone)]
 pub enum ScopableFilePath {
     InMemory(&'static str),
-    InMemoryWithCounter(&'static str, usize),
+    InMemoryWithCounter(&'static str, u64),
     RealFile(PathBuf),
 }

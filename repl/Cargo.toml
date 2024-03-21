@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 ariadne = "0.3.0"
 reshell-parser = { path = "../parser" }
+reshell-checker = { path = "../checker" }
 reshell-runtime = { path = "../runtime" }
 parsy = "0.2.3"
 clap = { version = "4.4.6", features = ["derive"] }
