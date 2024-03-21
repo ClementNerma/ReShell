@@ -107,10 +107,7 @@ fn run_script(file: ScopableFilePath, content: &str, exit_on_fail: bool) {
     });
 
     if let Err(err) = repl::eval(content, &reshell_parser::program()) {
-        reports::print_error_report(reports::repl_error_report(
-            &err,
-            RUNTIME_CONTEXT.read().unwrap().files_map(),
-        ));
+        reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
 
         if exit_on_fail {
             std::process::exit(1);
