@@ -653,7 +653,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                             .map(|str| {
                                 CmdSingleArgResult::Basic(LocatedValue::new(
                                     RuntimeValue::String(str),
-                                    var_value.from,
+                                    RuntimeCodeRange::Parsed(var_name.at),
                                 ))
                             })
                         })

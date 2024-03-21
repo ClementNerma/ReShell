@@ -866,7 +866,8 @@ pub fn program(
             cmd_flag_arg.map(CmdArg::Flag),
             // Spread
             just("...$")
-                .ignore_then(ident.spanned().critical("expected a variable to spread"))
+                .ignore_then(ident.critical("expected a variable to spread"))
+                .spanned()
                 .map(CmdArg::SpreadVar),
             // Value-making
             cmd_value_making_arg.map(CmdArg::ValueMaking),
