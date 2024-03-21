@@ -437,13 +437,13 @@ pub fn program(
                     ident
                         .spanned()
                         .then_ignore(ms)
-                        .then_ignore(char(':').critical_expectation())
+                        .then_ignore(char(':'))
                         .then_ignore(msnl)
                         .then(expr.clone().spanned().critical("expected an expression"))
                         .separated_by(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical("expected closing brace '}' for opened object"))
+                .then_ignore(char('}'))
                 .map(|members| {
                     Value::Struct(
                         members
