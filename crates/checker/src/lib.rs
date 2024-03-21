@@ -1247,6 +1247,8 @@ fn check_fn_signature(
 
     let mut checked_args = Vec::with_capacity(args.data.len());
 
+    let mut had_optional = false;
+
     for arg in &args.data {
         let checked_arg = check_fn_arg(arg, state)?;
 
@@ -1255,6 +1257,14 @@ fn check_fn_signature(
             name_at,
             is_rest,
         } = &checked_arg;
+
+       if let FnArg::Positional { name, is_optional, typ: _ } = arg {
+        if *is_optional {
+            had_optional = true;
+        } else if had_optional {
+            return Err(CheckerError::new(name.at().parsed_range().unwrap(), "cannot have a non-optional positional argument after an optional one"));
+        }
+       }
 
         if let Some(rest_arg_name_at) = rest_arg_name_at {
             return Err(CheckerError::new(
@@ -1270,7 +1280,7 @@ fn check_fn_signature(
         if !used_idents.insert(var_name.clone()) {
             return Err(CheckerError::new(
                 *name_at,
-                "Duplicate argument name in function",
+                "duplicate argument name in function",
             ));
         }
 
