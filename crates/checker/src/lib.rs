@@ -541,10 +541,22 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
 fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult {
     let CmdCall { base, pipes } = &cmd_call.data;
 
-    check_single_cmd_call(base, state)?;
+    let calls = [base]
+        .into_iter()
+        .chain(pipes.iter().map(|CmdPipe { pipe_type: _, cmd }| cmd));
 
-    for pipe in pipes {
-        check_cmd_pipe(pipe, state)?;
+    for cmd in calls {
+        match check_single_cmd_call(cmd, state)? {
+            SingleCmdCallTargetType::Function => {
+                if !pipes.is_empty() {
+                    return Err(CheckerError::new(
+                        cmd.at,
+                        "functions cannot be piped from or into",
+                    ));
+                }
+            }
+            SingleCmdCallTargetType::Command => {}
+        }
     }
 
     Ok(())
@@ -553,10 +565,9 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
 fn check_single_cmd_call(
     single_cmd_call: &Eaten<SingleCmdCall>,
     state: &mut State,
-) -> CheckerResult {
+) -> CheckerResult<SingleCmdCallTargetType> {
     let SingleCmdCall {
         env_vars,
-
         path,
         args,
     } = &single_cmd_call.data;
@@ -565,10 +576,13 @@ fn check_single_cmd_call(
         check_cmd_env_var(env_var, state)?;
     }
 
+    let mut target_type = SingleCmdCallTargetType::Command;
+
     match &path.data {
         CmdPath::RawString(name) => {
             if state.is_fn(&name.data) {
                 state.register_usage(name, DependencyType::Function)?;
+                target_type = SingleCmdCallTargetType::Function;
             } else if state.is_cmd_alias(&name.data) {
                 state.register_usage(name, DependencyType::CmdAlias)?;
             }
@@ -582,7 +596,7 @@ fn check_single_cmd_call(
         check_cmd_arg(arg, state)?;
     }
 
-    Ok(())
+    Ok(target_type)
 }
 
 fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> CheckerResult {
@@ -597,12 +611,6 @@ fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> Check
 
         CmdEnvVarValue::Expr(expr) => check_expr(&expr.data, state),
     }
-}
-
-fn check_cmd_pipe(pipe: &CmdPipe, state: &mut State) -> CheckerResult {
-    let CmdPipe { pipe_type: _, cmd } = pipe;
-
-    check_single_cmd_call(cmd, state)
 }
 
 fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
@@ -735,4 +743,9 @@ fn check_fn_signature(signature: &FnSignature, state: &mut State) -> CheckerResu
     }
 
     Ok(())
+}
+
+enum SingleCmdCallTargetType {
+    Function,
+    Command,
 }
