@@ -28,6 +28,8 @@ pub fn run_cmd(
     ctx: &mut Context,
     capture_stdout: bool,
 ) -> ExecResult<(Option<String>, Option<LocatedValue>)> {
+    ctx.ensure_no_ctrl_c_press(call.at)?;
+
     let CmdCall { base, pipes } = &call.data;
 
     let chain = [(base, None)]
@@ -111,7 +113,11 @@ pub fn run_cmd(
     let mut last_output = None;
 
     for (child, at) in children.into_iter().rev() {
-        let output = child.wait_with_output().map_err(|err| {
+        let output = child.wait_with_output();
+
+        ctx.reset_ctrl_c_press_indicator();
+
+        let output = output.map_err(|err| {
             ctx.error(
                 at,
                 ExecErrorNature::CommandFailed {

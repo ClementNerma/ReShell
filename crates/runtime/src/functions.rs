@@ -71,6 +71,8 @@ pub fn call_fn_value(
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {
+    ctx.ensure_no_ctrl_c_press(call_at)?;
+
     let args = parse_fn_call_args(
         call_at,
         func,

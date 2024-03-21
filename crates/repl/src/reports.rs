@@ -32,10 +32,14 @@ impl ReportableError {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
                 | ExecErrorNature::Thrown { value: _ } => None,
+
                 ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status,
                 } => Some(exit_status.unwrap_or(1)),
+
+                ExecErrorNature::CtrlC => None,
+
                 ExecErrorNature::Exit { code } => Some(code.map(i32::from).unwrap_or(0)),
             },
         }
@@ -56,9 +60,15 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
         ReportableError::Runtime(err, _) => match &err.nature {
             ExecErrorNature::Exit { code: _ } => {
-                // This error is designed to be consumed, not displayed
+                // These errors are designed to be consumed, not displayed
                 unreachable!()
             }
+
+            ExecErrorNature::CtrlC => (
+                err.at,
+                "User interruption",
+                "program was interrupted by a Ctrl+C press".to_owned(),
+            ),
 
             ExecErrorNature::Custom(message) => (
                 err.at,

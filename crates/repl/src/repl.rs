@@ -106,7 +106,7 @@ pub fn start(
 
         // Wait for the line editing to complete
         let signal = loop {
-            // If the thread is done, get with the result
+            // If the thread is done, get the result
             if child.is_finished() {
                 break child
                     .join()
