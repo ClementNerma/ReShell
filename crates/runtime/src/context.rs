@@ -577,7 +577,7 @@ impl Context {
         self.visible_scopes_content().find_map(|scope| {
             scope.methods.get(
                 // TODO: optimize?
-                &(name.data.clone(), on_type.clone()),
+                &(name.data.clone(), on_type),
             )
         })
     }
