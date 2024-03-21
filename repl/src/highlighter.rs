@@ -38,6 +38,11 @@ impl RlHighlighter for Highlighter {
         );
 
         h.highlight(
+            Regex::new("\\b(\\d+(?:\\.\\d+)?)\\b").unwrap(),
+            &[Style::new().fg(Color::LightYellow)],
+        );
+
+        h.highlight(
             Regex::new("(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\.]+)\\b").unwrap(),
             &[Style::new().fg(Color::LightBlue)],
         );

@@ -25,8 +25,7 @@ impl<'a> SyntaxHighlighter<'a> {
                 let cap = cap.get(i + 1).unwrap();
 
                 if self.items.iter().any(|item| {
-                    cap.start() < item.start + item.len - 1
-                        && item.start < cap.start() + cap.len() - 1
+                    cap.start() < item.start + item.len && item.start < cap.start() + cap.len()
                 }) {
                     continue;
                 }
