@@ -13,7 +13,7 @@ use crate::{
     errors::{ExecErrorContent, ExecResult},
     functions::call_fn,
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
-    values::{RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
@@ -142,24 +142,16 @@ fn apply_double_op(
         }
 
         DoubleOp::Eq | DoubleOp::Neq => {
-            let cmp = match (&left, &right) {
-                (_, RuntimeValue::Null) => matches!(left, RuntimeValue::Null),
-                (RuntimeValue::Null, _) => matches!(right, RuntimeValue::Null),
-                (RuntimeValue::Bool(a), RuntimeValue::Bool(b)) => a == b,
-                (RuntimeValue::Int(a), RuntimeValue::Int(b)) => a == b,
-                (RuntimeValue::Float(a), RuntimeValue::Float(b)) => a == b, // TODO: comparing floats is a bad idea
-                (RuntimeValue::String(a), RuntimeValue::String(b)) => a == b,
-                _ => {
-                    return Err(ctx.error(
-                        op.at,
-                        format!(
-                            "cannot compare {} and {}",
-                            readable_value_type(&left),
-                            readable_value_type(&right)
-                        ),
-                    ))
-                }
-            };
+            let cmp = are_values_equal(&left, &right).map_err(|NotComparableTypes| {
+                ctx.error(
+                    op.at,
+                    format!(
+                        "cannot compare {} and {}",
+                        readable_value_type(&left),
+                        readable_value_type(&right)
+                    ),
+                )
+            })?;
 
             RuntimeValue::Bool(if op.data == DoubleOp::Eq { cmp } else { !cmp })
         }
