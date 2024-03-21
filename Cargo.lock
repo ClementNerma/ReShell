@@ -649,6 +649,7 @@ name = "reshell-builtins"
 version = "0.1.0"
 dependencies = [
  "colored",
+ "glob",
  "indexmap",
  "parsy",
  "reshell-parser",
