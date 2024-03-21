@@ -1,20 +1,12 @@
 use std::cmp::max;
 
 use nu_ansi_term::{Color, Style};
-use parsy::{Eaten, FileId, Parser};
+use parsy::{FileId, Parser};
 use reedline::{Highlighter as RlHighlighter, StyledText};
-use reshell_parser::{
-    ast::{
-        Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
-        ComputedStringPiece, ElsIf, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames,
-        FnCall, FnCallArg, FnSignature, Instruction, LiteralValue, Program, PropAccess,
-        PropAccessNature, SingleCmdCall, SingleValueType, SwitchCase, Value, ValueType,
-    },
-    program,
-};
+use reshell_parser::{ast::Program, program};
 use reshell_runtime::files_map::{FilesMap, ScopableFilePath};
 
-use crate::{highlighting::HighlightList, reports::parsing_error_report};
+use crate::reports::parsing_error_report;
 
 // TODO: full AST-based highlighter (requires to have parsing recovery in case of error)
 // TODO: highlighter error reporting is hiding autocompletion :/
@@ -33,7 +25,7 @@ impl RlHighlighter for Highlighter {
         let file_id = files.register_file(ScopableFilePath::InMemory("<repl>"), line.to_string());
 
         match parser.parse_str_as_file(line, FileId::Id(file_id)) {
-            Ok(ast) => highlight(&ast.data, line),
+            Ok(ast) => highlight(&ast.data),
 
             Err(err) => {
                 let at = err.inner().at();
@@ -62,4 +54,8 @@ impl RlHighlighter for Highlighter {
             }
         }
     }
+}
+
+fn highlight(ast: &Program) -> StyledText {
+    todo!()
 }
