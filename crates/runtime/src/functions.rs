@@ -9,8 +9,8 @@ use reshell_parser::ast::{
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
-    errors::{ExecErrorNature, ExecResult},
-    exec::{run_body_with_deps, InstrRet, InstrRetType},
+    errors::ExecResult,
+    exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -108,20 +108,10 @@ pub fn call_fn_value(
                 }),
             )?;
 
-            match instr_ret {
-                Some(InstrRet { typ, from }) => match typ {
-                    InstrRetType::ContinueLoop | InstrRetType::BreakLoop => {
-                        return Err(ctx.error(from, "not in a loop"))
-                    }
-                    InstrRetType::FnReturn(value) => value,
-                    InstrRetType::Thrown(value) => {
-                        return Err(ctx.error(value.from, ExecErrorNature::Thrown { value }))
-                    }
-                    InstrRetType::Exit => unreachable!(),
-                },
-
-                None => None,
-            }
+            instr_ret.and_then(|instr_ret| match instr_ret {
+                InstrRet::ContinueLoop | InstrRet::BreakLoop => unreachable!(),
+                InstrRet::FnReturn(value) => value,
+            })
         }
 
         RuntimeFnBody::Internal(run) => run(InternalFnCallData { call_at, args, ctx })?,
