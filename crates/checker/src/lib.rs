@@ -990,6 +990,8 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
     match arg {
         CmdValueMakingArg::LiteralValue(lit) => check_literal_value(lit, state),
 
+        CmdValueMakingArg::Variable(name) => state.register_usage(name, DependencyType::Variable),
+
         CmdValueMakingArg::ComputedString(computed_string) => {
             check_computed_string(computed_string, state)
         }

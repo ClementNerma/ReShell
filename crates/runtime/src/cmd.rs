@@ -679,6 +679,11 @@ pub fn eval_cmd_value_making_arg(
     let (value_at, value) = match arg {
         CmdValueMakingArg::LiteralValue(lit_val) => (lit_val.at, eval_literal_value(&lit_val.data)),
 
+        CmdValueMakingArg::Variable(name) => (
+            name.at,
+            ctx.get_visible_var(name).value.read(name.at).value.clone(),
+        ),
+
         CmdValueMakingArg::ComputedString(computed_str) => (
             computed_str.at,
             RuntimeValue::String(eval_computed_string(computed_str, ctx)?),

@@ -766,6 +766,15 @@ pub fn program(
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
             // Literal values
             literal_value.spanned().map(CmdValueMakingArg::LiteralValue),
+            // Variable
+            char('$')
+                .ignore_then(ident)
+                .spanned()
+                .followed_by(silent_choice((
+                    filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
+                    end(),
+                )))
+                .map(CmdValueMakingArg::Variable),
             // Computed strings
             computed_string
                 .clone()

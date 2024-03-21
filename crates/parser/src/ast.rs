@@ -403,6 +403,7 @@ pub enum CmdValueMakingArg {
     CmdOutput(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
     CmdComputedString(Eaten<CmdComputedString>),
+    Variable(Eaten<String>),
     Closure(Eaten<Function>),
 }
 
