@@ -8,7 +8,7 @@ define_internal_fn!(
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
         // simplified: PresenceFlag = Arg::long_and_short_flag("simplified", 's'),
-        lossy: PresenceFlag = Arg::long_and_short_flag("lossy", 'l')
+        lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
     -> Some(StringType::direct_underlying_type())
