@@ -237,7 +237,15 @@ impl Context {
 
                     fns: fns
                         .iter()
-                        .map(|(name, scope_fn)| (name.clone(), DeclaredFn::new(scope_fn.name_at)))
+                        .map(|(name, scope_fn)| {
+                            (
+                                name.clone(),
+                                DeclaredFn::new(
+                                    scope_fn.name_at,
+                                    scope_fn.value.signature.inner().is_method(),
+                                ),
+                            )
+                        })
                         .collect(),
 
                     vars: vars

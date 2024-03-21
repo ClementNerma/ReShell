@@ -4,9 +4,7 @@ use std::{
 };
 
 use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::{
-    CmdCall, FnSignature, FunctionBody, RuntimeCodeRange, SingleCmdCall, ValueType,
-};
+use reshell_parser::ast::{CmdCall, FnSignature, FunctionBody, SingleCmdCall, ValueType};
 
 /// Sharing type used to avoid cloning in the runtime
 pub type SharingType<T> = Rc<T>;
@@ -182,4 +180,14 @@ pub enum DependencyType {
 
     /// A command alias
     CmdAlias,
+}
+
+impl std::fmt::Display for DependencyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencyType::Variable => write!(f, "variable"),
+            DependencyType::Function => write!(f, "function"),
+            DependencyType::CmdAlias => write!(f, "command alias"),
+        }
+    }
 }

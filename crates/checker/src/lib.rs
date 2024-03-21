@@ -27,6 +27,7 @@ use reshell_parser::ast::{
     SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
+use self::state::UsedItem;
 pub use self::{
     errors::CheckerError,
     state::{CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, SpecialScopeType, State},
@@ -113,7 +114,7 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                 state.register_type_alias(name, content, block);
             }
 
-            Instruction::FnDecl { name, content: _ } => {
+            Instruction::FnDecl { name, content } => {
                 if state.curr_scope().fns.contains_key(&name.data) {
                     return Err(CheckerError::new(name.at, "duplicate function declaration"));
                 }
@@ -129,6 +130,7 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                     name.data.clone(),
                     DeclaredFn {
                         name_at: RuntimeCodeRange::Parsed(name.at),
+                        is_method: content.signature.data.is_method(),
                     },
                 );
             }
@@ -203,11 +205,17 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         } => {
             let dep = state.register_usage(name, DependencyType::Variable)?;
 
-            if !dep.is_mut {
-                return Err(CheckerError::new(
-                    name.at,
-                    "variable was not declared as mutable",
-                ));
+            match dep {
+                UsedItem::Variable(var) => {
+                    if !var.is_mut {
+                        return Err(CheckerError::new(
+                            name.at,
+                            "variable was not declared as mutable",
+                        ));
+                    }
+                }
+
+                UsedItem::Function(_) | UsedItem::CmdAlias(_) => unreachable!(),
             }
 
             for nature in prop_acc {

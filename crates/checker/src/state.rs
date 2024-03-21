@@ -1,7 +1,7 @@
 use std::collections::{HashSet, HashMap};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdCall, Block};
+use reshell_parser::ast::{FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdCall, Block};
 
 use crate::{errors::CheckerResult, CheckerError, output::*};
 
@@ -80,11 +80,11 @@ impl State {
     /// The process of 'collection' is to mark an item as requiring capture at runtime.
     pub fn register_usage(
         &mut self,
-        item: &Eaten<String>,
+        item_usage: &Eaten<String>,
         dep_type: DependencyType,
     ) -> CheckerResult<UsedItem> {
         // Get the item to use
-        let item_content = self
+        let item = self
             .scopes
             .iter()
             .rev()
@@ -92,49 +92,49 @@ impl State {
                 DependencyType::Variable => {
                     scope
                         .vars
-                        .get(&item.data)
-                        .map(|var| Ok(UsedItem::new(var.name_at, var.is_mut)))
+                        .get(&item_usage.data)
+                        .copied()
+                        .map(UsedItem::Variable)
+                        .map(Ok)
                 },
 
                 DependencyType::Function => {
                     scope
                         .fns
-                        .get(&item.data)
-                        .map(|func| Ok(UsedItem::new(func.name_at, false)))
+                        .get(&item_usage.data)
+                        .copied()
+                        .map(UsedItem::Function)
+                        .map(Ok)
                 },
 
                 DependencyType::CmdAlias => {
                     scope
                         .cmd_aliases
-                        .get(&item.data)
-                        .map(|DeclaredCmdAlias { name_at, content_at: _, is_ready }| if *is_ready {
-                            Ok(UsedItem::new(RuntimeCodeRange::Parsed(*name_at), false))
+                        .get(&item_usage.data)
+                        .map(|alias| if alias.is_ready {
+                            Ok(UsedItem::CmdAlias(*alias))
                         } else {
-                            Err(CheckerError::new(item.at, "cannot use a command alias before its assignment"))
+                            Err(CheckerError::new(item_usage.at, "cannot use a command alias before its assignment"))
                         })
                 },
             })
-            .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))??;
+            .ok_or_else(|| CheckerError::new(item_usage.at, format!("{dep_type} was not found")))??;
 
-        let UsedItem {
-            name_declared_at: declared_at,
-            is_mut: _,
-        } = item_content;
-
-        // Don't collect items marked as internal
-        if matches!(declared_at, RuntimeCodeRange::Internal) {
-            return Ok(item_content);
-        }
-
-        // Don't collect anything if we're not inside a deps-collecting scope
-        let Some(deps_scope) = self.current_deps_collecting_scope() else {
-            return Ok(item_content);
+        let name_declared_at = match item {
+            UsedItem::Variable(var) => var.name_at,
+            UsedItem::Function(func) => func.name_at,
+            UsedItem::CmdAlias(cmd_alias) => RuntimeCodeRange::Parsed(cmd_alias.name_at)
         };
 
         // Don't capture if the value if the item was declared internally (e.g. native library)
-        let declared_at = match declared_at {
+        let name_declared_at = match name_declared_at {
             RuntimeCodeRange::Parsed(at) => at,
-            RuntimeCodeRange::Internal => return Ok(item_content)
+            RuntimeCodeRange::Internal => return Ok(item)
+        };
+
+        // Don't collect anything if we're not inside a deps-collecting scope
+        let Some(deps_scope) = self.current_deps_collecting_scope() else {
+            return Ok(item);
         };
 
         // Get the code range of the dependency-collecting scope
@@ -143,32 +143,32 @@ impl State {
 
         // Determine if the variable was declared in the current deps-collecting scope (or in a descendent scope)
         let var_declared_in_deps_scope = 
-                deps_scope_range.contains(declared_at).map_err(|err| {
+                deps_scope_range.contains(name_declared_at).map_err(|err| {
                 CheckerError::new(
-                    CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
+                    CodeRange::new(Location { file_id: item_usage.at.start.file_id, offset: 0 }, 0),
                     format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
                 )
             })?;
 
         // If so, don't capture it
         if var_declared_in_deps_scope {
-            return Ok(item_content);
+            return Ok(item);
         }
 
         // If we're inside a function...
         if let Some(SpecialScopeType::Function { args_at }) = deps_scope.special_scope_type {
             // Check if the item is one of its arguments
             let var_declared_in_fn_args = 
-                args_at.contains(declared_at).map_err(|err| {
+                args_at.contains(name_declared_at).map_err(|err| {
                 CheckerError::new(
-                    CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
+                    CodeRange::new(Location { file_id: item_usage.at.start.file_id, offset: 0 }, 0),
                     format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
                 )
             })?;
 
             // If so, don't capture it
             if var_declared_in_fn_args {
-                return Ok(item_content);
+                return Ok(item);
             }
         }
 
@@ -178,12 +178,12 @@ impl State {
             .get_mut(&deps_scope_range)
             .unwrap()
             .insert(Dependency {
-                name: item.data.clone(),
-                declared_name_at: declared_at,
+                name: item_usage.data.clone(),
+                declared_name_at: name_declared_at,
                 dep_type,
             });
 
-        Ok(item_content)
+        Ok(item)
         
     }
 
@@ -281,28 +281,10 @@ impl State {
 }
 
 
-pub struct UsedItem {
-    pub name_declared_at: RuntimeCodeRange,
-    pub is_mut: bool,
-}
-
-impl UsedItem {
-    fn new(name_declared_at: RuntimeCodeRange, is_mut: bool) -> Self {
-        Self {
-            name_declared_at,
-            is_mut,
-        }
-    }
-}
-
-impl std::fmt::Display for DependencyType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DependencyType::Variable => write!(f, "variable"),
-            DependencyType::Function => write!(f, "function"),
-            DependencyType::CmdAlias => write!(f, "command alias"),
-        }
-    }
+pub enum UsedItem {
+    Variable(DeclaredVar),
+    Function(DeclaredFn),
+    CmdAlias(DeclaredCmdAlias)
 }
 
 /// Scope in the checker
@@ -365,11 +347,14 @@ pub struct DeclaredVar {
 pub struct DeclaredFn {
     /// Location of the function's name in its declaration
     pub name_at: RuntimeCodeRange,
+
+    /// Is it a method?
+    pub is_method: bool
 }
 
 impl DeclaredFn {
-    pub fn new(name_at: RuntimeCodeRange) -> Self {
-        Self { name_at }
+    pub fn new(name_at: RuntimeCodeRange, is_method: bool) -> Self {
+        Self { name_at, is_method }
     }
 }
 
