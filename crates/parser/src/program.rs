@@ -459,7 +459,7 @@ pub fn program(
 
         let single_op = choice::<_, SingleOp>((char('!').to(SingleOp::Neg),));
 
-        let double_op = choice::<_, DoubleOp>((
+        let double_op = not(just("->")).ignore_then(choice::<_, DoubleOp>((
             char('+').to(DoubleOp::Add),
             char('-').to(DoubleOp::Sub),
             char('*').to(DoubleOp::Mul),
@@ -473,7 +473,7 @@ pub fn program(
             just(">=").to(DoubleOp::Gte),
             just(">").to(DoubleOp::Gt),
             just("??").to(DoubleOp::NullFallback),
-        ));
+        )));
 
         let braces_expr_body = char('{')
             .critical("expected an opening brace '{'")
@@ -642,7 +642,17 @@ pub fn program(
                 .spanned()
                 .then_ignore(ms)
                 .then(expr_op.separated_by(ms))
-                .map(|(inner, right_ops)| Expr { inner, right_ops }),
+                .then(
+                    msnl.ignore_then(just("->"))
+                        .ignore_then(msnl)
+                        .ignore_then(fn_call.clone().spanned())
+                        .separated_by(msnl),
+                )
+                .map(|((inner, right_ops), method_calls)| Expr {
+                    inner,
+                    right_ops,
+                    method_calls,
+                }),
         );
 
         let delimiter_chars = delimiter_chars();

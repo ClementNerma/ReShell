@@ -12,20 +12,37 @@ use crate::{
     context::{Context, ScopeContent, ScopeVar},
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
-    functions::eval_fn_call,
+    functions::{eval_fn_call, eval_piped_fn_call},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
-        are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
-        RuntimeValue,
+        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnSignature,
+        RuntimeFnValue, RuntimeValue,
     },
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let Expr { inner, right_ops } = &expr;
+    let Expr {
+        inner,
+        right_ops,
+        method_calls,
+    } = &expr;
 
-    eval_expr_ref(inner, right_ops, ctx)
+    let expr_value = eval_expr_ref(inner, right_ops, ctx)?;
+
+    let mut value = LocatedValue::new(
+        expr_value,
+        // TODO: location must cover inner + right_ops
+        RuntimeCodeRange::Parsed(inner.at),
+    );
+
+    for call in method_calls {
+        value = eval_piped_fn_call(call, Some(value), ctx)?
+            .ok_or_else(|| ctx.error(call.at, "method call did not return a value"))?;
+    }
+
+    Ok(value.value)
 }
 
 fn eval_expr_ref(

@@ -150,6 +150,7 @@ pub struct Function {
 pub struct Expr {
     pub inner: Eaten<ExprInner>,
     pub right_ops: Vec<ExprOp>,
+    pub method_calls: Vec<Eaten<FnCall>>,
 }
 
 #[derive(Debug, Clone)]

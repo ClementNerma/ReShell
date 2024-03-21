@@ -476,12 +476,20 @@ fn check_expr_with(
 }
 
 fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
-    let Expr { inner, right_ops } = expr;
+    let Expr {
+        inner,
+        right_ops,
+        method_calls,
+    } = expr;
 
     check_expr_inner(inner, state)?;
 
     for op in right_ops {
         check_expr_op(op, state)?;
+    }
+
+    for fn_call in method_calls {
+        check_fn_call(fn_call, state)?;
     }
 
     Ok(())
