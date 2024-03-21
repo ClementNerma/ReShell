@@ -15,12 +15,6 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone)]
-pub struct ValueBlock {
-    pub instr: Vec<Eaten<Instruction>>,
-    pub ret: Expr,
-}
-
-#[derive(Debug, Clone)]
 pub enum Instruction {
     Comment {
         content: Eaten<String>,
