@@ -16,7 +16,7 @@ use crate::helper::Typing;
 
 /// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(
-    args: Vec<(impl Into<String>, ValueType)>,
+    args: Vec<(&'static str, ValueType)>,
     ret_type: Option<ValueType>,
 ) -> FnSignature {
     FnSignature {
@@ -51,6 +51,29 @@ pub fn call_fn_checked(
     loc_val: &LocatedValue,
     expected_signature: &FnSignature,
     args: Vec<RuntimeValue>,
+    ctx: &mut Context,
+) -> ExecResult<Option<LocatedValue>> {
+    call_fn_checked_with_parsed_args(
+        loc_val,
+        expected_signature,
+        FnPossibleCallArgs::Internal(
+            args.into_iter()
+                .map(|arg| {
+                    CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
+                        arg,
+                        loc_val.from,
+                    )))
+                })
+                .collect(),
+        ),
+        ctx,
+    )
+}
+
+pub fn call_fn_checked_with_parsed_args(
+    loc_val: &LocatedValue,
+    expected_signature: &FnSignature,
+    args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {
     let func = match &loc_val.value {
@@ -94,16 +117,7 @@ pub fn call_fn_checked(
         FnCallInfos {
             nature: FnCallNature::NamedFunction,
             piped: None,
-            args: FnPossibleCallArgs::Internal(
-                args.into_iter()
-                    .map(|arg| {
-                        CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
-                            arg,
-                            loc_val.from,
-                        )))
-                    })
-                    .collect(),
-            ),
+            args,
         },
         ctx,
     )

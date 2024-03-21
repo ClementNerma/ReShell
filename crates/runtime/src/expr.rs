@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<Option<RuntimeValue>> {
+pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let Expr { inner, right_ops } = &expr;
 
     eval_expr_ref(inner, right_ops, ctx)
@@ -31,7 +31,7 @@ fn eval_expr_ref(
     inner: &Eaten<ExprInner>,
     right_ops: &[ExprOp],
     ctx: &mut Context,
-) -> ExecResult<Option<RuntimeValue>> {
+) -> ExecResult<RuntimeValue> {
     for precedence in (0..=4).rev() {
         let Some((pos, expr_op)) = right_ops
             .iter()
@@ -53,17 +53,13 @@ fn eval_expr_ref(
             }
         }
 
-        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?
-            .ok_or_else(|| ctx.error(inner.at, VOID_EXPR_ERR))?;
+        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
 
-        let right = |ctx: &'_ mut Context| {
-            eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx)?
-                .ok_or_else(|| ctx.error(expr_op.with.at, VOID_EXPR_ERR))
-        };
+        let right = |ctx: &'_ mut Context| eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx);
 
         let result = apply_double_op(left, right, &expr_op.op, ctx)?;
 
-        return Ok(Some(result));
+        return Ok(result);
     }
 
     // We reach here only if there was no operator in the expression, so we just have to evaluate the inner
@@ -246,20 +242,14 @@ fn apply_double_op(
     Ok(result)
 }
 
-fn eval_expr_inner(
-    inner: &Eaten<ExprInner>,
-    ctx: &mut Context,
-) -> ExecResult<Option<RuntimeValue>> {
+fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let ExprInner { content, chainings } = &inner.data;
 
     let mut left_val = eval_expr_inner_content(&content.data, ctx)?;
     let left_at = RuntimeCodeRange::Parsed(content.at);
 
     for chaining in chainings {
-        let left = LocatedValue::new(
-            left_val.ok_or_else(|| ctx.error(left_at, VOID_EXPR_ERR))?,
-            left_at,
-        );
+        let left = LocatedValue::new(left_val, left_at);
 
         left_val = match &chaining.data {
             ExprInnerChaining::Direct(chaining) => {
@@ -267,9 +257,9 @@ fn eval_expr_inner(
             }
 
             ExprInnerChaining::FnCall(fn_call) => {
-                let result = eval_fn_call(fn_call, Some(left), ctx)?;
-
-                result.map(|result| result.value)
+                eval_fn_call(fn_call, Some(left), ctx)?
+                    .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))?
+                    .value
             }
         };
 
@@ -283,13 +273,13 @@ fn eval_expr_inner_direct_chaining(
     chaining: &ExprInnerDirectChaining,
     mut left: LocatedValue,
     ctx: &mut Context,
-) -> ExecResult<Option<RuntimeValue>> {
+) -> ExecResult<RuntimeValue> {
     match &chaining {
         ExprInnerDirectChaining::PropAccess(acc) => {
             let PropAccess { nature, nullable } = &acc.data;
 
             if *nullable && matches!(left.value, RuntimeValue::Null) {
-                return Ok(Some(left.value));
+                return Ok(left.value);
             }
 
             let resolved = eval_props_access(
@@ -305,21 +295,19 @@ fn eval_expr_inner_direct_chaining(
                 },
             )?;
 
-            Ok(Some(resolved))
+            Ok(resolved)
         }
 
-        ExprInnerDirectChaining::MethodCall(fn_call) => {
-            let result = eval_fn_call(fn_call, Some(left), ctx)?;
-
-            Ok(result.map(|result| result.value))
-        }
+        ExprInnerDirectChaining::MethodCall(fn_call) => Ok(eval_fn_call(fn_call, Some(left), ctx)?
+            .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))?
+            .value),
     }
 }
 
 fn eval_expr_inner_content(
     expr_inner_content: &ExprInnerContent,
     ctx: &mut Context,
-) -> ExecResult<Option<RuntimeValue>> {
+) -> ExecResult<RuntimeValue> {
     match &expr_inner_content {
         ExprInnerContent::SingleOp {
             op,
@@ -328,8 +316,7 @@ fn eval_expr_inner_content(
         } => {
             // TODO: deduplicate code from "eval_expr_inner" :(
 
-            let mut right_val = eval_expr_inner_content(&right.data, ctx)?
-                .ok_or_else(|| ctx.error(right.at, VOID_EXPR_ERR))?;
+            let mut right_val = eval_expr_inner_content(&right.data, ctx)?;
 
             let right_at = RuntimeCodeRange::Parsed(right.at);
 
@@ -338,15 +325,14 @@ fn eval_expr_inner_content(
                     &chaining.data,
                     LocatedValue::new(right_val, right_at),
                     ctx,
-                )?
-                .ok_or_else(|| ctx.error(right_at, VOID_EXPR_ERR))?;
+                )?;
 
                 // TODO: update location (right_at)
             }
 
             match op.data {
                 SingleOp::Neg => match right_val {
-                    RuntimeValue::Bool(bool) => Ok(Some(RuntimeValue::Bool(!bool))),
+                    RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
 
                     _ => Err(ctx.error(
                         right.at,
@@ -370,10 +356,7 @@ fn eval_expr_inner_content(
             els,
         } => {
             let cond_val =
-                eval_expr(&cond.data, ctx)?.ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?;
-
-            let cond_val =
-                match cond_val {
+                match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
                     value => {
                         return Err(ctx.error(
@@ -393,8 +376,7 @@ fn eval_expr_inner_content(
             for branch in elsif {
                 let ElsIfExpr { cond, body } = &branch.data;
 
-                let cond_val =
-                    eval_expr(&cond.data, ctx)?.ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?;
+                let cond_val = eval_expr(&cond.data, ctx)?;
 
                 let RuntimeValue::Bool(cond_val) = cond_val else {
                     return Err(ctx.error(
@@ -424,7 +406,7 @@ fn eval_expr_inner_content(
         } => match eval_fn_call(fn_call, None, ctx) {
             Ok(returned) => returned
                 .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
-                .map(|loc_val| Some(loc_val.value)),
+                .map(|loc_val| loc_val.value),
 
             Err(err) => match err.nature {
                 ExecErrorNature::Thrown { at, message } => {
@@ -457,13 +439,13 @@ fn eval_expr_inner_content(
 
         ExprInnerContent::FnAsValue(name) => ctx
             .get_visible_fn_value(name)
-            .map(|func| Some(RuntimeValue::Function(GcReadOnlyCell::clone(func)))),
+            .map(|func| RuntimeValue::Function(GcReadOnlyCell::clone(func))),
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
     }
 }
 
-fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<RuntimeValue>> {
+fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let value = match &value.data {
         Value::Null => RuntimeValue::Null,
 
@@ -476,9 +458,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<Runt
         Value::List(values) => RuntimeValue::List(GcCell::new(
             values
                 .iter()
-                .map(|expr| {
-                    eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))
-                })
+                .map(|expr| eval_expr(&expr.data, ctx))
                 .collect::<Result<Vec<_>, _>>()?,
         )),
 
@@ -486,8 +466,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<Runt
             let members = obj
                 .iter()
                 .map(|(name, expr)| {
-                    let result = eval_expr(&expr.data, ctx)?
-                        .ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
+                    let result = eval_expr(&expr.data, ctx)?;
 
                     Ok::<_, Box<ExecError>>((name.clone(), result))
                 })
@@ -500,7 +479,9 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<Runt
         Value::FnAsValue(name) => RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
 
         Value::FnCall(call) => {
-            return Ok(eval_fn_call(call, None, ctx)?.map(|loc_val| loc_val.value))
+            return Ok(eval_fn_call(call, None, ctx)?
+                .ok_or_else(|| ctx.error(call.at, "function did not return a value"))?
+                .value)
         }
 
         Value::CmdOutput(call) => RuntimeValue::String(
@@ -522,7 +503,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<Runt
         Value::Closure(func) => closure_to_value(func, ctx),
     };
 
-    Ok(Some(value))
+    Ok(value)
 }
 
 pub fn eval_literal_value(value: &LiteralValue) -> RuntimeValue {
@@ -572,7 +553,7 @@ fn eval_computed_string_piece(
             ctx,
         )?),
         ComputedStringPiece::Expr(expr) => Ok(value_to_str(
-            &eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?,
+            &eval_expr(&expr.data, ctx)?,
             "only stringifyable values can be used inside computable strings",
             expr.at,
             ctx,
@@ -624,5 +605,3 @@ fn operator_precedence(op: DoubleOp) -> u8 {
         DoubleOp::And | DoubleOp::Or => 4,
     }
 }
-
-pub static VOID_EXPR_ERR: &str = "expression did not evaluate to a value";

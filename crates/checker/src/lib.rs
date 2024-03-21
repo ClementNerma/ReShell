@@ -20,13 +20,13 @@ use std::collections::{HashMap, HashSet};
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{
-        Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
-        CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece,
-        DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
-        ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-        FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-        RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
-        SwitchCase, Value, ValueType,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar,
+        CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
+        ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
+        FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, Program, PropAccess,
+        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        StructTypeMember, SwitchCase, Value, ValueType,
     },
     scope::AstScopeId,
 };
@@ -475,8 +475,6 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::DoBlock(block) => check_block(block, state)?,
 
-        Instruction::Expr(expr) => check_expr(&expr.data, state)?,
-
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
         Instruction::Include(program) => {
@@ -793,45 +791,60 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
 fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult {
     let CmdCall { base, pipes } = &cmd_call.data;
 
-    let calls = [(None, base)].into_iter().chain(
-        pipes
-            .iter()
-            .map(|CmdPipe { pipe_type, cmd }| (Some(pipe_type), cmd)),
-    );
-
-    let mut chain_type = None;
-
-    for (pipe_type, call) in calls {
-        let call_type = check_single_cmd_call(call, state)?;
-
-        match chain_type {
-            None => {
-                chain_type = Some(call_type);
-            }
-
-            Some(chain_type) => {
-                if chain_type != call_type {
-                    return Err(CheckerError::new(
-                        pipe_type.unwrap().at,
-                        match (chain_type, call_type) {
-                            (CmdPathTargetType::Function, CmdPathTargetType::ExternalCommand) => {
-                                "cannot pipe a function's output into an external command"
-                            }
-
-                            (CmdPathTargetType::ExternalCommand, CmdPathTargetType::Function) => {
-                                "cannot pipe an external command's output into a function"
-                            }
-
-                            _ => unreachable!(),
-                        },
-                    ));
-                }
-            }
+    let mut chain_type = match base {
+        CmdCallBase::Expr(expr) => {
+            check_expr(&expr.data, state)?;
+            CmdPathTargetType::Expr
         }
+
+        CmdCallBase::SingleCmdCall(call) => check_single_cmd_call(call, state)?,
+    };
+
+    for CmdPipe { pipe_type, cmd } in pipes.iter() {
+        let call_type = check_single_cmd_call(cmd, state)?;
+
+        match (chain_type, call_type) {
+            (CmdPathTargetType::Function, CmdPathTargetType::ExternalCommand) => {
+                return Err(CheckerError::new(
+                    pipe_type.at,
+                    "cannot pipe a function's output into an external command",
+                ))
+            }
+
+            (CmdPathTargetType::ExternalCommand, CmdPathTargetType::Function) => {
+                return Err(CheckerError::new(
+                    pipe_type.at,
+                    "cannot pipe an external command's output into a function",
+                ))
+            }
+
+            (CmdPathTargetType::Expr, CmdPathTargetType::ExternalCommand) => {
+                return Err(CheckerError::new(
+                    pipe_type.at,
+                    "cannot pipe an expression's output into an external command",
+                ))
+            }
+
+            (
+                CmdPathTargetType::Expr | CmdPathTargetType::Function,
+                CmdPathTargetType::Function,
+            )
+            | (CmdPathTargetType::ExternalCommand, CmdPathTargetType::ExternalCommand) => {
+                // OK
+            }
+
+            (_, CmdPathTargetType::Expr) => unreachable!(),
+        }
+
+        chain_type = call_type;
     }
 
     Ok(())
 }
+
+// fn check_cmd_call_base(base: &CmdCallBase) -> CheckerResult {
+
+// }
 
 fn check_single_cmd_call(
     single_cmd_call: &Eaten<SingleCmdCall>,
@@ -851,7 +864,7 @@ fn check_single_cmd_call(
 
     let target_type = match &path.data {
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
-        CmdPath::Expr(_) => CmdPathTargetType::Function,
+        CmdPath::Method(_) => CmdPathTargetType::Function,
         CmdPath::ComputedString(_) => CmdPathTargetType::ExternalCommand,
         CmdPath::CmdComputedString(name) => match name.data.only_literal() {
             Some(lit) => find_if_cmd_or_fn(
@@ -874,7 +887,7 @@ fn check_single_cmd_call(
             at: single_cmd_call.at,
             is_function: match target_type {
                 CmdPathTargetType::Function => true,
-                CmdPathTargetType::ExternalCommand => false,
+                CmdPathTargetType::ExternalCommand | CmdPathTargetType::Expr => false,
             },
             developed_aliases,
         },
@@ -1273,4 +1286,5 @@ fn check_fn_signature(
 enum CmdPathTargetType {
     Function,
     ExternalCommand,
+    Expr,
 }

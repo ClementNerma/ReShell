@@ -119,9 +119,6 @@ pub enum Instruction {
     /// 'do' block
     DoBlock(Eaten<Block>),
 
-    /// Expression
-    Expr(Eaten<Expr>),
-
     /// Command call
     CmdCall(Eaten<CmdCall>),
 
@@ -348,8 +345,14 @@ pub enum EscapableChar {
 
 #[derive(Debug, Clone)]
 pub struct CmdCall {
-    pub base: Eaten<SingleCmdCall>,
+    pub base: CmdCallBase,
     pub pipes: Vec<CmdPipe>,
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdCallBase {
+    Expr(Eaten<Box<Expr>>),
+    SingleCmdCall(Eaten<SingleCmdCall>),
 }
 
 #[derive(Debug, Clone)]
@@ -368,7 +371,7 @@ pub struct CmdEnvVar {
 #[derive(Debug, Clone)]
 pub enum CmdPath {
     Direct(Eaten<CmdComputedString>),
-    Expr(Eaten<Box<Expr>>),
+    Method(Eaten<String>),
     ComputedString(Eaten<ComputedString>),
     CmdComputedString(Eaten<CmdComputedString>),
 }

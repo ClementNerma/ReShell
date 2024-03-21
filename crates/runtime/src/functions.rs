@@ -11,7 +11,7 @@ use crate::{
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
-    expr::{eval_expr, VOID_EXPR_ERR},
+    expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits_type,
@@ -36,7 +36,7 @@ pub fn eval_fn_call(
             let typ = piped.value.get_type();
 
             let method = MethodApplyableType::from_single_value_type(typ.clone())
-                .and_then(|typ| ctx.get_visible_method(&call.data.name, &typ))
+                .and_then(|typ| ctx.get_visible_method(&call.data.name, typ))
                 .ok_or_else(|| {
                     ctx.error(
                         call.at,
@@ -539,11 +539,8 @@ fn flatten_fn_call_args(
             for parsed in &args.data {
                 match &parsed.data {
                     FnCallArg::Expr(expr) => {
-                        let eval = eval_expr(&expr.data, ctx)?
-                            .ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
-
                         out.push(CmdSingleArgResult::Basic(LocatedValue::new(
-                            eval,
+                            eval_expr(&expr.data, ctx)?,
                             RuntimeCodeRange::Parsed(expr.at),
                         )))
                     }
@@ -552,8 +549,7 @@ fn flatten_fn_call_args(
                         name: name.clone(),
                         value: Some(FlagArgValueResult {
                             value: LocatedValue::new(
-                                eval_expr(&value.data, ctx)?
-                                    .ok_or_else(|| ctx.error(value.at, VOID_EXPR_ERR))?,
+                                eval_expr(&value.data, ctx)?,
                                 RuntimeCodeRange::Parsed(value.at),
                             ),
                             value_sep: FlagValueSeparator::Equal,
