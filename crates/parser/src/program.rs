@@ -1211,10 +1211,7 @@ pub fn program(
             //
             // Base blocks
             //
-            just("do")
-                .ignore_then(s)
-                .ignore_then(block.spanned())
-                .map(Instruction::DoBlock),
+            block.spanned().map(Instruction::DoBlock),
             //
             // Include statement
             //
