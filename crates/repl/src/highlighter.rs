@@ -86,11 +86,15 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 include_group("commands"),
             ]),
             ("commands", vec![
+                // Pipes
+                simple("(\\->|\\!?\\|)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [LightYellow, Blue]),
+                simple("(\\->|\\!?\\|)", [LightYellow]),
+
                 // Command names
                 simple("(?:^|[\\|\\n])\\s*([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
                 // Variables
-                simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),
 
                 // Single variable marker
                 simple("(\\$)", [Red]),
@@ -98,15 +102,11 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Numbers
                 simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
 
-                // Booleans
-                simple("\\b(true|false)\\b", [LightYellow]),
-                
-                // Pipes
-                simple("(\\->|\\!?\\|)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [LightYellow, Blue]),
-                simple("(\\->|\\!?\\|)", [LightYellow]),
-
                 // Flags
                 simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
+
+                // Booleans
+                simple("\\b(true|false)\\b", [LightYellow]),
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
