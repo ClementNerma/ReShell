@@ -14,10 +14,10 @@ pub type FileLoader = Box<
 #[derive(Clone)]
 pub struct FilesMap(Arc<RwLock<FilesMapInner>>);
 
-struct FilesMapInner {
-    map: HashMap<SourceFileID, SourceFile>,
-    counter: u64,
-    file_loader: FileLoader,
+pub struct FilesMapInner {
+    pub map: HashMap<SourceFileID, SourceFile>,
+    pub counter: u64,
+    pub file_loader: FileLoader,
 }
 
 impl FilesMap {
@@ -62,6 +62,10 @@ impl FilesMap {
 
     pub fn get_file(&self, id: SourceFileID) -> Option<SourceFile> {
         self.0.read().unwrap().map.get(&id).cloned()
+    }
+
+    pub fn with_inner<T>(&self, func: impl FnOnce(&FilesMapInner) -> T) -> T {
+        func(&self.0.read().unwrap())
     }
 }
 

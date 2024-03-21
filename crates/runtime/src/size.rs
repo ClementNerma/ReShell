@@ -1,25 +1,34 @@
-use std::{collections::HashMap, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    ffi::OsStr,
+    path::PathBuf,
+    rc::Rc,
+};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location, SourceFileID};
 use reshell_checker::{Dependency, DependencyType};
-use reshell_parser::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
-    CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece,
-    DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp,
-    FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
-    Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeCodeRange,
-    RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
-    ValueType,
+use reshell_parser::{
+    ast::{
+        Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
+        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
+        ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
+        FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
+        SwitchCase, Value, ValueType,
+    },
+    files::{FilesMap, FilesMapInner, SourceFile, SourceFileLocation},
 };
 
 use crate::{
     cmd::{CmdSingleArgResult, FlagArgValueResult},
-    context::{ScopeCmdAlias, ScopeFn, ScopeVar},
+    conf::RuntimeConf,
+    context::{CallStackEntry, Scope, ScopeCmdAlias, ScopeContent, ScopeFn, ScopeVar},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     values::{
-        CapturedDependencies, ErrorValueContent, LocatedValue, RuntimeCmdAlias, RuntimeFnBody,
-        RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
+        CapturedDependencies, ErrorValueContent, InternalFnBody, LocatedValue, RuntimeCmdAlias,
+        RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -89,6 +98,12 @@ impl<T: ComputableSize> ComputableSize for Option<T> {
 }
 
 impl<T: ComputableSize> ComputableSize for Vec<T> {
+    fn compute_heap_size(&self) -> usize {
+        self.iter().map(|val| val.compute_total_size()).sum()
+    }
+}
+
+impl<T: ComputableSize> ComputableSize for HashSet<T> {
     fn compute_heap_size(&self) -> usize {
         self.iter().map(|val| val.compute_total_size()).sum()
     }
@@ -351,7 +366,7 @@ impl ComputableSize for RuntimeFnBody {
     fn compute_heap_size(&self) -> usize {
         match self {
             RuntimeFnBody::Block(block) => block.compute_heap_size(),
-            RuntimeFnBody::Internal(internal) => std::mem::size_of_val(internal),
+            RuntimeFnBody::Internal(internal) => std::mem::size_of_val::<InternalFnBody>(internal),
         }
     }
 }
@@ -891,5 +906,113 @@ impl ComputableSize for ErrorValueContent {
     fn compute_heap_size(&self) -> usize {
         let Self { at, msg } = self;
         at.compute_heap_size() + msg.compute_heap_size()
+    }
+}
+
+impl ComputableSize for RuntimeConf {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            initial_home_dir,
+            call_stack_limit,
+            history_path,
+            history_enabled,
+            history_capacity,
+        } = self;
+
+        initial_home_dir.compute_heap_size()
+            + call_stack_limit.compute_heap_size()
+            + history_path.compute_heap_size()
+            + history_enabled.compute_heap_size()
+            + history_capacity.compute_heap_size()
+    }
+}
+
+impl ComputableSize for PathBuf {
+    fn compute_heap_size(&self) -> usize {
+        self.as_os_str().compute_heap_size()
+    }
+}
+
+impl ComputableSize for OsStr {
+    fn compute_heap_size(&self) -> usize {
+        self.len()
+    }
+}
+
+impl ComputableSize for Scope {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            id,
+            range,
+            content,
+            parent_scopes,
+            deps_scope,
+            previous_scope,
+            call_stack,
+        } = self;
+
+        id.compute_heap_size()
+            + range.compute_heap_size()
+            + content.compute_heap_size()
+            + parent_scopes.compute_heap_size()
+            + deps_scope.compute_heap_size()
+            + previous_scope.compute_heap_size()
+            + call_stack.compute_heap_size()
+    }
+}
+
+impl ComputableSize for ScopeContent {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            vars,
+            fns,
+            cmd_aliases,
+        } = self;
+
+        vars.compute_heap_size() + fns.compute_heap_size() + cmd_aliases.compute_heap_size()
+    }
+}
+
+impl ComputableSize for CallStackEntry {
+    fn compute_heap_size(&self) -> usize {
+        let Self { fn_called_at } = self;
+        fn_called_at.compute_heap_size()
+    }
+}
+
+impl ComputableSize for FilesMap {
+    fn compute_heap_size(&self) -> usize {
+        self.with_inner(|inner| {
+            let FilesMapInner {
+                counter,
+                file_loader: _,
+                map,
+            } = inner;
+
+            // NOTE: file_loader is not accounted for as we cannot compute the size of a
+            // `Box<dyn ...>`
+
+            counter.compute_heap_size() + map.compute_heap_size()
+        })
+    }
+}
+
+impl ComputableSize for SourceFile {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            id,
+            location,
+            content,
+        } = self;
+        id.compute_heap_size() + location.compute_heap_size() + content.compute_heap_size()
+    }
+}
+
+impl ComputableSize for SourceFileLocation {
+    fn compute_heap_size(&self) -> usize {
+        match self {
+            SourceFileLocation::CustomName(name) => name.compute_heap_size(),
+            SourceFileLocation::RealFile(path) => path.compute_heap_size(),
+        }
     }
 }

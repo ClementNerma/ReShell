@@ -20,6 +20,7 @@ use crate::{
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
+    size::ComputableSize,
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
@@ -862,4 +863,51 @@ pub enum DepsScopeCreationData {
 
     /// Use already-built dependency scope
     Retrieved(ScopeContent),
+}
+
+impl ComputableSize for CallStack {
+    fn compute_heap_size(&self) -> usize {
+        let Self { history } = self;
+        history.compute_heap_size()
+    }
+}
+
+impl ComputableSize for Context {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            conf,
+            take_ctrl_c_indicator,
+            scopes_id_counter,
+            scopes,
+            deps_scopes,
+            current_scope,
+            files_map,
+            home_dir,
+            deps,
+            type_aliases_decl,
+            type_aliases_usages,
+            type_aliases_decl_by_scope,
+            fn_signatures,
+            fn_bodies,
+            cmd_aliases,
+            wandering_value,
+        } = self;
+
+        conf.compute_heap_size()
+            + std::mem::size_of_val::<fn() -> bool>(take_ctrl_c_indicator)
+            + scopes_id_counter.compute_heap_size()
+            + scopes.compute_heap_size()
+            + deps_scopes.compute_heap_size()
+            + current_scope.compute_heap_size()
+            + files_map.compute_heap_size()
+            + home_dir.compute_heap_size()
+            + deps.compute_heap_size()
+            + type_aliases_decl.compute_heap_size()
+            + type_aliases_usages.compute_heap_size()
+            + type_aliases_decl_by_scope.compute_heap_size()
+            + fn_signatures.compute_heap_size()
+            + fn_bodies.compute_heap_size()
+            + cmd_aliases.compute_heap_size()
+            + wandering_value.compute_heap_size()
+    }
 }
