@@ -34,6 +34,7 @@ pub fn render_prompt(
         return Ok(None);
     }
 
+    // TODO: take it from the native lib's arguments
     let expected_signature = FnSignature {
         args: forge_internal_token(vec![FnArg {
             names: FnArgNames::Positional(forge_internal_token("prompt_data".to_string())),
