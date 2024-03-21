@@ -227,7 +227,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 // map over a list
                 //
 
-                "listMap",
+                "listmap",
 
                 Args [ArgsAt, ArgsTy] (
                     list: RequiredArg<UntypedListType> => Arg::positional("list"),
