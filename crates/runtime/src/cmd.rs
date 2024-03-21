@@ -502,7 +502,14 @@ fn exec_cmd(
     let cmd_path = ctx
         .binaries_resolver()
         .resolve_binary_path(&cmd_path)
-        .map_err(|err| ctx.error(name.at, err.to_string()))?;
+        .map_err(|err| {
+            ctx.error(
+                name.at,
+                ExecErrorNature::CommandFailedToStart {
+                    message: err.to_string(),
+                },
+            )
+        })?;
 
     // Actually run the command
     let child = Command::new(cmd_path)
