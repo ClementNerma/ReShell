@@ -73,6 +73,7 @@ pub struct PrettyPrintOptions {
     pub tab_size: usize,
     // pub colors: bool,
     pub max_line_size: usize,
+    pub line_prefix_size: usize,
 }
 
 impl PrettyPrintOptions {
@@ -81,6 +82,7 @@ impl PrettyPrintOptions {
             pretty: false,
             tab_size: 0,
             max_line_size: 0,
+            line_prefix_size: 0,
         }
     }
 }
@@ -117,8 +119,8 @@ impl PrintablePiece {
         }
     }
 
-    fn fits_in_line(&self, max_line_size: usize, current_ident: usize) -> bool {
-        self.len_chars() + current_ident <= max_line_size
+    fn fits_in_line(&self, max_line_size: usize, prefix_size: usize) -> bool {
+        self.len_chars() + prefix_size <= max_line_size
     }
 
     pub fn render(&self, opts: PrettyPrintOptions, mut w: impl FnMut(&Colored)) {
@@ -136,6 +138,7 @@ impl PrintablePiece {
             tab_size,
             // colors,
             max_line_size,
+            line_prefix_size,
         } = opts;
 
         match self {
@@ -152,7 +155,7 @@ impl PrintablePiece {
                 end,
                 suffix,
             } => {
-                if pretty && self.fits_in_line(max_line_size, current_ident) {
+                if !pretty || self.fits_in_line(max_line_size, current_ident + line_prefix_size) {
                     let space = Colored(" ".to_string(), None);
 
                     w(begin);

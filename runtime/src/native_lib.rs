@@ -202,10 +202,11 @@ pub fn generate_native_lib() -> Scope {
         //
         native_fn!(dbg (value: Any [at]) [ctx] {
             // TODO: disable color if we're not in a terminal
-            let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map())).bright_magenta();
+            let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
 
-            println!("{at} {}", value.render_colored(PrettyPrintOptions {
+            println!("{} {}", at.bright_magenta(), value.render_colored(PrettyPrintOptions {
                 pretty: true,
+                line_prefix_size: at.chars().count(),
                 max_line_size: match termsize::get() {
                     Some(size) => size.cols.into(),
                     None => 30 // todo: make this a static?
