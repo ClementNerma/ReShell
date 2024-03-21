@@ -128,9 +128,8 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
                         exit_status: _,
                     } = &err.nature
                     {
-                        if err.at.real() == Some(program.data.content.at) {
-                            eprintln!("{} {message}", "ERROR:".bright_red(),);
-
+                        if program.data.content.data.instructions.len() == 1 {
+                            eprintln!("{} {message}", "ERROR:".bright_red());
                             continue;
                         }
                     }
