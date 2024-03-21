@@ -11,6 +11,7 @@ pub mod exec;
 pub mod expr;
 pub mod functions;
 pub mod gc;
+pub mod path;
 pub mod pretty;
 pub mod props;
 pub mod typechecker;
