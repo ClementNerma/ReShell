@@ -84,19 +84,23 @@ pub struct ProgressBarValue {
 
 impl CustomValueType for ProgressBarValue {
     fn typename(&self) -> &'static str {
-        "ProgressBar"
+        "progressbar"
     }
 
     fn typename_static() -> &'static str
     where
         Self: Sized,
     {
-        "ProgressBar"
+        "progressbar"
     }
 }
 
 impl PrettyPrintable for ProgressBarValue {
     fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
-        PrettyPrintablePiece::colored_atomic("<progress bar>", Color::BrightBlack)
+        PrettyPrintablePiece::Join(vec![
+            PrettyPrintablePiece::colored_atomic("progressBar(", Color::Magenta),
+            PrettyPrintablePiece::colored_atomic("<internal>", Color::BrightBlack),
+            PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+        ])
     }
 }

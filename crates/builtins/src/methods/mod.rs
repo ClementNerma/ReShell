@@ -1,5 +1,7 @@
 mod command;
 mod datetime;
+mod duration;
+mod instant;
 mod list;
 mod map;
 mod progress_bar;
@@ -14,6 +16,11 @@ pub fn native_methods() -> Vec<InternalFunction> {
     vec![
         self::command::succeeds::build_fn(),
         self::datetime::to_string::build_fn(),
+        self::duration::seconds::build_fn(),
+        self::duration::subsec_micros::build_fn(),
+        self::duration::subsec_millis::build_fn(),
+        self::duration::subsec_nanos::build_fn(),
+        self::instant::elapsed::build_fn(),
         self::list::append::build_fn(),
         self::list::at::build_fn(),
         self::list::contains::build_fn(),
