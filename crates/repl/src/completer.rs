@@ -56,8 +56,8 @@ impl RlCompleter for Completer {
             None => pos,
         };
 
-        let after_space =
-            word_start > 0 && line[word_start..].chars().next().unwrap().is_whitespace();
+        let after_space = word_start > 0
+            && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
 
         let word = &line[word_start..word_end];
 
