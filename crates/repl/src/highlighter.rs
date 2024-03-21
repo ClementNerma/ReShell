@@ -92,7 +92,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 rule!(@simple "\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b" => [Magenta]),
 
                 // Argument names and structure keys
-                rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])" => [Red, LightYellow]),
+                rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]" => [Red, LightYellow]),
                 
                 // Commands
                 rule!(@group "commands")

@@ -131,10 +131,10 @@ impl RlCompleter for Completer {
             .split(['/', '\\'])
             .filter(|segment| !segment.is_empty() && *segment != ".")
             .map(|segment| {
-                if segment != ".." {
+                if segment != ".." && !segment.ends_with(':') {
                     format!("*{segment}*")
                 } else {
-                    segment.to_string()
+                    segment.to_owned()
                 }
             })
             .collect::<Vec<_>>();
