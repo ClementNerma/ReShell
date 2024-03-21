@@ -112,8 +112,8 @@ impl Context {
     // =============== Non-public functions =============== //
 
     pub(crate) fn append_checker_output(&mut self, checker_output: CheckerOutput) {
-        let CheckerOutput { deps } = checker_output;
-        self.deps = deps;
+        let CheckerOutput { deps } = checker_output;        
+        self.deps.extend(deps);
     }
 
     pub(crate) fn generate_scope_id(&mut self) -> u64 {
