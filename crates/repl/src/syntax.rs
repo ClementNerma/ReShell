@@ -93,35 +93,26 @@ impl Highlighter {
         &self,
         text: &str,
         rules: &[Rule],
-        curr_shift: usize,
+        mut shift: usize,
         out: &mut Vec<HighlightPiece>,
     ) {
         if text.is_empty() {
             return;
         }
 
-        let mut inner_shift = 0;
-
-        while let Some(nesting) =
-            self.find_first_nesting(&text[inner_shift..], rules, curr_shift + inner_shift)
-        {
+        while let Some(nesting) = self.find_first_nesting(text, rules, shift) {
             let Nesting {
                 begin,
                 end,
                 inner_rules,
             } = nesting;
 
-            self.highlight_inner(
-                &text[inner_shift..begin.start],
-                rules,
-                curr_shift + inner_shift,
-                out,
-            );
+            self.highlight_inner(&text[..begin.start], rules, shift, out);
 
             Self::highlight_piece(&begin, out);
 
             self.highlight_inner(
-                &text[begin.end..match end {
+                &text[..match end {
                     Some(ref end) => end.start,
                     None => text.len(),
                 }],
@@ -136,17 +127,17 @@ impl Highlighter {
 
             Self::highlight_piece(&end, out);
 
-            inner_shift = end.end;
+            shift = end.end;
         }
 
-        self.highlight_with_rules(&text[inner_shift..], rules, curr_shift + inner_shift, out);
+        self.highlight_with_rules(text, rules, shift, out);
     }
 
     fn find_first_nesting<'h, 'str>(
         &'h self,
         text: &'str str,
         rules: &'h [Rule],
-        curr_shift: usize,
+        shift: usize,
     ) -> Option<Nesting<'h, 'str>> {
         if text.is_empty() {
             return None;
@@ -159,17 +150,17 @@ impl Highlighter {
                 Rule::Simple(_) | Rule::Progressive(_, _) => continue,
 
                 Rule::Nested(rule) => {
-                    if let Some(captured) = rule.begin.matches.captures(text) {
-                        let begin_matched = Match::new(&rule.begin, captured, curr_shift);
+                    if let Some(captured) = rule.begin.matches.captures_at(text, shift) {
+                        let begin_matched = Match::new(&rule.begin, captured);
 
                         if min.is_none()
-                            || matches!(min, Some(ref nested) if begin_matched.actual_start <  nested.begin.actual_start)
+                            || matches!(min, Some(ref nested) if begin_matched.start <  nested.begin.start)
                         {
                             let closing_pat = self.find_matching_closing_pattern(
-                                &text[begin_matched.relative_end..],
+                                text,
                                 &rule.end,
                                 &rule.inner_rules,
-                                curr_shift + begin_matched.relative_end,
+                                begin_matched.end,
                             );
 
                             min = Some(Nesting {
@@ -184,7 +175,7 @@ impl Highlighter {
                 Rule::Group(name) => {
                     let rules = self.rule_set.groups.get(name).unwrap();
 
-                    if let Some(pos) = self.find_first_nesting(text, rules, curr_shift) {
+                    if let Some(pos) = self.find_first_nesting(text, rules, shift) {
                         return Some(pos);
                     }
                 }
@@ -196,35 +187,30 @@ impl Highlighter {
 
     fn find_matching_closing_pattern<'h, 'str>(
         &'h self,
-        mut text: &'str str,
+        text: &'str str,
         closing_pat: &'h SimpleRule,
         rules: &'h [Rule],
-        curr_shift: usize,
+        mut shift: usize,
     ) -> Option<Match<'h, 'str>> {
         if text.is_empty() {
             return None;
         }
 
-        let mut inner_shift = 0;
-
         loop {
-            let captured = closing_pat.matches.captures(text)?;
+            let captured = closing_pat.matches.captures_at(text, shift)?;
 
             let start = captured.get(0).unwrap().start();
             let end = captured.get(0).unwrap().end();
 
-            if let Some(nesting) =
-                self.find_first_nesting(&text[inner_shift..], rules, curr_shift + inner_shift)
-            {
+            if let Some(nesting) = self.find_first_nesting(text, rules, shift) {
                 if start >= nesting.begin.start {
-                    text = &text[start..];
-                    inner_shift += end;
+                    shift = end;
 
                     continue;
                 }
             }
 
-            return Some(Match::new(closing_pat, captured, curr_shift + inner_shift));
+            return Some(Match::new(closing_pat, captured));
         }
     }
 
@@ -233,29 +219,23 @@ impl Highlighter {
         &self,
         text: &str,
         rules: &[Rule],
-        curr_shift: usize,
+        mut shift: usize,
         out: &mut Vec<HighlightPiece>,
     ) {
         if text.is_empty() {
             return;
         }
 
-        let mut inner_shift = 0;
-
-        let mut highlight_matched = |matched: &Match, inner_shift: &mut usize| -> bool {
+        let mut highlight_matched = |matched: &Match, shift: &mut usize| -> bool {
             Self::highlight_piece(matched, out);
 
-            *inner_shift += matched.relative_end;
+            *shift = matched.end;
 
-            *inner_shift < text.len()
+            *shift < text.len()
         };
 
-        while let Some(matched) = self.find_nearest_simple_or_progressive_rule(
-            &text[inner_shift..],
-            rules,
-            curr_shift + inner_shift,
-        ) {
-            if !highlight_matched(&matched, &mut inner_shift) {
+        while let Some(matched) = self.find_nearest_simple_or_progressive_rule(text, rules, shift) {
+            if !highlight_matched(&matched, &mut shift) {
                 return;
             }
 
@@ -264,14 +244,10 @@ impl Highlighter {
             };
 
             for simple in following {
-                match Self::match_simple_rule(
-                    simple,
-                    &text[inner_shift..],
-                    curr_shift + inner_shift,
-                ) {
+                match Self::match_simple_rule(simple, text, shift) {
                     None => break,
                     Some(matched) => {
-                        if !highlight_matched(&matched, &mut inner_shift) {
+                        if !highlight_matched(&matched, &mut shift) {
                             return;
                         }
                     }
@@ -284,7 +260,7 @@ impl Highlighter {
         &'h self,
         text: &'str str,
         rules: &'h [Rule],
-        curr_shift: usize,
+        shift: usize,
     ) -> Option<Match<'h, 'str>> {
         if text.is_empty() {
             return None;
@@ -295,9 +271,9 @@ impl Highlighter {
         for rule in rules {
             match rule {
                 Rule::Simple(simple) => {
-                    if let Some(matched) = Self::match_simple_rule(simple, text, curr_shift) {
+                    if let Some(matched) = Self::match_simple_rule(simple, text, shift) {
                         if min.is_none()
-                            || matches!(min, Some(ref min) if matched.actual_start < min.actual_start)
+                            || matches!(min, Some(ref min) if matched.start < min.start)
                         {
                             min = Some(matched);
                         }
@@ -305,9 +281,9 @@ impl Highlighter {
                 }
 
                 Rule::Progressive(simple, following) => {
-                    if let Some(matched) = Self::match_simple_rule(simple, text, curr_shift) {
+                    if let Some(matched) = Self::match_simple_rule(simple, text, shift) {
                         if min.is_none()
-                            || matches!(min, Some(ref min) if matched.actual_start < min.actual_start)
+                            || matches!(min, Some(ref min) if matched.start < min.start)
                         {
                             min = Some(matched.with_following(following));
                         }
@@ -320,12 +296,12 @@ impl Highlighter {
                     let matched = self.find_nearest_simple_or_progressive_rule(
                         text,
                         self.rule_set.groups.get(name).unwrap(),
-                        curr_shift,
+                        shift,
                     );
 
                     if let Some(matched) = matched {
                         if min.is_none()
-                            || matches!(min, Some(ref min) if matched.actual_start < min.actual_start)
+                            || matches!(min, Some(ref min) if matched.start < min.start)
                         {
                             min = Some(matched);
                         }
@@ -338,16 +314,9 @@ impl Highlighter {
     }
 
     fn highlight_piece(matched: &Match, out: &mut Vec<HighlightPiece>) {
-        let Match {
-            rule,
-            captured,
-            start,
-            ..
-        } = matched;
+        let Match { rule, captured, .. } = matched;
 
         let SimpleRule { matches: _, style } = rule;
-
-        let cap_start = captured.get(0).unwrap().start();
 
         for (i, style) in style.iter().enumerate() {
             let Some(captured) = captured.get(i + 1) else {
@@ -359,7 +328,7 @@ impl Highlighter {
             }
 
             out.push(HighlightPiece {
-                start: start + captured.start() - cap_start,
+                start: captured.start(),
                 len: captured.len(),
                 style: Some(*style),
             });
@@ -369,13 +338,13 @@ impl Highlighter {
     fn match_simple_rule<'h, 'str>(
         simple: &'h SimpleRule,
         text: &'str str,
-        curr_shift: usize,
+        shift: usize,
     ) -> Option<Match<'h, 'str>> {
         let SimpleRule { matches, style: _ } = simple;
 
         matches
-            .captures(text)
-            .map(|captured| Match::new(simple, captured, curr_shift))
+            .captures_at(text, shift)
+            .map(|captured| Match::new(simple, captured))
     }
 }
 
@@ -391,24 +360,15 @@ struct Match<'h, 'str> {
     rule: &'h SimpleRule,
     start: usize,
     end: usize,
-    relative_start: usize,
-    relative_end: usize,
-    actual_start: usize,
     captured: Captures<'str>,
     following: Option<&'h [SimpleRule]>,
 }
 
 impl<'h, 'str> Match<'h, 'str> {
-    fn new(rule: &'h SimpleRule, captured: Captures<'str>, curr_shift: usize) -> Self {
-        let relative_start = captured.get(0).unwrap().start();
-        let relative_end = captured.get(0).unwrap().end();
-
+    fn new(rule: &'h SimpleRule, captured: Captures<'str>) -> Self {
         Self {
-            start: relative_start + curr_shift,
-            end: relative_end + curr_shift,
-            actual_start: captured.get(1).unwrap().start() + curr_shift,
-            relative_start,
-            relative_end,
+            start: captured.get(1).unwrap().start(),
+            end: captured.get(captured.len() - 1).unwrap().end(),
             rule,
             captured,
             following: None,
