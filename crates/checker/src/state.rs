@@ -193,6 +193,12 @@ impl State {
         Ok(())
     }
 
+    pub fn register_cmd_alias(&mut self, alias_content: Eaten<SingleCmdCall>) {
+        let dup = self.collected.cmd_aliases.insert(alias_content.at, alias_content);
+
+        assert!(dup.is_none());
+    }
+
     pub fn register_function_body(&mut self, body: Eaten<Block>) {
         let dup = self
             .collected
