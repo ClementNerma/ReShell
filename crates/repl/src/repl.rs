@@ -166,6 +166,10 @@ pub fn start(
             exit_code: ret.as_ref().err().and_then(|err| err.exit_code()),
         });
 
+        if show_timings {
+            println!("* Command duration: {} ms", start.elapsed().as_millis());
+        }
+
         match &ret {
             // If the program succeeded and has a wandering value, pretty-print it
             Ok(()) => {
