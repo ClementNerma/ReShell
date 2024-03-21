@@ -2,6 +2,7 @@ use std::fs;
 use std::time::Instant;
 use std::{collections::HashMap, env::VarError, path::Path};
 
+use colored::Colorize;
 use fork::{fork, Fork};
 use glob::glob;
 use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
@@ -193,7 +194,9 @@ pub fn generate_native_lib() -> Scope {
         //
         native_fn!(dbg (value: Any [at]) [ctx] {
             // TODO: disable color if we're not in a terminal
-            println!("dbg [{}]: {}", dbg_loc(at, ctx), value.render_colored(PrettyPrintOptions {
+            let at = format!("dbg [{}]:", dbg_loc(at, ctx)).bright_magenta();
+
+            println!("{at} {}", value.render_colored(PrettyPrintOptions {
                 pretty: true,
                 max_line_size: match termsize::get() {
                     Some(size) => size.cols.into(),
@@ -201,6 +204,7 @@ pub fn generate_native_lib() -> Scope {
                 },
                 tab_size: 4 // todo: make this configurable?
             }));
+
             Ok(None)
         }),
         //
