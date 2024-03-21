@@ -99,7 +99,9 @@ pub fn generate_completions(
         return complete_fn_name(s_word, next_char, Some("@"), span, ctx);
     }
 
-    if !after_space && !word.contains(['/', '\\']) {
+    if (!after_space && !word.contains(['/', '\\']))
+        || line[..word_start].trim_end().ends_with(" |")
+    {
         let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
