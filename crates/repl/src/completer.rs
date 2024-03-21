@@ -409,7 +409,6 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
 
 fn sort_results(input: &str, mut values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
     values.sort_by_key(|(candidate, _)| levenshtein_distance(input, candidate));
-    values.reverse();
     values.into_iter().map(|(_, value)| value).collect()
 }
 
