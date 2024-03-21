@@ -18,53 +18,43 @@ use crate::{
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let Expr { inner, right_ops } = expr;
+    let Expr { inner, right_ops } = &expr;
 
-    let mut left = eval_expr_inner(inner, ctx)?;
-
-    // TODO: operators precedence
-    let mut with_precedence = expr
-        .right_ops
-        .iter()
-        .filter(|right_op| operator_precedence(right_op.op.data) > 0);
-
-    let first = with_precedence.next();
-
-    if let Some(first) = first {
-        if expr
-            .right_ops
-            .iter()
-            .any(|right_op| operator_precedence(right_op.op.data) == 0)
-        {
-            return Err(ctx.error(
-                first.op.at,
-                "cannot use operators with different precedences without parenthesis",
-            ));
-        }
-    }
-
-    if let Some(too_much) = with_precedence.next() {
-        return Err(ctx.error(
-            too_much.op.at,
-            "cannot use two operators with precedence without parenthesis",
-        ));
-    }
-
-    for expr_op in right_ops {
-        left = eval_double_op(left, expr_op, ctx)?;
-    }
-    // ==========================
-
-    Ok(left)
+    eval_expr_ref(inner, right_ops, ctx)
 }
 
-fn eval_double_op(
-    left: RuntimeValue,
-    ExprOp { op, with }: &ExprOp,
+fn eval_expr_ref(
+    inner: &Eaten<ExprInner>,
+    right_ops: &[ExprOp],
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
-    let right = eval_expr_inner(with, ctx)?;
+    for precedence in (0..=4).rev() {
+        let Some((pos, expr_op)) = right_ops
+            .iter()
+            .enumerate()
+            .rfind(|(_, c)| operator_precedence(c.op.data) == precedence) else {
+                continue;
+            };
 
+        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
+        let right = eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx)?;
+
+        let result = apply_double_op(left, right, &expr_op.op, ctx)?;
+
+        return Ok(result);
+    }
+
+    // We reach here only if there was no operator in the expression, so we just have to evaluate the inner
+    assert!(right_ops.is_empty());
+    eval_expr_inner(inner, ctx)
+}
+
+fn apply_double_op(
+    left: RuntimeValue,
+    right: RuntimeValue,
+    op: &Eaten<DoubleOp>,
+    ctx: &mut Context,
+) -> ExecResult<RuntimeValue> {
     let result = match op.data {
         DoubleOp::Add
         | DoubleOp::Sub
@@ -318,18 +308,15 @@ fn eval_computed_string_piece(
 
 fn operator_precedence(op: DoubleOp) -> u8 {
     match op {
-        DoubleOp::Add => 0,
-        DoubleOp::Sub => 0,
-        DoubleOp::Mul => 1,
-        DoubleOp::Div => 1,
-        DoubleOp::And => 4,
-        DoubleOp::Or => 4,
-        DoubleOp::Eq => 3,
-        DoubleOp::Neq => 3,
-        DoubleOp::Lt => 3,
-        DoubleOp::Lte => 3,
-        DoubleOp::Gt => 3,
-        DoubleOp::Gte => 3,
+        DoubleOp::Add | DoubleOp::Sub => 0,
+        DoubleOp::Mul | DoubleOp::Div => 1,
         DoubleOp::NullFallback => 2,
+        DoubleOp::Eq
+        | DoubleOp::Neq
+        | DoubleOp::Lt
+        | DoubleOp::Lte
+        | DoubleOp::Gt
+        | DoubleOp::Gte => 3,
+        DoubleOp::And | DoubleOp::Or => 4,
     }
 }
