@@ -15,7 +15,6 @@ use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
 use crate::functions::ValidatedFnCallArg;
 use crate::gc::{GcOnceCell, GcReadOnlyCell};
 use crate::pretty::PrettyPrintable;
-use crate::size::ComputableSize;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 #[derive(Debug)]
@@ -167,7 +166,7 @@ impl RuntimeValue {
 }
 
 /// Custom value type
-pub trait CustomValueType: Any + Debug + PrettyPrintable + ComputableSize {
+pub trait CustomValueType: Any + Debug + PrettyPrintable {
     fn typename(&self) -> &'static str;
 }
 
