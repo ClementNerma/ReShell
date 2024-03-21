@@ -32,24 +32,11 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         Rule::Simple(simple_rule(regex, colors))
     }
 
-    // /// Create a simple rule that must be located inside a specific nesting type
-    // fn simple_inside(regex: &'static str, colors: impl AsRef<[Color]>, inside: impl Into<HashSet<NestingOpeningType>>) -> Rule {
-    //     let mut rule = simple_rule(regex, colors);
-    //     rule.inside = Some(inside.into());
-    //     Rule::Simple(rule)
-    // }
-
     /// Create a simple rule that must be followed by a specific nesting type
     fn simple_followed_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.followed_by = Some(followed_by.into());
         Rule::Simple(rule)
-    }
-
-    /// Create a progressive rule
-    fn progressive<C: AsRef<[Color]>>(parts: impl AsRef<[(&'static str, C)]>) -> Rule {
-        let mut parts = parts.as_ref().iter().map(|(regex, colors)| simple_rule(regex, colors)).collect::<Vec<_>>();
-        Rule::Progressive(parts.remove(0), parts)
     }
 
     /// Create a group inclusion rule
@@ -61,7 +48,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     use Color::*;
 
     // Match remaining invalid characters
-    let invalid_chars = simple("([^\\s]+)", [Style::new().fg(White).on(Red)]);
+    let invalid_chars = simple("([^\\s])", [Style::new().fg(White).on(Red)]);
 
     // Build the rule set
     let rule_set = RuleSet {
@@ -71,40 +58,47 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(#.*)$", [DarkGray]),
                 
                 // Variable declaration
-                progressive([
-                    ("\\b(let)\\b", [Magenta]),
-                    ("(\\s+mut\\b|)", [Magenta]),
-                    ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
-                    ("\\s*(=)\\s*", [LightYellow])
-                ]),
+                // TODO
+                // progressive([
+                //     ("\\b(let)\\b", [Magenta]),
+                //     ("(\\s+mut\\b|)", [Magenta]),
+                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                //     ("\\s*(=)\\s*", [LightYellow])
+                // ]),
                 
                 // For loop
-                progressive([
-                    ("\\b(for)\\b", [Magenta]),
-                    ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
-                    ("\\s+(in)\\b", [Magenta])
-                ]),
+                // TODO
+                // progressive([
+                //     ("\\b(for)\\b", [Magenta]),
+                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                //     ("\\s+(in)\\b", [Magenta])
+                // ]),
                 
                 // Function declaration
-                progressive([
-                    ("\\b(fn)\\b", [Magenta]),
-                    ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Blue]),
-                    ("\\s*(\\()", [LightYellow])
-                ]),
+                // TODO
+                // progressive([
+                //     ("\\b(fn)\\b", [Magenta]),
+                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Blue]),
+                //     ("\\s*(\\()", [LightYellow])
+                // ]),
 
                 // Command aliases
-                progressive([
-                    ("\\b(alias)\\b", [Magenta]),
-                    ("\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Blue]),
-                    ("\\s*(=)", [LightYellow])
-                ]),
+                // TODO
+                // progressive([
+                //     ("\\b(alias)\\b", [Magenta]),
+                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Blue]),
+                //     ("\\s*(=)", [LightYellow])
+                // ]),
                 
                 // Keywords
                 simple("\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
 
                 // Argument names and structure keys
                 simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]", [Red, LightYellow]),
-                
+
+                // Commands separator
+                simple("(;)", [DarkGray]),
+
                 // Commands (contains invalid characters as well)
                 include_group("commands"),
             ]),
@@ -125,12 +119,13 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(true|false)\\b", [LightYellow]),
                 
                 // Pipes
-                progressive([
-                    ("(\\->|\\!?\\|)", [LightYellow]),
+                // TODO
+                // progressive([
+                //     ("(\\->|\\!?\\|)", [LightYellow]),
 
-                    // Required to highlight commands properly
-                    ("\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue])
-                ]),
+                //     // Required to highlight commands properly
+                //     ("\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue])
+                // ]),
 
                 // Flags
                 simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
@@ -164,9 +159,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // The null value
                 simple("\\b(null)\\b", [LightYellow]),
 
-                // Flags
-                simple("\\s(\\-[\\-a-zA-Z0-9_-]*)", [LightYellow]),
-
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
 
@@ -182,14 +174,14 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Numbers
                 simple("(\\d+(?:\\.\\d+)?)", [LightYellow]),
 
-                // Symbols and operators
-                simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]]+)", [LightYellow]),
-
                 // Flags
-                simple("(?:^|[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
+                simple("(?:[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
 
                 // Argument names (by elimination we have reached them)
-                simple("(?:^|[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[\\?:,\\|]|$)", [Red]),
+                simple("(?:[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[,:\\?\\|]|$)", [Red]),
+
+                // Symbols and operators
+                simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]])", [LightYellow]),
 
                 // Invalid characters
                 invalid_chars.clone()

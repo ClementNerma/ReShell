@@ -14,7 +14,10 @@ use regex::{Captures, Regex};
 
 use crate::utils::nesting::{NestingAction, NestingActionType};
 
-use super::nesting::{detect_nesting_actions, NestingOpeningType};
+use super::{
+    covering::{InputCovering, InputRange},
+    nesting::{detect_nesting_actions, NestingOpeningType},
+};
 
 #[derive(Debug)]
 pub struct ValidatedRuleSet(RuleSet);
@@ -38,7 +41,6 @@ pub struct NestedContentRules {
 #[derive(Debug, Clone)]
 pub enum Rule {
     Simple(SimpleRule),
-    Progressive(SimpleRule, Vec<SimpleRule>),
     Group(String),
 }
 
@@ -111,11 +113,13 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                 });
             }
 
-            NestingActionType::ClosingWithoutOpening => output.push(HighlightPiece {
-                start: offset,
-                len,
-                style: Some(*closing_without_opening_style),
-            }),
+            NestingActionType::ClosingWithoutOpening => {
+                output.push(HighlightPiece {
+                    start: offset,
+                    len,
+                    style: Some(*closing_without_opening_style),
+                });
+            }
 
             NestingActionType::Content => {
                 let rules = match opened.last() {
@@ -126,16 +130,9 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                     None => non_nested_content_rules,
                 };
 
-                let mut shift = offset;
                 let inside = opened
                     .last()
                     .map(|(action, typ)| (action.offset + action.len, *typ));
-
-                let mut highlight_matched = |matched: &Match, shift: &mut usize| -> bool {
-                    highlight_piece(matched, &mut output);
-                    *shift = matched.end;
-                    *shift < input.len()
-                };
 
                 let next_nesting =
                     nesting
@@ -150,36 +147,33 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                             | NestingActionType::Content => None,
                         });
 
-                'outer: while let Some(matched) = find_nearest_simple_or_progressive_rule(
-                    &input[..offset + len],
-                    rules,
-                    shift,
-                    inside,
-                    next_nesting,
-                    groups,
-                ) {
-                    if !highlight_matched(&matched, &mut shift) {
-                        break;
-                    }
+                let mut covering = InputCovering::new(len, offset);
 
-                    let Some(following) = matched.following else {
-                        continue;
-                    };
+                while let Some(uncovered) = covering.next_uncovered() {
+                    let matched = find_matching_rule(
+                        &input[..offset + len],
+                        rules,
+                        uncovered,
+                        inside,
+                        next_nesting,
+                        groups,
+                    );
 
-                    for simple in following {
-                        match Match::test(
-                            simple,
-                            &input[..offset + len],
-                            shift,
-                            inside,
-                            next_nesting,
-                        ) {
-                            None => break,
-                            Some(matched) => {
-                                if !highlight_matched(&matched, &mut shift) {
-                                    break 'outer;
-                                }
-                            }
+                    // TODO: remove progressive rules
+
+                    match matched {
+                        Some(matched) => {
+                            highlight_piece(&matched, &mut covering, &mut output);
+                        }
+
+                        None => {
+                            output.push(HighlightPiece {
+                                start: uncovered.from,
+                                len: uncovered.len,
+                                style: None,
+                            });
+
+                            covering.mark_as_covered(uncovered.from, uncovered.len);
                         }
                     }
                 }
@@ -187,104 +181,41 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
         }
     }
 
-    validate_output(input, output)
+    output.sort_by_key(|piece| piece.start);
+    output
 }
 
-fn validate_output(input: &str, pieces: Vec<HighlightPiece>) -> Vec<HighlightPiece> {
-    let mut out = vec![];
-    let mut prev_end = 0;
-
-    for piece in pieces {
-        assert!(piece.start >= prev_end, "non-consecutive piece: {piece:?}");
-
-        assert!(
-            piece.start < input.len(),
-            "out-of-bound piece start: {} vs {}",
-            piece.start,
-            input.len(),
-        );
-
-        assert!(
-            piece.start + piece.len <= input.len(),
-            "out-of-bound piece end: {} vs {}",
-            piece.start + piece.len,
-            input.len()
-        );
-
-        if prev_end < piece.start {
-            out.push(HighlightPiece {
-                start: prev_end,
-                len: piece.start - prev_end,
-                style: None,
-            });
-        }
-
-        prev_end = piece.start + piece.len;
-        out.push(piece);
-    }
-
-    if prev_end < input.len() {
-        out.push(HighlightPiece {
-            start: prev_end,
-            len: input.len() - prev_end,
-            style: None,
-        });
-    }
-
-    assert_eq!(
-        out.iter().map(|piece| piece.len).sum::<usize>(),
-        input.len()
-    );
-
-    out
-}
-
-fn find_nearest_simple_or_progressive_rule<'h, 'str>(
+fn find_matching_rule<'h, 'str>(
     input: &'str str,
     rules: &'h [Rule],
-    shift: usize,
+    range: InputRange,
     inside: Option<(usize, NestingOpeningType)>,
     next_nesting: Option<NestingOpeningType>,
     groups: &'h HashMap<String, Vec<Rule>>,
 ) -> Option<Match<'h, 'str>> {
-    let mut min = None::<Match>;
+    rules.iter().find_map(|rule| match rule {
+        Rule::Simple(simple) => Match::test(simple, input, range, inside, next_nesting),
 
-    for rule in rules {
-        let matching = match rule {
-            Rule::Simple(simple) => Match::test(simple, input, shift, inside, next_nesting),
-
-            Rule::Progressive(simple, following) => {
-                Match::test(simple, input, shift, inside, next_nesting)
-                    .map(|matched| matched.with_following(following))
-            }
-
-            Rule::Group(name) => find_nearest_simple_or_progressive_rule(
-                input,
-                groups.get(name).unwrap(),
-                shift,
-                inside,
-                next_nesting,
-                groups,
-            ),
-        };
-
-        if let Some(matched) = matching {
-            if min.is_none() || matches!(min, Some(ref min) if matched.start < min.start) {
-                min = Some(matched);
-            }
-        }
-    }
-
-    min
+        Rule::Group(name) => find_matching_rule(
+            input,
+            groups.get(name).unwrap(),
+            range,
+            inside,
+            next_nesting,
+            groups,
+        ),
+    })
 }
 
-fn highlight_piece(matched: &Match, out: &mut Vec<HighlightPiece>) {
+fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<HighlightPiece>) {
     let SimpleRule {
         matches: _,
         inside: _,
         followed_by: _,
         style,
     } = matched.rule;
+
+    covering.mark_as_covered(matched.start, matched.end - matched.start);
 
     for (i, style) in style.iter().enumerate() {
         let Some(captured) = matched.get(i + 1) else {
@@ -309,7 +240,6 @@ struct Match<'h, 'str> {
     rule: &'h SimpleRule,
     start: usize,
     end: usize,
-    following: Option<&'h [SimpleRule]>,
     _captured: Captures<'str>,
 }
 
@@ -317,7 +247,7 @@ impl<'h, 'str> Match<'h, 'str> {
     fn test(
         rule: &'h SimpleRule,
         input: &'str str,
-        offset: usize,
+        range: InputRange,
         inside: Option<(usize, NestingOpeningType)>,
         next_nesting: Option<NestingOpeningType>,
     ) -> Option<Self> {
@@ -334,21 +264,27 @@ impl<'h, 'str> Match<'h, 'str> {
         loop {
             let cap = rule
                 .matches
-                .captures_at(&input[nesting_at..], offset - nesting_at + capture_shift)
+                .captures_at(
+                    &input[nesting_at..],
+                    range.from - nesting_at + capture_shift,
+                )
                 .map(|captured| Self {
                     nesting_at,
                     start: captured.get(1).unwrap().start() + nesting_at,
                     end: captured.get(captured.len() - 1).unwrap().end() + nesting_at,
                     rule,
                     _captured: captured,
-                    following: None,
                 })?;
+
+            if cap.end > range.from + range.len {
+                return None;
+            }
 
             if let Some(must_be_followed_by) = &rule.followed_by {
                 if cap.end < input.len()
                     || !matches!(next_nesting, Some(next_nesting) if must_be_followed_by.contains(&next_nesting))
                 {
-                    capture_shift = cap.end - offset + 1;
+                    capture_shift = cap.end - range.from + 1;
 
                     if nesting_at + capture_shift >= input.len() {
                         break None;
@@ -360,11 +296,6 @@ impl<'h, 'str> Match<'h, 'str> {
 
             break Some(cap);
         }
-    }
-
-    fn with_following(mut self, following: &'h [SimpleRule]) -> Self {
-        self.following = Some(following);
-        self
     }
 
     fn get(&self, group: usize) -> Option<CapturedGroup<'str>> {
@@ -450,14 +381,6 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         for rule in rules {
             match rule {
                 Rule::Simple(rule) => _validate_simple_rule(rule)?,
-
-                Rule::Progressive(rule, following) => {
-                    _validate_simple_rule(rule)?;
-
-                    for rule in following {
-                        _validate_simple_rule(rule)?;
-                    }
-                }
 
                 Rule::Group(group) => {
                     if !groups.contains_key(group.as_str()) {
