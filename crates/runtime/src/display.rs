@@ -29,7 +29,7 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
                 at,
                 // TODO: colorization problem here (end of string is white)
                 format!(
-                    "cannot convert a {} to a string",
+                    "cannot convert {} to a string",
                     value
                         .get_type()
                         .render_colored(ctx, PrettyPrintOptions::inline())

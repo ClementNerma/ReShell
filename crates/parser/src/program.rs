@@ -1046,6 +1046,7 @@ pub fn program() -> impl Parser<Program> {
         .then_ignore(
             choice((
                 lookahead(char('}')).map(|_| ()),
+                lookahead(just("\r\n").map(|_| ())),
                 filter(|c| c == '\n' || c == ';').map(|_| ()),
                 end(),
             ))

@@ -348,7 +348,7 @@ fn parse_fn_call_args(
             ParsedFnCallArg {
                 decl_name_at: fn_arg_var_at(fn_arg),
                 arg_value_at: call_arg_at,
-                value: RuntimeValue::Bool(true),
+                value: arg_value,
             },
         );
     }
