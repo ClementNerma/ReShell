@@ -283,7 +283,7 @@ macro_rules! define_internal_fn {
                 $( $arg_name: Option<CodeRange> ),*
             }
 
-            let placeholder_args_at = PlaceholderArgsAt {
+            let mut placeholder_args_at = PlaceholderArgsAt {
                 $( $arg_name: None ),*
             };
 
