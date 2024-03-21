@@ -123,6 +123,22 @@
 					"name": "entity.name.function"
 				},
 				{
+					"match": "\\!",
+					"name": "keyword.operator"
+				},
+				{
+					"match": "([\\+\\-\\*\\/%=\\?]|\\.\\.\\.)",
+					"name": "keyword.operator"
+				},
+				{
+					"match": "([\\(\\)\\[\\]\\{\\}])",
+					"name": "keyword.operator"
+				},
+				{
+					"match": "([,:])",
+					"name": "keyword.operator"
+				},
+				{
 					"match": ".",
 					"name": "string.unquoted"
 				}
