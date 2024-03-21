@@ -14,13 +14,12 @@ impl InputCovering {
         }
     }
 
-    pub fn mark_as_covered(&mut self, from: usize, len: usize) {
+    pub fn mark_as_covered(&mut self, mut from: usize, len: usize) {
         assert!(from >= self.offset);
 
-        let range = InputRange {
-            from: from - self.offset,
-            len,
-        };
+        from -= self.offset;
+
+        let range = InputRange { from, len };
 
         if self.covered.is_empty() {
             self.covered.push(range);
