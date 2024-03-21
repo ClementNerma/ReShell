@@ -12,6 +12,7 @@
 
 mod content;
 mod errors;
+mod functions;
 mod helper;
 mod type_handlers;
 mod utils;

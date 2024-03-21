@@ -1,6 +1,6 @@
 use colored::{Color, Colorize};
 
-use crate::content::stringify::stringify_value;
+use crate::functions::stringify::stringify_value;
 
 use super::stringify::StringifyableType;
 
