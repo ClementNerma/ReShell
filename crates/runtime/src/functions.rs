@@ -11,7 +11,7 @@ use crate::{
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
-    expr::eval_expr,
+    expr::{eval_expr, VOID_EXPR_ERR},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits_type,
@@ -531,7 +531,8 @@ fn flatten_fn_call_args(
             for parsed in &parsed.data {
                 match &parsed.data {
                     FnCallArg::Expr(expr) => {
-                        let eval = eval_expr(&expr.data, ctx)?;
+                        let eval = eval_expr(&expr.data, ctx)?
+                            .ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
 
                         out.push(CmdSingleArgResult::Basic(LocatedValue::new(
                             eval,
@@ -543,7 +544,8 @@ fn flatten_fn_call_args(
                         name: name.clone(),
                         value: Some(FlagArgValueResult {
                             value: LocatedValue::new(
-                                eval_expr(&value.data, ctx)?,
+                                eval_expr(&value.data, ctx)?
+                                    .ok_or_else(|| ctx.error(value.at, VOID_EXPR_ERR))?,
                                 RuntimeCodeRange::Parsed(value.at),
                             ),
                             value_sep: FlagValueSeparator::Equal,

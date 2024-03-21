@@ -10,7 +10,7 @@ use reshell_parser::ast::{
 use crate::{
     cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecErrorNature, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecResult},
     functions::{eval_fn_call, eval_fn_call_type, FnCallType},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
+pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<Option<RuntimeValue>> {
     let Expr { inner, right_ops } = &expr;
 
     eval_expr_ref(inner, right_ops, ctx)
@@ -31,7 +31,7 @@ fn eval_expr_ref(
     inner: &Eaten<ExprInner>,
     right_ops: &[ExprOp],
     ctx: &mut Context,
-) -> ExecResult<RuntimeValue> {
+) -> ExecResult<Option<RuntimeValue>> {
     for precedence in (0..=4).rev() {
         let Some((pos, expr_op)) = right_ops
             .iter()
@@ -53,12 +53,17 @@ fn eval_expr_ref(
             }
         }
 
-        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
-        let right = |ctx: &'_ mut Context| eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx);
+        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?
+            .ok_or_else(|| ctx.error(inner.at, VOID_EXPR_ERR))?;
+
+        let right = |ctx: &'_ mut Context| {
+            eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx)?
+                .ok_or_else(|| ctx.error(expr_op.with.at, VOID_EXPR_ERR))
+        };
 
         let result = apply_double_op(left, right, &expr_op.op, ctx)?;
 
-        return Ok(result);
+        return Ok(Some(result));
     }
 
     // We reach here only if there was no operator in the expression, so we just have to evaluate the inner
@@ -241,15 +246,22 @@ fn apply_double_op(
     Ok(result)
 }
 
-fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
+fn eval_expr_inner(
+    inner: &Eaten<ExprInner>,
+    ctx: &mut Context,
+) -> ExecResult<Option<RuntimeValue>> {
     let ExprInner { content, chainings } = &inner.data;
 
-    let left = eval_expr_inner_content(&content.data, ctx)?;
-
-    let mut left = LocatedValue::new(left, RuntimeCodeRange::Parsed(content.at));
+    let mut left_val = eval_expr_inner_content(&content.data, ctx)?;
+    let left_at = RuntimeCodeRange::Parsed(content.at);
 
     for chaining in chainings {
-        let eval = match &chaining.data {
+        let left = LocatedValue::new(
+            left_val.ok_or_else(|| ctx.error(left_at, VOID_EXPR_ERR))?,
+            left_at,
+        );
+
+        left_val = match &chaining.data {
             ExprInnerChaining::Direct(chaining) => {
                 eval_expr_inner_direct_chaining(chaining, left, ctx)?
             }
@@ -257,35 +269,30 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
             ExprInnerChaining::FnCall(fn_call) => {
                 let result = eval_fn_call_type(fn_call, Some(FnCallType::Piped(left)), ctx)?;
 
-                let loc_val = result.ok_or_else(|| {
-                    ctx.error(fn_call.at, "called function did not return a value")
-                })?;
-
-                loc_val.value
+                result.map(|result| result.value)
             }
         };
 
-        // TODO: update location
-        left = LocatedValue::new(eval, RuntimeCodeRange::Parsed(inner.at));
+        // TODO: update location (left_at)
     }
 
-    Ok(left.value)
+    Ok(left_val)
 }
 
 fn eval_expr_inner_direct_chaining(
     chaining: &ExprInnerDirectChaining,
     mut left: LocatedValue,
     ctx: &mut Context,
-) -> ExecResult<RuntimeValue> {
+) -> ExecResult<Option<RuntimeValue>> {
     match &chaining {
         ExprInnerDirectChaining::PropAccess(acc) => {
             let PropAccess { nature, nullable } = &acc.data;
 
             if *nullable && matches!(left.value, RuntimeValue::Null) {
-                return Ok(left.value);
+                return Ok(Some(left.value));
             }
 
-            eval_props_access(
+            let resolved = eval_props_access(
                 &mut left.value,
                 [nature].into_iter(),
                 PropAccessPolicy::Read,
@@ -296,16 +303,15 @@ fn eval_expr_inner_direct_chaining(
                         unreachable!()
                     }
                 },
-            )
+            )?;
+
+            Ok(Some(resolved))
         }
 
         ExprInnerDirectChaining::MethodCall(fn_call) => {
             let result = eval_fn_call_type(fn_call, Some(FnCallType::Method(left)), ctx)?;
 
-            let loc_val = result
-                .ok_or_else(|| ctx.error(fn_call.at, "called function did not return a value"))?;
-
-            Ok(loc_val.value)
+            Ok(result.map(|result| result.value))
         }
     }
 }
@@ -313,7 +319,7 @@ fn eval_expr_inner_direct_chaining(
 fn eval_expr_inner_content(
     expr_inner_content: &ExprInnerContent,
     ctx: &mut Context,
-) -> ExecResult<RuntimeValue> {
+) -> ExecResult<Option<RuntimeValue>> {
     match &expr_inner_content {
         ExprInnerContent::SingleOp {
             op,
@@ -322,27 +328,31 @@ fn eval_expr_inner_content(
         } => {
             // TODO: deduplicate code from "eval_expr_inner" :(
 
-            let right_val = eval_expr_inner_content(&right.data, ctx)?;
+            let mut right_val = eval_expr_inner_content(&right.data, ctx)?
+                .ok_or_else(|| ctx.error(right.at, VOID_EXPR_ERR))?;
 
-            let mut right_val = LocatedValue::new(right_val, RuntimeCodeRange::Parsed(right.at));
+            let right_at = RuntimeCodeRange::Parsed(right.at);
 
             for chaining in right_chainings {
-                let eval = eval_expr_inner_direct_chaining(&chaining.data, right_val, ctx)?;
+                right_val = eval_expr_inner_direct_chaining(
+                    &chaining.data,
+                    LocatedValue::new(right_val, right_at),
+                    ctx,
+                )?
+                .ok_or_else(|| ctx.error(right_at, VOID_EXPR_ERR))?;
 
-                // TODO: update location
-                right_val = LocatedValue::new(eval, RuntimeCodeRange::Parsed(right.at));
+                // TODO: update location (right_at)
             }
 
             match op.data {
-                SingleOp::Neg => match right_val.value {
-                    RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
+                SingleOp::Neg => match right_val {
+                    RuntimeValue::Bool(bool) => Ok(Some(RuntimeValue::Bool(!bool))),
 
                     _ => Err(ctx.error(
                         right.at,
                         format!(
                             "expected a boolean due to operator, found a: {}",
                             right_val
-                                .value
                                 .get_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
@@ -360,7 +370,10 @@ fn eval_expr_inner_content(
             els,
         } => {
             let cond_val =
-                match eval_expr(&cond.data, ctx)? {
+                eval_expr(&cond.data, ctx)?.ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?;
+
+            let cond_val =
+                match cond_val {
                     RuntimeValue::Bool(bool) => bool,
                     value => {
                         return Err(ctx.error(
@@ -380,7 +393,9 @@ fn eval_expr_inner_content(
             for branch in elsif {
                 let ElsIfExpr { cond, body } = &branch.data;
 
-                let cond_val = eval_expr(&cond.data, ctx)?;
+                let cond_val =
+                    eval_expr(&cond.data, ctx)?.ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?;
+
                 let RuntimeValue::Bool(cond_val) = cond_val else {
                     return Err(ctx.error(
                         cond.at,
@@ -409,7 +424,7 @@ fn eval_expr_inner_content(
         } => match eval_fn_call(fn_call, ctx) {
             Ok(returned) => returned
                 .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
-                .map(|loc_val| loc_val.value),
+                .map(|loc_val| Some(loc_val.value)),
 
             Err(err) => match err.nature {
                 ExecErrorNature::Thrown { at, message } => {
@@ -442,49 +457,51 @@ fn eval_expr_inner_content(
 
         ExprInnerContent::FnAsValue(name) => ctx
             .get_visible_fn_value(name)
-            .map(|func| RuntimeValue::Function(GcReadOnlyCell::clone(func))),
+            .map(|func| Some(RuntimeValue::Function(GcReadOnlyCell::clone(func)))),
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
     }
 }
 
-fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    match &value.data {
-        Value::Null => Ok(RuntimeValue::Null),
+fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<RuntimeValue>> {
+    let value = match &value.data {
+        Value::Null => RuntimeValue::Null,
 
-        Value::Literal(lit) => Ok(eval_literal_value(&lit.data)),
+        Value::Literal(lit) => eval_literal_value(&lit.data),
 
         Value::ComputedString(computed_str) => {
-            eval_computed_string(computed_str, ctx).map(RuntimeValue::String)
+            eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?
         }
 
-        Value::List(values) => Ok(RuntimeValue::List(GcCell::new(
+        Value::List(values) => RuntimeValue::List(GcCell::new(
             values
                 .iter()
-                .map(|expr| eval_expr(&expr.data, ctx))
+                .map(|expr| {
+                    eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))
+                })
                 .collect::<Result<Vec<_>, _>>()?,
-        ))),
+        )),
 
         Value::Struct(obj) => {
             let members = obj
                 .iter()
-                .map(|(name, expr)| eval_expr(&expr.data, ctx).map(|value| (name.clone(), value)))
-                .collect::<Result<HashMap<String, RuntimeValue>, _>>()?;
+                .map(|(name, expr)| {
+                    let result = eval_expr(&expr.data, ctx)?
+                        .ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
 
-            Ok(RuntimeValue::Struct(GcCell::new(members)))
+                    Ok::<_, Box<ExecError>>((name.clone(), result))
+                })
+                .collect::<Result<HashMap<_, _>, _>>()?;
+
+            RuntimeValue::Struct(GcCell::new(members))
         }
 
-        Value::Variable(name) => Ok(ctx.get_visible_var(name).value.read(name.at).value.clone()),
+        Value::Variable(name) => ctx.get_visible_var(name).value.read(name.at).value.clone(),
+        Value::FnAsValue(name) => RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
 
-        Value::FnAsValue(name) => Ok(RuntimeValue::Function(
-            ctx.get_visible_fn_value(name)?.clone(),
-        )),
+        Value::FnCall(call) => return Ok(eval_fn_call(call, ctx)?.map(|loc_val| loc_val.value)),
 
-        Value::FnCall(call) => eval_fn_call(call, ctx)?
-            .map(|loc_val| loc_val.value)
-            .ok_or_else(|| ctx.error(call.at, "function call did not return a value")),
-
-        Value::CmdOutput(call) => Ok(RuntimeValue::String(
+        Value::CmdOutput(call) => RuntimeValue::String(
             run_cmd(
                 call,
                 ctx,
@@ -494,14 +511,14 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             )?
             .as_captured()
             .unwrap(),
-        )),
+        ),
 
-        Value::CmdCall(call) => Ok(RuntimeValue::CmdCall {
+        Value::CmdCall(call) => RuntimeValue::CmdCall {
             content_at: call.at,
-        }),
+        },
 
-        Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(
-            GcReadOnlyCell::new(RuntimeFnValue {
+        Value::Closure(Function { signature, body }) => {
+            RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
                 is_method: false,
 
                 signature: RuntimeFnSignature::Shared(
@@ -517,9 +534,11 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
 
                 parent_scopes: ctx.generate_parent_scopes_list(),
                 captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
-            }),
-        )),
-    }
+            }))
+        }
+    };
+
+    Ok(Some(value))
 }
 
 pub fn eval_literal_value(value: &LiteralValue) -> RuntimeValue {
@@ -569,7 +588,7 @@ fn eval_computed_string_piece(
             ctx,
         )?),
         ComputedStringPiece::Expr(expr) => Ok(value_to_str(
-            &eval_expr(&expr.data, ctx)?,
+            &eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?,
             "only stringifyable values can be used inside computable strings",
             expr.at,
             ctx,
@@ -600,3 +619,5 @@ fn operator_precedence(op: DoubleOp) -> u8 {
         DoubleOp::And | DoubleOp::Or => 4,
     }
 }
+
+pub static VOID_EXPR_ERR: &str = "expression did not evaluate to a value";

@@ -15,7 +15,7 @@ use reshell_parser::ast::{
 use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
-    expr::{eval_computed_string, eval_expr, eval_literal_value},
+    expr::{eval_computed_string, eval_expr, eval_literal_value, VOID_EXPR_ERR},
     functions::{call_fn_value, FnCallType, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -361,7 +361,8 @@ fn evaluate_cmd_target(
     if developed.is_function {
         let func = match &cmd_path.data {
             CmdPath::Expr(expr) => {
-                let value = eval_expr(&expr.data, ctx)?;
+                let value =
+                    eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
 
                 match value {
                     RuntimeValue::Function(func) => func,
@@ -646,7 +647,10 @@ pub fn eval_cmd_value_making_arg(
             RuntimeValue::String(eval_cmd_computed_string(computed_str, ctx)?),
         ),
 
-        CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
+        CmdValueMakingArg::ParenExpr(expr) => (
+            expr.at,
+            eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?,
+        ),
 
         CmdValueMakingArg::CmdOutput(call) => {
             let cmd_result = run_cmd(
