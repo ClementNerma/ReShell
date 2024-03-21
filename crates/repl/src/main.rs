@@ -1,7 +1,9 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
+// TODO: nightly
 #![feature(lazy_cell)]
+#![feature(let_chains)]
 
 use std::path::PathBuf;
 use std::process::ExitCode;
