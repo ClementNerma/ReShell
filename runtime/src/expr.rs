@@ -9,9 +9,10 @@ use reshell_parser::ast::{
 use crate::{
     cmd::run_cmd,
     context::Context,
-    display::{readable_value_type, value_to_str},
+    display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     functions::{call_fn, fail_if_thrown},
+    pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
     values::{are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
@@ -31,9 +32,10 @@ fn eval_expr_ref(
         let Some((pos, expr_op)) = right_ops
             .iter()
             .enumerate()
-            .rfind(|(_, c)| operator_precedence(c.op.data) == precedence) else {
-                continue;
-            };
+            .rfind(|(_, c)| operator_precedence(c.op.data) == precedence)
+        else {
+            continue;
+        };
 
         if precedence == 1 {
             if let Some((p, _)) = right_ops
@@ -118,8 +120,10 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "cannot apply this operator on a pair of {} and {}",
-                        readable_value_type(&left),
-                        readable_value_type(&right)
+                        left.get_type().render_colored(PrettyPrintOptions::inline()),
+                        right
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline())
                     ),
                 ))
             }
@@ -127,11 +131,25 @@ fn apply_double_op(
 
         DoubleOp::And | DoubleOp::Or => {
             let RuntimeValue::Bool(left) = left else {
-                return Err(ctx.error(op.at, format!("left operand is not a boolean but a {}", readable_value_type(&left))));
+                return Err(ctx.error(
+                    op.at,
+                    format!(
+                        "left operand is not a boolean but a {}",
+                        left.get_type().render_colored(PrettyPrintOptions::inline())
+                    ),
+                ));
             };
 
             let RuntimeValue::Bool(right) = right else {
-                return Err(ctx.error(op.at, format!("right operand is not a boolean but a {}", readable_value_type(&right))));
+                return Err(ctx.error(
+                    op.at,
+                    format!(
+                        "right operand is not a boolean but a {}",
+                        right
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline())
+                    ),
+                ));
             };
 
             match op.data {
@@ -147,8 +165,10 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "cannot compare {} and {}",
-                        readable_value_type(&left),
-                        readable_value_type(&right)
+                        left.get_type().render_colored(PrettyPrintOptions::inline()),
+                        right
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline())
                     ),
                 )
             })?;
@@ -221,18 +241,19 @@ fn eval_expr_inner_content(
             elsif,
             els,
         } => {
-            let cond_val = match eval_expr(&cond.data, ctx)? {
-                RuntimeValue::Bool(bool) => bool,
-                value => {
-                    return Err(ctx.error(
-                        cond.at,
-                        format!(
+            let cond_val =
+                match eval_expr(&cond.data, ctx)? {
+                    RuntimeValue::Bool(bool) => bool,
+                    value => {
+                        return Err(ctx.error(
+                            cond.at,
+                            format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value)
+                            value.get_type().render_colored(PrettyPrintOptions::inline())
                         ),
-                    ))
-                }
-            };
+                        ))
+                    }
+                };
 
             if cond_val {
                 return eval_expr(&body.data, ctx);
@@ -243,8 +264,16 @@ fn eval_expr_inner_content(
 
                 let cond_val = eval_expr(&cond.data, ctx)?;
                 let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val))));
-                    };
+                    return Err(ctx.error(
+                        cond.at,
+                        format!(
+                            "expected the condition to resolve to a boolean, found a {} instead",
+                            cond_val
+                                .get_type()
+                                .render_colored(PrettyPrintOptions::inline())
+                        ),
+                    ));
+                };
 
                 if cond_val {
                     return eval_expr(&body.data, ctx);

@@ -1,7 +1,5 @@
-use std::borrow::Cow;
-
 use colored::Color;
-use parsy::{CodeRange, FileId, MaybeEaten};
+use parsy::{CodeRange, FileId};
 use reshell_parser::ast::{
     FnArg, FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType,
 };
@@ -30,76 +28,70 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
             at,
             format!(
                 "cannot convert a {} to a string",
-                readable_value_type(value)
+                value
+                    .get_type()
+                    .render_colored(PrettyPrintOptions::inline())
             ),
         )),
     }
 }
 
-pub fn readable_value_type(value: &RuntimeValue /*ctx: &Context*/) -> Cow<'static, str> {
-    readable_single_type(&value.get_type())
-}
+impl PrettyPrintable for ValueType {
+    fn generate_pretty_data(&self) -> PrintablePiece {
+        match self {
+            Self::Single(single) => single.data().generate_pretty_data(),
 
-pub fn readable_type(value_type: &ValueType /*, ctx: &Context*/) -> Cow<'static, str> {
-    match value_type {
-        ValueType::Single(single) => readable_single_type(single.data()),
-        ValueType::Union(types) => types
-            .iter()
-            .map(|typ| readable_single_type(typ.data()))
-            .collect::<Vec<_>>()
-            .join(" | ")
-            .into(),
+            Self::Union(types) => PrintablePiece::List {
+                begin: Colored::empty(),
+                items: types
+                    .iter()
+                    .map(|typ| typ.data().generate_pretty_data())
+                    .collect(),
+                sep: Colored::with_color(" | ", Color::Magenta),
+                end: Colored::empty(),
+                suffix: None,
+            },
+        }
     }
 }
 
-pub fn readable_single_type(
-    value_type: &SingleValueType, /* , ctx: &Context*/
-) -> Cow<'static, str> {
-    match value_type {
-        SingleValueType::Any => "any".into(),
-        SingleValueType::Null => "null".into(),
-        SingleValueType::Bool => "boolean".into(),
-        SingleValueType::Int => "int".into(),
-        SingleValueType::Float => "float".into(),
-        SingleValueType::String => "string".into(),
-        SingleValueType::List => "list".into(),
-        SingleValueType::Range => "range".into(),
-        SingleValueType::Map => "map".into(),
-        SingleValueType::UntypedStruct => "struct".into(),
-        SingleValueType::TypedStruct(members) => format!(
-            "struct {{ {} }}",
-            members
-                .iter()
-                .map(MaybeEaten::data)
-                .map(|member| {
-                    let StructTypeMember { name, typ } = member;
-                    format!("{}: {}", name.data(), readable_type(typ.data()))
-                })
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
-        .into(),
-        SingleValueType::Function(signature) => {
-            format!("fn{}", signature.render(PrettyPrintOptions::inline())).into()
-        }
-        SingleValueType::Error => "error".into(),
-        SingleValueType::TypeAlias(name) => {
-            //     format!(
-            //     "{} {}",
-            //     name.data,
-            //     match ctx
-            //         .all_type_aliases()
-            //         .find_map(|(alias_name, typ)| if alias_name == &name.data {
-            //             Some(typ)
-            //         } else {
-            //             None
-            //         }) {
-            //         Some(typ) => format!("({})", readable_type(typ, ctx)),
-            //         None => "(unknown type alias)",
-            //     }
-            // )
-            // .into()
-            name.data.clone().into()
+impl PrettyPrintable for SingleValueType {
+    fn generate_pretty_data(&self) -> PrintablePiece {
+        match self {
+            Self::Any => PrintablePiece::colored_atomic("any", Color::Magenta),
+            Self::Null => PrintablePiece::colored_atomic("null", Color::Magenta),
+            Self::Bool => PrintablePiece::colored_atomic("boolean", Color::Magenta),
+            Self::Int => PrintablePiece::colored_atomic("int", Color::Magenta),
+            Self::Float => PrintablePiece::colored_atomic("float", Color::Magenta),
+            Self::String => PrintablePiece::colored_atomic("string", Color::Magenta),
+            Self::List => PrintablePiece::colored_atomic("list", Color::Magenta),
+            Self::Range => PrintablePiece::colored_atomic("range", Color::Magenta),
+            Self::Map => PrintablePiece::colored_atomic("map", Color::Magenta),
+            Self::Error => PrintablePiece::colored_atomic("error", Color::Magenta),
+            Self::UntypedStruct => PrintablePiece::colored_atomic("struct", Color::Magenta),
+            Self::TypedStruct(members) => PrintablePiece::List {
+                begin: Colored::with_color("struct {", Color::Magenta),
+                items: members
+                    .iter()
+                    .map(|member| {
+                        let StructTypeMember { name, typ } = member.data();
+
+                        PrintablePiece::Join(vec![
+                            PrintablePiece::colored_atomic(name.data().clone(), Color::Red),
+                            PrintablePiece::colored_atomic(", ", Color::BrightBlack),
+                            typ.data().generate_pretty_data(),
+                        ])
+                    })
+                    .collect(),
+                sep: Colored::with_color(", ", Color::BrightBlack),
+                end: Colored::with_color("}", Color::Magenta),
+                suffix: None,
+            },
+            Self::Function(signature) => signature.generate_pretty_data(),
+            Self::TypeAlias(name) => {
+                // TODO: printing type alias requires access to the context
+                PrintablePiece::colored_atomic(name.data.clone(), Color::Magenta)
+            }
         }
     }
 }
@@ -275,11 +267,10 @@ impl PrettyPrintable for FnSignature {
             sep: Colored::with_color(",", Color::Blue),
             end: Colored::with_color(")", Color::Blue),
             suffix: ret_type.as_ref().map(|ret_type| {
-                // TODO: colors for return type?
-                Colored::with_color(
-                    format!(" -> {}", readable_type(&ret_type.data)),
-                    Color::BrightMagenta,
-                )
+                Box::new(PrintablePiece::Join(vec![
+                    PrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),
+                    ret_type.data.generate_pretty_data(),
+                ]))
             }),
         }
     }
@@ -297,49 +288,49 @@ impl PrettyPrintable for FnArg {
         let mut out = vec![];
 
         if *is_rest {
-            out.push(Colored::with_color("...", Color::BrightYellow));
+            out.push(PrintablePiece::colored_atomic("...", Color::BrightYellow));
         }
 
         match names {
             FnArgNames::NotFlag(name) => {
-                out.extend([Colored::with_color(name.data.clone(), Color::Red)]);
+                out.extend([PrintablePiece::colored_atomic(
+                    name.data.clone(),
+                    Color::Red,
+                )]);
             }
             FnArgNames::ShortFlag(short) => {
                 out.extend([
-                    Colored::with_color("-", Color::BrightYellow),
-                    Colored::with_color(short.data, Color::Red),
+                    PrintablePiece::colored_atomic("-", Color::BrightYellow),
+                    PrintablePiece::colored_atomic(short.data, Color::Red),
                 ]);
             }
             FnArgNames::LongFlag(long) => {
                 out.extend([
-                    Colored::with_color("--", Color::BrightYellow),
-                    Colored::with_color(long.data.clone(), Color::Red),
+                    PrintablePiece::colored_atomic("--", Color::BrightYellow),
+                    PrintablePiece::colored_atomic(long.data.clone(), Color::Red),
                 ]);
             }
             FnArgNames::LongAndShortFlag { long, short } => {
                 out.extend([
-                    Colored::with_color("--", Color::BrightYellow),
-                    Colored::with_color(long.data.clone(), Color::Red),
-                    Colored::with_color(" (", Color::Blue),
-                    Colored::with_color("-", Color::BrightYellow),
-                    Colored::with_color(short.data, Color::BrightYellow),
-                    Colored::with_color(")", Color::Blue),
+                    PrintablePiece::colored_atomic("--", Color::BrightYellow),
+                    PrintablePiece::colored_atomic(long.data.clone(), Color::Red),
+                    PrintablePiece::colored_atomic(" (", Color::Blue),
+                    PrintablePiece::colored_atomic("-", Color::BrightYellow),
+                    PrintablePiece::colored_atomic(short.data, Color::BrightYellow),
+                    PrintablePiece::colored_atomic(")", Color::Blue),
                 ]);
             }
         }
 
         if *is_optional {
-            out.push(Colored::with_color("?", Color::BrightYellow));
+            out.push(PrintablePiece::colored_atomic("?", Color::BrightYellow));
         }
 
         if let Some(typ) = typ {
-            out.push(Colored::with_color(": ", Color::BrightYellow));
-            out.push(Colored::with_color(
-                readable_type(&typ.data).into_owned(),
-                Color::BrightMagenta,
-            ));
+            out.push(PrintablePiece::colored_atomic(": ", Color::BrightYellow));
+            out.push(typ.data.generate_pretty_data());
         }
 
-        PrintablePiece::Suite(out)
+        PrintablePiece::Join(out)
     }
 }

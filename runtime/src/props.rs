@@ -3,9 +3,9 @@ use reshell_parser::ast::PropAccessNature;
 
 use crate::{
     context::Context,
-    display::readable_value_type,
     errors::{ExecError, ExecResult},
     expr::eval_expr,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
     values::RuntimeValue,
 };
 
@@ -52,7 +52,9 @@ pub fn eval_prop_access_suite<'a, 'b>(
                                     at,
                                     format!(
                                         "expected an index (integer), found a {}",
-                                        readable_value_type(&value)
+                                        value
+                                            .get_type()
+                                            .render_colored(PrettyPrintOptions::inline())
                                     ),
                                 )
                             }));
@@ -82,7 +84,9 @@ pub fn eval_prop_access_suite<'a, 'b>(
                                     at,
                                     format!(
                                         "expected a key (string), found a {}",
-                                        readable_value_type(&value)
+                                        value
+                                            .get_type()
+                                            .render_colored(PrettyPrintOptions::inline())
                                     ),
                                 )
                             }));
@@ -118,7 +122,7 @@ pub fn eval_prop_access_suite<'a, 'b>(
                             at,
                             format!(
                                 "left operand is not a map nor a list, but a {}",
-                                readable_value_type(&left)
+                                left.get_type().render_colored(PrettyPrintOptions::inline())
                             ),
                         )
                     }));
@@ -153,7 +157,7 @@ pub fn eval_prop_access_suite<'a, 'b>(
                             at,
                             format!(
                                 "left operand is not a struct, but a {}",
-                                readable_value_type(&left)
+                                left.get_type().render_colored(PrettyPrintOptions::inline())
                             ),
                         )
                     }));

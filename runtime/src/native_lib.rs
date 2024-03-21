@@ -11,7 +11,7 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 
 use crate::context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar};
-use crate::display::{dbg_loc, readable_value_type};
+use crate::display::dbg_loc;
 use crate::errors::ExecResult;
 use crate::files_map::ScopableFilePath;
 use crate::functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs};
@@ -599,7 +599,10 @@ pub fn render_prompt(
             ret_val.from,
             format!(
                 "expected the prompt generation function to return a struct, found a {}",
-                readable_value_type(&ret_val.value)
+                ret_val
+                    .value
+                    .get_type()
+                    .render_colored(PrettyPrintOptions::inline())
             ),
         ));
     };
@@ -620,7 +623,7 @@ pub fn render_prompt(
                         RuntimeValue::String(string) => Some(string.clone()),
                         value => return Err(ctx.error(
                             $from_at,
-                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), readable_value_type(&value))
+                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), value.get_type().render_colored(PrettyPrintOptions::inline()))
                         ))
                     }
                 };
@@ -654,8 +657,10 @@ fn call_fn_checked(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    expected_signature.render(PrettyPrintOptions::inline()),
-                    readable_value_type(value)
+                    expected_signature.render_uncolored(PrettyPrintOptions::inline()),
+                    value
+                        .get_type()
+                        .render_colored(PrettyPrintOptions::inline())
                 ),
             ))
         }
@@ -666,8 +671,11 @@ fn call_fn_checked(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                expected_signature.render(PrettyPrintOptions::inline()),
-                readable_value_type(&loc_val.value)
+                expected_signature.render_uncolored(PrettyPrintOptions::inline()),
+                loc_val
+                    .value
+                    .get_type()
+                    .render_colored(PrettyPrintOptions::inline())
             ),
         ));
     }
