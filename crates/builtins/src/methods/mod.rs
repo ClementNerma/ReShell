@@ -35,6 +35,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::pop::build_fn(),
         self::list::prepend::build_fn(),
         self::list::reduce::build_fn(),
+        self::list::remove_at::build_fn(),
         self::list::reverse::build_fn(),
         self::list::slice::build_fn(),
         self::list::sort::build_fn(),
