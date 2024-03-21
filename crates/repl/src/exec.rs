@@ -25,13 +25,13 @@ pub fn code_check_script(
         .parse_str_as_file(input, FileId::SourceFile(file_id))
         .map_err(ReportableError::Parsing)?;
 
-    let native_lib_for_checker = NATIVE_LIB_FOR_CHECKER
-        .get_or_init(|| build_native_lib_content().to_checker_scope(ScopeRange::SourceLess, ctx));
+    let native_lib_for_checker =
+        NATIVE_LIB_FOR_CHECKER.get_or_init(|| ctx.native_lib_scope_for_checker());
 
     reshell_checker::check(
         &parsed.data,
         native_lib_for_checker.clone(),
-        ctx.first_scope().to_checker_scope(ctx),
+        ctx.first_scope_for_checker(),
     )
     .map(|checker_out| (parsed, checker_out))
     .map_err(ReportableError::Checking)

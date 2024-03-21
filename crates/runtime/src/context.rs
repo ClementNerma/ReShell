@@ -2,8 +2,8 @@ use std::{collections::{HashMap, HashSet}, path::PathBuf,  rc::Rc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location};
-use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
-use reshell_parser::ast::{ValueType, FnSignature, Block};
+use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType, DeclaredVar};
+use reshell_parser::ast::{ValueType, FnSignature, Block, Program};
 
 use crate::{
     conf::RuntimeConf,
@@ -16,34 +16,88 @@ use crate::{
     }, 
 };
 
+/// Scope ID of the native library
 pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
+
+/// Scope ID of the very first user scope (which is the only scope to never be deleted)
 pub static FIRST_SCOPE_ID: u64 = 1;
 
+/// This structure represents the state of the runtime
+/// It contains runtime configuration as well as real-time runtime data
+/// It is designed to be reusable in order to run multiple programs in the same base scope
+/// (e.g. REPL scenario)
 #[derive(Debug)]
 pub struct Context {
+    /// Runtime configuration
     conf: RuntimeConf,
+
+    /// Auto-incremented scopes ID counter
+    /// When a counter is created, this is increased and assigned to the new scope
     scopes_id_counter: u64,
+
+    /// All alive scopes
+    /// When a scope ends, it is removed from this map,
+    /// except for the very first user scope as well as the native library
     scopes: HashMap<u64, Scope>,
+
+    /// Dependency scopes
+    /// Contains all items a scope depends on in order to run
+    /// Example: variables referenced by a function returned by its initial scope
+    /// For more informations, see [`Context::capture_deps`]
     deps_scopes: HashMap<u64, ScopeContent>,
+
+    /// ID of the current scope
     current_scope: u64,
+
+    /// Map of all files, used for reporting
     files_map: FilesMap,
+
+    /// Path to the current user's home directory
+    /// Used for tilde '~' expansion
     home_dir: Option<PathBuf>,
+
+    /// Map of items with their dependencies
+    /// For more informations, see [`Context::capture_deps`]
     deps: HashMap<CodeRange, HashSet<Dependency>>,
+
+    /// List of type aliases with their content
     type_aliases: HashMap<CodeRange, Eaten<ValueType>>,
+
+    /// List of type aliases usage
+    /// Used to know which type alias is referenced at a given point,
+    /// necessary when multiple type aliases with the same name exist
+    /// in the program but in different scopes
     type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
+
+    /// List of declared type aliases, used to build a checker scope
+    /// See [`ScopeContent::to_checker_scope`] and [`Scope::to_checker_scope`]
     type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
+
+    /// List of function signatures
+    /// Used to avoid cloning the whole signature object (which is heavy)
+    /// everytime we encounter the same function during runtime (e.g. in a loop)
     fn_signatures: HashMap<CodeRange, Rc<Eaten<FnSignature>>>,
+    
+    /// List of function bodies
+    /// Used to avoid cloning the whole signature object (which is heavy)
+    /// everytime we encounter the same function during runtime (e.g. in a loop)
     fn_bodies: HashMap<CodeRange, Rc<Eaten<Block>>>,
+
+    /// Value returned by the very last function or command call in a program
+    /// that was not assigned or used as an argument
+    /// Reset at each new instruction, set by the last function or command call,
+    /// retrieved and erased with [`Context::take_wandering_value`]
     wandering_value: Option<RuntimeValue>
 }
 
 impl Context {
+    /// Create a new context (runtime state)
+    /// The native library's content can be generated using the dedicated crate
     pub fn new(conf: RuntimeConf, native_lib_content: ScopeContent) -> Self {
         let scopes_to_add = [
             Scope {
                 id: NATIVE_LIB_SCOPE_ID,
                 call_stack: CallStack::empty(),
-                call_stack_entry: None,
                 content: native_lib_content,
                 parent_scopes: IndexSet::new(),
                 range: ScopeRange::SourceLess,
@@ -53,7 +107,6 @@ impl Context {
             Scope {
                 id: FIRST_SCOPE_ID,
                 call_stack: CallStack::empty(),
-                call_stack_entry: None,
                 content: ScopeContent::new(),
                 parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
                 range: ScopeRange::SourceLess,
@@ -86,51 +139,85 @@ impl Context {
         }
     }
 
+    /// (Internal) Generate a new scope ID
+    fn generate_scope_id(&mut self) -> u64 {
+        self.scopes_id_counter += 1;
+        self.scopes_id_counter
+    }
+
+    /// Set of change path to the current user's home directory
+    /// Used for tilde '~' expansion
     pub fn set_home_dir(&mut self, home_dir: PathBuf) {
         self.home_dir = Some(home_dir);
     }
 
+    /// Get path of the current user's home directory
+    /// Used for tilde '~' expansion
+    pub fn home_dir(&self) -> Option<&PathBuf> {
+        self.home_dir.as_ref()
+    }
+
+
+    /// Register a file
     pub fn register_file(&mut self, path: ScopableFilePath, content: String) -> u64 {
         self.files_map.register_file(path, content)
     }
 
+    /// Get the map of all files
     pub fn files_map(&self) -> &FilesMap {
         &self.files_map
     }
 
-    pub fn raw_visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
+    /// Get the  list of all scopes visible by the current one
+    /// Iterating in visibility order
+    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
         let current_scope = self.current_scope();
 
-        current_scope.parent_scopes.iter()
+        current_scope.parent_scopes
+            // Iterate over all parent scopes
+            .iter()
+            // Remove scopes that are already dropped (= not referenced anymore)
             .filter_map(|scope_id| self.scopes.get(scope_id))
+            // Add the current scope
             .chain([current_scope])
-            .rev()
-    }
-
-    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
-        self.raw_visible_scopes()
+            // Inject scope dependencies
             .flat_map(|scope| {
                 [
+                    // Scope content
                     Some(&scope.content),
+                    // Scope's dependencies
                     scope
                         .deps_scope
                         .map(|deps_scope_id| self.deps_scopes.get(&deps_scope_id).unwrap()),
                 ]
             })
             .flatten()
+            // Latest scopes in history are the first one to see
+            .rev()
     }
 
-    pub fn first_scope(&self) -> &Scope {
-        self.scopes.get(&FIRST_SCOPE_ID).unwrap()
+    /// Get the native library scope (only scope to never be removed) for checker
+    pub fn native_lib_scope_for_checker(&self) -> CheckerScope {
+        self.scopes.get(&NATIVE_LIB_SCOPE_ID).unwrap().to_checker_scope(self)
     }
 
-    pub fn deps_for_debug(&self, from: &CodeRange) -> Option<&HashSet<Dependency>> {
-        self.deps.get(from)
+    /// Get the very first user scope (only scope to never be removed) for checker
+    pub fn first_scope_for_checker(&self) -> CheckerScope {
+        self.scopes.get(&FIRST_SCOPE_ID).unwrap().to_checker_scope(self)
     }
 
-    // =============== Non-public functions =============== //
+    /// Get content of the (immutable) native library scope
+    pub fn native_lib_scope_content(&self) -> &ScopeContent {
+        &self.scopes.get(&NATIVE_LIB_SCOPE_ID).unwrap().content
+    }
 
-    pub fn append_checker_output(&mut self, checker_output: CheckerOutput) {
+    /// Prepare the current context to run a new program
+    /// Requires the program to have already been checked
+    pub fn prepare_for_new_program(&mut self, program: &Program, checker_output: CheckerOutput) {
+        // Update the current scope's range
+        self.scopes.get_mut(&self.current_scope).unwrap().range = ScopeRange::CodeRange(program.content.at);
+
+        // Merge the checker's output
         let CheckerOutput { deps, type_aliases, type_aliases_usages, type_aliases_decl, fn_signatures, fn_bodies } = checker_output;
 
         self.deps.extend(deps);
@@ -141,19 +228,14 @@ impl Context {
         self.fn_bodies.extend(fn_bodies.into_iter().map(|(at, body)| (at, Rc::new(body))));
     }
 
-    pub fn generate_scope_id(&mut self) -> u64 {
-        self.scopes_id_counter += 1;
-        self.scopes_id_counter
-    }
-
-    pub fn set_curr_scope_range(&mut self, range: CodeRange) {
-        self.scopes.get_mut(&self.current_scope).unwrap().range = ScopeRange::CodeRange(range);
-    }
-
-    pub fn reset_to_first_scope(&mut self) {
+    /// (Crate-private) Reset to the first scope after the current program entirely ends
+    pub(crate) fn reset_to_first_scope(&mut self) {
         self.current_scope = FIRST_SCOPE_ID;
     }
 
+    /// Generate an error object
+    /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
+    /// Given an error will almost always lead to a program's end, the allocation overhead is acceptable
     pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> Box<ExecError> {
         let current_scope = self.current_scope();
 
@@ -169,20 +251,14 @@ impl Context {
         })
     }
 
+    /// Generate an exit value
     pub fn exit(&self, at: CodeRange, code: Option<u8>) -> Box<ExecError> {
         let mut err = self.error(at, "<program requested exit>");
         err.has_exit_code = Some(code.unwrap_or(0));
         err
     }
 
-    pub fn scopes(&self) -> &HashMap<u64, Scope> {
-        &self.scopes
-    }
-
-    pub fn home_dir(&self) -> Option<&PathBuf> {
-        self.home_dir.as_ref()
-    }
-
+    /// Create and push a new scope above the current one
     pub fn create_and_push_scope(
         &mut self,
         range: ScopeRange,
@@ -193,9 +269,8 @@ impl Context {
         let scope = Scope {
             id,
             range,
-            parent_scopes: self.generate_parent_scopes(),
+            parent_scopes: self.generate_parent_scopes_list(),
             content,
-            call_stack_entry: None,
             call_stack: self.current_scope().call_stack.clone(),
             previous_scope: Some(self.current_scope),
             deps_scope: None,
@@ -206,6 +281,7 @@ impl Context {
         id
     }
 
+    /// Create and push a new scope with dependencies above the current one
     pub fn create_and_push_scope_with_deps(
         &mut self,
         range: ScopeRange,
@@ -214,6 +290,7 @@ impl Context {
         parent_scopes: IndexSet<u64>,
         call_stack_entry: Option<CallStackEntry>,
     ) {
+        // Fetch all dependencies and build the dependency scope's content
         let deps_scope_content = match creation_data {
             DepsScopeCreationData::Retrieved(content) => content,
             DepsScopeCreationData::CapturedDeps(captured_deps) => {
@@ -244,25 +321,25 @@ impl Context {
         
         let deps_scope_id = self.generate_scope_id();
 
+        // Insert the dependency scope
         self.deps_scopes.insert(
             deps_scope_id,
             deps_scope_content
         );
 
+        // Update the call stack if necessary
         let mut call_stack = self.current_scope().call_stack.clone();
-
-        let id = self.generate_scope_id();
 
         if let Some(call_stack_entry) = call_stack_entry {
             call_stack.append(call_stack_entry);
         }
 
+        // Create the new csope
         let scope = Scope {
-            id,
+            id: self.generate_scope_id(),
             range,
             parent_scopes,
             content,
-            call_stack_entry,
             call_stack,
             previous_scope: Some(self.current_scope),
             deps_scope: Some(deps_scope_id),
@@ -271,6 +348,7 @@ impl Context {
         self.push_scope(scope);
     }
 
+    /// Push an already-created scope above the current one
     pub fn push_scope(&mut self, scope: Scope) {
         if let Some(file_id) = scope.source_file_id() {
             assert!(
@@ -290,7 +368,8 @@ impl Context {
         self.scopes.insert(scope.id, scope);
     }
 
-    pub fn generate_parent_scopes(&self) -> IndexSet<u64> {
+    /// Generate the list of all scopes parent ot the current one
+    pub fn generate_parent_scopes_list(&self) -> IndexSet<u64> {
         let current_scope = self.current_scope();
 
         let mut parent_scopes = current_scope.parent_scopes.clone();
@@ -301,19 +380,23 @@ impl Context {
         parent_scopes
     }
 
+    /// Get the current scope
     pub fn current_scope(&self) -> &Scope {
         self.scopes.get(&self.current_scope).unwrap()
     }
 
-    pub fn current_scope_content_mut(&mut self) -> &mut ScopeContent {
+    /// (Crate-private) Get mutable access to the current scope
+    pub(crate) fn current_scope_content_mut(&mut self) -> &mut ScopeContent {
         &mut self.scopes.get_mut(&self.current_scope).unwrap().content
     }
 
-    pub fn pop_scope(&mut self) {
+    /// (Crate-private) Remove the current scope
+    pub(crate) fn pop_scope(&mut self) {
         self.pop_scope_and_get_deps();
     }
 
-    pub fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
+    /// (Crate-private) Remove the current scope and get its dependency scope's content
+    pub(crate) fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
         assert!(self.current_scope > FIRST_SCOPE_ID);
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
@@ -331,23 +414,31 @@ impl Context {
         deps_scope
     }
 
+    /// Get the current scope's source file
     pub fn current_source_file(&self) -> Option<&SourceFile> {
         self.current_scope()
             .source_file_id()
             .and_then(|file_id| self.files_map.get_file(file_id))
     }
 
+    /// Get the current scope's source file path
     pub fn current_file_path(&self) -> Option<&PathBuf> {
         self.current_scope()
             .source_file_id()
             .and_then(|file_id| self.files_map.get_file_path(file_id))
     }
 
+    /// Get a specific function
+    /// It is guaranteed to be the one referenced at that point in time
+    /// as the scopes building ensures this will automatically return the correct one
     pub fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
         self.visible_scopes()
             .find_map(|scope| scope.fns.get(&name.data))
     }
 
+    /// Get the value of a specific function
+    /// It is guaranteed to be the one referenced at that point in time
+    /// as the scopes building ensures this will automatically return the correct one
     pub fn get_visible_fn_value<'s>(
         &'s self,
         name: &Eaten<String>,
@@ -359,26 +450,52 @@ impl Context {
         Ok(&func.value)
     }
 
+    /// Get a specific variable
+    /// It is guaranteed to be the one referenced at that point in time
+    /// as the scopes building ensures this will automatically return the correct one
     pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> Option<&'c ScopeVar> {
         self.visible_scopes()
             .find_map(|scope| scope.vars.get(&name.data))
     }
 
+    /// Get a specific type alias
+    /// It is guaranteed to be the one referenced at that point in time
+    /// as type alias usages are collected before runtime
     pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> Option<&'c Eaten<ValueType>> {
         let type_alias_at = self.type_aliases_usages.get(name)?;
         
         Some(self.type_aliases.get(type_alias_at).unwrap())
     }
 
+    /// Get a specific type signature from its location
+    /// Avoids cloning the entire (heavy) [`FnSignature`] value
     pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Rc<Eaten<FnSignature>>> {
         self.fn_signatures.get(&from.at).map(Rc::clone)
     }
 
+    /// Get a specific function's body from its location
+    /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
     pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Rc<Eaten<Block>>> {
         self.fn_bodies.get(&from.at).map(Rc::clone)
     }
 
-    pub fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
+    /// (Crate-private)
+    /// 
+    /// Capture all dependencies for an item used at a point in time
+    /// The dependencies list is built before runtime and used here for capture
+    ///
+    /// For instance, a function referencing a local variable could be returned to the parent scope,
+    /// or assigned to a variable belonging to another scope (e.g. a parent one)
+    ///
+    /// In such case, when the function is called, it must have access to a reference pointing to said variable
+    /// But as scopes are dropped whenever they end (in order to free memory), references must be collected inside
+    /// a "dependency scope", which will be stored in the context.
+    /// 
+    /// This dependency scope will be dropped (= freed from memory) whenever the related value (e.g. the function)
+    /// is dropped.
+    /// 
+    /// References work through [`GcCell`] values which allow to share access to multiple items at the same time
+    pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies::default();
 
         let deps_list = self.deps.get(&body_content_at).expect(
@@ -400,7 +517,7 @@ impl Context {
                             scope
                                 .vars
                                 .get(name)
-                                .filter(|var| var.declared_at == *declared_at)
+                                .filter(|var| var.name_at == *declared_at)
                         })
                         .unwrap_or_else(|| panic!(
                             "internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {})",
@@ -418,7 +535,7 @@ impl Context {
                                 
                                 .fns
                                 .get(name)
-                                .filter(|func| func.declared_at == *declared_at)
+                                .filter(|func| func.name_at == *declared_at)
                         })
                         .expect("internal error: cannot find function to capture (this is a bug in the checker)");
 
@@ -447,32 +564,48 @@ impl Context {
         captured_deps
     }
 
+    /// Set the wandering value
     pub fn set_wandering_value(&mut self, value: RuntimeValue) {
         self.wandering_value = Some(value);
     }
 
-    pub fn clear_wandering_value(&mut self) {
+    /// (Crate-private) Clear the wandering value
+    /// Called at each new instruction
+    pub(super) fn clear_wandering_value(&mut self) {
         self.wandering_value = None;
     }
 
+    /// Move the wandering value out of the context
+    /// Use cases include e.g. REPL to display the wandering value after execution
     pub fn take_wandering_value(&mut self) -> Option<RuntimeValue> {
         self.wandering_value.take()
     }
 }
 
+/// Runtime scope
 #[derive(Debug, Clone)]
 pub struct Scope {
+    /// Unique ID of the scope (not two scopes must have the same ID)
     pub id: u64,
+    /// Range of the scope
     pub range: ScopeRange,
+    /// Content of the scope
     pub content: ScopeContent,
+    /// List of parent scopes, from farthest to the nearest
     pub parent_scopes: IndexSet<u64>,
+    /// Dependencies scope (if any)
+    /// See [`Context::capture_deps`] for more informations
     pub deps_scope: Option<u64>,
+    /// Previous scope
+    /// Used e.g. when calling a function, the function's body will
+    /// get a new scope but we must return to the callee's scope afterwards
     pub previous_scope: Option<u64>,
-    pub call_stack_entry: Option<CallStackEntry>,
+    /// Entire call stack
     pub call_stack: CallStack,
 }
 
 impl Scope {
+    /// Get this scope's file ID
     pub fn in_file_id(&self) -> Option<FileId> {
         match self.range {
             ScopeRange::SourceLess => None,
@@ -480,6 +613,7 @@ impl Scope {
         }
     }
 
+    /// Get this scope's source file ID
     pub fn source_file_id(&self) -> Option<u64> {
         match self.range {
             ScopeRange::SourceLess => None,
@@ -490,25 +624,36 @@ impl Scope {
         }
     }
 
-    pub fn to_checker_scope(&self, ctx: &Context) -> CheckerScope {
+    fn to_checker_scope(&self, ctx: &Context) -> CheckerScope {
         self.content.to_checker_scope(self.range, ctx)
     }
 }
 
+/// Range of a scope
 #[derive(Debug, Clone, Copy)]
 pub enum ScopeRange {
-    SourceLess,
+    /// Scope backed by a source file
     CodeRange(CodeRange),
+    /// Scope without a source code
+    /// (e.g. scopes built directly with the runtime API like the native library)
+    SourceLess,
 }
 
+/// Content of a scope
 #[derive(Debug, Clone)]
 pub struct ScopeContent {
+    /// Variables (map keys are variable names)
     pub vars: HashMap<String, ScopeVar>,
+
+    /// Functions (map keys are function names)
     pub fns: HashMap<String, ScopeFn>,
+
+    /// Command aliases (map keys are command alias names)
     pub cmd_aliases: HashMap<String, RuntimeCmdAlias>,
 }
 
 impl ScopeContent {
+    /// Create a new (empty) scope content
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),
@@ -517,7 +662,8 @@ impl ScopeContent {
         }
     }
 
-    pub fn to_checker_scope(&self, range: ScopeRange, ctx: &Context) -> CheckerScope {
+    /// Create a [`CheckerScope`] from this one
+    fn to_checker_scope(&self, range: ScopeRange, ctx: &Context) -> CheckerScope {
         let ScopeContent {
             vars,
             fns,
@@ -554,7 +700,7 @@ impl ScopeContent {
 
             fns: fns
                 .iter()
-                .map(|(name, scope_fn)| (name.clone(), scope_fn.declared_at))
+                .map(|(name, scope_fn)| (name.clone(), scope_fn.name_at))
                 .collect(),
 
             vars: vars
@@ -562,9 +708,9 @@ impl ScopeContent {
                 .map(|(name, decl)| {
                     (
                         name.clone(),
-                        reshell_checker::DeclaredVar {
+                        DeclaredVar {
                             is_mut: decl.is_mut,
-                            name_at: decl.declared_at,
+                            name_at: decl.name_at,
                         },
                     )
                 })
@@ -573,50 +719,65 @@ impl ScopeContent {
     }
 }
 
-impl Default for ScopeContent {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
+/// Scope variable
 #[derive(Debug, Clone)]
 pub struct ScopeVar {
-    pub declared_at: CodeRange,
+    /// Location of the variable's name in its declaration
+    pub name_at: CodeRange,
+    /// Is the variable mutable?
     pub is_mut: bool,
+    /// Value of the variable
+    /// It is backed by a [`GcCell`] in order to be sharable in captured dependencies
+    /// See [`Context::capture_deps`]
     pub value: GcCell<Option<LocatedValue>>,
 }
 
+/// Scope function
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
-    pub declared_at: CodeRange,
+    /// Location of the function's name in its declaration
+    pub name_at: CodeRange,
+    /// Value of the function
+    /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
 }
 
+/// A scope's call stack
 #[derive(Debug, Clone)]
 pub struct CallStack {
+    /// All call stack's entries, in chronological ascending order
     history: Vec<CallStackEntry>,
 }
 
 impl CallStack {
+    /// Create a new (empty) call stack
     pub fn empty() -> Self {
         Self { history: vec![] }
     }
 
+    /// Append a new call stack entry
     pub fn append(&mut self, entry: CallStackEntry) {
         self.history.push(entry);
     }
 
+    /// Get the list in chronological, ascending order of all entries
     pub fn history(&self) -> &[CallStackEntry] {
         &self.history
     }
 }
 
+/// A call stack entry
 #[derive(Debug, Clone, Copy)]
 pub struct CallStackEntry {
+    /// Location of a function call
     pub fn_called_at: CodeRange,
 }
 
+/// Dependency scope creation data
 pub enum DepsScopeCreationData {
+    /// Use already-captured dependencies
     CapturedDeps(CapturedDependencies),
+    
+    /// Use already-built dependency scope
     Retrieved(ScopeContent)
 }

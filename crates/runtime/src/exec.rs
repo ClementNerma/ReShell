@@ -48,8 +48,7 @@ pub fn run_program(
         FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
     }
 
-    ctx.append_checker_output(checker_output);
-    ctx.set_curr_scope_range(program.content.at);
+    ctx.prepare_for_new_program(program, checker_output);
 
     match run_block_in_current_scope(&content.data, ctx) {
         Ok(instr_ret) => match instr_ret {
@@ -158,7 +157,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
                 ScopeVar {
-                    declared_at: name.at,
+                    name_at: name.at,
                     is_mut: mutable.is_some(),
                     value: GcCell::new(init_value),
                 },
@@ -300,7 +299,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
-                            declared_at: iter_var.at,
+                            name_at: iter_var.at,
                             is_mut: false,
                             value: GcCell::new(Some(LocatedValue::new(item.clone(), iter_var.at))),
                         },
@@ -323,7 +322,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
-                            declared_at: iter_var.at,
+                            name_at: iter_var.at,
                             is_mut: false,
                             value: GcCell::new(Some(LocatedValue::new(
                                 RuntimeValue::Int(i as i64),
@@ -430,7 +429,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             // We can do this thanks to the checker
             assert!(!ctx.current_scope_content_mut().fns.contains_key(&name.data));
 
-            let parent_scopes = ctx.generate_parent_scopes();
+            let parent_scopes = ctx.generate_parent_scopes_list();
 
             let captured_deps = ctx.capture_deps(content.body.data.code_range);
 
@@ -452,7 +451,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             fns.insert(
                 name.data.clone(),
                 ScopeFn {
-                    declared_at: name.at,
+                    name_at: name.at,
                     value: GcReadOnlyCell::new(RuntimeFnValue {
                         body: RuntimeFnBody::Block(body),
                         signature: RuntimeFnSignature::Shared(signature),
@@ -496,7 +495,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 scope.vars.insert(
                     catch_var.data.clone(),
                     ScopeVar {
-                        declared_at: catch_var.at,
+                        name_at: catch_var.at,
                         is_mut: false,
                         value: GcCell::new(Some(LocatedValue { value, from })),
                     },
@@ -507,7 +506,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         },
 
         Instruction::CmdAliasDecl { name, content } => {
-            let parent_scopes = ctx.generate_parent_scopes();
+            let parent_scopes = ctx.generate_parent_scopes_list();
 
             let captured_deps = ctx.capture_deps(content.at);
 

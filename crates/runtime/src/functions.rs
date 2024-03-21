@@ -83,7 +83,7 @@ pub fn call_fn_value(
                 scope_content.vars.insert(
                     name.data,
                     ScopeVar {
-                        declared_at: name.at,
+                        name_at: name.at,
                         is_mut: false,
                         value: GcCell::new(Some(loc_value)),
                     },

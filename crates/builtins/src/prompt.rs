@@ -24,10 +24,7 @@ pub fn render_prompt(
     last_cmd_status: Option<LastCmdStatus>,
 ) -> ExecResult<Option<PromptRendering>> {
     let prompt_var = ctx
-        .scopes()
-        .get(&0)
-        .unwrap()
-        .content
+        .native_lib_scope_content()
         .vars
         .get(GEN_PROMPT_VAR_NAME)
         .unwrap()
@@ -116,7 +113,7 @@ pub fn render_prompt(
 
     let ret_val = ret_val.ok_or_else(|| {
         ctx.error(
-            prompt_var.declared_at,
+            prompt_var.name_at,
             "prompt generation function did not return a value",
         )
     })?;

@@ -376,7 +376,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                     ctx.get_fn_body(body)
                         .expect("internal error: unregistered function body"),
                 ),
-                parent_scopes: ctx.generate_parent_scopes(),
+                parent_scopes: ctx.generate_parent_scopes_list(),
                 captured_deps: ctx.capture_deps(body.data.code_range),
             }),
         )),

@@ -45,7 +45,7 @@ pub fn build_native_lib_content() -> ScopeContent {
                     (
                         name.to_owned(),
                         ScopeFn {
-                            declared_at: forge_internal_loc(),
+                            name_at: forge_internal_loc(),
                             value: GcReadOnlyCell::new(RuntimeFnValue {
                                 signature: RuntimeFnSignature::Owned(FnSignature {
                                     args: forge_internal_token(args),
@@ -73,7 +73,7 @@ pub fn build_native_lib_content() -> ScopeContent {
                     (
                         name.to_owned(),
                         ScopeVar {
-                            declared_at: forge_internal_loc(),
+                            name_at: forge_internal_loc(),
                             is_mut,
                             value: GcCell::new(Some(LocatedValue::new(
                                 init_value,
