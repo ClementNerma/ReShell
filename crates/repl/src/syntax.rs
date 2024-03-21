@@ -12,6 +12,7 @@ pub struct RuleSet {
 #[derive(Debug)]
 pub enum Rule {
     Simple(SimpleRule),
+    Progressive(SimpleRule, Vec<SimpleRule>),
     Nested(NestingRule),
     Group(String),
 }
@@ -155,7 +156,7 @@ impl Highlighter {
 
         for rule in rules {
             match rule {
-                Rule::Simple(_) => continue,
+                Rule::Simple(_) | Rule::Progressive(_, _) => continue,
 
                 Rule::Nested(rule) => {
                     if let Some(captured) = rule.begin.matches.captures(text) {
@@ -242,15 +243,34 @@ impl Highlighter {
 
         let mut inner_shift = 0;
 
+        let mut highlight_matched = |matched: &Match, inner_shift: &mut usize| -> bool {
+            Self::highlight_piece(matched, out);
+
+            *inner_shift += matched.capture_end;
+
+            *inner_shift < text.len()
+        };
+
         while let Some(matched) =
             self.find_nearest_simple_rule(&text[inner_shift..], rules, curr_shift + inner_shift)
         {
-            Self::highlight_piece(&matched, out);
-
-            inner_shift += matched.capture_end;
-
-            if inner_shift > text.len() {
+            if !highlight_matched(&matched, &mut inner_shift) {
                 return;
+            }
+
+            let Some(following) = matched.following else {
+                continue;
+            };
+
+            for simple in following {
+                match Self::match_simple_rule(simple, text, curr_shift + inner_shift) {
+                    None => break,
+                    Some(matched) => {
+                        if !highlight_matched(&matched, &mut inner_shift) {
+                            return;
+                        }
+                    }
+                }
             }
         }
     }
@@ -268,10 +288,14 @@ impl Highlighter {
         for rule in rules {
             match rule {
                 Rule::Simple(simple) => {
-                    let SimpleRule { matches, style: _ } = simple;
+                    if let Some(m) = Self::match_simple_rule(simple, text, curr_shift) {
+                        return Some(m);
+                    }
+                }
 
-                    if let Some(captured) = matches.captures(text) {
-                        return Some(Match::new(simple, captured, curr_shift));
+                Rule::Progressive(simple, following) => {
+                    if let Some(m) = Self::match_simple_rule(simple, text, curr_shift) {
+                        return Some(m.with_following(following));
                     }
                 }
 
@@ -322,6 +346,18 @@ impl Highlighter {
             });
         }
     }
+
+    fn match_simple_rule<'h, 'str>(
+        simple: &'h SimpleRule,
+        text: &'str str,
+        curr_shift: usize,
+    ) -> Option<Match<'h, 'str>> {
+        let SimpleRule { matches, style: _ } = simple;
+
+        matches
+            .captures(text)
+            .map(|captured| Match::new(simple, captured, curr_shift))
+    }
 }
 
 struct Nesting<'h, 'str> {
@@ -338,6 +374,7 @@ struct Match<'h, 'str> {
     end: usize,
     // capture_start: usize,
     capture_end: usize,
+    following: Option<&'h [SimpleRule]>,
 }
 
 impl<'h, 'str> Match<'h, 'str> {
@@ -352,7 +389,13 @@ impl<'h, 'str> Match<'h, 'str> {
             capture_end,
             rule,
             captured,
+            following: None,
         }
+    }
+
+    fn with_following(mut self, following: &'h [SimpleRule]) -> Self {
+        self.following = Some(following);
+        self
     }
 }
 
