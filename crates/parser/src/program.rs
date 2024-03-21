@@ -630,6 +630,7 @@ pub fn program() -> impl Parser<Program> {
                 && c != '\''
                 && c != '"'
                 && c != '$'
+                && c != '\\'
         })
         .repeated()
         .at_least(1)
