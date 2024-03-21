@@ -42,7 +42,7 @@ pub fn program(
         let s = whitespaces().no_newline().at_least_one();
 
         let block = char('{')
-            // .critical_expectation()
+            .critical_expectation()
             .ignore_then(msnl)
             .ignore_then(raw_block)
             .then_ignore(msnl)
@@ -1211,7 +1211,9 @@ pub fn program(
             //
             // Base blocks
             //
-            block.spanned().map(Instruction::DoBlock),
+            lookahead(char('{'))
+                .ignore_then(block.spanned())
+                .map(Instruction::DoBlock),
             //
             // Include statement
             //
