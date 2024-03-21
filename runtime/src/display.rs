@@ -90,12 +90,13 @@ impl PrettyPrintable for SingleValueType {
             Self::Function(signature) => signature.generate_pretty_data(ctx),
             Self::TypeAlias(name) => PrintablePiece::Join(vec![
                 PrintablePiece::colored_atomic(format!("{} (", name.data), Color::Magenta),
-                match ctx.get_exact_type_alias(name) {
-                    Some(typ) => typ.generate_pretty_data(ctx),
-                    None => {
-                        PrintablePiece::colored_atomic("<unknown type alias>", Color::BrightRed)
-                    }
-                },
+                // TODO: find a way to display the type based on this value's parent scopes :|
+                // match ctx.get_type_alias(name) {
+                //     Some(typ) => typ.generate_pretty_data(ctx),
+                //     None => {
+                //         PrintablePiece::colored_atomic("<unknown type alias>", Color::BrightRed)
+                //     }
+                // },
                 PrintablePiece::colored_atomic(")", Color::Magenta),
             ]),
         }
@@ -171,6 +172,7 @@ impl PrettyPrintable for RuntimeValue {
             RuntimeValue::List(list) => PrintablePiece::List {
                 begin: Colored::with_color("[", Color::Blue),
                 items: list
+                    .read()
                     .iter()
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
@@ -190,6 +192,7 @@ impl PrettyPrintable for RuntimeValue {
             RuntimeValue::Map(map) => PrintablePiece::List {
                 begin: Colored::with_color("map({", Color::Blue),
                 items: map
+                    .read()
                     .iter()
                     .map(|(key, value)|
                         // Yes, that part is a hack :p
@@ -220,6 +223,7 @@ impl PrettyPrintable for RuntimeValue {
             RuntimeValue::Struct(obj) => PrintablePiece::List {
                 begin: Colored::with_color("{", Color::Blue),
                 items: obj
+                    .read()
                     .iter()
                     .map(|(field, value)|
                         // Yes, that part is a hack :p
@@ -242,7 +246,7 @@ impl PrettyPrintable for RuntimeValue {
             },
 
             RuntimeValue::Function(func) => PrintablePiece::Join(vec![
-                func.signature.generate_pretty_data(ctx),
+                func.read().signature.generate_pretty_data(ctx),
                 PrintablePiece::colored_atomic(" { ... }", Color::BrightBlack),
             ]),
 

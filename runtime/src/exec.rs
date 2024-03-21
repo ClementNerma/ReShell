@@ -5,48 +5,20 @@ use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
-    context::{Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
+    context::{Context, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
     errors::{ExecResult, StackTraceEntry},
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
+    gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
+    props::{eval_props_access, PropAccessPolicy},
     values::{
         are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
         RuntimeValue,
     },
 };
 
-// pub fn run(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
-//     let scopes_at_start = ctx.scopes().len();
-
-//     let scope = run_program(program, ctx, init_scope)?;
-
-//     assert!(ctx.scopes().len() == scopes_at_start);
-
-//     Ok(scope)
-// }
-
-pub fn run_in_existing_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
-    let scopes_at_start = ctx.scopes().len();
-
-    run_program_in_current_scope(program, ctx)?;
-
-    assert!(ctx.scopes().len() == scopes_at_start);
-
-    Ok(())
-}
-
-// pub fn run_program(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
-//     let (scope, instr_ret) = run_block(&program.content.data, ctx, init_scope)?;
-
-//     match instr_ret {
-//         None => Ok(scope),
-//         Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
-//     }
-// }
-
-fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
+pub fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
     let instr_ret = run_block_in_current_scope(&program.content.data, ctx)?;
 
     match instr_ret {
@@ -59,7 +31,7 @@ pub fn run_block(
     block: &Block,
     ctx: &mut Context,
     content: ScopeContent,
-) -> ExecResult<(Scope, Option<InstrRet>)> {
+) -> ExecResult<Option<InstrRet>> {
     run_block_with_options(block, ctx, content, None)
 }
 
@@ -68,21 +40,18 @@ pub fn run_block_with_options(
     ctx: &mut Context,
     content: ScopeContent,
     history_entry: Option<StackTraceEntry>,
-) -> ExecResult<(Scope, Option<InstrRet>)> {
+) -> ExecResult<Option<InstrRet>> {
     let Block {
         instructions: _,
         code_range,
     } = block;
 
-    ctx.push_scope(Scope {
-        range: ScopeRange::CodeRange(*code_range),
-        history_entry,
-        content,
-    });
+    ctx.create_and_push_scope(ScopeRange::CodeRange(*code_range), content, history_entry);
 
     let instr_ret = run_block_in_current_scope(block, ctx)?;
 
-    Ok((ctx.pop_scope(), instr_ret))
+    Ok(instr_ret)
+    // Ok((ctx.pop_scope(), instr_ret))
 }
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
@@ -122,13 +91,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
-                ScopeVar {
-                    // name: name.clone(),
+                GcCell::new(ScopeVar {
                     declared_at: name.at,
                     is_mut: mutable.is_some(),
                     value: init_value,
-                    forked: false,
-                },
+                }),
             );
         }
 
@@ -138,24 +105,17 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             list_push,
             expr,
         } => {
-            let Some(var) = ctx.get_visible_var(name) else {
+            let Some(var) = ctx.get_visible_var(name).cloned() else {
                 return Err(ctx.error(name.at, "variable not found"));
             };
 
-            if !var.is_mut {
+            if !var.read().is_mut {
                 return Err(ctx.error(name.at, "this variable is not set as mutable"));
-            }
-
-            if var.forked {
-                return Err(ctx.error(
-                    name.at,
-                    "cannot assign to this variable as it was not declared in the current process",
-                ));
             }
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
-            if ctx.get_visible_var(name).unwrap().value.is_none() {
+            if var.read().value.is_none() {
                 if let Some(first) = prop_acc.first() {
                     return Err(ctx.error(
                         first.at,
@@ -163,51 +123,42 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     ));
                 }
 
-                ctx.get_visible_var_mut(name).unwrap().value =
-                    Some(LocatedValue::new(assign_value, expr.at));
+                var.write().value = Some(LocatedValue::new(assign_value, expr.at));
             } else {
-                let suite = make_prop_access_suite(prop_acc.iter().map(|eaten| &eaten.data), ctx)?;
-
-                let left = &mut ctx
-                    .get_visible_var_mut(name)
-                    .unwrap()
-                    .value
-                    .as_mut()
-                    .unwrap()
-                    .value;
-
-                let left = match eval_prop_access_suite(
-                    left,
-                    prop_acc.iter(),
-                    suite,
-                    PropAccessPolicy::ExistingOnly,
-                ) {
-                    Ok(left) => left,
-                    Err(err) => return Err(err(ctx)),
-                };
-
-                match list_push {
-                    None => *left = assign_value,
-                    Some(list_push) => match left {
-                        RuntimeValue::List(list) => {
-                            list.push(assign_value);
+                eval_props_access(
+                    // TODO: don't clone here?
+                    var.read().value.as_ref().unwrap().value.clone(),
+                    prop_acc,
+                    PropAccessPolicy::TrailingAccessMayNotExist,
+                    ctx,
+                    |left, ctx| match list_push {
+                        None => {
+                            *left = assign_value;
+                            Ok(())
                         }
 
-                        _ => {
-                            let left_type = left
-                                .get_type()
-                                .render_colored(ctx, PrettyPrintOptions::inline());
+                        Some(list_push) => match left {
+                            RuntimeValue::List(list) => {
+                                list.write().push(assign_value);
+                                Ok(())
+                            }
 
-                            return Err(ctx.error(
-                                list_push.at,
-                                format!(
-                                    "cannot push a value as this is not a list but a {}",
-                                    left_type
-                                ),
-                            ));
-                        }
+                            _ => {
+                                let left_type = left
+                                    .get_type()
+                                    .render_colored(ctx, PrettyPrintOptions::inline());
+
+                                Err(ctx.error(
+                                    list_push.at,
+                                    format!(
+                                        "cannot push a value as this is not a list but a {}",
+                                        left_type
+                                    ),
+                                ))
+                            }
+                        },
                     },
-                }
+                )??;
             };
         }
 
@@ -266,12 +217,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         } => {
             match eval_expr(&iter_on.data, ctx)? {
                 RuntimeValue::List(list) => {
-                    for item in &list {
+                    for item in list.read().iter() {
                         let mut loop_scope = ScopeContent::new();
 
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
-                            ScopeVar {
+                            GcCell::new(ScopeVar {
                                 declared_at: iter_var.at,
                                 is_mut: false,
                                 value: Some(LocatedValue::new(
@@ -279,17 +230,13 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                     item.clone(),
                                     iter_var.at,
                                 )),
-                                forked: false,
-                            },
+                            }),
                         );
 
-                        if let (
-                            _,
-                            Some(InstrRet {
-                                from: _,
-                                typ: InstrRetType::BreakLoop,
-                            }),
-                        ) = run_block(&body.data, ctx, loop_scope)?
+                        if let Some(InstrRet {
+                            from: _,
+                            typ: InstrRetType::BreakLoop,
+                        }) = run_block(&body.data, ctx, loop_scope)?
                         {
                             break;
                         }
@@ -302,24 +249,20 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
-                            ScopeVar {
+                            GcCell::new(ScopeVar {
                                 declared_at: iter_var.at,
                                 is_mut: false,
                                 value: Some(LocatedValue::new(
                                     RuntimeValue::Int(i as i64),
                                     iter_var.at,
                                 )),
-                                forked: false,
-                            },
+                            }),
                         );
 
-                        if let (
-                            _,
-                            Some(InstrRet {
-                                from: _,
-                                typ: InstrRetType::BreakLoop,
-                            }),
-                        ) = run_block(&body.data, ctx, loop_scope)?
+                        if let Some(InstrRet {
+                            from: _,
+                            typ: InstrRetType::BreakLoop,
+                        }) = run_block(&body.data, ctx, loop_scope)?
                         {
                             break;
                         }
@@ -359,13 +302,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 break;
             }
 
-            if let (
-                _,
-                Some(InstrRet {
-                    from: _,
-                    typ: InstrRetType::BreakLoop,
-                }),
-            ) = run_block(&body.data, ctx, ScopeContent::new())?
+            if let Some(InstrRet {
+                from: _,
+                typ: InstrRetType::BreakLoop,
+            }) = run_block(&body.data, ctx, ScopeContent::new())?
             {
                 break;
             }
@@ -419,6 +359,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             signature,
             body,
         } => {
+            let parent_scopes = ctx.current_scope().parent_scopes.clone();
+
             let fns = &mut ctx.current_scope_content_mut().fns;
 
             if fns.contains_key(&name.data) {
@@ -429,10 +371,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 name.data.clone(),
                 ScopeFn {
                     declared_at: name.at,
-                    value: RuntimeFnValue {
+                    value: GcCell::new(RuntimeFnValue {
                         body: RuntimeFnBody::Block(body.clone()),
                         signature: signature.clone(),
-                    },
+                        parent_scopes,
+                    }),
                 },
             );
         }
@@ -469,12 +412,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                 scope.vars.insert(
                     catch_var.data.clone(),
-                    ScopeVar {
+                    GcCell::new(ScopeVar {
                         declared_at: catch_var.at,
                         is_mut: false,
                         value: Some(LocatedValue { value, from }),
-                        forked: false,
-                    },
+                    }),
                 );
 
                 run_block(&catch_body.data, ctx, scope)?;
@@ -482,7 +424,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         },
 
         Instruction::CmdAliasDecl { name, content } => {
-            let aliases = &mut ctx.current_scope_content_mut().aliases;
+            let aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
 
             if aliases.contains_key(&name.data) {
                 return Err(ctx.error(name.at, "duplicate alias declaration".to_string()));

@@ -326,7 +326,7 @@ pub fn program() -> impl Parser<Program> {
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical("expected closing brace '}' for opened object"))
                 .map(|members| {
-                    Value::Object(
+                    Value::Struct(
                         members
                             .into_iter()
                             .map(|(name, expr)| (name.data, expr))

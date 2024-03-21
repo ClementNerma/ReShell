@@ -48,11 +48,12 @@ impl RlCompleter for Completer {
             let word_lc = word_pr.to_lowercase();
 
             return ctx
-                .all_vars()
+                .visible_scopes()
+                .flat_map(|scope| scope.content.vars.iter())
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
-                    description: Some(match &item.value {
+                    description: Some(match &item.read().value {
                         Some(located_val) => located_val
                             .value
                             .get_type()
@@ -73,12 +74,14 @@ impl RlCompleter for Completer {
             let word_lc = word_pr.to_lowercase();
 
             return ctx
-                .all_fns()
+                .visible_scopes()
+                .flat_map(|scope| scope.content.fns.iter())
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("@{name}"),
                     description: Some(
                         item.value
+                            .read()
                             .signature
                             .render_uncolored(ctx, PrettyPrintOptions::inline()),
                     ),

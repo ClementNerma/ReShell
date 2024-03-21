@@ -8,7 +8,7 @@ use clap::Parser;
 use colored::Colorize;
 use parsy::{CodeRange, FileId, Location};
 use reshell_runtime::{
-    context::{Scope, ScopeContent, ScopeRange},
+    context::{ScopeContent, ScopeRange},
     files_map::ScopableFilePath,
 };
 use state::{with_writable_rt_ctx, RUNTIME_CONTEXT};
@@ -111,17 +111,17 @@ fn run_script(file_path: ScopableFilePath, content: &str, exit_on_fail: bool) {
     with_writable_rt_ctx(|ctx| {
         let file_id = ctx.register_file(file_path, content.to_string());
 
-        ctx.push_scope(Scope {
-            range: ScopeRange::CodeRange(CodeRange::new(
+        ctx.create_and_push_scope(
+            ScopeRange::CodeRange(CodeRange::new(
                 Location {
                     file_id: FileId::Id(file_id),
                     offset: 0,
                 },
                 content.len(),
             )),
-            content: ScopeContent::new(),
-            history_entry: None,
-        });
+            ScopeContent::new(),
+            None,
+        );
     });
 
     if let Err(err) = repl::eval(content, &reshell_parser::program()) {

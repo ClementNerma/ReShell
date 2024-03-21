@@ -12,6 +12,7 @@ pub mod exec;
 pub mod expr;
 pub mod files_map;
 pub mod functions;
+pub mod gc;
 pub mod native_lib;
 pub mod pretty;
 pub mod props;

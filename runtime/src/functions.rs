@@ -11,6 +11,7 @@ use crate::{
     errors::{ExecResult, StackTraceEntry},
     exec::{run_block_with_options, InstrRet, InstrRetType},
     expr::eval_expr,
+    gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits,
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
@@ -18,8 +19,24 @@ use crate::{
 
 pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResult> {
     let func = if call.data.is_var_name {
-        match &ctx.get_var_value(&call.data.name)? {
-            RuntimeValue::Function(ref func) => func.clone(),
+        let var = ctx.get_visible_var(&call.data.name).ok_or_else(|| {
+            ctx.error(
+                call.data.name.at,
+                "function variable was not found in scope",
+            )
+        })?;
+
+        let var = var.read();
+
+        let loc_val = var.value.as_ref().ok_or_else(|| {
+            ctx.error(
+                call.data.name.at,
+                "calling variable before it is assigned a value",
+            )
+        })?;
+
+        match &loc_val.value {
+            RuntimeValue::Function(func) => func.clone(),
             value => {
                 return Err(ctx.error(
                     call.data.name.at,
@@ -46,10 +63,12 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
 
 pub fn call_fn_value(
     call_at: CodeRange,
-    func: &RuntimeFnValue,
+    func: &GcCell<RuntimeFnValue>,
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<FnCallResult> {
+    let func = func.read();
+
     let call_args = parse_fn_call_args(call_at, call_args, &func.signature.args, ctx)?;
 
     let returned = match &func.body {
@@ -59,17 +78,16 @@ pub fn call_fn_value(
             for (name, loc_value) in call_args {
                 scope_content.vars.insert(
                     name,
-                    ScopeVar {
+                    GcCell::new(ScopeVar {
                         // TODO: use function argument declaration instead of the value location!
                         declared_at: loc_value.from,
                         is_mut: false,
                         value: Some(LocatedValue::new(loc_value.value, loc_value.from)),
-                        forked: false,
-                    },
+                    }),
                 );
             }
 
-            let (_, instr_ret) = run_block_with_options(
+            let instr_ret = run_block_with_options(
                 &body.data,
                 ctx,
                 scope_content,
@@ -369,10 +387,10 @@ fn parse_fn_call_args(
         args.insert(
             name,
             LocatedValue {
-                value: RuntimeValue::List(match opened_rest {
+                value: RuntimeValue::List(GcCell::new(match opened_rest {
                     Some(list) => list,
                     None => vec![],
-                }),
+                })),
                 // TODO: improve
                 from: call_at,
             },

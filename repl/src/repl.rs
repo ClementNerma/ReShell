@@ -4,9 +4,9 @@ use parsy::{CodeRange, FileId, Location, Parser};
 use reedline::{Reedline, Signal};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    context::{Scope, ScopeContent, ScopeRange},
+    context::{ScopeContent, ScopeRange},
     errors::{ExecErrorContent, ExecResult},
-    exec::run_in_existing_scope,
+    exec::run_program_in_current_scope,
     files_map::ScopableFilePath,
     native_lib::{render_prompt, LastCmdStatus, PromptRendering},
 };
@@ -70,17 +70,17 @@ pub fn start() {
                 input.clone(),
             );
 
-            ctx.push_scope(Scope {
-                range: ScopeRange::CodeRange(CodeRange::new(
+            ctx.create_and_push_scope(
+                ScopeRange::CodeRange(CodeRange::new(
                     Location {
                         file_id: FileId::Id(file_id),
                         offset: 0,
                     },
                     input.len(),
                 )),
-                history_entry: None,
-                content: ScopeContent::new(),
-            });
+                ScopeContent::new(),
+                None,
+            );
         });
 
         let start = Instant::now();
@@ -120,8 +120,11 @@ pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), Reportable
     let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
 
     let parsed = parser
-        .parse_str_as_file(input, FileId::Id(ctx.current_source_file_id().unwrap()))
+        .parse_str_as_file(
+            input,
+            FileId::Id(ctx.current_scope().source_file_id().unwrap()),
+        )
         .map_err(ReportableError::ParsingError)?;
 
-    run_in_existing_scope(&parsed.data, ctx).map_err(ReportableError::ExecError)
+    run_program_in_current_scope(&parsed.data, ctx).map_err(ReportableError::ExecError)
 }

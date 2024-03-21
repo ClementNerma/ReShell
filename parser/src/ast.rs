@@ -168,7 +168,7 @@ pub enum Value {
     Literal(Eaten<LiteralValue>),
     ComputedString(Eaten<ComputedString>),
     List(Vec<Eaten<Expr>>),
-    Object(HashMap<String, Eaten<Expr>>),
+    Struct(HashMap<String, Eaten<Expr>>),
     Variable(Eaten<String>),
     FnCall(Eaten<FnCall>),
     CmdOutput(Eaten<CmdCall>),

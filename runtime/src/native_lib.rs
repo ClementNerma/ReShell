@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::time::Instant;
 use std::{collections::HashMap, env::VarError, path::Path};
@@ -6,6 +5,7 @@ use std::{collections::HashMap, env::VarError, path::Path};
 use colored::Colorize;
 use fork::{fork, Fork};
 use glob::glob;
+use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 use reshell_parser::program;
@@ -16,6 +16,7 @@ use crate::display::dbg_loc;
 use crate::errors::ExecResult;
 use crate::files_map::ScopableFilePath;
 use crate::functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs};
+use crate::gc::GcCell;
 use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::typechecker::check_fn_equality;
 use crate::values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue};
@@ -58,7 +59,7 @@ macro_rules! native_fn {
             stringify!($name).to_string(),
             ScopeFn {
                 declared_at: forge_internal_token(()).at,
-                value: RuntimeFnValue {
+                value: GcCell::new(RuntimeFnValue {
                     signature: FnSignature {
                         args: vec![
                             $(
@@ -73,8 +74,9 @@ macro_rules! native_fn {
 
                         ret_type: value_type!($($ret_type $(| $ret_other_type)*)?)
                     },
-                    body: RuntimeFnBody::Internal(run)
-                },
+                    body: RuntimeFnBody::Internal(run),
+                    parent_scopes: IndexSet::new()
+                }),
             }
         )
     }};
@@ -170,7 +172,6 @@ macro_rules! native_var {
                 declared_at: forge_internal_loc(),
                 is_mut: $($is_mut)?,
                 value: Some(LocatedValue::new($value, forge_internal_loc())),
-                forked: false
             },
         )
     };
@@ -233,13 +234,16 @@ pub fn generate_native_lib() -> Scope {
         // slice a list
         //
         native_fn!(slice (list: List, from: Int, to: Int) -> (List) {
-            Ok(Some(RuntimeValue::List(list.into_iter().skip(from as usize).take(to as usize).collect())))
+            // TODO: track references
+            let items = list.read().iter().skip(from as usize).take(to as usize).cloned().collect();
+
+            Ok(Some(RuntimeValue::List(GcCell::new(items))))
         }),
         //
         // get the length of a list
         //
         native_fn!(count (list: List) -> (Int) {
-            Ok(Some(RuntimeValue::Int(list.len() as i64)))
+            Ok(Some(RuntimeValue::Int(list.read().len() as i64)))
         }),
         //
         // get the length of a string
@@ -251,7 +255,7 @@ pub fn generate_native_lib() -> Scope {
         // get a string as an array of characters
         //
         native_fn!(chars (string: String) -> (List) {
-            Ok(Some(RuntimeValue::List(string.chars().map(|c| RuntimeValue::String(c.to_string())).collect())))
+            Ok(Some(RuntimeValue::List(GcCell::new(string.chars().map(|c| RuntimeValue::String(c.to_string())).collect()))))
         }),
         //
         // get a substring
@@ -328,8 +332,6 @@ pub fn generate_native_lib() -> Scope {
             let fork = fork().map_err(|_| ctx.error(at, "failed to fork the process (unknown error occurred)"))?;
 
             if let Fork::Child = fork {
-                ctx.mark_as_forked();
-
                 call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: vec![], ret_type: None }, vec![], ctx)?;
 
                 std::process::exit(0);
@@ -430,7 +432,7 @@ pub fn generate_native_lib() -> Scope {
         native_fn!(glob (pattern: String) [ctx, at] -> (List) {
             let files = glob(&pattern).map_err(|err| ctx.error(at, format!("failed to run glob: {err}")))?;
 
-            Ok(Some(RuntimeValue::List(
+            Ok(Some(RuntimeValue::List(GcCell::new(
                 files
                     .map(|entry| entry.map(|entry| {
                         RuntimeValue::String(
@@ -440,7 +442,7 @@ pub fn generate_native_lib() -> Scope {
                     }))
                     .collect::<Result<_, _>>()
                     .map_err(|err| ctx.error(at, format!("Failed to get informations on an item: {err}")))?
-            )))
+            ))))
         }),
         //
         // measure time taken by a closure to run (result is in milliseconds)
@@ -498,11 +500,13 @@ pub fn generate_native_lib() -> Scope {
     }
 
     for (name, var) in native_vars {
-        content.vars.insert(name, var);
+        content.vars.insert(name, GcCell::new(var));
     }
 
     Scope {
+        id: 0,
         range: ScopeRange::Global,
+        parent_scopes: IndexSet::new(),
         history_entry: None,
         content,
     }
@@ -514,14 +518,15 @@ pub fn render_prompt(
 ) -> ExecResult<Option<PromptRendering>> {
     let prompt_var = ctx
         .scopes()
-        .get(0)
+        .get(&0)
         .unwrap()
         .content
         .vars
         .get(GEN_PROMPT_VAR_NAME)
         .unwrap()
-        // TODO: find a way to avoid this
         .clone();
+
+    let prompt_var = prompt_var.read();
 
     let prompt_var_value = prompt_var.value.as_ref().unwrap();
 
@@ -554,7 +559,7 @@ pub fn render_prompt(
                 duration_ms,
             } = status;
 
-            RuntimeValue::Struct(BTreeMap::from([
+            RuntimeValue::Struct(GcCell::new(IndexMap::from([
                 ("success".to_string(), RuntimeValue::Bool(success)),
                 (
                     "exit_code".to_string(),
@@ -567,14 +572,14 @@ pub fn render_prompt(
                     "duration_ms".to_string(),
                     RuntimeValue::Int(duration_ms as i64),
                 ),
-            ]))
+            ])))
         }
     };
 
-    let prompt_data = RuntimeValue::Struct(BTreeMap::from([(
+    let prompt_data = RuntimeValue::Struct(GcCell::new(IndexMap::from([(
         "last_cmd_status".to_string(),
         last_cmd_status,
-    )]));
+    )])));
 
     let ret_val = call_fn_checked(
         prompt_var_value,
@@ -608,7 +613,7 @@ pub fn render_prompt(
             let mut out = PromptRendering::default();
 
             $(
-                out.$ident = match $from.get(stringify!($ident)) {
+                out.$ident = match $from.read().get(stringify!($ident)) {
                     None => return Err(ctx.error(
                         $from_at,
                         format!("missing option {} for prompt generation", stringify!($ident))
@@ -662,7 +667,7 @@ fn call_fn_checked(
         }
     };
 
-    if !check_fn_equality(&func.signature, expected_signature, ctx)? {
+    if !check_fn_equality(&func.read().signature, expected_signature, ctx)? {
         return Err(ctx.error(
             loc_val.from,
             format!(
