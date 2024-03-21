@@ -96,12 +96,12 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 exit_status: _,
             } => (err.at, "Command failed", message.clone()),
 
-            ExecErrorNature::Thrown { at, message } => (
+            ExecErrorNature::Thrown { at: _, message } => (
                 err.at,
                 "Thrown",
                 format!(
-                    "thrown at {}: {}",
-                    dbg_loc(*at, files).bright_magenta(),
+                    "function thrown: {}",
+                    // dbg_loc(*at, files).bright_magenta(),
                     message.bright_red()
                 ),
             ),
