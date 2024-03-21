@@ -50,11 +50,12 @@ mod term_rows;
 mod values;
 mod write_file;
 
-use crate::builder::BuiltinVar;
-
 use reshell_runtime::values::RuntimeValue;
 
-use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME};
+use crate::{
+    builder::{BuiltinVar, NativeLibDefinition},
+    prompt::GEN_PROMPT_VAR_NAME,
+};
 
 /// Generate definitions of the native library
 pub fn define_native_lib() -> NativeLibDefinition {
