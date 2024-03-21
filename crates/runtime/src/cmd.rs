@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::HashMap,
+    path::MAIN_SEPARATOR,
     process::{Child, Command, Stdio},
 };
 
@@ -671,8 +672,12 @@ fn treat_cwd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {
 
     let out = if raw.data == "~" {
         home_dir()?.to_owned()
-    } else if let Some(rest) = raw.data.strip_prefix("~/") {
-        format!("{}/{rest}", home_dir()?)
+    } else if let Some(rest) = raw
+        .data
+        .strip_prefix("~/")
+        .or_else(|| raw.data.strip_prefix("~\\"))
+    {
+        format!("{}{MAIN_SEPARATOR}{rest}", home_dir()?)
     } else {
         raw.data.clone()
     };
