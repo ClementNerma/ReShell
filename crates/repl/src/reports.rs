@@ -176,7 +176,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let line = source[..offset].chars().filter(|&c| c == '\n').count();
 
-    let extract_start_line = line.saturating_sub(3) + 1;
+    let extract_start_line = line.saturating_sub(2) + 1;
 
     let extract_start_offset = if extract_start_line == 1 {
         0
@@ -196,10 +196,25 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             + 1
     };
 
+    let mut line_counter = 0;
+
+    let afterwards = source[offset + len..].chars().position(|c| {
+        if c == '\n' {
+            line_counter += 1;
+        }
+
+        line_counter == 2
+    });
+
+    let extract_end = match afterwards {
+        Some(pos) => offset + len + pos + 1,
+        None => source.len(),
+    };
+
     // NOTE: we add a space at the end of the error's line
     // as the reporting library doesn't support displaying
     // offsets after a line's last character
-    let extract = format!("{} ", &source[extract_start_offset..]);
+    let extract = format!("{} ", &source[extract_start_offset..extract_end]);
 
     let snippet = Snippet {
         title: Some(Annotation {
@@ -212,7 +227,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             source: &extract,
             line_start: extract_start_line,
             origin: Some(&display_file),
-            fold: true,
+            fold: false,
             annotations: vec![SourceAnnotation {
                 label: &msg,
                 annotation_type: AnnotationType::Error,
