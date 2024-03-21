@@ -9,6 +9,7 @@ use crate::{
     display::readable_value_type,
     errors::ExecResult,
     expr::eval_expr,
+    functions::{call_fn, FnCallResult},
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
     values::{
         are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
@@ -425,6 +426,29 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 typ: InstrRetType::Throwed(LocatedValue::new(eval_expr(&expr.data, ctx)?, expr.at)),
             }));
         }
+
+        Instruction::Try {
+            call,
+            catch_var,
+            catch_body,
+        } => match call_fn(call, ctx)? {
+            FnCallResult::Success { returned: _ } => {}
+            FnCallResult::Thrown(LocatedValue { value, from }) => {
+                let mut scope = ctx.create_scope();
+
+                scope.vars.insert(
+                    catch_var.data.clone(),
+                    ScopeVar {
+                        declared_at: catch_var.at,
+                        is_mut: false,
+                        value: Some(LocatedValue { value, from }),
+                        forked: false,
+                    },
+                );
+
+                run_block(&catch_body.data, ctx, scope)?;
+            }
+        },
 
         Instruction::CmdAliasDecl { name, content } => {
             let aliases = &mut ctx.current_scope_mut().aliases;
