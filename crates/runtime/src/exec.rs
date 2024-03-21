@@ -70,7 +70,11 @@ fn run_block(
 
     ctx.create_and_push_scope(ScopeRange::CodeRange(*code_range), content);
 
-    run_block_in_current_scope(block, ctx)
+    let ret = run_block_in_current_scope(block, ctx)?;
+
+    ctx.pop_scope();
+
+    Ok(ret)
 }
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
@@ -228,11 +232,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     }
                 };
 
-            if cond_val {
-                run_block(&body.data, ctx, ScopeContent::new())?;
-            } else {
-                let mut run = false;
+            let mut ret = None;
 
+            if cond_val {
+                ret = Some(run_block(&body.data, ctx, ScopeContent::new())?);
+            } else {
                 for branch in elsif {
                     let ElsIf { cond, body } = &branch.data;
 
@@ -242,18 +246,19 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     };
 
                     if cond_val {
-                        run_block(&body.data, ctx, ScopeContent::new())?;
-                        run = true;
+                        ret = Some(run_block(&body.data, ctx, ScopeContent::new())?);
                         break;
                     }
                 }
 
-                if !run {
+                if ret.is_none() {
                     if let Some(els) = els {
-                        run_block(&els.data, ctx, ScopeContent::new())?;
+                        ret = Some(run_block(&els.data, ctx, ScopeContent::new())?);
                     }
                 }
             }
+
+            return Ok(ret.flatten());
         }
 
         Instruction::ForLoop {
@@ -443,7 +448,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::Throw(expr) => {
             return Ok(Some(InstrRet {
                 from: instr.at,
-                typ: InstrRetType::Throwed(LocatedValue::new(eval_expr(&expr.data, ctx)?, expr.at)),
+                typ: InstrRetType::Thrown(LocatedValue::new(eval_expr(&expr.data, ctx)?, expr.at)),
             }));
         }
 
@@ -534,5 +539,5 @@ pub enum InstrRetType {
     ContinueLoop,
     BreakLoop,
     FnReturn(Option<LocatedValue>),
-    Throwed(LocatedValue),
+    Thrown(LocatedValue),
 }
