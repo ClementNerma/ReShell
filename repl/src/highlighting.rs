@@ -1,5 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use parsy::{CodeRange, Eaten};
+use parsy::CodeRange;
 use reedline::StyledText;
 
 pub struct HighlightList<'a> {
@@ -53,20 +53,20 @@ impl<'a> HighlightList<'a> {
     //     self.push(at, Color::Cyan.into());
     // }
 
-    pub fn comment(&mut self, comment: &Eaten<String>) {
-        self.push(comment.at, Color::DarkGray.into());
+    pub fn comment(&mut self, comment: CodeRange) {
+        self.push(comment, Color::DarkGray.into());
     }
 
-    pub fn var_name(&mut self, var: &Eaten<String>) {
-        self.push(var.at, Color::LightPurple.into());
+    pub fn var_name(&mut self, at: CodeRange) {
+        self.push(at, Color::LightPurple.into());
     }
 
     pub fn env_var_name(&mut self, at: CodeRange) {
         self.push(at, Style::new().fg(Color::Blue).bold());
     }
 
-    pub fn fn_name(&mut self, var: &Eaten<String>) {
-        self.push(var.at, Style::new().fg(Color::LightPurple).bold());
+    pub fn fn_name(&mut self, at: CodeRange) {
+        self.push(at, Style::new().fg(Color::LightPurple).bold());
     }
 
     pub fn prop_name(&mut self, at: CodeRange) {
