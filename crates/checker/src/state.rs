@@ -2,7 +2,9 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
-    ast::{Block, CmdCall, FnSignature, FunctionBody, SingleCmdCall, ValueType},
+    ast::{
+        Block, CmdCall, FnSignature, FunctionBody, MethodApplyableType, SingleCmdCall, ValueType,
+    },
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
 
@@ -96,56 +98,87 @@ impl State {
         &mut self,
         item_usage: &Eaten<String>,
         dep_type: DependencyType,
-    ) -> CheckerResult<UsedItem> {
-        // Get the item to use
-        let item = self
-            .scopes
-            .iter()
-            .rev()
-            .find_map(|scope| match dep_type {
-                DependencyType::Variable => scope
-                    .vars
-                    .get(&item_usage.data)
-                    .copied()
-                    .map(UsedItem::Variable)
-                    .map(Ok),
+    ) -> CheckerResult {
+        match dep_type {
+            DependencyType::Variable => {
+                let var = self
+                    .scopes
+                    .iter()
+                    .rev()
+                    .find_map(|scope| scope.vars.get(&item_usage.data).copied())
+                    .ok_or_else(|| CheckerError::new(item_usage.at, "variable was not found"))?;
 
-                DependencyType::Function => scope
-                    .fns
-                    .get(&item_usage.data)
-                    .copied()
-                    .map(UsedItem::Function)
-                    .map(Ok),
+                self.register_single_usage(var.scope_id, &item_usage.data, dep_type)
+            }
 
-                DependencyType::CmdAlias => scope.cmd_aliases.get(&item_usage.data).map(|alias| {
-                    if alias.is_ready {
-                        Ok(UsedItem::CmdAlias(*alias))
-                    } else {
-                        Err(CheckerError::new(
-                            item_usage.at,
-                            "cannot use a command alias before its assignment",
-                        ))
+            DependencyType::Function => {
+                let func = self
+                    .scopes
+                    .iter()
+                    .rev()
+                    .find_map(|scope| scope.fns.get(&item_usage.data).copied())
+                    .ok_or_else(|| CheckerError::new(item_usage.at, "function was not found"))?;
+
+                self.register_single_usage(func.scope_id, &item_usage.data, dep_type)
+            }
+
+            DependencyType::CmdAlias => {
+                let cmd_alias = self
+                    .scopes
+                    .iter()
+                    .rev()
+                    .find_map(|scope| scope.cmd_aliases.get(&item_usage.data).copied())
+                    .ok_or_else(|| CheckerError::new(item_usage.at, "variable was not found"))?;
+
+                if !cmd_alias.is_ready {
+                    return Err(CheckerError::new(
+                        item_usage.at,
+                        "cannot use a command alias before its assignment",
+                    ));
+                }
+
+                self.register_single_usage(cmd_alias.scope_id, &item_usage.data, dep_type)
+            }
+
+            DependencyType::Method => {
+                // TODO: optimize this without an alloc.?
+                let mut scope_ids = vec![];
+
+                for scope in self.scopes.iter().rev() {
+                    for methods in scope.methods.values() {
+                        if let Some(method) = methods.get(&item_usage.data) {
+                            scope_ids.push(method.scope_id);
+                        }
                     }
-                }),
-            })
-            .ok_or_else(|| {
-                CheckerError::new(item_usage.at, format!("{dep_type} was not found"))
-            })??;
+                }
 
-        let item_declared_in = match item {
-            UsedItem::Variable(var) => var.scope_id,
-            UsedItem::Function(func) => func.scope_id,
-            UsedItem::CmdAlias(cmd_alias) => cmd_alias.scope_id,
-        };
+                if scope_ids.is_empty() {
+                    return Err(CheckerError::new(item_usage.at, "method was not found"));
+                }
 
+                for scope_id in scope_ids {
+                    self.register_single_usage(scope_id, &item_usage.data, DependencyType::Method)?;
+                }
+
+                Ok(())
+            }
+        }
+    }
+
+    fn register_single_usage(
+        &mut self,
+        item_declared_in: AstScopeId,
+        name: &str,
+        dep_type: DependencyType,
+    ) -> CheckerResult {
         // Don't capture if the value if the item was declared internally (e.g. native library)
         if item_declared_in == NATIVE_LIB_AST_SCOPE_ID {
-            return Ok(item);
+            return Ok(());
         }
 
         // Don't collect anything if we're not inside a deps-collecting scope
         let Some(deps_scope) = self.current_deps_collecting_scope() else {
-            return Ok(item);
+            return Ok(());
         };
 
         // Determine if the variable was declared in the current deps-collecting scope (or in a descendent scope)
@@ -164,7 +197,7 @@ impl State {
 
         // If so, don't capture it
         if var_declared_in_deps_scope {
-            return Ok(item);
+            return Ok(());
         }
 
         // Otherwise, mark the item as a dependency (= will require a capture at runtime)
@@ -175,12 +208,12 @@ impl State {
             .get_mut(&deps_scope_id)
             .unwrap()
             .insert(Dependency {
-                name: item_usage.data.clone(),
+                name: name.to_owned(),
                 declared_in: item_declared_in,
                 dep_type,
             });
 
-        Ok(item)
+        Ok(())
     }
 
     /// Register a type alias declaration
@@ -296,12 +329,6 @@ impl State {
     }
 }
 
-pub enum UsedItem {
-    Variable(DeclaredVar),
-    Function(DeclaredFn),
-    CmdAlias(DeclaredCmdAlias),
-}
-
 /// Scope in the checker
 #[derive(Clone)]
 pub struct CheckerScope {
@@ -317,6 +344,9 @@ pub struct CheckerScope {
     /// List of functions declared in this scope
     pub fns: HashMap<String, DeclaredFn>,
 
+    /// List of methods declared in this scope, associated to their appliable types
+    pub methods: HashMap<MethodApplyableType, HashMap<String, DeclaredMethod>>,
+
     /// List of command aliases declared in this scope
     pub cmd_aliases: HashMap<String, DeclaredCmdAlias>,
 
@@ -328,7 +358,7 @@ pub struct CheckerScope {
 pub enum SpecialScopeType {
     /// Inside the body of a function
     /// Will provoke dependencies collection inside it
-    Function { args_at: CodeRange },
+    Function,
 
     /// Inside the content of a command alias
     /// Will provoke dependencies collection inside it
@@ -341,7 +371,7 @@ pub enum SpecialScopeType {
 impl SpecialScopeType {
     pub fn captures(&self) -> bool {
         match self {
-            SpecialScopeType::Function { args_at: _ } | SpecialScopeType::CmdAlias => true,
+            SpecialScopeType::Function | SpecialScopeType::CmdAlias => true,
             SpecialScopeType::Loop => false,
         }
     }
@@ -362,9 +392,13 @@ pub struct DeclaredVar {
 pub struct DeclaredFn {
     /// Scope the function is defined in
     pub scope_id: AstScopeId,
+}
 
-    /// Is it a method?
-    pub is_method: bool,
+/// Method declaration
+#[derive(Clone, Copy)]
+pub struct DeclaredMethod {
+    /// Scope the method is defined in
+    pub scope_id: AstScopeId,
 }
 
 /// Command alias declaration

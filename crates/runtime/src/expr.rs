@@ -418,7 +418,6 @@ fn eval_expr_inner_content(
                     scope.vars.insert(
                         catch_var.data.clone(),
                         ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             is_mut: false,
                             value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::String(message),

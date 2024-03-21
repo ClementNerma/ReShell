@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, values::RuntimeValue};
 
 use crate::{
@@ -19,7 +20,7 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
         .unwrap()
         .clone();
 
-    let on_dir_jump_fn = on_dir_jump.value.read(on_dir_jump.name_at);
+    let on_dir_jump_fn = on_dir_jump.value.read(RuntimeCodeRange::Internal);
 
     if matches!(on_dir_jump_fn.value, RuntimeValue::Null) {
         return Ok(());

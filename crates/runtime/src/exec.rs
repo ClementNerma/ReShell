@@ -11,7 +11,7 @@ use crate::{
     cmd::{run_cmd, CmdExecParams},
     context::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
-        ScopeVar,
+        ScopeMethod, ScopeVar,
     },
     errors::{ExecErrorNature, ExecResult},
     expr::eval_expr,
@@ -81,34 +81,71 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 
     // First pass: collect functions declaration
     for instr in instructions {
-        if let Instruction::FnDecl { name, content } = &instr.data {
-            let parent_scopes = ctx.generate_parent_scopes_list();
+        match &instr.data {
+            Instruction::FnDecl { name, content } => {
+                let parent_scopes = ctx.generate_parent_scopes_list();
 
-            let body = ctx
-                .get_fn_body(&content.body)
-                .unwrap_or_else(|| ctx.panic(content.body.at, "unregistered function body"));
+                let body = ctx
+                    .get_fn_body(&content.body)
+                    .unwrap_or_else(|| ctx.panic(content.body.at, "unregistered function body"));
 
-            let signature = ctx.get_fn_signature(&content.signature).unwrap_or_else(|| {
-                ctx.panic(content.signature.at, "unregistered function signature")
-            });
+                let signature = ctx.get_fn_signature(&content.signature).unwrap_or_else(|| {
+                    ctx.panic(content.signature.at, "unregistered function signature")
+                });
 
-            let fns = &mut ctx.current_scope_content_mut().fns;
+                let fns = &mut ctx.current_scope_content_mut().fns;
 
-            let dup = fns.insert(
-                name.data.clone(),
-                ScopeFn {
-                    name_at: RuntimeCodeRange::Parsed(name.at),
-                    value: GcReadOnlyCell::new(RuntimeFnValue {
-                        body: RuntimeFnBody::Block(body),
-                        signature: RuntimeFnSignature::Shared(signature),
-                        parent_scopes,
-                        captured_deps: GcOnceCell::new_uninit(),
-                    }),
-                },
-            );
+                let dup = fns.insert(
+                    name.data.clone(),
+                    ScopeFn {
+                        value: GcReadOnlyCell::new(RuntimeFnValue {
+                            body: RuntimeFnBody::Block(body),
+                            signature: RuntimeFnSignature::Shared(signature),
+                            parent_scopes,
+                            captured_deps: GcOnceCell::new_uninit(),
+                        }),
+                    },
+                );
 
-            // Ensure checker did its job correctly (no duplicate name)
-            assert!(dup.is_none());
+                // Ensure checker did its job correctly (no duplicate name)
+                assert!(dup.is_none());
+            }
+
+            Instruction::MethodDecl {
+                name,
+                on_type,
+                content,
+            } => {
+                let parent_scopes = ctx.generate_parent_scopes_list();
+
+                let body = ctx
+                    .get_fn_body(&content.body)
+                    .unwrap_or_else(|| ctx.panic(content.body.at, "unregistered method body"));
+
+                let signature = ctx.get_fn_signature(&content.signature).unwrap_or_else(|| {
+                    ctx.panic(content.signature.at, "unregistered method signature")
+                });
+
+                let methods = &mut ctx.current_scope_content_mut().methods;
+
+                let dup = methods.insert(
+                    (name.data.clone(), on_type.clone()),
+                    ScopeMethod {
+                        applyable_type: on_type.clone(),
+                        value: GcReadOnlyCell::new(RuntimeFnValue {
+                            body: RuntimeFnBody::Block(body),
+                            signature: RuntimeFnSignature::Shared(signature),
+                            parent_scopes,
+                            captured_deps: GcOnceCell::new_uninit(),
+                        }),
+                    },
+                );
+
+                // Ensure checker did its job correctly (no duplicate name)
+                assert!(dup.is_none());
+            }
+
+            _ => {}
         }
     }
 
@@ -178,7 +215,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
                 ScopeVar {
-                    name_at: RuntimeCodeRange::Parsed(name.at),
                     is_mut: mutable.is_some(),
                     value: GcCell::new(init_value),
                 },
@@ -310,7 +346,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
                             value: GcCell::new(LocatedValue::new(
                                 item.clone(),
@@ -338,7 +373,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
                             value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::Int(i),
@@ -399,7 +433,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     key_iter_var.data.clone(),
                     ScopeVar {
-                        name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(
                             RuntimeValue::String(key.clone()),
@@ -411,7 +444,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     value_iter_var.data.clone(),
                     ScopeVar {
-                        name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(
                             value.clone(),
@@ -505,6 +537,23 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 .unwrap();
         }
 
+        Instruction::MethodDecl {
+            name,
+            on_type,
+            content,
+        } => {
+            let captured_deps = ctx.capture_deps(content.body.at, content.body.data.ast_scope_id());
+
+            ctx.current_scope_content_mut()
+                .methods
+                .get_mut(&(name.data.clone(), on_type.clone()))
+                .unwrap()
+                .value
+                .captured_deps
+                .init(captured_deps)
+                .unwrap();
+        }
+
         Instruction::FnReturn { expr } => {
             return Ok(Some(InstrRet::FnReturn(
                 expr.as_ref()
@@ -555,7 +604,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         scope.vars.insert(
                             catch_var.data.clone(),
                             ScopeVar {
-                                name_at: RuntimeCodeRange::Parsed(catch_var.at),
                                 is_mut: false,
                                 value: GcCell::new(LocatedValue::new(
                                     RuntimeValue::String(message),

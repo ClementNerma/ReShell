@@ -8,6 +8,7 @@ use reshell_runtime::{
 use crate::{
     builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
     functions::native_functions,
+    methods::native_methods,
     on_dir_jump::ON_DIR_JUMP_VAR_NAME,
     prompt::GEN_PROMPT_VAR_NAME,
 };
@@ -18,6 +19,8 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
 
     NativeLibDefinition {
         functions: native_functions(),
+
+        methods: native_methods(),
 
         vars: vec![
             // Prompt generation variable

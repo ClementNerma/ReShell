@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "len",
 
     (
-        content: RequiredArg<Union3Type<StringType, UntypedListType, UntypedMapType>> = Arg::method_self()
+        content: RequiredArg<UntypedMapType> = Arg::method_self()
     )
 
     -> Some(ExactIntType::<usize>::direct_underlying_type())
@@ -14,11 +14,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { content }, args_at, ctx| {
-        let len = match content {
-            Union3Result::A(str) => str.len(),
-            Union3Result::B(list) => list.read(args_at.content).len(),
-            Union3Result::C(map) => map.read(args_at.content).len(),
-        };
+        let len = content.read(args_at.content);
 
         let len = i64::try_from(len).map_err(|_| {
             ctx.throw(

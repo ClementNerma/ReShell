@@ -1,6 +1,5 @@
 use crate::define_internal_fn;
-
-use super::regex::RegexValue;
+use crate::functions::RegexValue;
 
 define_internal_fn!(
     "matches",

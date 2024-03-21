@@ -21,7 +21,7 @@ crate::define_internal_fn!(
 );
 
 #[derive(Debug, Clone)]
-pub(super) struct ProgressBarValue {
+pub struct ProgressBarValue {
     pub inner: ProgressBar,
 }
 

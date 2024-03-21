@@ -7,12 +7,12 @@ use reshell_checker::{
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
-    CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar,
+    CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
 };
 use reshell_parser::{
     ast::{
-        CmdCall, FnSignature, FunctionBody, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
-        ValueType,
+        CmdCall, FnSignature, FunctionBody, MethodApplyableType, Program, RuntimeCodeRange,
+        RuntimeEaten, SingleCmdCall, ValueType,
     },
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
@@ -217,6 +217,7 @@ impl Context {
                 let ScopeContent {
                     vars,
                     fns,
+                    methods,
                     cmd_aliases,
                 } = &content;
 
@@ -247,17 +248,31 @@ impl Context {
                         .unwrap_or_default(),
 
                     fns: fns
-                        .iter()
-                        .map(|(name, scope_fn)| {
+                        .keys()
+                        .map(|name| {
                             (
                                 name.clone(),
                                 DeclaredFn {
                                     scope_id: *ast_scope_id,
-                                    is_method: scope_fn.value.signature.inner().is_method(),
                                 },
                             )
                         })
                         .collect(),
+
+                    methods: {
+                        let mut decl_methods = HashMap::<_, HashMap<_, _>>::new();
+
+                        for (name, on_type) in methods.keys() {
+                            decl_methods.entry(on_type.clone()).or_default().insert(
+                                name.clone(),
+                                DeclaredMethod {
+                                    scope_id: *ast_scope_id,
+                                },
+                            );
+                        }
+
+                        decl_methods
+                    },
 
                     vars: vars
                         .iter()
@@ -401,6 +416,7 @@ impl Context {
                 let CapturedDependencies {
                     vars,
                     fns,
+                    methods,
                     cmd_aliases,
                 } = captured_deps;
 
@@ -413,6 +429,16 @@ impl Context {
                     fns: fns
                         .iter()
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                        .collect(),
+
+                    methods: methods
+                        .iter()
+                        .map(|(dep, value)| {
+                            (
+                                (dep.name.clone(), value.applyable_type.clone()),
+                                value.clone(),
+                            )
+                        })
                         .collect(),
 
                     cmd_aliases: cmd_aliases
@@ -522,6 +548,37 @@ impl Context {
         };
 
         Ok(&func.value)
+    }
+
+    /// Get a specific method
+    /// It is guaranteed to be the one referenced at that point in time
+    /// as the scopes building ensures this will automatically return the correct one
+    pub fn get_visible_method<'s>(
+        &'s self,
+        name: &Eaten<String>,
+        on_type: &MethodApplyableType,
+    ) -> Option<&'s ScopeMethod> {
+        self.visible_scopes_content().find_map(|scope| {
+            scope.methods.get(
+                // TODO: optimize?
+                &(name.data.clone(), on_type.clone()),
+            )
+        })
+    }
+
+    /// Get the value of a specific method
+    /// It is guaranteed to be the one referenced at that point in time
+    /// as the scopes building ensures this will automatically return the correct one
+    pub fn get_visible_method_value<'s>(
+        &'s self,
+        name: &Eaten<String>,
+        on_type: &MethodApplyableType,
+    ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
+        let Some(method) = self.get_visible_method(name, on_type) else {
+            self.panic(name.at, "method not found (= bug in checker)");
+        };
+
+        Ok(&method.value)
     }
 
     /// Get a specific variable
@@ -655,12 +712,7 @@ impl Context {
                 self.panic(
                     body_content_at,
                     format!(
-                        "cannot find {} '{name}' to capture (= bug in checker) (ocurred at {})",
-                        match dep_type {
-                            DependencyType::Variable => "variable",
-                            DependencyType::Function => "function",
-                            DependencyType::CmdAlias => "command alias",
-                        },
+                        "cannot find {dep_type} '{name}' to capture (= bug in checker) (ocurred at {})",
                         dbg_loc(body_content_at, &self.conf.files_map)
                     ),
                 );
@@ -695,6 +747,10 @@ impl Context {
                         ));
 
                     captured_deps.fns.insert(dep.clone(), func.clone());
+                }
+
+                DependencyType::Method => {
+                    todo!()
                 }
 
                 DependencyType::CmdAlias => {
@@ -804,6 +860,9 @@ pub struct ScopeContent {
     /// Functions (map keys are function names)
     pub fns: HashMap<String, ScopeFn>,
 
+    /// Methods (map keys are a combinator of method name + appliable type)
+    pub methods: HashMap<(String, MethodApplyableType), ScopeMethod>,
+
     /// Command aliases (map keys are command alias names)
     pub cmd_aliases: HashMap<String, ScopeCmdAlias>,
 }
@@ -815,6 +874,7 @@ impl ScopeContent {
         Self {
             vars: HashMap::new(),
             fns: HashMap::new(),
+            methods: HashMap::new(),
             cmd_aliases: HashMap::new(),
         }
     }
@@ -823,9 +883,6 @@ impl ScopeContent {
 /// Scoped variable
 #[derive(Debug, Clone)]
 pub struct ScopeVar {
-    /// Location of the variable's name in its declaration
-    pub name_at: RuntimeCodeRange,
-
     /// Is the variable mutable?
     pub is_mut: bool,
 
@@ -838,10 +895,18 @@ pub struct ScopeVar {
 /// Scoped function
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
-    /// Location of the function's name in its declaration
-    pub name_at: RuntimeCodeRange,
-
     /// Value of the function
+    /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
+    pub value: GcReadOnlyCell<RuntimeFnValue>,
+}
+
+/// Scoped method
+#[derive(Debug, Clone)]
+pub struct ScopeMethod {
+    /// Type the method can be applied on
+    pub applyable_type: MethodApplyableType,
+
+    /// Value of the method
     /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
 }

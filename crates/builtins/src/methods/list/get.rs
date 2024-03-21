@@ -4,7 +4,7 @@ define_internal_fn!(
     "get",
 
     (
-        map: RequiredArg<UntypedMapType> = Arg::positional("map"),
+        map: RequiredArg<UntypedMapType> = Arg::method_self(),
         key: RequiredArg<StringType> = Arg::positional("key"),
         or_else: OptionalArg<AnyType> = Arg::long_flag("or-else")
     )
