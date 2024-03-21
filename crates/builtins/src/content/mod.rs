@@ -3,6 +3,7 @@
 //!
 //! Each function has its own dedicated module.
 
+mod append;
 mod approx_int_div;
 mod cd;
 mod chars;
@@ -22,6 +23,7 @@ mod find_str;
 mod fold;
 mod glob;
 mod human_size;
+mod inspect;
 mod join;
 mod keys;
 mod len;
@@ -30,8 +32,8 @@ mod make_map;
 mod map;
 mod mkdir;
 mod path_exists;
-mod pipe;
 mod pop;
+mod prepend;
 mod print_runtime_stats;
 mod range;
 mod read_dir;
@@ -50,6 +52,7 @@ mod substr;
 mod take;
 mod term_cols;
 mod term_rows;
+mod transform;
 mod values;
 mod write_file;
 
@@ -65,6 +68,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
         functions: vec![
             // Collect function from individual modules
+            self::append::build_fn(),
             self::cd::build_fn(),
             self::chars::build_fn(),
             self::clone::build_fn(),
@@ -81,6 +85,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::fold::build_fn(),
             self::glob::build_fn(),
             self::human_size::build_fn(),
+            self::inspect::build_fn(),
             self::join::build_fn(),
             self::len::build_fn(),
             self::filter::build_fn(),
@@ -91,7 +96,8 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::values::build_fn(),
             self::mkdir::build_fn(),
             self::path_exists::build_fn(),
-            self::pipe::build_fn(),
+            self::transform::build_fn(),
+            self::prepend::build_fn(),
             self::pop::build_fn(),
             self::approx_int_div::build_fn(),
             self::print_runtime_stats::build_fn(),
