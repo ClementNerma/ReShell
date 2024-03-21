@@ -38,6 +38,8 @@ use self::{
     state::{SpecialScopeType, State},
 };
 
+// TODO: re-use the same checker scope for multiple programs
+// allows re-using type aliases, command calls development, etc.
 pub fn check(
     program: &Program,
     native_lib_scope: CheckerScope,
@@ -842,7 +844,7 @@ fn check_single_cmd_call(
     }
 
     state.collected.cmd_calls.insert(
-        path.at,
+        single_cmd_call.at,
         DevelopedSingleCmdCall {
             at: path.at,
             final_cmd_path: alias_final_path.unwrap_or_else(|| path.clone()),
