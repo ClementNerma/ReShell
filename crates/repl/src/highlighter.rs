@@ -404,7 +404,7 @@ impl CommandsChecker {
 
     pub fn update(&mut self, bin_resolver: &mut BinariesResolver) {
         if &self.for_path != bin_resolver.path_dirs() {
-            self.for_path = bin_resolver.path_dirs().clone();
+            self.for_path.clone_from(bin_resolver.path_dirs());
             self.update(bin_resolver);
         }
     }
