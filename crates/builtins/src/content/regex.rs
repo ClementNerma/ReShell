@@ -16,7 +16,7 @@ define_internal_fn!(
 
     (
         pattern: RequiredArg<StringType> = Arg::positional("pattern"),
-        classic: PresenceFlag = Arg::long_and_short_flag("classic", 'c')
+        pomsky: PresenceFlag = Arg::long_and_short_flag("pomsky", 'p')
     )
 
     -> None // TODO: new type handler for custom
@@ -25,13 +25,13 @@ define_internal_fn!(
 fn run() -> Runner {
     Runner::new(
         |_,
-         Args { pattern, classic },
+         Args { pattern, pomsky },
          ArgsAt {
              pattern: pattern_at,
              ..
          },
          ctx| {
-            let regex = if classic {
+            let regex = if !pomsky {
                 Regex::new(&pattern)
                     .map_err(|err| ctx.error(pattern_at, format!("Failed to parse regex: {err}")))?
             } else {
@@ -57,8 +57,9 @@ fn run() -> Runner {
                             .error(pattern_at, "failed to parse Pomsky regex")
                             .with_info(
                                 ExecErrorInfoType::Tip,
-                                "if you wrote a PCRE regex, use the '--classic' flag",
-                            ))
+                                // TODO: try to parse the regex as Pomsky to make the tip more precise
+                                "if you wrote a Pomsky regex, use the '--pomsky' flag",
+                            ));
                     }
                 }
             };
