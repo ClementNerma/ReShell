@@ -42,18 +42,22 @@ use self::{
 // allows re-using type aliases, command calls development, etc.
 pub fn check(
     program: &Program,
-    native_lib_scope: CheckerScope,
-    mut first_scope: CheckerScope,
+    scopes: Vec<CheckerScope>,
+    prev_output: Option<CheckerOutput>,
 ) -> CheckerResult<CheckerOutput> {
     let Program { content } = program;
 
     let mut state = State::new();
-    state.push_scope(native_lib_scope);
 
-    first_scope.code_range = RuntimeCodeRange::Parsed(content.at);
-    state.push_scope(first_scope);
+    if let Some(prev_output) = prev_output {
+        state.collected = prev_output;
+    }
 
-    check_block_without_push(&program.content, &mut state)?;
+    for scope in scopes {
+        state.push_scope(scope);
+    }
+
+    check_block(content, &mut state)?;
 
     Ok(state.collected)
 }
