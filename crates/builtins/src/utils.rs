@@ -105,18 +105,20 @@ pub fn expect_returned_value<T>(
     at: RuntimeCodeRange,
     type_parser: impl Typing<Parsed = T>,
     ctx: &Context,
-) -> T {
-    let loc_val = value.unwrap_or_else(|| {
-        ctx.panic(
+) -> ExecResult<T> {
+    let loc_val = value.ok_or_else(|| {
+        ctx.error(
             at,
             "got no return value (should have been caught before returning)",
         )
-    });
+    })?;
 
-    type_parser.parse(loc_val.value).unwrap_or_else(|err| {
+    let typed = type_parser.parse(loc_val.value).unwrap_or_else(|err| {
         ctx.panic(
             at,
             format!("got invalid return value (should have been caught before returning): {err}"),
         )
-    })
+    });
+
+    Ok(typed)
 }

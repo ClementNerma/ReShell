@@ -21,10 +21,7 @@ fn mapper_type() -> RequiredArg<TypedFunctionType> {
     RequiredArg::new(
         ArgNames::Positional("mapper"),
         TypedFunctionType::new(forge_basic_fn_signature(
-            vec![
-                ("value", AnyType::direct_underlying_type()),
-                ("index", ExactIntType::<usize>::direct_underlying_type()),
-            ],
+            vec![("value", AnyType::direct_underlying_type())],
             Some(AnyType::direct_underlying_type()),
         )),
     )
@@ -44,26 +41,16 @@ fn run() -> Runner {
             let mapped = list
                 .read(mapper_at)
                 .iter()
-                .enumerate()
-                .map(|(index, value)| -> ExecResult<RuntimeValue> {
-                    let ret = call_fn_checked(
+                .map(|value| {
+                    call_fn_checked(
                         &mapper,
                         mapper_type().base_typing().signature(),
-                        vec![
-                            value.clone(),
-                            RuntimeValue::Int(index.try_into().expect(
-                                "list contains too many elements to be represented by an integer",
-                            )),
-                        ],
+                        vec![value.clone()],
                         ctx,
-                    )?;
-
-                    Ok(expect_returned_value(
-                        ret,
-                        mapper_at,
-                        AnyType::new_direct(),
-                        ctx,
-                    ))
+                    )
+                    .and_then(|ret| {
+                        expect_returned_value(ret, mapper_at, AnyType::new_direct(), ctx)
+                    })
                 })
                 .collect::<Result<_, _>>()?;
 
