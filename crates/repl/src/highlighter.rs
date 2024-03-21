@@ -104,7 +104,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(@direct)\\b", [Magenta]),
 
                 // Normalized flags
-                simple_followed_by("\\s(\\-[a-zA-Z0-9_]|\\-\\-[a-zA-Z0-9_-]+[=]?)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
+                simple_followed_by("\\s((?:\\-[a-zA-Z0-9_]|\\-\\-[a-zA-Z0-9_-]+)[=]?)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
 
                 // Keywords
                 simple("\\b(alias|fn|for|while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
