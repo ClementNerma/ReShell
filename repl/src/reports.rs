@@ -2,9 +2,9 @@ use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
 use reshell_runtime::{
-    context::ScopeRange,
+    context::{CallStackEntry, ScopeRange},
     display::dbg_loc,
-    errors::{CallStack, CallStackEntry, ExecError, ExecErrorContent},
+    errors::{ExecError, ExecErrorContent},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
@@ -96,8 +96,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         bottom = format!("{}", curr_scope_msg.bright_yellow());
     }
 
-    if let Some(CallStack { history }) = call_stack {
-        for entry in history.iter().rev() {
+    if let Some(call_stack) = call_stack {
+        for entry in call_stack.history().iter().rev() {
             let CallStackEntry {
                 fn_called_at,
                 previous_scope: _,

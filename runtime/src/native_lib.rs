@@ -11,7 +11,7 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
 
-use crate::context::{Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar};
+use crate::context::{CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar};
 use crate::display::dbg_loc;
 use crate::errors::ExecResult;
 use crate::files_map::ScopableFilePath;
@@ -507,6 +507,7 @@ pub fn generate_native_lib() -> Scope {
         id: 0,
         range: ScopeRange::Global,
         parent_scopes: IndexSet::new(),
+        call_stack: CallStack::empty(),
         call_stack_entry: None,
         content,
     }

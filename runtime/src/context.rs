@@ -5,7 +5,7 @@ use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::ast::{SingleCmdCall, ValueType};
 
 use crate::{
-    errors::{CallStack, CallStackEntry, ExecError, ExecErrorContent, ExecResult},
+    errors::{ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::GcCell,
     native_lib::generate_native_lib,
@@ -42,13 +42,15 @@ impl Context {
     }
 
     pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
+        let current_scope = self.current_scope();
+
         ExecError {
             at,
-            in_file: self.current_scope().in_file_id(),
+            in_file: current_scope.in_file_id(),
             source_file: self.current_source_file().cloned(),
             content: content.into(),
-            call_stack: self.produce_call_stack(),
-            scope_range: self.current_scope().range,
+            call_stack: current_scope.call_stack.clone(),
+            scope_range: current_scope.range,
         }
     }
 
@@ -64,29 +66,6 @@ impl Context {
         self.home_dir.as_ref()
     }
 
-    pub fn produce_call_stack(&self) -> CallStack {
-        let mut history = vec![];
-
-        let mut scope = self.current_scope();
-
-        loop {
-            if let Some(ref call_stack_entry) = scope.call_stack_entry {
-                history.push(call_stack_entry.clone());
-                scope = self.scopes.get(&call_stack_entry.previous_scope).unwrap();
-                continue;
-            }
-
-            match scope.parent_scopes.last() {
-                Some(parent_scope) => scope = self.scopes.get(parent_scope).unwrap(),
-                None => break,
-            }
-        }
-
-        history.reverse();
-
-        CallStack { history }
-    }
-
     pub fn create_and_push_scope(&mut self, range: ScopeRange, content: ScopeContent) {
         let id = self.generate_scope_id();
 
@@ -96,6 +75,7 @@ impl Context {
             parent_scopes: self.generate_parent_scopes(),
             content,
             call_stack_entry: None,
+            call_stack: self.current_scope().call_stack.clone(),
         };
 
         self.push_custom_scope(scope);
@@ -110,12 +90,16 @@ impl Context {
     ) {
         let id = self.generate_scope_id();
 
+        let mut call_stack = self.current_scope().call_stack.clone();
+        call_stack.append(call_stack_entry);
+
         let scope = Scope {
             id,
             range,
             parent_scopes,
             content,
             call_stack_entry: Some(call_stack_entry),
+            call_stack,
         };
 
         self.push_custom_scope(scope);
@@ -248,9 +232,10 @@ impl Context {
 pub struct Scope {
     pub id: u64,
     pub range: ScopeRange,
-    pub call_stack_entry: Option<CallStackEntry>,
     pub content: ScopeContent,
     pub parent_scopes: IndexSet<u64>,
+    pub call_stack_entry: Option<CallStackEntry>,
+    pub call_stack: CallStack,
 }
 
 impl Scope {
@@ -314,4 +299,30 @@ pub struct ScopeVar {
 pub struct ScopeFn {
     pub declared_at: CodeRange,
     pub value: GcCell<RuntimeFnValue>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CallStack {
+    history: Vec<CallStackEntry>,
+}
+
+impl CallStack {
+    pub fn empty() -> Self {
+        Self { history: vec![] }
+    }
+
+    pub fn append(&mut self, entry: CallStackEntry) {
+        self.history.push(entry);
+    }
+
+    pub fn history(&self) -> &[CallStackEntry] {
+        &self.history
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct CallStackEntry {
+    pub fn_called_at: CodeRange,
+    pub previous_scope: u64,
+    // pub args: Vec<RuntimeValue>,
 }
