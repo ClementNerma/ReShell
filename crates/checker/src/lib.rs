@@ -21,12 +21,12 @@ use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
-        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
-        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-        ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg,
-        FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
-        PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
-        SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+        CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece,
+        DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
+        ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature,
+        Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
+        SwitchCase, Value, ValueType,
     },
     scope::AstScopeId,
 };
@@ -831,10 +831,9 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
     for (pipe_type, call) in calls {
         let call_type = check_single_cmd_call(call, state)?;
 
-        let current_chain_type = match chain_type {
+        match chain_type {
             None => {
                 chain_type = Some(call_type);
-                call_type
             }
 
             Some(chain_type) => {
@@ -853,30 +852,6 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
                             _ => unreachable!(),
                         },
                     ));
-                }
-
-                chain_type
-            }
-        };
-
-        if let Some(pipe_type) = pipe_type {
-            match pipe_type.data {
-                CmdPipeType::Stdout | CmdPipeType::Stderr => {
-                    if current_chain_type == CmdPathTargetType::Function {
-                        return Err(CheckerError::new(
-                            pipe_type.at,
-                            "cannot apply stdout/stderr pipe to a function",
-                        ));
-                    }
-                }
-
-                CmdPipeType::Value => {
-                    if current_chain_type == CmdPathTargetType::ExternalCommand {
-                        return Err(CheckerError::new(
-                            pipe_type.at,
-                            "value pipe can only be applied to functions",
-                        ));
-                    }
                 }
             }
         }

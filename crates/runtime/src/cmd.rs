@@ -79,7 +79,7 @@ pub fn run_cmd(
 
         for (i, (cmd_data, pipe_type)) in chain.into_iter().enumerate() {
             if let Some(pipe_type) = pipe_type {
-                assert_eq!(pipe_type.data, CmdPipeType::Value);
+                assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
             }
 
             let EvaluatedCmdData {
@@ -105,7 +105,7 @@ pub fn run_cmd(
                 &func,
                 FnPossibleCallArgs::ParsedCmdArgs {
                     call_type: pipe_type.map(|pipe_type| {
-                        assert_eq!(pipe_type.data, CmdPipeType::Value);
+                        assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
 
                         FnCallType::Piped(last_return_value.unwrap())
                     }),
@@ -468,17 +468,13 @@ fn exec_cmd(
         .args(args_str)
         .stdin(match children.last_mut() {
             Some((child, _)) => match pipe_type.unwrap().data {
-                CmdPipeType::Stdout => Stdio::from(child.stdout.take().unwrap()),
+                CmdPipeType::ValueOrStdout => Stdio::from(child.stdout.take().unwrap()),
                 CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
-                CmdPipeType::Value => ctx.panic(
-                    pipe_type.unwrap().at,
-                    "values pipe is not applicable to commands (= bug in checker)",
-                ),
             },
             None => Stdio::inherit(),
         })
         .stdout(
-            if next_pipe_type == Some(CmdPipeType::Stdout)
+            if next_pipe_type == Some(CmdPipeType::ValueOrStdout)
                 || matches!(capture, Some(CmdPipeCapture::Stdout | CmdPipeCapture::Both))
             {
                 Stdio::piped()

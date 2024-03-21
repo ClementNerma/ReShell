@@ -696,7 +696,7 @@ pub fn program(
 
         let expr_inner_chaining = choice::<_, ExprInnerChaining>((
             expr_inner_direct_chaining.map(ExprInnerChaining::Direct),
-            just("->")
+            char('|')
                 .padded_by(msnl)
                 .ignore_then(fn_call.clone())
                 .spanned()
@@ -911,9 +911,8 @@ pub fn program(
                 .then(
                     msnl.ignore_then(
                         choice::<_, CmdPipeType>((
-                            just("->").to(CmdPipeType::Value),
                             just("!|").to(CmdPipeType::Stderr),
-                            char('|').to(CmdPipeType::Stdout),
+                            char('|').to(CmdPipeType::ValueOrStdout),
                         ))
                         .spanned(),
                     )
