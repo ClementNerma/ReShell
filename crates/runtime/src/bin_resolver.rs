@@ -93,25 +93,14 @@ impl BinariesResolver {
                                     return Some(path);
                                 }
 
-                                let path = dir.join(format!("{name}.exe"));
-
-                                if path.is_file() {
-                                    return Some(path);
-                                }
-
-                                let path = dir.join(format!("{name}.cmd"));
-
-                                if path.is_file() {
-                                    return Some(path);
-                                }
-
-                                let path = dir.join(format!("{name}.bat"));
-
-                                if path.is_file() {
-                                    return Some(path);
-                                }
-
-                                None
+                                [
+                                    dir.join(name),
+                                    dir.join(format!("{name}.exe")),
+                                    dir.join(format!("{name}.cmd")),
+                                    dir.join(format!("{name}.bat")),
+                                ]
+                                .into_iter()
+                                .find(|path| path.is_file())
                             }
 
                             TargetFamily::Unix => {
