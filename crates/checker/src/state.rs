@@ -136,23 +136,29 @@ impl<'a> State<'a> {
             }
 
             DependencyType::Method => {
-                // TODO: optimize this without an alloc.?
-                let mut scope_ids = vec![];
+                let methods_scope_id = self
+                    .scopes
+                    .iter()
+                    .rev()
+                    .flat_map(|scope| {
+                        scope
+                            .methods
+                            .values()
+                            .find_map(|methods| methods.get(&item_usage.data))
+                    })
+                    .map(|method| method.scope_id)
+                    .collect::<Vec<_>>();
 
-                for scope in self.scopes.iter().rev() {
-                    for methods in scope.methods.values() {
-                        if let Some(method) = methods.get(&item_usage.data) {
-                            scope_ids.push(method.scope_id);
-                        }
-                    }
-                }
-
-                if scope_ids.is_empty() {
+                if methods_scope_id.is_empty() {
                     return Err(CheckerError::new(item_usage.at, "method was not found"));
                 }
 
-                for scope_id in scope_ids {
-                    self.register_single_usage(scope_id, &item_usage.data, DependencyType::Method)?;
+                for method_scope_id in methods_scope_id {
+                    self.register_single_usage(
+                        method_scope_id,
+                        &item_usage.data,
+                        DependencyType::Method,
+                    )?;
                 }
 
                 Ok(())
