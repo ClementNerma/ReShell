@@ -29,7 +29,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
     let completion_data = Arc::new(Mutex::new(CompletionData::generate_from_context(ctx)));
 
     let mut line_editor = Reedline::create()
-        .with_history(history::create_history())
+        .with_history(history::create_history(ctx.conf()))
         .with_menu(history::create_history_menu())
         .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())

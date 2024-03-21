@@ -145,6 +145,11 @@ impl Context {
         self.scopes_id_counter
     }
 
+    /// Get the runtime configuration
+    pub fn conf(&self) -> &RuntimeConf {
+        &self.conf
+    }
+
     /// Set of change path to the current user's home directory
     /// Used for tilde '~' expansion
     pub fn set_home_dir(&mut self, home_dir: PathBuf) {
