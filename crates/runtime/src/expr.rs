@@ -458,6 +458,10 @@ pub fn eval_literal_value(value: &LiteralValue) -> RuntimeValue {
         LiteralValue::Boolean(bool) => RuntimeValue::Bool(*bool),
         LiteralValue::Integer(int) => RuntimeValue::Int(*int),
         LiteralValue::Float(float) => RuntimeValue::Float(*float),
+        LiteralValue::String(string) => RuntimeValue::String(
+            // TODO: performance?
+            string.clone(),
+        ),
     }
 }
 
@@ -485,6 +489,8 @@ fn eval_computed_string_piece(
             EscapableChar::DoubleQuote => '"',
             EscapableChar::Backslash => '\\',
             EscapableChar::DollarSign => '$',
+            EscapableChar::BackQuote => '`',
+            EscapableChar::SingleQuote => '\'',
         }
         .to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(

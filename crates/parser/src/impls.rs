@@ -1,6 +1,8 @@
 use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 
-use crate::ast::{FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten};
+use crate::ast::{
+    EscapableChar, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten,
+};
 
 impl FnFlagArgNames {
     pub fn short_flag(&self) -> Option<RuntimeEaten<char>> {
@@ -89,5 +91,19 @@ impl FnSignature {
             }
             | FnArg::Rest { name: _ } => false,
         })
+    }
+}
+
+impl EscapableChar {
+    pub fn original_char(self) -> char {
+        match self {
+            EscapableChar::Newline => '\n',
+            EscapableChar::CarriageReturn => '\r',
+            EscapableChar::DoubleQuote => '"',
+            EscapableChar::BackQuote => '`',
+            EscapableChar::SingleQuote => '\'',
+            EscapableChar::Backslash => '\\',
+            EscapableChar::DollarSign => '$',
+        }
     }
 }

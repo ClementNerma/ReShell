@@ -312,7 +312,33 @@ pub fn program(
                 call_args,
             });
 
+        let escapable_char = char('\\').ignore_then(
+            choice((
+                char('n').to(EscapableChar::Newline),
+                char('r').to(EscapableChar::CarriageReturn),
+                char('"').to(EscapableChar::DoubleQuote),
+                char('\'').to(EscapableChar::BackQuote),
+                char('`').to(EscapableChar::BackQuote),
+                char('$').to(EscapableChar::DollarSign),
+                char('\\').to(EscapableChar::Backslash),
+            ))
+            .critical("this character is not escapable"),
+        );
+
+        let literal_string = char('\'')
+            .ignore_then(
+                choice((
+                    escapable_char.map(EscapableChar::original_char),
+                    filter(|c| c != '\''),
+                ))
+                .repeated()
+                .collect_string(),
+            )
+            .then_ignore(char('\''));
+
         let literal_value = choice::<_, LiteralValue>((
+            // Strings
+            literal_string.map(LiteralValue::String),
             // Booleans
             just("true")
                 .not_followed_by(possible_ident_char)
@@ -338,32 +364,22 @@ pub fn program(
                 .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
         ));
 
-        let escapable_char = choice((
-            char('n').to(EscapableChar::Newline),
-            char('r').to(EscapableChar::CarriageReturn),
-            char('"').to(EscapableChar::DoubleQuote),
-            char('$').to(EscapableChar::DollarSign),
-            char('\\').to(EscapableChar::Backslash),
-        ));
-
         let computed_string = char('"')
             .ignore_then(
                 choice::<_, ComputedStringPiece>((
                     // Escaped
-                    char('\\')
-                        .ignore_then(escapable_char.critical("this character is not escapable"))
-                        .map(ComputedStringPiece::Escaped),
+                    escapable_char.map(ComputedStringPiece::Escaped),
                     // Expressions
                     var_name.spanned().map(ComputedStringPiece::Variable),
                     // Expressions
-                    just("${")
+                    char('`')
                         .ignore_then(
                             expr.clone()
                                 .spanned()
                                 .padded_by(msnl)
                                 .critical("expected an expression"),
                         )
-                        .then_ignore(char('}').critical("missing closing brace for expression (})"))
+                        .then_ignore(char('`').critical_expectation())
                         .map(ComputedStringPiece::Expr),
                     // Command calls
                     just("$(")
@@ -377,7 +393,7 @@ pub fn program(
                         .then_ignore(char(')').critical_expectation())
                         .map(ComputedStringPiece::CmdCall),
                     // Literal character suites
-                    filter(|c| c != '"' && c != '\\' && c != '$')
+                    filter(|c| c != '"')
                         .repeated()
                         .at_least(1)
                         .collect_string()
@@ -1249,7 +1265,7 @@ pub fn program(
 
 pub fn delimiter_chars() -> HashSet<char> {
     HashSet::from([
-        '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '$', '#',
+        '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '`', '$', '#',
     ])
 }
 

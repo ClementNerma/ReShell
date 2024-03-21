@@ -560,6 +560,7 @@ impl ComputableSize for LiteralValue {
             LiteralValue::Boolean(bool) => bool.compute_heap_size(),
             LiteralValue::Integer(int) => int.compute_heap_size(),
             LiteralValue::Float(float) => float.compute_heap_size(),
+            LiteralValue::String(string) => string.compute_heap_size(),
         }
     }
 }
@@ -586,11 +587,13 @@ impl ComputableSize for ComputedStringPiece {
 impl ComputableSize for EscapableChar {
     fn compute_heap_size(&self) -> usize {
         match self {
-            EscapableChar::Newline => 0,
-            EscapableChar::CarriageReturn => 0,
-            EscapableChar::DoubleQuote => 0,
-            EscapableChar::Backslash => 0,
-            EscapableChar::DollarSign => 0,
+            EscapableChar::Newline
+            | EscapableChar::CarriageReturn
+            | EscapableChar::DoubleQuote
+            | EscapableChar::Backslash
+            | EscapableChar::DollarSign
+            | EscapableChar::BackQuote
+            | EscapableChar::SingleQuote => 0,
         }
     }
 }

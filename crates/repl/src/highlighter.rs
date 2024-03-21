@@ -4,10 +4,14 @@ use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
-use crate::utils::{syntax::{
-    HighlightPiece, Rule, RuleSet, SimpleRule,
-    ValidatedRuleSet, compute_highlight_pieces, NestedContentRules,
-}, nesting::NestingOpeningType, lazy_cell::LazyCell};
+use crate::utils::{
+    syntax::{
+        HighlightPiece, Rule, RuleSet, SimpleRule,
+        ValidatedRuleSet, compute_highlight_pieces, NestedContentRules,
+    },
+    nesting::NestingOpeningType,
+    lazy_cell::LazyCell
+};
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
@@ -24,7 +28,14 @@ impl RlHighlighter for Highlighter {
 static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     /// Create a simple rule's inner content
     fn simple_rule<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>) -> SimpleRule {
-        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, preceded_by: None, followed_by: None, followed_by_nesting: None, style: colors.as_ref().iter().copied().map(S::into).collect() }
+        SimpleRule {
+            matches: Regex::new(regex).unwrap(),
+            inside: None,
+            preceded_by: None,
+            followed_by: None,
+            followed_by_nesting: None,
+            style: colors.as_ref().iter().copied().map(S::into).collect()
+        }
     }
 
     /// Create a simple rule
