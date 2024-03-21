@@ -3,6 +3,10 @@ name = "repl"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "reshell"
+path = "src/main.rs"
+
 [dependencies]
 ariadne = "0.2.0"
 reshell-parser = { path = "../parser" }
