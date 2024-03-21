@@ -31,7 +31,7 @@ fn run() -> Runner {
             let path = Path::new(&path);
 
             if path.is_dir() {
-                return if ignore_if_exists {
+                return if ignore_if_exists || parents {
                     Ok(None)
                 } else {
                     Err(ctx.throw(
