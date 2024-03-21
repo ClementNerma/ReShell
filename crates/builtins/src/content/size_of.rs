@@ -16,7 +16,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { value }, _, ctx| {
-        let size = value.compute_heap_size();
+        let size = value.compute_total_size();
 
         i64::try_from(size)
             .map(|value| Some(RuntimeValue::Int(value)))
@@ -24,8 +24,7 @@ fn run() -> Runner {
                 ctx.error(
                     at,
                     format!(
-                        "value size is too big to be represented: {}",
-                        value.compute_heap_size()
+                        "value size is too big to be represented: {size}",
                     ),
                 )
             })
