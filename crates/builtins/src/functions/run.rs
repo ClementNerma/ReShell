@@ -29,7 +29,6 @@ fn run() -> Runner {
          ctx| {
             let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
 
-            // TODO: ensure the error is for the call itself, not inside one of its inner arguments (e.g. closure) etc.
             match run_cmd(
                 &cmd,
                 ctx,
@@ -42,32 +41,39 @@ fn run() -> Runner {
                 },
             ) {
                 Ok(_) => Ok(None),
-                Err(err) => match err.nature {
-                    ExecErrorNature::CommandFailedToStart { message } => {
-                        if ignore_failure {
-                            Ok(None)
-                        } else {
-                            Err(ctx.throw(cmd_call, format!("failed to start command: {message}")))
-                        }
+                Err(err) => {
+                    if err.at.parsed_range() != Some(cmd_call) {
+                        return Err(err);
                     }
 
-                    ExecErrorNature::CommandFailed {
-                        message,
-                        exit_status: _,
-                    } => {
-                        if ignore_failure {
-                            Ok(None)
-                        } else {
-                            Err(ctx.throw(cmd_call, message))
+                    match err.nature {
+                        ExecErrorNature::CommandFailedToStart { message } => {
+                            if ignore_failure {
+                                Ok(None)
+                            } else {
+                                Err(ctx
+                                    .throw(cmd_call, format!("failed to start command: {message}")))
+                            }
                         }
-                    }
 
-                    ExecErrorNature::ParsingErr(_)
-                    | ExecErrorNature::Thrown { message: _, at: _ }
-                    | ExecErrorNature::Exit { code: _ }
-                    | ExecErrorNature::CtrlC
-                    | ExecErrorNature::Custom(_) => Err(err),
-                },
+                        ExecErrorNature::CommandFailed {
+                            message,
+                            exit_status: _,
+                        } => {
+                            if ignore_failure {
+                                Ok(None)
+                            } else {
+                                Err(ctx.throw(cmd_call, message))
+                            }
+                        }
+
+                        ExecErrorNature::ParsingErr(_)
+                        | ExecErrorNature::Thrown { message: _, at: _ }
+                        | ExecErrorNature::Exit { code: _ }
+                        | ExecErrorNature::CtrlC
+                        | ExecErrorNature::Custom(_) => Err(err),
+                    }
+                }
             }
         },
     )

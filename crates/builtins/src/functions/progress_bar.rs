@@ -17,7 +17,7 @@ crate::define_internal_fn!(
         keep_on_finish: PresenceFlag = Arg::long_and_short_flag("keep-on-finish", 'k')
     )
 
-    -> None // TODO: new type handler for custom
+    -> Some(CustomType::<ProgressBarValue>::direct_underlying_type())
 );
 
 fn run() -> Runner {
