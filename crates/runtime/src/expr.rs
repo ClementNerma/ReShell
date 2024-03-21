@@ -357,6 +357,10 @@ fn eval_expr_inner_content(
             },
         },
 
+        ExprInnerContent::FnAsValue(name) => ctx
+            .get_visible_fn_value(name)
+            .map(|func| RuntimeValue::Function(GcReadOnlyCell::clone(func))),
+
         ExprInnerContent::Value(value) => eval_value(value, ctx),
     }
 }

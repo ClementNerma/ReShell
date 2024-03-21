@@ -511,6 +511,10 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             check_value(value, state)?;
         }
 
+        ExprInnerContent::FnAsValue(name) => {
+            state.register_usage(name, DependencyType::Function)?;
+        }
+
         ExprInnerContent::Ternary {
             cond,
             body,
@@ -855,17 +859,17 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
 fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> CheckerResult {
     match arg {
         CmdValueMakingArg::LiteralValue(lit) => check_literal_value(lit, state),
+
         CmdValueMakingArg::ComputedString(computed_string) => {
             check_computed_string(computed_string, state)
         }
+
         CmdValueMakingArg::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
+
         CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
+
         CmdValueMakingArg::VarName(var) => {
             state.register_usage(var, DependencyType::Variable)?;
-            Ok(())
-        }
-        CmdValueMakingArg::FnAsValue(func) => {
-            state.register_usage(func, DependencyType::Function)?;
             Ok(())
         }
 

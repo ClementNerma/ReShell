@@ -162,6 +162,7 @@ pub enum ExprInnerContent {
     },
     ParenExpr(Eaten<Box<Expr>>),
     Value(Eaten<Value>),
+    FnAsValue(Eaten<String>),
     Ternary {
         cond: Eaten<Box<Expr>>,
         body: Eaten<Box<Expr>>,
@@ -359,7 +360,6 @@ pub enum CmdValueMakingArg {
     CmdCall(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
     VarName(Eaten<String>),
-    FnAsValue(Eaten<String>),
     Raw(Eaten<String>),
 }
 
