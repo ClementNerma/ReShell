@@ -7,36 +7,10 @@ use reedline::{
 use crate::{completer::COMPLETION_MENU_NAME, history::HISTORY_MENU_NAME};
 
 pub fn create_edit_mode() -> Box<dyn RlEditMode> {
-    Box::new(EditMode {
-        // default: Emacs::default(),
-    })
+    Box::new(EditMode {})
 }
 
-pub struct EditMode {
-    // default: Emacs,
-}
-
-// impl EditMode {
-//     fn insert_matching(
-//         &self,
-//         opener: char,
-//         closer: char,
-//         line: &str,
-//         offset: usize,
-//     ) -> Vec<EditCommand> {
-//         let right_char = line.chars().nth(offset);
-
-//         if right_char == Some(opener) || (opener == closer && right_char == Some(closer)) {
-//             vec![EditCommand::MoveRight]
-//         } else {
-//             vec![
-//                 EditCommand::InsertChar(opener),
-//                 EditCommand::InsertChar(closer),
-//                 EditCommand::MoveLeft,
-//             ]
-//         }
-//     }
-// }
+pub struct EditMode {}
 
 impl RlEditMode for EditMode {
     fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
@@ -62,11 +36,6 @@ impl RlEditMode for EditMode {
                 }
 
                 (KeyCode::Right, KeyModifiers::NONE) => {
-                    // if offset < line.len() {
-                    //     ReedlineEvent::Right
-                    // } else {
-                    //     ReedlineEvent::HistoryHintComplete
-                    // }
                     ReedlineEvent::UntilFound(vec![
                         ReedlineEvent::HistoryHintComplete,
                         ReedlineEvent::MenuRight, // ?
