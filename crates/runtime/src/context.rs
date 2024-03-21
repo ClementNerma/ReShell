@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, FileId, SourceFileID};
+use parsy::{CodeRange, Eaten};
 use reshell_checker::{
     long_flag_var_name,
     output::{
@@ -449,13 +449,6 @@ impl Context {
 
     /// Push an already-created scope above the current one
     pub fn push_scope(&mut self, scope: Scope) {
-        if let Some(file_id) = scope.source_file_id() {
-            assert!(
-                self.conf.files_map.get_file(file_id).is_some(),
-                "Provided scope is associated to an unregistered file"
-            );
-        }
-
         if scope.call_stack.history.len() > self.conf.runtime_conf.call_stack_limit {
             panic!(
                 "Maximum call stack size ({}) exceeded",
@@ -796,27 +789,6 @@ pub struct ContextCreationParams {
     /// Path to the current user's home directory
     /// Used for tilde '~' expansion
     pub home_dir: Option<PathBuf>,
-}
-
-impl Scope {
-    /// Get this scope's file ID
-    pub fn in_file_id(&self) -> Option<FileId> {
-        match self.range {
-            RuntimeCodeRange::Internal => None,
-            RuntimeCodeRange::Parsed(range) => Some(range.start.file_id),
-        }
-    }
-
-    /// Get this scope's source file ID
-    pub fn source_file_id(&self) -> Option<SourceFileID> {
-        match self.range {
-            RuntimeCodeRange::Internal => None,
-            RuntimeCodeRange::Parsed(range) => match range.start.file_id {
-                FileId::None | FileId::Internal | FileId::Custom(_) => None,
-                FileId::SourceFile(id) => Some(id),
-            },
-        }
-    }
 }
 
 /// Content of a scope
