@@ -116,51 +116,50 @@ impl State {
         let Some(deps_scope) = self.current_deps_scope() else {
             return Ok(dep);
         };
-        
-        
-            let  Some(declared_at) = declared_at.real() else {
-                return Ok(dep);
-            };
+    
+        let Some(declared_at) = declared_at.real() else {
+            return Ok(dep);
+        };
 
-            let var_declared_in_deps_scope = 
-                    deps_scope.code_range.real().unwrap().contains(declared_at).map_err(|err| {
-                    CheckerError::new(
-                        CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
-                        format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
-                    )
-                })?;
+        let var_declared_in_deps_scope = 
+                deps_scope.code_range.real().unwrap().contains(declared_at).map_err(|err| {
+                CheckerError::new(
+                    CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
+                    format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
+                )
+            })?;
 
-            if var_declared_in_deps_scope {
+        if var_declared_in_deps_scope {
+            return Ok(dep);
+        }
+
+        if let Some(ScopeType::Function { args_at }) = deps_scope.typ {
+            let var_declared_in_fn_args = 
+                args_at.contains(declared_at).map_err(|err| {
+                CheckerError::new(
+                    CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
+                    format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
+                )
+            })?;
+
+            if var_declared_in_fn_args {
                 return Ok(dep);
             }
+        }
 
-            if let Some(ScopeType::Function { args_at }) = deps_scope.typ {
-                let var_declared_in_fn_args = 
-                    args_at.contains(declared_at).map_err(|err| {
-                    CheckerError::new(
-                        CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
-                        format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
-                    )
-                })?;
+        let code_range = deps_scope.code_range.real().unwrap();
 
-                if var_declared_in_fn_args {
-                    return Ok(dep);
-                }
-            }
+        self.collected
+            .deps
+            .get_mut(&code_range)
+            .unwrap()
+            .insert(Dependency {
+                name: item.data.clone(),
+                declared_at,
+                dep_type,
+            });
 
-            let code_range = deps_scope.code_range.real().unwrap();
-
-            self.collected
-                .deps
-                .get_mut(&code_range)
-                .unwrap()
-                .insert(Dependency {
-                    name: item.data.clone(),
-                    declared_at,
-                    dep_type,
-                });
-
-                Ok(dep)
+        Ok(dep)
         
     }
 
