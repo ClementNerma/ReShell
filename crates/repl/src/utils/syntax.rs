@@ -35,14 +35,14 @@ pub struct NestedContentRules {
     pub rules: Vec<Rule>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Rule {
     Simple(SimpleRule),
     Progressive(SimpleRule, Vec<SimpleRule>),
     Group(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SimpleRule {
     pub matches: Regex,
     pub inside: Option<HashSet<NestingOpeningType>>,
