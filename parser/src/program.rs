@@ -85,6 +85,7 @@ pub fn program() -> impl Parser<Program> {
             .clone()
             .spanned()
             .separated_by(char('|').padded())
+            .at_least(1)
             .map(|mut types| {
                 if types.len() > 1 {
                     ValueType::Union(types)
