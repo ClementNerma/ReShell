@@ -162,11 +162,33 @@ impl PrettyPrintable for RuntimeValue {
                     .iter()
                     .map(|item| item.generate_pretty_data())
                     .collect(),
-                sep: Colored::with_color(",".to_string(), Color::BrightCyan),
+                sep: Colored::with_color(",".to_string(), Color::BrightBlue),
                 end: Colored::with_color("]".to_string(), Color::BrightBlue),
                 suffix: None,
             },
-            RuntimeValue::Range { from, to } => todo!(),
+            // RuntimeValue::Range { from, to } => PrintablePiece::Suite(vec![
+            //     Colored::with_color("range".to_string(), Color::BrightBlue),
+            //     Colored::with_color("(".to_string(), Color::BrightBlue),
+            //     Colored::with_color("")
+            //     Colored::with_color(", ".to_string(), Color::BrightBlue),
+            //     Colored::with_color(")".to_string(), Color::BrightBlue),
+            // ]),
+            RuntimeValue::Range { from, to } => PrintablePiece::List {
+                begin: Colored::with_color("range(".to_string(), Color::BrightBlue),
+                items: vec![
+                    PrintablePiece::Atomic(Colored::with_color(
+                        from.to_string(),
+                        Color::BrightYellow,
+                    )),
+                    PrintablePiece::Atomic(Colored::with_color(
+                        to.to_string(),
+                        Color::BrightYellow,
+                    )),
+                ],
+                sep: Colored::with_color(",".to_string(), Color::BrightBlue),
+                end: Colored::with_color(")".to_string(), Color::BrightBlue),
+                suffix: None,
+            },
             RuntimeValue::Map(_) => todo!(),
             RuntimeValue::Struct(_) => todo!(),
             RuntimeValue::Function(func) =>
@@ -189,8 +211,8 @@ impl PrettyPrintable for FnSignature {
                 .iter()
                 .map(|item| item.generate_pretty_data())
                 .collect(),
-            sep: Colored::with_color(",".to_string(), Color::BrightCyan),
-            end: Colored::with_color(")".to_string(), Color::BrightCyan),
+            sep: Colored::with_color(",".to_string(), Color::BrightBlue),
+            end: Colored::with_color(")".to_string(), Color::BrightBlue),
             suffix: ret_type.as_ref().map(|ret_type| {
                 // TODO: colors for return type?
                 Colored::with_color(
