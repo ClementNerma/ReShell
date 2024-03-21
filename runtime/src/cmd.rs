@@ -98,6 +98,7 @@ fn run_cmd_with_env_vars_set(
         .map(|(single_call, pipe_type)| {
             let SingleCmdCall {
                 env_vars,
+                raw_call: _,
                 path,
                 args,
             } = &single_call.data;
@@ -270,6 +271,7 @@ fn develop_aliases<'a>(
 
             let SingleCmdCall {
                 env_vars,
+                raw_call: _,
                 path,
                 args,
             } = &alias_cmd;
@@ -297,9 +299,14 @@ fn check_if_cmd_is_fn(
 ) -> ExecResult<Option<Eaten<FnCall>>> {
     let SingleCmdCall {
         path,
+        raw_call,
         args,
         env_vars,
     } = &call.data;
+
+    if raw_call.is_some() {
+        return Ok(None);
+    }
 
     let (name, is_var) = match &path.data {
         CmdPath::Raw(raw) => match ctx.get_visible_fn(raw) {
