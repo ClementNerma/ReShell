@@ -88,10 +88,6 @@ pub fn start() {
                 },
             }),
         });
-
-        if let Err(err) = ret {
-            reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
-        }
     }
 }
 
