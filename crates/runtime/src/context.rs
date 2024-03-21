@@ -512,17 +512,12 @@ impl Context {
 
     /// (Crate-private) Remove the current scope
     pub(crate) fn pop_scope(&mut self) {
-        self.pop_scope_and_get_deps();
-    }
-
-    /// (Crate-private) Remove the current scope and get its dependency scope's content
-    pub(crate) fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
         // assert!(self.current_scope > FIRST_SCOPE_ID);
         assert!(self.current_scope > self.program_main_scope.unwrap());
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 
-        let deps_scope = current_scope
+        current_scope
             .deps_scope
             .map(|scope_id| self.deps_scopes.remove(&scope_id).unwrap());
 
@@ -531,8 +526,6 @@ impl Context {
         self.current_scope = current_scope.previous_scope.unwrap();
 
         assert!(self.scopes.contains_key(&self.current_scope));
-
-        deps_scope
     }
 
     /// Get a specific function
