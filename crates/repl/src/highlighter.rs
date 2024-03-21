@@ -92,8 +92,12 @@ fn highlight(input: &str) -> StyledText {
                 // Argument names and structure keys
                 rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])" => [Red, LightYellow]),
                 
+                // Commands
+                rule!(@group "commands")
+            ]),
+            ("commands", vec![
                 // Command names
-                rule!(@simple "(?:^|\\n)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
+                rule!(@simple "(?:^|\\n|\\{|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
 
                 //
                 // This is the "less polished" part of the highlighter
@@ -135,7 +139,13 @@ fn highlight(input: &str) -> StyledText {
 
                 // Strings
                 rule!(@nested "(\")" => Green, "(\")" => Green, vec![
-                    rule!(@simple "(.+)" => [LightGreen])
+                    // Commands
+                    rule!(@nested "(?:^|[^\\\\])(\\$\\()" => Blue, "(\\))" => Blue, vec![
+                        rule!(@group "commands")
+                    ]),
+
+                    // Any other character
+                    rule!(@simple "(.+)" => [Yellow]), // TODO: green
                 ])
             ],
         )]
@@ -146,6 +156,8 @@ fn highlight(input: &str) -> StyledText {
     let rule_set = ValidatedRuleSet::validate(rule_set).unwrap();
 
     let pieces = SyntaxHighlighter::new(rule_set).highlight(input);
+
+    // TODO: highlight unclosed (override existing highlight pieces)
 
     let mut out = StyledText::new();
 
