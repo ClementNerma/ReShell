@@ -512,7 +512,7 @@ impl ScopeContent {
             },
 
             deps: false, // TODO: isn't that incorrect?
-            fn_args_at: None,
+            typ: None,
 
             cmd_aliases: cmd_aliases
                 .iter()

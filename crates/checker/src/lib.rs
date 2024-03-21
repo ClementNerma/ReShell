@@ -22,7 +22,10 @@ pub use self::{
     state::{CheckerOutput, CheckerScope, DeclaredVar, Dependency, DependencyType},
 };
 
-use self::{errors::CheckerResult, state::State};
+use self::{
+    errors::CheckerResult,
+    state::{ScopeType, State},
+};
 
 pub fn check(
     program: &Program,
@@ -58,8 +61,8 @@ fn check_block_with(
 
     let mut scope = CheckerScope {
         code_range: *code_range,
-        deps: false,      // can be changed later on with "fill_scope"
-        fn_args_at: None, // can be changed later on with "fill_scope"
+        deps: false, // can be changed later on with "fill_scope"
+        typ: None,   // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
         cmd_aliases: HashMap::new(),
@@ -150,15 +153,14 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             list_push: _,
             expr,
         } => {
-            state.register_usage(name, DependencyType::Variable)?;
+            let dep = state.register_usage(name, DependencyType::Variable)?;
 
-            // TODO
-            // if !var.is_mut {
-            //     return Err(CheckerError::new(
-            //         name.at,
-            //         "Cannot assign to immutable variable",
-            //     ));
-            // }
+            if !dep.is_mut {
+                return Err(CheckerError::new(
+                    name.at,
+                    "variable was not declared as mutable",
+                ));
+            }
 
             for nature in prop_acc {
                 check_prop_access_nature(nature, state)?;
@@ -195,6 +197,8 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         } => {
             check_expr(&iter_on.data, state)?;
             check_block_with(body, state, |scope| {
+                scope.typ = Some(ScopeType::Loop);
+
                 scope.vars.insert(
                     iter_var.data.clone(),
                     DeclaredVar {
@@ -207,15 +211,27 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::WhileLoop { cond, body } => {
             check_expr(&cond.data, state)?;
-            check_block(body, state)?;
+            check_block_with(body, state, |scope| {
+                scope.typ = Some(ScopeType::Loop);
+            })?;
         }
 
         Instruction::LoopContinue => {
-            // TODO: check if currently in a loop (entering a function breaks it)
+            if !matches!(state.curr_scope_type(), Some(ScopeType::Loop)) {
+                return Err(CheckerError::new(
+                    instr.at,
+                    "can only be used inside a loop",
+                ));
+            }
         }
 
         Instruction::LoopBreak => {
-            // TODO: check if currenty in a loop (same)
+            if !matches!(state.curr_scope_type(), Some(ScopeType::Loop)) {
+                return Err(CheckerError::new(
+                    instr.at,
+                    "can only be used inside a loop",
+                ));
+            }
         }
 
         Instruction::Switch { expr, cases } => {
@@ -250,7 +266,15 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::FnReturn { expr } => {
-            // TODO: check if in a function
+            if !matches!(
+                state.curr_scope_type(),
+                Some(ScopeType::Function { args_at: _ })
+            ) {
+                return Err(CheckerError::new(
+                    instr.at,
+                    "can only be used inside a function",
+                ));
+            }
 
             if let Some(expr) = expr {
                 check_expr(&expr.data, state)?;
@@ -303,7 +327,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.push_scope(CheckerScope {
                 code_range: content.at,
                 deps: true,
-                fn_args_at: None,
+                typ: None,
                 vars: HashMap::new(),
                 fns: HashMap::new(),
                 // TODO: inject this cmd alias into the created scope (allows inner usage) - first check if it doesn't create an infinite loop
@@ -468,11 +492,17 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
 
             Ok(())
         }
-        Value::Variable(var) => state.register_usage(var, DependencyType::Variable),
+        Value::Variable(var) => {
+            state.register_usage(var, DependencyType::Variable)?;
+            Ok(())
+        }
         Value::FnCall(fn_call) => check_fn_call(fn_call, state),
         Value::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
         Value::CmdSuccess(cmd_call) => check_cmd_call(cmd_call, state),
-        Value::FnAsValue(func_name) => state.register_usage(func_name, DependencyType::Function),
+        Value::FnAsValue(func_name) => {
+            state.register_usage(func_name, DependencyType::Function)?;
+            Ok(())
+        }
         Value::Closure(func) => check_function(func, state),
     }
 }
@@ -505,7 +535,10 @@ fn check_computed_string_piece(
     match &piece.data {
         ComputedStringPiece::Literal(_) => Ok(()),
         ComputedStringPiece::Escaped(_) => Ok(()),
-        ComputedStringPiece::Variable(var) => state.register_usage(var, DependencyType::Variable),
+        ComputedStringPiece::Variable(var) => {
+            state.register_usage(var, DependencyType::Variable)?;
+            Ok(())
+        }
         ComputedStringPiece::Expr(expr) => check_expr(&expr.data, state),
         ComputedStringPiece::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
     }
@@ -619,10 +652,19 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
         CmdArg::ComputedString(computed_string) => check_computed_string(computed_string, state),
         CmdArg::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
         CmdArg::ParenExpr(expr) => check_expr(&expr.data, state),
-        CmdArg::VarName(var) => state.register_usage(var, DependencyType::Variable),
-        CmdArg::FnAsValue(func) => state.register_usage(func, DependencyType::Function),
+        CmdArg::VarName(var) => {
+            state.register_usage(var, DependencyType::Variable)?;
+            Ok(())
+        }
+        CmdArg::FnAsValue(func) => {
+            state.register_usage(func, DependencyType::Function)?;
+            Ok(())
+        }
         CmdArg::Raw(_) => Ok(()),
-        CmdArg::SpreadVar(var) => state.register_usage(var, DependencyType::Variable),
+        CmdArg::SpreadVar(var) => {
+            state.register_usage(var, DependencyType::Variable)?;
+            Ok(())
+        }
     }
 }
 
@@ -670,7 +712,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     check_block_with(body, state, |scope| {
         scope.deps = true;
-        scope.fn_args_at = Some(args.at);
+        scope.typ = Some(ScopeType::Function { args_at: args.at });
 
         for (name, var) in vars {
             scope.vars.insert(name, var);
