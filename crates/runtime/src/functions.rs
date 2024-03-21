@@ -130,7 +130,7 @@ pub fn call_fn_value(
             ));
         };
 
-        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), ctx)? {
+        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), ctx) {
             return Err(ctx.error(
                 call_at,
                 format!(
@@ -318,7 +318,7 @@ fn parse_fn_call_args(
         };
 
         if let Some(expected_type) = &fn_arg.typ {
-            if !check_if_single_type_fits_type(&arg_value.get_type(), expected_type.data(), ctx)? {
+            if !check_if_single_type_fits_type(&arg_value.get_type(), expected_type.data(), ctx) {
                 return Err(ctx.error(
                     call_arg_at,
                     format!(

@@ -1,25 +1,16 @@
 use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType};
 
-use crate::{context::Context, display::dbg_loc, errors::ExecResult};
+use crate::{context::Context, display::dbg_loc};
 
-pub fn check_if_type_fits_type(
-    value_type: &ValueType,
-    into: &ValueType,
-    ctx: &Context,
-) -> ExecResult<bool> {
+pub fn check_if_type_fits_type(value_type: &ValueType, into: &ValueType, ctx: &Context) -> bool {
     match value_type {
         ValueType::Single(single_type) => {
             check_if_single_type_fits_type(single_type.data(), into, ctx)
         }
-        ValueType::Union(types) => {
-            for typ in types {
-                if check_if_single_type_fits_type(typ.data(), into, ctx)? {
-                    return Ok(true);
-                }
-            }
 
-            Ok(false)
-        }
+        ValueType::Union(types) => types
+            .iter()
+            .all(|typ| check_if_single_type_fits_type(typ.data(), into, ctx)),
     }
 }
 
@@ -27,21 +18,15 @@ pub fn check_if_single_type_fits_type(
     value_type: &SingleValueType,
     into: &ValueType,
     ctx: &Context,
-) -> ExecResult<bool> {
+) -> bool {
     match into {
         ValueType::Single(single) => {
             check_if_single_type_fits_single(value_type, single.data(), ctx)
         }
 
-        ValueType::Union(types) => {
-            for typ in types {
-                if check_if_single_type_fits_single(value_type, typ.data(), ctx)? {
-                    return Ok(true);
-                }
-            }
-
-            Ok(false)
-        }
+        ValueType::Union(types) => types
+            .iter()
+            .all(|typ| check_if_single_type_fits_single(value_type, typ.data(), ctx)),
     }
 }
 
@@ -49,19 +34,13 @@ pub fn check_if_type_fits_single(
     value_type: &ValueType,
     into: &SingleValueType,
     ctx: &Context,
-) -> ExecResult<bool> {
+) -> bool {
     match value_type {
         ValueType::Single(single) => check_if_single_type_fits_single(single.data(), into, ctx),
 
-        ValueType::Union(types) => {
-            for typ in types {
-                if check_if_single_type_fits_single(typ.data(), into, ctx)? {
-                    return Ok(true);
-                }
-            }
-
-            Ok(false)
-        }
+        ValueType::Union(types) => types
+            .iter()
+            .all(|typ| check_if_single_type_fits_single(typ.data(), into, ctx)),
     }
 }
 
@@ -69,9 +48,9 @@ pub fn check_if_single_type_fits_single(
     value_type: &SingleValueType,
     into: &SingleValueType,
     ctx: &Context,
-) -> ExecResult<bool> {
+) -> bool {
     match (value_type, into) {
-        (SingleValueType::Any, _) | (_, SingleValueType::Any) => Ok(true),
+        (SingleValueType::Any, _) | (_, SingleValueType::Any) => true,
 
         (SingleValueType::TypeAlias(name), _) => {
             let typ = ctx
@@ -97,32 +76,32 @@ pub fn check_if_single_type_fits_single(
             check_if_single_type_fits_type(value_type, &typ.data, ctx)
         }
 
-        (SingleValueType::Null, SingleValueType::Null) => Ok(true),
-        (SingleValueType::Null, _) | (_, SingleValueType::Null) => Ok(false),
+        (SingleValueType::Null, SingleValueType::Null) => true,
+        (SingleValueType::Null, _) | (_, SingleValueType::Null) => false,
 
-        (SingleValueType::Bool, SingleValueType::Bool) => Ok(true),
-        (SingleValueType::Bool, _) | (_, SingleValueType::Bool) => Ok(false),
+        (SingleValueType::Bool, SingleValueType::Bool) => true,
+        (SingleValueType::Bool, _) | (_, SingleValueType::Bool) => false,
 
-        (SingleValueType::Int, SingleValueType::Int) => Ok(true),
-        (SingleValueType::Int, _) | (_, SingleValueType::Int) => Ok(false),
+        (SingleValueType::Int, SingleValueType::Int) => true,
+        (SingleValueType::Int, _) | (_, SingleValueType::Int) => false,
 
-        (SingleValueType::Float, SingleValueType::Float) => Ok(true),
-        (SingleValueType::Float, _) | (_, SingleValueType::Float) => Ok(false),
+        (SingleValueType::Float, SingleValueType::Float) => true,
+        (SingleValueType::Float, _) | (_, SingleValueType::Float) => false,
 
-        (SingleValueType::String, SingleValueType::String) => Ok(true),
-        (SingleValueType::String, _) | (_, SingleValueType::String) => Ok(false),
+        (SingleValueType::String, SingleValueType::String) => true,
+        (SingleValueType::String, _) | (_, SingleValueType::String) => false,
 
-        (SingleValueType::List, SingleValueType::List) => Ok(true),
-        (SingleValueType::List, _) | (_, SingleValueType::List) => Ok(false),
+        (SingleValueType::List, SingleValueType::List) => true,
+        (SingleValueType::List, _) | (_, SingleValueType::List) => false,
 
-        (SingleValueType::Range, SingleValueType::Range) => Ok(true),
-        (SingleValueType::Range, _) | (_, SingleValueType::Range) => Ok(false),
+        (SingleValueType::Range, SingleValueType::Range) => true,
+        (SingleValueType::Range, _) | (_, SingleValueType::Range) => false,
 
-        (SingleValueType::Map, SingleValueType::Map) => Ok(true),
-        (SingleValueType::Map, _) | (_, SingleValueType::Map) => Ok(false),
+        (SingleValueType::Map, SingleValueType::Map) => true,
+        (SingleValueType::Map, _) | (_, SingleValueType::Map) => false,
 
-        (SingleValueType::UntypedStruct, SingleValueType::UntypedStruct) => Ok(true),
-        (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => Ok(true),
+        (SingleValueType::UntypedStruct, SingleValueType::UntypedStruct) => true,
+        (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => true,
 
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
             // TODO: make comparison stricter (no excess properties?)
@@ -133,23 +112,23 @@ pub fn check_if_single_type_fits_single(
                     .iter()
                     .find(|member| member.data().name.data() == name.data())
                 {
-                    None => return Ok(false),
+                    None => return false,
                     Some(member) => {
-                        if !check_if_type_fits_type(member.data().typ.data(), typ.data(), ctx)? {
-                            return Ok(false);
+                        if !check_if_type_fits_type(member.data().typ.data(), typ.data(), ctx) {
+                            return false;
                         }
                     }
                 }
             }
 
-            Ok(true)
+            true
         }
 
-        (SingleValueType::UntypedStruct, _) | (_, SingleValueType::UntypedStruct) => Ok(false),
-        (SingleValueType::TypedStruct(_), _) | (_, SingleValueType::TypedStruct(_)) => Ok(false),
+        (SingleValueType::UntypedStruct, _) | (_, SingleValueType::UntypedStruct) => false,
+        (SingleValueType::TypedStruct(_), _) | (_, SingleValueType::TypedStruct(_)) => false,
 
-        (SingleValueType::Error, SingleValueType::Error) => Ok(true),
-        (SingleValueType::Error, _) | (_, SingleValueType::Error) => Ok(false),
+        (SingleValueType::Error, SingleValueType::Error) => true,
+        (SingleValueType::Error, _) | (_, SingleValueType::Error) => false,
 
         (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
             check_fn_signature_equality(signature.data(), into.data(), ctx)
@@ -161,18 +140,18 @@ pub fn check_fn_signature_equality(
     signature: &FnSignature,
     into: &FnSignature,
     ctx: &Context,
-) -> ExecResult<bool> {
+) -> bool {
     if signature.args.data().len() != into.args.data().len() {
-        return Ok(false);
+        return false;
     }
 
     for (arg, cmp_arg) in signature.args.data().iter().zip(into.args.data().iter()) {
         if arg.is_optional != cmp_arg.is_optional {
-            return Ok(false);
+            return false;
         }
 
         if arg.is_rest != cmp_arg.is_rest {
-            return Ok(false);
+            return false;
         }
 
         match (&arg.names, &cmp_arg.names) {
@@ -184,23 +163,23 @@ pub fn check_fn_signature_equality(
                 FnArgNames::LongAndShortFlag { long: _, short: _ },
             ) => {}
 
-            (FnArgNames::Positional(_), _) | (_, FnArgNames::Positional(_)) => return Ok(false),
-            (FnArgNames::ShortFlag(_), _) | (_, FnArgNames::ShortFlag(_)) => return Ok(false),
-            (FnArgNames::LongFlag(_), _) | (_, FnArgNames::LongFlag(_)) => return Ok(false),
+            (FnArgNames::Positional(_), _) | (_, FnArgNames::Positional(_)) => return false,
+            (FnArgNames::ShortFlag(_), _) | (_, FnArgNames::ShortFlag(_)) => return false,
+            (FnArgNames::LongFlag(_), _) | (_, FnArgNames::LongFlag(_)) => return false,
         }
 
         if let (Some(arg_type), Some(cmp_arg_type)) = (&arg.typ, &cmp_arg.typ) {
-            if !check_if_type_fits_type(arg_type.data(), cmp_arg_type.data(), ctx)? {
-                return Ok(false);
+            if !check_if_type_fits_type(arg_type.data(), cmp_arg_type.data(), ctx) {
+                return false;
             }
         }
     }
 
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
-        if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), ctx)? {
-            return Ok(false);
+        if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), ctx) {
+            return false;
         }
     }
 
-    Ok(true)
+    true
 }
