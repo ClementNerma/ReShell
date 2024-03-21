@@ -1,22 +1,29 @@
-use reshell_parser::ast::{FnArg, FnArgNames, RuntimeEaten, SingleValueType, ValueType};
+use reshell_parser::ast::{FnArg, FnFlagArgNames, RuntimeEaten, SingleValueType, ValueType};
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
 #[derive(Clone, Copy)]
 pub enum ArgNames {
     Positional(&'static str),
-    ShortFlag(char),
-    LongFlag(&'static str),
-    LongAndShortFlag(&'static str, char),
+    Flag(ArgFlagNames),
+}
+
+#[derive(Clone, Copy)]
+pub enum ArgFlagNames {
+    Short(char),
+    Long(&'static str),
+    LongAndShort(&'static str, char),
 }
 
 impl ArgNames {
     pub fn static_name(&self) -> String {
         match self {
             ArgNames::Positional(name) => (*name).to_owned(),
-            ArgNames::ShortFlag(short) => short.to_string(),
-            ArgNames::LongFlag(long) => (*long).to_owned(),
-            ArgNames::LongAndShortFlag(long, _) => (*long).to_owned(),
+            ArgNames::Flag(flag) => match flag {
+                ArgFlagNames::Short(short) => short.to_string(),
+                ArgFlagNames::Long(long) => (*long).to_owned(),
+                ArgFlagNames::LongAndShort(long, _) => (*long).to_owned(),
+            },
         }
     }
 }
@@ -117,15 +124,15 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
     }
 
     pub fn short_flag(short: char) -> Self {
-        Self::direct(ArgNames::ShortFlag(short))
+        Self::direct(ArgNames::Flag(ArgFlagNames::Short(short)))
     }
 
     pub fn long_flag(long: &'static str) -> Self {
-        Self::direct(ArgNames::LongFlag(long))
+        Self::direct(ArgNames::Flag(ArgFlagNames::Long(long)))
     }
 
     pub fn long_and_short_flag(long: &'static str, short: char) -> Self {
-        Self::direct(ArgNames::LongAndShortFlag(long, short))
+        Self::direct(ArgNames::Flag(ArgFlagNames::LongAndShort(long, short)))
     }
 }
 
@@ -203,26 +210,41 @@ pub(super) fn generate_internal_arg_decl<
 >(
     arg: A,
 ) -> FnArg {
-    FnArg {
-        names: match arg.names() {
-            ArgNames::Positional(name) => {
-                FnArgNames::Positional(RuntimeEaten::Internal(name.to_owned()))
-            }
-
-            ArgNames::ShortFlag(flag) => FnArgNames::ShortFlag(RuntimeEaten::Internal(flag)),
-
-            ArgNames::LongFlag(flag) => {
-                FnArgNames::LongFlag(RuntimeEaten::Internal(flag.to_owned()))
-            }
-
-            ArgNames::LongAndShortFlag(long, short) => FnArgNames::LongAndShortFlag {
-                long: RuntimeEaten::Internal(long.to_owned()),
-                short: RuntimeEaten::Internal(short),
-            },
+    match arg.names() {
+        ArgNames::Positional(name) => FnArg::Positional {
+            name: RuntimeEaten::Internal(name.to_owned()),
+            is_optional: arg.is_optional(),
+            typ: Some(RuntimeEaten::Internal(arg.base_typing().underlying_type())),
         },
-        is_optional: arg.is_optional(),
-        is_rest: arg.is_rest(),
-        typ: Some(RuntimeEaten::Internal(arg.base_typing().underlying_type())),
+
+        ArgNames::Flag(flag) => {
+            let names = match flag {
+                ArgFlagNames::Short(short) => {
+                    FnFlagArgNames::ShortFlag(RuntimeEaten::Internal(short))
+                }
+
+                ArgFlagNames::Long(long) => {
+                    FnFlagArgNames::LongFlag(RuntimeEaten::Internal(long.to_owned()))
+                }
+
+                ArgFlagNames::LongAndShort(long, short) => FnFlagArgNames::LongAndShortFlag {
+                    long: RuntimeEaten::Internal(long.to_owned()),
+                    short: RuntimeEaten::Internal(short),
+                },
+            };
+
+            match arg.base_typing().underlying_type() {
+                ValueType::Single(eaten) if matches!(eaten.data(), SingleValueType::Bool) => {
+                    FnArg::PresenceFlag { names }
+                }
+
+                typ => FnArg::NormalFlag {
+                    names,
+                    is_optional: arg.is_optional(),
+                    typ: Some(RuntimeEaten::Internal(typ)),
+                },
+            }
+        }
     }
 }
 

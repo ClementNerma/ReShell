@@ -1,7 +1,7 @@
 use colored::Color;
 use parsy::FileId;
 use reshell_parser::ast::{
-    CmdFlagNameArg, FlagValueSeparator, FnArg, FnArgNames, FnSignature, RuntimeCodeRange,
+    CmdFlagNameArg, FlagValueSeparator, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange,
     SingleValueType, StructTypeMember, ValueType,
 };
 
@@ -324,69 +324,55 @@ impl PrettyPrintable for FnSignature {
 
 impl PrettyPrintable for FnArg {
     fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece {
-        let Self {
-            names,
-            is_optional,
-            is_rest,
-            typ,
-        } = self;
-
-        let mut out = vec![];
-
-        if *is_rest {
-            out.push(PrettyPrintablePiece::colored_atomic(
-                "...",
-                Color::BrightYellow,
-            ));
-        }
-
-        match names {
-            FnArgNames::Positional(name) => {
-                out.extend([PrettyPrintablePiece::colored_atomic(
-                    name.data().clone(),
+        match self {
+            FnArg::Positional {
+                name,
+                is_optional,
+                typ,
+            } => {
+                let mut out = vec![PrettyPrintablePiece::colored_atomic(
+                    name.data(),
                     Color::Red,
-                )]);
-            }
-            FnArgNames::ShortFlag(short) => {
-                out.extend([
-                    PrettyPrintablePiece::colored_atomic("-", Color::BrightYellow),
-                    PrettyPrintablePiece::colored_atomic(*short.data(), Color::Red),
-                ]);
-            }
-            FnArgNames::LongFlag(long) => {
-                out.extend([
-                    PrettyPrintablePiece::colored_atomic("--", Color::BrightYellow),
-                    PrettyPrintablePiece::colored_atomic(long.data().clone(), Color::Red),
-                ]);
-            }
-            FnArgNames::LongAndShortFlag { long, short } => {
-                out.extend([
-                    PrettyPrintablePiece::colored_atomic("--", Color::BrightYellow),
-                    PrettyPrintablePiece::colored_atomic(long.data().clone(), Color::Red),
-                    PrettyPrintablePiece::colored_atomic(" (", Color::Blue),
-                    PrettyPrintablePiece::colored_atomic("-", Color::BrightYellow),
-                    PrettyPrintablePiece::colored_atomic(*short.data(), Color::BrightYellow),
-                    PrettyPrintablePiece::colored_atomic(")", Color::Blue),
-                ]);
-            }
-        }
+                )];
 
-        if *is_optional {
-            out.push(PrettyPrintablePiece::colored_atomic(
-                "?",
+                if *is_optional {
+                    out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
+                }
+
+                if let Some(typ) = typ {
+                    out.push(PrettyPrintablePiece::colored_atomic(":", Color::White));
+                    out.push(typ.data().generate_pretty_data(ctx));
+                }
+
+                PrettyPrintablePiece::Join(out)
+            }
+
+            FnArg::PresenceFlag { names } => names.generate_pretty_data(ctx),
+
+            FnArg::NormalFlag {
+                names,
+                is_optional,
+                typ,
+            } => {
+                let mut out: Vec<PrettyPrintablePiece> = vec![names.generate_pretty_data(ctx)];
+
+                if *is_optional {
+                    out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
+                }
+
+                if let Some(typ) = typ {
+                    out.push(PrettyPrintablePiece::colored_atomic(":", Color::White));
+                    out.push(typ.data().generate_pretty_data(ctx));
+                }
+
+                PrettyPrintablePiece::Join(out)
+            }
+
+            FnArg::Rest { name } => PrettyPrintablePiece::colored_atomic(
+                format!("...{}", name.data()),
                 Color::BrightYellow,
-            ));
+            ),
         }
-
-        if let Some(typ) = typ {
-            out.push(PrettyPrintablePiece::colored_atomic(
-                ": ",
-                Color::BrightYellow,
-            ));
-            out.push(typ.data().generate_pretty_data(ctx));
-        }
-
-        PrettyPrintablePiece::Join(out)
     }
 }
 
@@ -434,10 +420,24 @@ impl PrettyPrintable for CmdSingleArgResult {
                 PrettyPrintablePiece::Join(join)
             }
 
-            CmdSingleArgResult::RestSeparator => {
+            CmdSingleArgResult::RestSeparator(_) => {
                 PrettyPrintablePiece::colored_atomic("--", Color::Yellow)
             }
         }
+    }
+}
+
+impl PrettyPrintable for FnFlagArgNames {
+    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+        let str = match self {
+            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data()),
+            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data()),
+            FnFlagArgNames::LongAndShortFlag { long, short } => {
+                format!("--{} (-{})", long.data(), short.data())
+            }
+        };
+
+        PrettyPrintablePiece::colored_atomic(str, Color::BrightYellow)
     }
 }
 

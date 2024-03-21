@@ -319,7 +319,7 @@ pub enum CmdArg {
     ValueMaking(CmdValueMakingArg),
     Flag(CmdFlagArg),
     SpreadVar(Eaten<String>),
-    RestSeparator,
+    RestSeparator(Eaten<()>),
 }
 
 #[derive(Debug, Clone)]
@@ -371,16 +371,27 @@ pub enum CmdPipeType {
 }
 
 #[derive(Debug, Clone)]
-pub struct FnArg {
-    pub names: FnArgNames,
-    pub is_optional: bool,
-    pub is_rest: bool,
-    pub typ: Option<RuntimeEaten<ValueType>>,
+pub enum FnArg {
+    Positional {
+        name: RuntimeEaten<String>,
+        is_optional: bool,
+        typ: Option<RuntimeEaten<ValueType>>,
+    },
+    PresenceFlag {
+        names: FnFlagArgNames,
+    },
+    NormalFlag {
+        names: FnFlagArgNames,
+        is_optional: bool,
+        typ: Option<RuntimeEaten<ValueType>>,
+    },
+    Rest {
+        name: RuntimeEaten<String>,
+    },
 }
 
 #[derive(Debug, Clone)]
-pub enum FnArgNames {
-    Positional(RuntimeEaten<String>),
+pub enum FnFlagArgNames {
     ShortFlag(RuntimeEaten<char>),
     LongFlag(RuntimeEaten<String>),
     LongAndShortFlag {
