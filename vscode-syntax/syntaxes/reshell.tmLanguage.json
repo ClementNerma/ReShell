@@ -62,7 +62,7 @@
 					"name": "entity.name.function"
 				},
 				{
-					"match": "@\\(",
+					"match": "[\\$@]\\(",
 					"name": "keyword"
 				},
 				{

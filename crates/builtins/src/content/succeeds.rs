@@ -1,4 +1,7 @@
-use reshell_runtime::{cmd::run_cmd, errors::ExecErrorNature};
+use reshell_runtime::{
+    cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
+    errors::ExecErrorNature,
+};
 
 use crate::define_internal_fn;
 
@@ -18,7 +21,17 @@ fn run() -> Runner {
         let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
 
         // TODO: ensure the error is for the call itself, not inside one of its inner arguments (e.g. closure) etc.
-        match run_cmd(&cmd, ctx, silent) {
+        match run_cmd(
+            &cmd,
+            ctx,
+            CmdExecParams {
+                capture: if silent {
+                    Some(CmdPipeCapture::Both)
+                } else {
+                    None
+                },
+            },
+        ) {
             Ok(_) => Ok(Some(RuntimeValue::Bool(true))),
             Err(err) => match err.nature {
                 ExecErrorNature::CommandFailedToStart { message: _ }

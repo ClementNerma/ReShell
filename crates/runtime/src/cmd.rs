@@ -23,11 +23,25 @@ use crate::{
     values::{LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
+#[derive(Clone, Copy)]
+pub struct CmdExecParams {
+    pub capture: Option<CmdPipeCapture>,
+}
+
+#[derive(Clone, Copy)]
+pub enum CmdPipeCapture {
+    Stdout,
+    Stderr,
+    Both,
+}
+
 pub fn run_cmd(
     call: &Eaten<CmdCall>,
     ctx: &mut Context,
-    capture_stdout: bool,
-) -> ExecResult<(Option<String>, Option<LocatedValue>)> {
+    params: CmdExecParams,
+) -> ExecResult<CmdExecResult> {
+    let CmdExecParams { capture } = params;
+
     ctx.ensure_no_ctrl_c_press(call.at)?;
 
     let CmdCall { base, pipes } = &call.data;
@@ -56,7 +70,7 @@ pub fn run_cmd(
     });
 
     if chain_has_fn_call {
-        if capture_stdout {
+        if capture.is_some() {
             return Err(ctx.error(call.at, "only external commands' output can be captured"));
         }
 
@@ -107,7 +121,7 @@ pub fn run_cmd(
             }
         }
 
-        return Ok((None, last_return_value));
+        return Ok(CmdExecResult::Returned(last_return_value));
     }
 
     let mut children: Vec<(Child, CodeRange)> = Vec::with_capacity(chain.len());
@@ -133,7 +147,7 @@ pub fn run_cmd(
             args,
             pipe_type,
             next_pipe_type,
-            capture_stdout,
+            params,
             &mut children,
             ctx,
         )?;
@@ -177,7 +191,7 @@ pub fn run_cmd(
         last_output = Some(output.stdout);
     }
 
-    let captured = if capture_stdout {
+    let captured = if capture.is_some() {
         // Invalid UTF-8 output will be handled with "unknown" symbols
         let mut out = String::from_utf8_lossy(&last_output.unwrap()).into_owned();
 
@@ -190,7 +204,34 @@ pub fn run_cmd(
         None
     };
 
-    Ok((captured, None))
+    Ok(match captured {
+        Some(string) => CmdExecResult::Captured(string),
+        None => CmdExecResult::None,
+    })
+}
+
+pub enum CmdExecResult {
+    Returned(Option<LocatedValue>),
+    Captured(String),
+    None,
+}
+
+impl CmdExecResult {
+    pub fn as_returned(self) -> Option<Option<LocatedValue>> {
+        match self {
+            CmdExecResult::Returned(inner) => Some(inner),
+            CmdExecResult::Captured(_) => None,
+            CmdExecResult::None => None,
+        }
+    }
+
+    pub fn as_captured(self) -> Option<String> {
+        match self {
+            CmdExecResult::Returned(_) => None,
+            CmdExecResult::Captured(inner) => Some(inner),
+            CmdExecResult::None => None,
+        }
+    }
 }
 
 fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<EvaluatedCmdData> {
@@ -362,10 +403,12 @@ fn exec_cmd(
     args: EvaluatedCmdArgs,
     pipe_type: Option<Eaten<CmdPipeType>>,
     next_pipe_type: Option<CmdPipeType>,
-    capture_stdout: bool,
+    params: CmdExecParams,
     children: &mut [(Child, CodeRange)],
     ctx: &mut Context,
 ) -> ExecResult<Child> {
+    let CmdExecParams { capture } = params;
+
     let EvaluatedCmdArgs { env_vars, args } = args;
 
     let mut args_str = vec![];
@@ -391,17 +434,23 @@ fn exec_cmd(
             None => Stdio::inherit(),
         })
         .stdout(
-            if capture_stdout || next_pipe_type == Some(CmdPipeType::Stdout) {
+            if next_pipe_type == Some(CmdPipeType::Stdout)
+                || matches!(capture, Some(CmdPipeCapture::Stdout | CmdPipeCapture::Both))
+            {
                 Stdio::piped()
             } else {
                 Stdio::inherit()
             },
         )
-        .stderr(if next_pipe_type == Some(CmdPipeType::Stderr) {
-            Stdio::piped()
-        } else {
-            Stdio::inherit()
-        })
+        .stderr(
+            if next_pipe_type == Some(CmdPipeType::Stderr)
+                || matches!(capture, Some(CmdPipeCapture::Stderr | CmdPipeCapture::Both))
+            {
+                Stdio::piped()
+            } else {
+                Stdio::inherit()
+            },
+        )
         .spawn()
         .map_err(|err| {
             ctx.error(
@@ -575,10 +624,20 @@ pub fn eval_cmd_value_making_arg(
 
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
-        CmdValueMakingArg::CmdCall(call) => (
-            call.at,
-            RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap()),
-        ),
+        CmdValueMakingArg::CmdCall(call) => {
+            let cmd_result = run_cmd(
+                call,
+                ctx,
+                CmdExecParams {
+                    capture: Some(CmdPipeCapture::Stdout),
+                },
+            )?;
+
+            (
+                call.at,
+                RuntimeValue::String(cmd_result.as_captured().unwrap()),
+            )
+        }
 
         CmdValueMakingArg::Raw(raw) => (raw.at, RuntimeValue::String(treat_cwd_raw(raw, ctx)?)),
     };
