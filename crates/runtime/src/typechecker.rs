@@ -145,19 +145,17 @@ pub fn check_fn_signature_equality(
         match (arg, cmp_arg) {
             (
                 FnArg::Positional {
-                    name: a_name,
+                    name: _,
                     is_optional: a_is_optional,
                     typ: a_typ,
                 },
                 FnArg::Positional {
-                    name: b_name,
+                    name: _,
                     is_optional: b_is_optional,
                     typ: b_typ,
                 },
             ) => {
-                if a_name.data() != b_name.data() {
-                    return false;
-                }
+                // NOTE: We don't compare names as they only matter for the function body's scope
 
                 if a_is_optional != b_is_optional {
                     return false;
