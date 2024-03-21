@@ -393,7 +393,7 @@ pub fn program(
                         .then_ignore(char(')').critical_expectation())
                         .map(ComputedStringPiece::CmdCall),
                     // Literal character suites
-                    filter(|c| c != '"')
+                    filter(|c| c != '"' && c != '$' && c != '`' && c != '\\')
                         .repeated()
                         .at_least(1)
                         .collect_string()

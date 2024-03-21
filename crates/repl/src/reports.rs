@@ -174,6 +174,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let source = source_file.content;
 
+    let offset = source.chars().take(offset).map(char::len_utf8).sum();
+
     let line = source[..offset].chars().filter(|&c| c == '\n').count();
 
     let extract_start_line = line.saturating_sub(2) + 1;
@@ -182,23 +184,29 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         0
     } else {
         let mut line_counter = 1;
+        let mut shift = 0;
 
         source[..offset]
             .chars()
-            .position(|c| {
+            .find_map(|c| {
                 if c == '\n' {
                     line_counter += 1;
                 }
 
-                line_counter == extract_start_line
+                shift += c.len_utf8();
+
+                if line_counter == extract_start_line {
+                    Some(shift)
+                } else {
+                    None
+                }
             })
-            .unwrap()
-            + 1
+            .unwrap_or(0)
     };
 
     let mut line_counter = 0;
 
-    let afterwards = source[offset + len..].chars().position(|c| {
+    let afterwards = &source[offset + len..].chars().position(|c| {
         if c == '\n' {
             line_counter += 1;
         }
