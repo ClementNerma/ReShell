@@ -945,7 +945,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     state.register_function_body(body.clone());
 
-    check_fn_signature(signature, state)?;
+    let checked_args = check_fn_signature(signature, state)?;
 
     let FnSignature { args, ret_type: _ } = &signature.data;
 
@@ -954,14 +954,14 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         RuntimeEaten::Internal(_) => unreachable!(),
     };
 
-    let mut vars = HashMap::new();
+    let mut vars = HashMap::with_capacity(checked_args.len());
 
-    for arg in &args.data {
+    for checked_arg in checked_args {
         let CheckedFnArg {
             name_at,
             var_name,
             is_rest: _,
-        } = check_fn_arg(arg, state)?;
+        } = checked_arg;
 
         let dup = vars.insert(
             var_name,
@@ -1153,7 +1153,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         }
 
         SingleValueType::Function(signature) => match signature {
-            RuntimeEaten::Parsed(eaten) => check_fn_signature(eaten, state),
+            RuntimeEaten::Parsed(eaten) => check_fn_signature(eaten, state).map(|_| ()),
             RuntimeEaten::Internal(_) => Ok(()),
         },
 
@@ -1163,7 +1163,10 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
     }
 }
 
-fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> CheckerResult {
+fn check_fn_signature(
+    signature: &Eaten<FnSignature>,
+    state: &mut State,
+) -> CheckerResult<Vec<CheckedFnArg>> {
     state.register_function_signature(signature.clone());
 
     let FnSignature { args, ret_type } = &signature.data;
@@ -1176,12 +1179,16 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     let mut used_idents = HashSet::new();
     let mut rest_arg_name_at = None;
 
+    let mut checked_args = Vec::with_capacity(args.data.len());
+
     for arg in &args.data {
+        let checked_arg = check_fn_arg(arg, state)?;
+
         let CheckedFnArg {
             var_name,
             name_at,
             is_rest,
-        } = check_fn_arg(arg, state)?;
+        } = &checked_arg;
 
         if let Some(rest_arg_name_at) = rest_arg_name_at {
             return Err(CheckerError::new(
@@ -1190,23 +1197,25 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
             ));
         }
 
-        if is_rest {
-            rest_arg_name_at = Some(name_at);
+        if *is_rest {
+            rest_arg_name_at = Some(*name_at);
         }
 
-        if !used_idents.insert(var_name) {
+        if !used_idents.insert(var_name.clone()) {
             return Err(CheckerError::new(
-                name_at,
+                *name_at,
                 "Duplicate argument name in function",
             ));
         }
+
+        checked_args.push(checked_arg);
     }
 
     if let Some(ret_type) = ret_type {
         check_value_type(ret_type.data(), state)?;
     }
 
-    Ok(())
+    Ok(checked_args)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
