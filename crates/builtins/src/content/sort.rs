@@ -8,7 +8,7 @@ crate::define_internal_fn!(
             DetachedListType<IntType>,
             DetachedListType<FloatType>,
             DetachedListType<StringType>
-        >> = Arg::positional("list")
+        >> = Arg::method_self()
     )
 
      -> Some(UntypedListType::direct_underlying_type())

@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "chars",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("string")
+        string: RequiredArg<StringType> = Arg::method_self()
     )
 
     -> Some(DetachedListType::<StringType>::direct_underlying_type())

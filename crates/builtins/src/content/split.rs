@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "split",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("string"),
+        string: RequiredArg<StringType> = Arg::method_self(),
         separator: RequiredArg<StringType> = Arg::positional("separator")
     )
 

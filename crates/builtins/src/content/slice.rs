@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "slice",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
         length: OptionalArg<ExactIntType<usize>> = Arg::positional("length")
     )
