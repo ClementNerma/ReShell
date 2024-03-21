@@ -22,10 +22,10 @@ use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
     CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
     ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-    ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
-    FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-    RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
-    SwitchCase, Value, ValueType,
+    ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
+    FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
+    PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+    StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 use self::state::UsedItem;
@@ -477,8 +477,18 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
 
 fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) -> CheckerResult {
     match chaining {
-        ExprInnerChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
-        ExprInnerChaining::MethodCall(method_call) => {
+        ExprInnerChaining::Direct(chaining) => check_expr_direct_chaining(chaining, state),
+        ExprInnerChaining::FnCall(fn_call) => check_fn_call(fn_call, state),
+    }
+}
+
+fn check_expr_direct_chaining(
+    chaining: &ExprInnerDirectChaining,
+    state: &mut State,
+) -> CheckerResult {
+    match chaining {
+        ExprInnerDirectChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
+        ExprInnerDirectChaining::MethodCall(method_call) => {
             match check_fn_call_and_get_item(method_call, state)? {
                 UsedItem::Function(func) => {
                     if func.is_method {
@@ -494,16 +504,22 @@ fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) ->
                 UsedItem::Variable(_) | UsedItem::CmdAlias(_) => unreachable!(),
             }
         }
-
-        ExprInnerChaining::FnCall(fn_call) => check_fn_call(fn_call, state),
     }
 }
 
 fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> CheckerResult {
     match content {
-        ExprInnerContent::SingleOp { op, right } => {
+        ExprInnerContent::SingleOp {
+            op,
+            right,
+            right_chainings,
+        } => {
             check_single_op(op, state)?;
             check_expr_inner_content(&right.data, state)?;
+
+            for chaining in right_chainings {
+                check_expr_direct_chaining(&chaining.data, state)?;
+            }
         }
 
         ExprInnerContent::ParenExpr(expr) => {

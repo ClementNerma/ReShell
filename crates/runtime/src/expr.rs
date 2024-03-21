@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerChaining, ExprInnerContent, ExprOp, Function, LiteralValue, PropAccess,
-    RuntimeCodeRange, SingleOp, Value,
+    ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, Function, LiteralValue,
+    PropAccess, RuntimeCodeRange, SingleOp, Value,
 };
 
 use crate::{
@@ -244,71 +244,70 @@ fn apply_double_op(
 fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let ExprInner { content, chainings } = &inner.data;
 
-    let mut left = eval_expr_inner_content(&content.data, ctx)?;
+    let left = eval_expr_inner_content(&content.data, ctx)?;
 
-    // TODO: "mut"
-    let /*mut*/ left_at = content.at;
+    let mut left = LocatedValue::new(left, RuntimeCodeRange::Parsed(content.at));
 
     for chaining in chainings {
-        match &chaining.data {
-            ExprInnerChaining::PropAccess(acc) => {
-                let PropAccess { nature, nullable } = &acc.data;
-
-                if *nullable && matches!(left, RuntimeValue::Null) {
-                    return Ok(left);
-                }
-
-                left = eval_props_access(
-                    &mut left,
-                    [nature].into_iter(),
-                    PropAccessPolicy::Read,
-                    ctx,
-                    |d, _| match d {
-                        PropAssignment::ReadExisting(d) => d.clone(),
-                        PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => {
-                            unreachable!()
-                        }
-                    },
-                )?;
-            }
-
-            ExprInnerChaining::MethodCall(fn_call) => {
-                let result = eval_fn_call_type(
-                    fn_call,
-                    Some(FnCallType::Method(LocatedValue::new(
-                        left,
-                        RuntimeCodeRange::Parsed(left_at),
-                    ))),
-                    ctx,
-                )?;
-
-                let loc_val = result.ok_or_else(|| {
-                    ctx.error(fn_call.at, "called function did not return a value")
-                })?;
-
-                left = loc_val.value;
+        let eval = match &chaining.data {
+            ExprInnerChaining::Direct(chaining) => {
+                eval_expr_inner_direct_chaining(chaining, left, ctx)?
             }
 
             ExprInnerChaining::FnCall(fn_call) => {
-                let result = eval_fn_call_type(
-                    fn_call,
-                    Some(FnCallType::Piped(LocatedValue::new(
-                        left,
-                        RuntimeCodeRange::Parsed(left_at),
-                    ))),
-                    ctx,
-                )?;
+                let result = eval_fn_call_type(fn_call, Some(FnCallType::Piped(left)), ctx)?;
 
                 let loc_val = result.ok_or_else(|| {
                     ctx.error(fn_call.at, "called function did not return a value")
                 })?;
 
-                left = loc_val.value;
+                loc_val.value
             }
-        }
+        };
+
+        // TODO: update location
+        left = LocatedValue::new(eval, RuntimeCodeRange::Parsed(inner.at));
     }
 
-    Ok(left)
+    Ok(left.value)
+}
+
+fn eval_expr_inner_direct_chaining(
+    chaining: &ExprInnerDirectChaining,
+    mut left: LocatedValue,
+    ctx: &mut Context,
+) -> ExecResult<RuntimeValue> {
+    match &chaining {
+        ExprInnerDirectChaining::PropAccess(acc) => {
+            let PropAccess { nature, nullable } = &acc.data;
+
+            if *nullable && matches!(left.value, RuntimeValue::Null) {
+                return Ok(left.value);
+            }
+
+            eval_props_access(
+                &mut left.value,
+                [nature].into_iter(),
+                PropAccessPolicy::Read,
+                ctx,
+                |d, _| match d {
+                    PropAssignment::ReadExisting(d) => d.clone(),
+                    PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => {
+                        unreachable!()
+                    }
+                },
+            )
+        }
+
+        ExprInnerDirectChaining::MethodCall(fn_call) => {
+            let result = eval_fn_call_type(fn_call, Some(FnCallType::Method(left)), ctx)?;
+
+            let loc_val = result
+                .ok_or_else(|| ctx.error(fn_call.at, "called function did not return a value"))?;
+
+            Ok(loc_val.value)
+        }
+    }
 }
 
 fn eval_expr_inner_content(
@@ -316,11 +315,26 @@ fn eval_expr_inner_content(
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
     match &expr_inner_content {
-        ExprInnerContent::SingleOp { op, right } => {
+        ExprInnerContent::SingleOp {
+            op,
+            right,
+            right_chainings,
+        } => {
+            // TODO: deduplicate code from "eval_expr_inner" :(
+
             let right_val = eval_expr_inner_content(&right.data, ctx)?;
 
+            let mut right_val = LocatedValue::new(right_val, RuntimeCodeRange::Parsed(right.at));
+
+            for chaining in right_chainings {
+                let eval = eval_expr_inner_direct_chaining(&chaining.data, right_val, ctx)?;
+
+                // TODO: update location
+                right_val = LocatedValue::new(eval, RuntimeCodeRange::Parsed(right.at));
+            }
+
             match op.data {
-                SingleOp::Neg => match right_val {
+                SingleOp::Neg => match right_val.value {
                     RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
 
                     _ => Err(ctx.error(
@@ -328,6 +342,7 @@ fn eval_expr_inner_content(
                         format!(
                             "expected a boolean due to operator, found a: {}",
                             right_val
+                                .value
                                 .get_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),

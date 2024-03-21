@@ -111,8 +111,8 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Pipes
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
-                // @direct marker
-                simple("(@direct)\\b", [Magenta]),
+                // Markers
+                simple("(@direct|@include)\\b", [Magenta]),
 
                 // Normalized flags
                 simple_followed_by("\\s((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),

@@ -14,10 +14,11 @@ use crate::{
         Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
         CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
-        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
-        FnCallArg, FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue,
-        Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp,
-        SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+        ExprInner, ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp,
+        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
+        FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase,
+        Value, ValueType,
     },
     files::SourceFile,
 };
@@ -541,6 +542,8 @@ pub fn program(
             .then_ignore(msnl)
             .then_ignore(char('}').critical_expectation());
 
+        let expr_inner_direct_chaining = late::<ExprInnerDirectChaining>();
+
         let expr_inner_content = recursive(|expr_inner_content| {
             choice::<_, ExprInnerContent>((
                 // Single operator (e.g. '!')
@@ -548,7 +551,14 @@ pub fn program(
                     .spanned()
                     .then_ignore(ms)
                     .then(expr_inner_content.map(Box::new).spanned())
-                    .map(|(op, right)| ExprInnerContent::SingleOp { op, right }),
+                    .then(expr_inner_direct_chaining.clone().spanned().repeated_vec())
+                    .map(
+                        |((op, right), right_chainings)| ExprInnerContent::SingleOp {
+                            op,
+                            right,
+                            right_chainings,
+                        },
+                    ),
                 // Parenthesis-wrapped expression
                 char('(')
                     .ignore_then(expr.clone().map(Box::new).spanned())
@@ -658,17 +668,23 @@ pub fn program(
                 nature,
             });
 
-        let expr_inner_chaining = choice::<_, ExprInnerChaining>((
+        expr_inner_direct_chaining.finish(choice::<_, ExprInnerDirectChaining>((
             char('.')
                 .ignore_then(fn_call.clone())
                 .spanned()
-                .map(ExprInnerChaining::MethodCall),
+                .map(ExprInnerDirectChaining::MethodCall),
+            prop_access
+                .spanned()
+                .map(ExprInnerDirectChaining::PropAccess),
+        )));
+
+        let expr_inner_chaining = choice::<_, ExprInnerChaining>((
+            expr_inner_direct_chaining.map(ExprInnerChaining::Direct),
             just("->")
                 .padded_by(msnl)
                 .ignore_then(fn_call.clone())
                 .spanned()
                 .map(ExprInnerChaining::FnCall),
-            prop_access.spanned().map(ExprInnerChaining::PropAccess),
         ));
 
         let expr_inner = expr_inner_content
@@ -1217,7 +1233,7 @@ pub fn program(
             //
             // Include statement
             //
-            just("include")
+            just("@include")
                 .ignore_then(s)
                 .ignore_then(literal_string.spanned().critical("expected a file path"))
                 .try_map(move |path| load_file(path.data, path.at.start.file_id))
