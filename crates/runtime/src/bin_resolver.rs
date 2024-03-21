@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     fmt,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 
@@ -122,11 +121,15 @@ impl BinariesResolver {
                                 }
 
                                 #[cfg(target_family = "unix")]
-                                // Ensure exec permissions are present
-                                if mt.permissions().mode() & 111 != 0 {
-                                    Some(path)
-                                } else {
-                                    None
+                                {
+                                    use std::os::unix::PermissionsExt;
+
+                                    // Ensure exec permissions are present
+                                    if mt.permissions().mode() & 111 != 0 {
+                                        Some(path)
+                                    } else {
+                                        None
+                                    }
                                 }
 
                                 #[cfg(not(target_family = "unix"))]
