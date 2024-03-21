@@ -438,16 +438,6 @@ fn exec_cmd(
         // e.g. Windows Store applications' binaries
         .unwrap_or(cmd_path);
 
-    // .map_err(|err| {
-    //     ctx.error(
-    //         name.at,
-    //         format!(
-    //             "Failed to canonicalize binary path '{}': {err}",
-    //             cmd_path.display()
-    //         ),
-    //     )
-    // })?;
-
     // Actually run the command
     let child = Command::new(cmd_path)
         .envs(env_vars)
