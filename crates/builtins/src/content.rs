@@ -62,19 +62,12 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "exit",
 
                 Args [ArgsAt, ArgsTy] (
-                    code: OptionalArg<IntType> => Arg::positional("code")
+                    code: OptionalArg<ExactIntType<u8>> => Arg::positional("code")
                 )
 
                 -> None,
 
-                |at, Args { code }, ArgsAt { code: code_at }, _, ctx| {
-                    let code = code
-                        .map(|code|
-                            u8::try_from(code)
-                                .map_err(|_| ctx.error(code_at.unwrap(), format!("code must be in 0..255, got {code}")))
-                        )
-                        .transpose()?;
-
+                |at, Args { code }, _, _, ctx| {
                     Err(ctx.exit(at, code))
                 }
             ),
