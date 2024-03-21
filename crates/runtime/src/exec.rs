@@ -322,7 +322,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
                             value: GcCell::new(Some(LocatedValue::new(
-                                RuntimeValue::Int(i as i64),
+                                RuntimeValue::Int(i),
                                 RuntimeCodeRange::Parsed(iter_var.at),
                             ))),
                         },

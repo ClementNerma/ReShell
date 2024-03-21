@@ -73,8 +73,8 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "range",
 
                 Args [ArgsAt] (
-                    from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
-                    to: RequiredArg<ExactIntType<usize>> = Arg::positional("to")
+                    from: RequiredArg<IntType> = Arg::positional("from"),
+                    to: RequiredArg<IntType> = Arg::positional("to")
                 )
 
                 -> Some(RangeType::direct_underlying_type()),
@@ -810,7 +810,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 |_, _, _, _| {
                     let cols = match terminal_size::terminal_size() {
-                        Some((Width(width), Height(_))) => RuntimeValue::Int(width as i64),
+                        Some((Width(width), Height(_))) => RuntimeValue::Int(i64::try_from(width).unwrap()),
                         None => RuntimeValue::Null
                     };
 
@@ -830,7 +830,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 |_, _, _, _| {
                     let rows = match terminal_size::terminal_size() {
-                        Some((Width(_), Height(height))) => RuntimeValue::Int(height as i64),
+                        Some((Width(_), Height(height))) => RuntimeValue::Int(i64::try_from(height).unwrap()),
                         None => RuntimeValue::Null
                     };
 

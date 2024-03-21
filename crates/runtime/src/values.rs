@@ -84,7 +84,7 @@ pub enum RuntimeValue {
     Int(i64),
     Float(f64),
     String(String),
-    Range { from: usize, to: usize },
+    Range { from: i64, to: i64 },
     Error { at: CodeRange, msg: String },
 
     // Containers
