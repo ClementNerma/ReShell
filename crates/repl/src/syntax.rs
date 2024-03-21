@@ -12,6 +12,7 @@ pub struct RuleSet {
 #[derive(Debug)]
 pub enum Rule {
     Simple(SimpleRule),
+    Progressive(SimpleRule, Vec<SimpleRule>),
     Nested(NestingRule),
     Group(String),
 }
@@ -120,7 +121,7 @@ impl Highlighter {
 
         for rule in rules {
             match rule {
-                Rule::Simple(_) => continue,
+                Rule::Simple(_) | Rule::Progressive(_, _) => continue,
 
                 Rule::Nested(rule) => {
                     if let Some(matched) = rule.begin.matches.find(text) {
@@ -190,34 +191,54 @@ impl Highlighter {
         let mut inner_shift = 0;
         let mut untouched = 0;
 
-        while let Some((rule, captured)) =
-            self.find_nearest_simple_rule(&text[inner_shift..], rules)
-        {
+        let mut apply_rule = |rule: &SimpleRule, captured: Captures, inner_shift: &mut usize| {
             let SimpleRule { matches: _, style } = rule;
 
             for (i, style) in style.iter().enumerate() {
                 let captured = captured.get(i + 1).unwrap();
 
-                if !text[untouched..inner_shift + captured.start()].is_empty() {
+                if !text[untouched..*inner_shift + captured.start()].is_empty() {
                     out.push(HighlightPiece {
                         start: curr_shift + untouched,
-                        len: inner_shift + captured.start() - untouched,
+                        len: *inner_shift + captured.start() - untouched,
                         style: None,
                     });
                 }
 
                 out.push(HighlightPiece {
-                    start: curr_shift + inner_shift + captured.start(),
+                    start: curr_shift + *inner_shift + captured.start(),
                     len: captured.len(),
                     style: Some(*style),
                 });
 
-                untouched = inner_shift + captured.start() + captured.len();
+                untouched = *inner_shift + captured.start() + captured.len();
             }
 
             let full_match = captured.get(0).unwrap();
 
-            inner_shift += full_match.start() + full_match.len();
+            *inner_shift += full_match.start() + full_match.len();
+        };
+
+        while let Some((rule, captured, following)) =
+            self.find_nearest_simple_rule(&text[inner_shift..], rules)
+        {
+            apply_rule(rule, captured, &mut inner_shift);
+
+            let Some(following) = following else {
+                continue;
+            };
+
+            for rule in following {
+                let Some(captured) = rule.matches.captures(&text[inner_shift..]) else {
+                    break;
+                };
+
+                if captured.get(0).unwrap().start() != 0 {
+                    break;
+                }
+
+                apply_rule(rule, captured, &mut inner_shift);
+            }
         }
 
         if !text[untouched..].is_empty() {
@@ -233,7 +254,7 @@ impl Highlighter {
         &'a self,
         text: &'b str,
         rules: &'a [Rule],
-    ) -> Option<(&'a SimpleRule, Captures<'b>)> {
+    ) -> Option<(&'a SimpleRule, Captures<'b>, Option<&'a Vec<SimpleRule>>)> {
         if text.is_empty() {
             return None;
         }
@@ -244,11 +265,19 @@ impl Highlighter {
                     let SimpleRule { matches, style: _ } = simple;
 
                     if let Some(captured) = matches.captures(text) {
-                        return Some((simple, captured));
+                        return Some((simple, captured, None));
                     }
                 }
 
-                Rule::Nested(_) => unreachable!(),
+                Rule::Progressive(first, next) => {
+                    let SimpleRule { matches, style: _ } = first;
+
+                    if let Some(captured) = matches.captures(text) {
+                        return Some((first, captured, Some(next)));
+                    }
+                }
+
+                Rule::Nested(_) => continue,
 
                 Rule::Group(name) => {
                     if let Some(ret) =
