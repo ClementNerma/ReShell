@@ -118,6 +118,7 @@ pub fn start(ctx: &mut Context) -> Option<ExitCode> {
                     return Some(ExitCode::from(code));
                 }
             },
+
             Err(ref err) => {
                 reports::print_error(err, ctx.files_map());
             }
