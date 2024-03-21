@@ -18,7 +18,7 @@ use reshell_runtime::{
 
 use crate::helper::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
 
-macro_rules! declare_basic_types {
+macro_rules! declare_basic_type_handlers {
     ($($name: ident ($variant: ident) = $type: ty => $value_ident: ident: $parser: expr),+) => {
         $(
             pub struct $name;
@@ -44,18 +44,7 @@ macro_rules! declare_basic_types {
     };
 }
 
-macro_rules! implement_specific_int_types {
-    ($($int_type: ident),+) => {
-        $(
-            impl SpecificIntType for $int_type {
-                const MIN: Self = Self::MIN;
-                const MAX: Self = Self::MAX;
-            }
-        )+
-    };
-}
-
-declare_basic_types!(
+declare_basic_type_handlers!(
     AnyType (Any) = RuntimeValue => value: Ok(value),
 
     NullType (Null) = () => value: match value {
@@ -147,6 +136,17 @@ impl<From: SpecificIntType> SingleTypingDirectCreation for ExactIntType<From> {
 pub trait SpecificIntType: TryFrom<i64> + Display {
     const MIN: Self;
     const MAX: Self;
+}
+
+macro_rules! implement_specific_int_types {
+    ($($int_type: ident),+) => {
+        $(
+            impl SpecificIntType for $int_type {
+                const MIN: Self = Self::MIN;
+                const MAX: Self = Self::MAX;
+            }
+        )+
+    };
 }
 
 implement_specific_int_types!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
@@ -450,7 +450,7 @@ pub enum Union3Result<A: SingleTyping, B: SingleTyping, C: SingleTyping> {
     C(C::Parsed),
 }
 
-macro_rules! declare_typed_struct_type {
+macro_rules! declared_typed_struct_type_handler {
     ($( $struct: ident { $( $member: ident : $generic: ident ),+ } ),+ ) => {
         $(
             pub struct $struct<$($generic: Typing),+> {
@@ -505,7 +505,7 @@ macro_rules! declare_typed_struct_type {
     }
 }
 
-declare_typed_struct_type!(
+declared_typed_struct_type_handler!(
     TypedStruct1Type { a: A },
     TypedStruct3Type { a: A, b: B, c: C },
     TypedStruct4Type {
