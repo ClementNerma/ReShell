@@ -6,12 +6,12 @@ use parsy::{
 };
 
 use crate::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdPath,
-    CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
-    ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall,
-    FnCallArg, FnSignature, Function, Instruction, LiteralValue, Program, PropAccess,
-    PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
-    SwitchCase, Value, ValueType,
+    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
+    CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece,
+    DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp,
+    FlagValueSeparator, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, Instruction,
+    LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp,
+    SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub fn program() -> impl Parser<Program> {
@@ -706,7 +706,7 @@ pub fn program() -> impl Parser<Program> {
 
         let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
             just("--")
-                .ignore_then(ident.clone())
+                .ignore_then(cmd_raw.clone())
                 .map(CmdFlagNameArg::Long),
             just("-")
                 .ignore_then(first_ident_char)
@@ -762,12 +762,15 @@ pub fn program() -> impl Parser<Program> {
             cmd_flag_name_arg
                 .spanned()
                 .then(
-                    choice((s.map(|_| ()), char('=').map(|_| ())))
-                        .ignore_then(cmd_value_making_arg.clone().spanned())
-                        .or_not(),
+                    choice((
+                        s.to(FlagValueSeparator::Space),
+                        char('=').to(FlagValueSeparator::Equal),
+                    ))
+                    .then(cmd_value_making_arg.clone().spanned())
+                    .map(|(value_sep, value)| CmdFlagValueArg { value, value_sep })
+                    .or_not(),
                 )
-                .collect_string_and_data()
-                .map(|(raw, (name, value))| CmdFlagArg { name, value, raw }),
+                .map(|(name, value)| CmdFlagArg { name, value }),
         );
 
         let cmd_arg = choice::<_, CmdArg>((

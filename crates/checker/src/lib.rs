@@ -9,9 +9,9 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdPath, CmdPipe,
-    CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr,
-    ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature,
+    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagValueArg, CmdPath,
+    CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
+    Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature,
     Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeCodeRange,
     RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
     ValueType,
@@ -645,14 +645,14 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
     match &arg.data {
         FnCallArg::Expr(expr) => check_expr(&expr.data, state),
         FnCallArg::Flag(flag) => {
-            let CmdFlagArg {
-                name: _,
-                value,
-                raw: _,
-            } = &flag.data;
+            let CmdFlagArg { name: _, value } = &flag.data;
 
             match value {
-                Some(value) => check_cmd_value_making_arg(&value.data, state),
+                Some(CmdFlagValueArg {
+                    value,
+                    value_sep: _,
+                }) => check_cmd_value_making_arg(&value.data, state),
+
                 None => Ok(()),
             }
         }
@@ -740,14 +740,14 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
         CmdArg::ValueMaking(value_making) => check_cmd_value_making_arg(value_making, state),
 
         CmdArg::Flag(flag_arg) => {
-            let CmdFlagArg {
-                name: _,
-                value,
-                raw: _,
-            } = flag_arg;
+            let CmdFlagArg { name: _, value } = flag_arg;
 
             match value {
-                Some(value) => check_cmd_value_making_arg(&value.data, state),
+                Some(CmdFlagValueArg {
+                    value_sep: _,
+                    value,
+                }) => check_cmd_value_making_arg(&value.data, state),
+
                 None => Ok(()),
             }
         }

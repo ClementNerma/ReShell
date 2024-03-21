@@ -336,14 +336,25 @@ pub enum CmdValueMakingArg {
 #[derive(Debug, Clone)]
 pub struct CmdFlagArg {
     pub name: Eaten<CmdFlagNameArg>,
-    pub value: Option<Eaten<CmdValueMakingArg>>,
-    pub raw: String,
+    pub value: Option<CmdFlagValueArg>,
 }
 
 #[derive(Debug, Clone)]
 pub enum CmdFlagNameArg {
     Short(char),
     Long(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdFlagValueArg {
+    pub value_sep: FlagValueSeparator,
+    pub value: Eaten<CmdValueMakingArg>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum FlagValueSeparator {
+    Space,
+    Equal,
 }
 
 #[derive(Debug, Clone)]
