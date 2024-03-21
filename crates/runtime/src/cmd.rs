@@ -419,6 +419,11 @@ fn exec_cmd(
 
     let cmd_path = treat_cwd_raw(name, ctx)?;
 
+    let cmd_path = ctx
+        .binaries_resolver()
+        .resolve_binary_path(&cmd_path)
+        .map_err(|err| ctx.error(name.at, err.to_string()))?;
+
     let child = Command::new(cmd_path)
         .envs(env_vars)
         .args(args_str)

@@ -10,14 +10,12 @@ use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
 use reshell_parser::{ast::RuntimeCodeRange, delimiter_chars};
 use reshell_runtime::{
+    compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     context::Context,
     pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
-use crate::{
-    compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
-    utils::lev_distance::levenshtein_distance,
-};
+use crate::utils::lev_distance::levenshtein_distance;
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 

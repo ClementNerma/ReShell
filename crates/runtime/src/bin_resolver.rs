@@ -7,17 +7,24 @@ use std::{
 
 use crate::compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY};
 
-pub struct BinariesPathCache {
+pub struct BinariesResolver {
     path_dirs: Vec<String>,
     entries: HashMap<String, PathBuf>,
 }
 
-impl BinariesPathCache {
+impl BinariesResolver {
     pub fn new() -> Result<Self, PathParsingError> {
         Ok(Self {
             path_dirs: Self::parse_path_var()?,
             entries: HashMap::new(),
         })
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            path_dirs: vec![],
+            entries: HashMap::new(),
+        }
     }
 
     fn parse_path_var() -> Result<Vec<String>, PathParsingError> {
