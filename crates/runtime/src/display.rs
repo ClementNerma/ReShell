@@ -27,7 +27,6 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
         | RuntimeValue::Error { at: _, msg: _ } => Err(ctx
             .error(
                 at,
-                // TODO: colorization problem here (end of string is white)
                 format!(
                     "cannot convert {} to a string",
                     value
@@ -95,13 +94,11 @@ impl PrettyPrintable for SingleValueType {
             Self::Function(signature) => signature.data().generate_pretty_data(ctx),
             Self::TypeAlias(name) => PrintablePiece::Join(vec![
                 PrintablePiece::colored_atomic(format!("{} (", name.data), Color::Magenta),
-                // TODO: find a way to display the type based on this value's parent scopes :|
-                // match ctx.get_type_alias(name) {
-                //     Some(typ) => typ.generate_pretty_data(ctx),
-                //     None => {
-                //         PrintablePiece::colored_atomic("<unknown type alias>", Color::BrightRed)
-                //     }
-                // },
+                ctx
+                    .get_type_alias(name)
+                    .unwrap_or_else(|| panic!("internal error: type alias not found while generating pretty data for value type\n> Debug location: {name:?}"))
+                    .data
+                    .generate_pretty_data(ctx),
                 PrintablePiece::colored_atomic(")", Color::Magenta),
             ]),
         }
@@ -262,7 +259,7 @@ impl PrettyPrintable for RuntimeValue {
                 PrintablePiece::colored_atomic(" { ... }", Color::BrightBlack),
             ]),
 
-            RuntimeValue::Error { at: _, msg } => PrintablePiece::Join(vec![
+            RuntimeValue::Error { at, msg } => PrintablePiece::Join(vec![
                 PrintablePiece::colored_atomic("error(", Color::Red),
                 PrintablePiece::colored_atomic(
                     format!(
@@ -273,7 +270,8 @@ impl PrettyPrintable for RuntimeValue {
                     ),
                     Color::Green,
                 ),
-                // TODO: print "at" using provided context
+                PrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
+                PrintablePiece::colored_atomic(dbg_loc(*at, ctx.files_map()), Color::BrightMagenta),
                 PrintablePiece::colored_atomic(")", Color::Red),
             ]),
         }

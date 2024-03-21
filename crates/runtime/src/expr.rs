@@ -229,17 +229,17 @@ fn eval_expr_inner_content(
 ) -> ExecResult<RuntimeValue> {
     match &expr_inner_content {
         ExprInnerContent::SingleOp { op, right } => {
-            let right = eval_expr_inner_content(&right.data, ctx)?;
+            let right_val = eval_expr_inner_content(&right.data, ctx)?;
 
             match op.data {
-                SingleOp::Neg => match right {
+                SingleOp::Neg => match right_val {
                     RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
-                    // TODO: improve error message
+
                     _ => Err(ctx.error(
-                        op.at,
+                        right.at,
                         format!(
-                            "right operand should be a boolean, found a: {}",
-                            right
+                            "expected a boolean due to operator, found a: {}",
+                            right_val
                                 .get_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
@@ -393,17 +393,13 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             Err(err) => match err.nature {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::Exit { code: _ } => Err(err),
+                | ExecErrorNature::Exit { code: _ }
+                | ExecErrorNature::Thrown { value: _ } => Err(err),
 
                 ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status: _,
                 } => Ok(RuntimeValue::Bool(false)),
-
-                ExecErrorNature::Thrown { value: _ } => {
-                    // TODO: reset scope
-                    Ok(RuntimeValue::Bool(false))
-                }
             },
         },
 
