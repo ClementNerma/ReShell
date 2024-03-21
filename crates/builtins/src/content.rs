@@ -8,8 +8,8 @@ use crate::{
     define_internal_fn,
     helper::{Arg, ArgNames, ArgTypingDirectCreation, OptionalArg, RequiredArg},
     type_handlers::{
-        AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType, NullType,
-        RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type,
+        AnyType, BoolType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType,
+        NullType, RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type,
         Union3Result, Union3Type, UntypedListType, UntypedStructType,
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
@@ -293,7 +293,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> None,
 
-                |_, Args { path }, ArgsAt { path: path_at }, _, ctx| {
+                |at, Args { path }, ArgsAt { path: path_at }, _, ctx| {
                     let path = Path::new(&path);
 
                     if !path.is_dir() {
@@ -301,9 +301,36 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     }
 
                     std::env::set_current_dir(path)
-                        .map_err(|err| ctx.error(path_at, format!("failed to change current directory: {err}")))?;
+                        .map_err(|err| ctx.error(at, format!("failed to change current directory: {err}")))?;
 
                     Ok(None)
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Get the current directory
+                //
+
+                "current_dir",
+
+                Args [ArgsAt, ArgsTy] (
+                    lossy: OptionalArg<BoolType> => Arg::long_flag("lossy")
+                )
+
+                -> Some(StringType::direct_underlying_type()),
+
+                |at, Args { lossy }, _, _, ctx| {
+                    let current_dir = std::env::current_dir()
+                        .map_err(|err| ctx.error(at, format!("failed to get current directory: {err}")))?;
+
+                    let current_dir = if lossy != Some(true) {
+                        current_dir.to_str().ok_or_else(|| ctx.error(at, format!("current directoy contains invalid UTF-8 characters: '{}'", current_dir.display())))?
+                            .to_string()
+                    } else {
+                        current_dir.to_string_lossy().to_string()
+                    };
+
+                    Ok(Some(RuntimeValue::String(current_dir)))
                 }
             ),
             define_internal_fn!(
