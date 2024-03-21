@@ -41,6 +41,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::sort::build_fn(),
         self::map::is_empty::build_fn(),
         self::map::keys::build_fn(),
+        self::map::len::build_fn(),
         self::map::values::build_fn(),
         self::progress_bar::clear::build_fn(),
         self::progress_bar::inc::build_fn(),
