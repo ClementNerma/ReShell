@@ -2,16 +2,18 @@ use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, StructTypeMe
 
 use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 
-pub fn check_if_type_fits(
+pub fn check_if_type_fits_type(
     value_type: &ValueType,
     into: &ValueType,
     ctx: &Context,
 ) -> ExecResult<bool> {
     match value_type {
-        ValueType::Single(single_type) => check_if_single_type_fits(single_type.data(), into, ctx),
+        ValueType::Single(single_type) => {
+            check_if_single_type_fits_type(single_type.data(), into, ctx)
+        }
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits(typ.data(), into, ctx)? {
+                if check_if_single_type_fits_type(typ.data(), into, ctx)? {
                     return Ok(true);
                 }
             }
@@ -21,7 +23,7 @@ pub fn check_if_type_fits(
     }
 }
 
-pub fn check_if_single_type_fits(
+pub fn check_if_single_type_fits_type(
     value_type: &SingleValueType,
     into: &ValueType,
     ctx: &Context,
@@ -43,14 +45,45 @@ pub fn check_if_single_type_fits(
     }
 }
 
+pub fn check_if_type_fits_single(
+    value_type: &ValueType,
+    into: &SingleValueType,
+    ctx: &Context,
+) -> ExecResult<bool> {
+    match value_type {
+        ValueType::Single(single) => check_if_single_type_fits_single(single.data(), into, ctx),
+
+        ValueType::Union(types) => {
+            for typ in types {
+                if check_if_single_type_fits_single(typ.data(), into, ctx)? {
+                    return Ok(true);
+                }
+            }
+
+            Ok(false)
+        }
+    }
+}
+
 pub fn check_if_single_type_fits_single(
     value_type: &SingleValueType,
     into: &SingleValueType,
     ctx: &Context,
 ) -> ExecResult<bool> {
     match (value_type, into) {
-        (_, SingleValueType::Any) => Ok(true),
-        (SingleValueType::Any, _) => unreachable!(),
+        (SingleValueType::Any, _) | (_, SingleValueType::Any) => Ok(true),
+
+        (SingleValueType::TypeAlias(name), _) => {
+            let typ = ctx
+                .get_type_alias(name)
+                .unwrap_or_else(|| panic!(
+                    "type alias was not found (this is a bug in the checker)\nDetails:\n> {} (used at {})",
+                    name.data,
+                    dbg_loc(name.at, ctx.files_map()
+                )));
+
+            check_if_type_fits_single(&typ.data, into, ctx)
+        }
 
         (_, SingleValueType::TypeAlias(name)) => {
             let typ = ctx
@@ -61,19 +94,7 @@ pub fn check_if_single_type_fits_single(
                     dbg_loc(name.at, ctx.files_map()
                 )));
 
-            check_if_single_type_fits(value_type, &typ.data, ctx)
-        }
-
-        (SingleValueType::TypeAlias(_), _) => {
-            // let (_, typ) = ctx
-            //     .all_type_aliases()
-            //     .find(|(c_name, typ)| &&name.data == c_name)
-            //     .ok_or_else(|| {
-            //         ctx.error(name.at, format!("type alias {} was not found", name.data))
-            //     })?;
-
-            // check_if_type_fits(typ, into, ctx)
-            unreachable!()
+            check_if_single_type_fits_type(value_type, &typ.data, ctx)
         }
 
         (SingleValueType::Null, SingleValueType::Null) => Ok(true),
@@ -114,7 +135,7 @@ pub fn check_if_single_type_fits_single(
                 {
                     None => return Ok(false),
                     Some(member) => {
-                        if !check_if_type_fits(member.data().typ.data(), typ.data(), ctx)? {
+                        if !check_if_type_fits_type(member.data().typ.data(), typ.data(), ctx)? {
                             return Ok(false);
                         }
                     }
@@ -136,7 +157,6 @@ pub fn check_if_single_type_fits_single(
     }
 }
 
-// TODO: with detailed error message (ExecResult<()>)?
 pub fn check_fn_signature_equality(
     signature: &FnSignature,
     into: &FnSignature,
@@ -170,14 +190,14 @@ pub fn check_fn_signature_equality(
         }
 
         if let (Some(arg_type), Some(cmp_arg_type)) = (&arg.typ, &cmp_arg.typ) {
-            if !check_if_type_fits(arg_type.data(), cmp_arg_type.data(), ctx)? {
+            if !check_if_type_fits_type(arg_type.data(), cmp_arg_type.data(), ctx)? {
                 return Ok(false);
             }
         }
     }
 
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
-        if !check_if_type_fits(ret_type.data(), cmp_ret_type.data(), ctx)? {
+        if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), ctx)? {
             return Ok(false);
         }
     }
