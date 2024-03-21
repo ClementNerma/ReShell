@@ -8,7 +8,7 @@ use std::{
 
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_parser::{ast::RuntimeCodeRange, delimiter_chars};
+use reshell_parser::{ast::RuntimeCodeRange, DELIMITER_CHARS};
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     context::Context,
@@ -56,9 +56,7 @@ pub fn generate_completions(
 ) -> Vec<Suggestion> {
     let CompletionContext { line, pos } = completion_context;
 
-    let delimiter_chars = delimiter_chars();
-
-    let split = |c: char| c.is_whitespace() && !delimiter_chars.contains(&c);
+    let split = |c: char| c.is_whitespace() && !DELIMITER_CHARS.contains(&c);
 
     let word_start = match line[..pos].rfind(split) {
         Some(index) => index + 1,
@@ -176,8 +174,6 @@ fn build_cmd_completions(
 
     let path_dirs = path.split(PATH_VAR_SEP).filter(|entry| !entry.is_empty());
 
-    let delimiter_chars = delimiter_chars();
-
     let append_whitespace = next_char != Some(' ');
 
     let mut indexed = HashSet::new();
@@ -238,7 +234,7 @@ fn build_cmd_completions(
             results.push((
                 item_name.to_owned(),
                 Suggestion {
-                    value: escape_raw(item_name, &delimiter_chars).into_owned(),
+                    value: escape_raw(item_name).into_owned(),
                     description: None,
                     extra: None,
                     span,
@@ -349,8 +345,6 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
 
     let starts_with_dot_slash = word.starts_with("./") || word.starts_with(".\\");
 
-    let delimiter_chars = delimiter_chars();
-
     let mut results = vec![];
 
     for path in paths {
@@ -385,7 +379,7 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
         results.push((
             path_str,
             Suggestion {
-                value: escape_raw(&path, &delimiter_chars).into_owned(),
+                value: escape_raw(&path).into_owned(),
                 description: None,
                 extra: None,
                 span,
@@ -402,10 +396,10 @@ fn sort_results(input: &str, mut values: Vec<(String, Suggestion)>) -> Vec<Sugge
     values.into_iter().map(|(_, value)| value).collect()
 }
 
-fn escape_raw<'a>(str: &'a str, delimiter_chars: &HashSet<char>) -> Cow<'a, str> {
+fn escape_raw(str: &str) -> Cow<str> {
     if str
         .chars()
-        .any(|c| c.is_whitespace() || delimiter_chars.contains(&c))
+        .any(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c))
     {
         let mut out = String::with_capacity(str.len() + 2);
         out.push('"');
