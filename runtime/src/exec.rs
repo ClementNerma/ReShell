@@ -9,7 +9,7 @@ use crate::{
     display::readable_value_type,
     errors::ExecResult,
     expr::eval_expr,
-    props::{eval_prop_access_nature, PropAccessPolicy},
+    props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -134,27 +134,19 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 ctx.get_var_mut(name).unwrap().value =
                     Some(LocatedValue::new(assign_value, expr.at));
             } else {
-                let mut left = ctx
-                    .get_var(name)
-                    .unwrap()
-                    .value
-                    .as_ref()
-                    .unwrap()
-                    .value
-                    .clone();
+                let suite = make_prop_access_suite(prop_acc.iter().map(|eaten| &eaten.data), ctx)?;
 
-                let mut left = &mut left;
+                let left = &mut ctx.get_var_mut(name).unwrap().value.as_mut().unwrap().value;
 
-                for acc in prop_acc {
-                    left = eval_prop_access_nature(
-                        left,
-                        acc,
-                        PropAccessPolicy::TrailingAccessMayNotExist,
-                        ctx,
-                    )?;
-                }
-
-                *left = assign_value;
+                match eval_prop_access_suite(
+                    left,
+                    prop_acc.iter(),
+                    suite,
+                    PropAccessPolicy::ExistingOnly,
+                ) {
+                    Ok(left) => *left = assign_value,
+                    Err(err) => return Err(err(ctx)),
+                };
             };
         }
 

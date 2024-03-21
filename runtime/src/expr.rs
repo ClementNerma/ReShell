@@ -12,7 +12,7 @@ use crate::{
     display::{readable_value_type, value_to_str},
     errors::{ExecErrorContent, ExecResult},
     functions::call_fn,
-    props::{eval_prop_access_nature, PropAccessPolicy},
+    props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
     typechecker::check_if_single_type_fits_single,
     values::{RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
@@ -192,7 +192,16 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
             continue;
         }
 
-        left = eval_prop_access_nature(left, nature, PropAccessPolicy::ExistingOnly, ctx)?;
+        // TODO: this may be slow for such a widely-used function
+        let suite = make_prop_access_suite([&nature.data].into_iter(), ctx)?;
+
+        left = eval_prop_access_suite(
+            left,
+            [nature].into_iter(),
+            suite,
+            PropAccessPolicy::ExistingOnly,
+        )
+        .map_err(|err| err(ctx))?;
     }
 
     Ok(left.clone())
