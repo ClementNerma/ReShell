@@ -88,6 +88,8 @@ pub enum Instruction {
 
     BaseBlock(Eaten<Block>),
 
+    FnCall(Eaten<FnCall>),
+
     CmdCall(Eaten<CmdCall>),
 }
 
