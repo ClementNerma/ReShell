@@ -97,14 +97,12 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
             }
 
             NestingActionType::Closing { matching_opening } => {
-                let (_, opening_type) = opened.pop().unwrap();
-
                 output.push(HighlightPiece {
                     start: offset,
                     len,
                     style: Some(if matching_opening {
                         nested_content_rules
-                            .get(&opening_type)
+                            .get(&opened.pop().unwrap().1)
                             .unwrap()
                             .closing_style
                     } else {
