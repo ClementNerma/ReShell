@@ -79,6 +79,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let display_file = match &source_file.path {
         ScopableFilePath::InMemory(in_mem) => format!("<{in_mem}>"),
+        ScopableFilePath::InMemoryWithCounter(in_mem, counter) => format!("<{in_mem}[{counter}]>"),
         ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
     };
 

@@ -1,13 +1,8 @@
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::Rc,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::collections::HashMap;
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, custom, empty, end, filter, just, late, lookahead, not, recursive, whitespaces,
+    char, choice, empty, end, filter, just, late, lookahead, not, recursive, whitespaces,
     MaybeEaten, Parser,
 };
 
@@ -23,9 +18,6 @@ use super::ast::{
 };
 
 pub fn program() -> impl Parser<Program> {
-    let scopes_counter = AtomicU64::new(0);
-    let scopes_history = Rc::new(RefCell::new(vec![]));
-
     let raw_block = recursive::<Block, _>(|raw_block| {
         let ms = whitespaces().no_newline();
         let s = ms.at_least_one();
@@ -1017,26 +1009,16 @@ pub fn program() -> impl Parser<Program> {
             .critical("unexpected symbol"),
         );
 
-        let instr_vec = instr.padded().spanned().repeated_vec();
-
         // Raw block
-        custom(move |input| {
-            let id = scopes_counter.fetch_add(1, Ordering::AcqRel) + 1;
-
-            scopes_history.borrow_mut().push(id);
-
-            let parsed = instr_vec.parse(input);
-
-            let visible_scopes = scopes_history.borrow().clone();
-
-            scopes_history.borrow_mut().pop();
-
-            Ok(parsed?.map(|instructions| Block {
-                id,
-                visible_scopes,
-                instructions,
-            }))
-        })
+        instr
+            .padded()
+            .spanned()
+            .repeated_vec()
+            .spanned()
+            .map(|spanned| Block {
+                instructions: spanned.data,
+                code_range: spanned.at,
+            })
     });
 
     raw_block

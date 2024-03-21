@@ -1,4 +1,4 @@
-use parsy::{CodeRange, ParsingError};
+use parsy::{CodeRange, FileId, ParsingError};
 
 use crate::files_map::SourceFile;
 
@@ -8,7 +8,8 @@ pub type ExecResult<T> = Result<T, ExecError>;
 pub struct ExecError {
     pub at: CodeRange,
     pub in_fork: bool,
-    pub file: SourceFile,
+    pub in_file: Option<FileId>,
+    pub source_file: Option<SourceFile>,
     pub content: ExecErrorContent,
     pub stack_trace: StackTrace,
 }
