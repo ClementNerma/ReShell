@@ -1,7 +1,7 @@
 use crate::define_internal_fn;
 
 define_internal_fn!(
-    "containsStr",
+    "contains",
 
     (
         string: RequiredArg<StringType> = Arg::method_self(),
