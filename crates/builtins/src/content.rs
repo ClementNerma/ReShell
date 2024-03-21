@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use colored::Colorize;
 use glob::{glob_with, MatchOptions};
@@ -636,6 +636,38 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // Create a directory
+                //
+
+                "mkdir",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path"),
+                    parents: OptionalArg<BoolType> = Arg::long_and_short_flag("parents", 'p')
+                )
+
+                -> None,
+
+                |at, Args { path, parents }, ArgsAt { path: path_at, .. }, ctx| {
+                    let path = Path::new(&path);
+
+                    if path.exists() {
+                        return Err(ctx.error(path_at, format!("provided path '{}' already exists", path.display())));
+                    }
+
+                    let result = if parents == Some(true) {
+                        fs::create_dir_all(path)
+                    } else {
+                        fs::create_dir(path)
+                    };
+
+                    result.map_err(|err| ctx.error(at, format!("failed to create directory: {err}")))?;
+
+                    Ok(None)
+                }
+            ),
+            define_internal_fn!(
+                //
                 // Read a file
                 //
 
@@ -654,7 +686,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         return Err(ctx.error(path_at, format!("provided file path '{}' does not exist", path.display())));
                     }
 
-                    let content = std::fs::read_to_string(path)
+                    let content = fs::read_to_string(path)
                         .map_err(|err| ctx.error(at, format!("failed to read file '{}': {err}", path.display())))?;
 
                     Ok(Some(RuntimeValue::String(content)))
@@ -677,7 +709,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 |at, Args { path, content }, _, ctx| {
                     let path = Path::new(&path);
 
-                     std::fs::write(path, content)
+                     fs::write(path, content)
                         .map_err(|err| ctx.error(at, format!("failed to write file '{}': {err}", path.display())))?;
 
                     Ok(None)
