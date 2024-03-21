@@ -566,21 +566,6 @@ impl Context {
         })
     }
 
-    /// Get the value of a specific method
-    /// It is guaranteed to be the one referenced at that point in time
-    /// as the scopes building ensures this will automatically return the correct one
-    pub fn get_visible_method_value<'s>(
-        &'s self,
-        name: &Eaten<String>,
-        on_type: &MethodApplyableType,
-    ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
-        let Some(method) = self.get_visible_method(name, on_type) else {
-            self.panic(name.at, "method not found (= bug in checker)");
-        };
-
-        Ok(&method.value)
-    }
-
     /// Get a specific variable
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
