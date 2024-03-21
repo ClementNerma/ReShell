@@ -179,7 +179,7 @@ pub fn program() -> impl Parser<Program> {
             .then(fn_arg_names)
             .then(ms.ignore_then(char('?')).to(()).or_not())
             .then(
-                ms.ignore_then(char(':'))
+                ms.ignore_then(just("->"))
                     .ignore_then(ms)
                     .ignore_then(
                         value_type
