@@ -34,8 +34,8 @@ fn highlight(input: &str) -> StyledText {
         }
 
     highlight!(
-        ("flags") => "\\s(\\-\\-[a-zA-Z_][a-zA-Z0-9_]+|\\-[a-zA-Z])\\b" => Yellow,
-        ("keywords") => "\\b(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
+        ("flags") => "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
+        ("keywords") => "(?:(?:^|\\n|;)\\s*)(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
         ("types") => "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
         ("booleans") => "\\b(true|false)\\b" => LightYellow,
         ("null value") => "\\b(null)\\b" => LightYellow,
@@ -47,7 +47,7 @@ fn highlight(input: &str) -> StyledText {
         ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
         ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
         ("raw arguments") => "([^\\s\\(\\)\\[\\]\\{\\}&\\|;=!<>\\?]+)" => Green,
-        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|;=!<>\\?]+)" => DarkGray
+        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|;=!<>\\?]+)" => Default
     );
 
     h.finalize(Style::default())
