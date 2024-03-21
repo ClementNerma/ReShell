@@ -1,6 +1,9 @@
 use std::path::MAIN_SEPARATOR;
 
-use reshell_runtime::{compat::PATH_VAR_SEP, values::RuntimeValue};
+use reshell_runtime::{
+    compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
+    values::RuntimeValue,
+};
 
 use crate::{
     builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
@@ -49,6 +52,18 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                     Some(dir) => RuntimeValue::String(dir),
                     None => RuntimeValue::Null,
                 },
+            },
+            // OS family
+            BuiltinVar {
+                name: "OS_FAMILY",
+                is_mut: false,
+                init_value: RuntimeValue::String(
+                    match TARGET_FAMILY {
+                        TargetFamily::Windows => "windows",
+                        TargetFamily::Unix => "unix",
+                    }
+                    .to_string(),
+                ),
             },
         ],
     }
