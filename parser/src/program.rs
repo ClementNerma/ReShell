@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use parsy::{
     atoms::{alphanumeric, any_char, digits},
-    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, Parser,
+    char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, MaybeEaten,
+    Parser,
 };
 
 use crate::ast::{
     CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ExprInnerContent, FnArg, FnArgNames,
-    FnCall, FnCallArg, FnSignature, MaybeEaten, PropAccess, PropAccessNature, SingleCmdCall,
-    SingleValueType, StructTypeMember, ValueType,
+    FnCall, FnCallArg, FnSignature, PropAccess, PropAccessNature, SingleCmdCall, SingleValueType,
+    StructTypeMember, ValueType,
 };
 
 use super::ast::{

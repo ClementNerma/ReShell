@@ -581,7 +581,7 @@ dependencies = [
 [[package]]
 name = "parsy"
 version = "0.1.0"
-source = "git+https://github.com/ClementNerma/Parsy.git#c1d547e4e2d38db23d0d78b5ea4c3be071bf0fc7"
+source = "git+https://github.com/ClementNerma/Parsy.git#28ac23674a60d3f2d618effeceac0fdbed13372c"
 
 [[package]]
 name = "ppv-lite86"
