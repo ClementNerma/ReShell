@@ -1,5 +1,7 @@
 use std::{fs, path::Path};
 
+use crate::errors::FallibleAtRuntime;
+
 crate::define_internal_fn!(
     //
     // Delete a file
@@ -37,7 +39,7 @@ fn run() -> Runner {
                 fs::remove_file(path)
             };
 
-            result.map_err(|err| ctx.error(at, format!("failed to remove item: {err}")))?;
+            result.context("failed to remove item", at, ctx)?;
 
             Ok(None)
         },

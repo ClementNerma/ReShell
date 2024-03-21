@@ -1,6 +1,8 @@
 use glob::{glob_with, MatchOptions};
 use reshell_runtime::gc::GcCell;
 
+use crate::errors::FallibleAtRuntime;
+
 crate::define_internal_fn!(
     //
     // Select items using a pattern
@@ -41,26 +43,25 @@ fn run() -> Runner {
             })?;
 
             let paths = paths
-                .map(|path| {
-                    path.map_err(|err| {
-                        ctx.error(at, format!("failed to access path during glob: {err}"))
-                    })
-                    .and_then(|path| {
-                        if lossy == Some(true) {
-                            Ok(RuntimeValue::String(path.to_string_lossy().to_string()))
-                        } else {
-                            match path.to_str() {
-                                Some(path) => Ok(RuntimeValue::String(path.to_owned())),
-                                None => Err(ctx.error(
-                                    at,
-                                    format!(
-                                        "encountered path with invalid UTF-8 character(s): {}",
-                                        path.display()
-                                    ),
-                                )),
-                            }
-                        }
-                    })
+                .map(|path| -> ExecResult<RuntimeValue> {
+                    let path = path.context("failed to access path during glob", at, ctx)?;
+
+                    if lossy == Some(true) {
+                        return Ok(RuntimeValue::String(path.to_string_lossy().to_string()));
+                    }
+
+                    let path = path.to_str().with_context(
+                        || {
+                            format!(
+                                "encountered path with invalid UTF-8 character(s): {}",
+                                path.display()
+                            )
+                        },
+                        at,
+                        ctx,
+                    )?;
+
+                    Ok(RuntimeValue::String(path.to_owned()))
                 })
                 .collect::<Result<_, _>>()?;
 

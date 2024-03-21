@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use crate::errors::FallibleAtRuntime;
+
 crate::define_internal_fn!(
     //
     // Change the current directory
@@ -31,8 +33,7 @@ fn run() -> Runner {
             ));
         }
 
-        std::env::set_current_dir(path)
-            .map_err(|err| ctx.error(at, format!("failed to change current directory: {err}")))?;
+        std::env::set_current_dir(path).context("failed to change current directory", at, ctx)?;
 
         Ok(None)
     })

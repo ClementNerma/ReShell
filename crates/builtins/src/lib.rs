@@ -3,6 +3,7 @@
 #![warn(unused_crate_dependencies)]
 
 mod content;
+mod errors;
 mod helper;
 mod type_handlers;
 mod utils;
