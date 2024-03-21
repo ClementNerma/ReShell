@@ -1,102 +1,118 @@
-use std::cmp::min;
-
-use nu_ansi_term::{Color, Style};
-use once_cell::sync::Lazy;
-use parsy::{CodeRange, Location};
+use nu_ansi_term::Style;
 use reedline::StyledText;
+use regex::Regex;
 
-pub struct HighlightList<'a> {
-    source: &'a str,
-    rendered: StyledText,
-    prev: usize,
+pub struct SyntaxHighlighter<'a> {
+    text: &'a str,
+    items: Vec<Highlighted>,
 }
 
-impl<'a> HighlightList<'a> {
-    pub fn new(source: &'a str) -> Self {
+impl<'a> SyntaxHighlighter<'a> {
+    pub fn new(text: &'a str) -> Self {
         Self {
-            source,
-            rendered: StyledText::new(),
-            prev: 0,
+            text,
+            items: vec![],
         }
     }
 
-    pub fn into_rendered(mut self) -> StyledText {
-        self.push_untreated_bit(Style::default(), self.source.as_bytes().len());
-        self.rendered
-    }
-}
+    pub fn highlight(&mut self, regex: Regex, styles: &[Style]) {
+        let mut items = vec![];
 
-impl<'a> HighlightList<'a> {
-    pub fn push(&mut self, style: &Style, at: CodeRange) {
-        assert!(at.start.offset >= self.prev);
+        for cap in regex.captures_iter(self.text) {
+            assert_eq!(cap.len() - 1, styles.len());
 
-        let start = at.start.offset;
-        let end = start + at.len;
+            for (i, style) in styles.iter().enumerate() {
+                let cap = cap.get(i + 1).unwrap();
 
-        self.push_untreated_bit(Style::default(), start);
+                if self.items.iter().any(|item| {
+                    cap.start() < item.start + item.len - 1
+                        && item.start < cap.start() + cap.len() - 1
+                }) {
+                    continue;
+                }
 
-        self.rendered
-            .push((*style, self.source[start..end].to_string()));
-
-        self.prev += at.len;
-    }
-
-    pub fn push_until(&mut self, style: &Style, at: CodeRange, until: CodeRange) {
-        assert_eq!(at.start.file_id, until.start.file_id);
-        assert!(until.start.offset >= at.start.offset);
-
-        self.push(
-            style,
-            CodeRange {
-                start: at.start,
-                len: min(until.start.offset - at.start.offset, at.len),
-            },
-        );
-    }
-
-    pub fn push_remaining(&mut self, style: &Style, at: CodeRange) {
-        assert!(at.start.offset <= self.prev);
-
-        self.push(
-            style,
-            CodeRange {
-                start: Location {
-                    file_id: at.start.file_id,
-                    offset: self.prev,
-                },
-                len: at.len - (self.prev - at.start.offset),
-            },
-        );
-    }
-
-    pub fn push_everything_until(&mut self, style: &Style, until: CodeRange) {
-        self.push_untreated_bit(*style, until.start.offset);
-    }
-
-    fn push_untreated_bit(&mut self, style: Style, until: usize) {
-        assert!(until >= self.prev);
-
-        if until > self.prev {
-            self.rendered
-                .push((style, self.source[self.prev..until].to_string()));
+                items.push(Highlighted {
+                    start: cap.start(),
+                    len: cap.len(),
+                    style: *style,
+                })
+            }
         }
 
-        self.prev = until;
+        self.items.extend(items);
+    }
+
+    // pub fn highlight_with(&mut self, regex: Regex, stylize: impl Fn(&str) -> StyledText) {
+    //     let mut items = vec![];
+
+    //     for cap in regex.captures_iter(self.text) {
+    //         assert_eq!(cap.len(), 1);
+
+    //         let cap = cap.get(0).unwrap();
+
+    //         if self.items.iter().any(|item| {
+    //             cap.start() < item.start + item.len - 1 && item.start < cap.start() + cap.len() - 1
+    //         }) {
+    //             continue;
+    //         }
+
+    //         items.push(Highlighted {
+    //             start: cap.start(),
+    //             len: cap.len(),
+    //             render_as: Stylized::Rendered(stylize(cap.as_str())),
+    //         })
+    //     }
+
+    //     self.items.extend(items);
+    // }
+
+    pub fn finalize(mut self, blank_style: Style) -> StyledText {
+        self.items.sort_by_key(|item| item.start);
+
+        let mut out = StyledText::new();
+
+        let mut last_pos = 0;
+
+        for Highlighted { start, len, style } in self.items {
+            if start > last_pos {
+                out.push((blank_style, self.text[last_pos..start].to_string()));
+            }
+
+            out.push((style, self.text[start..start + len].to_string()));
+
+            // match render_as {
+            //     Stylized::Style(style) => {
+            //         out.push((style, self.text[start..start + len].to_string()))
+            //     }
+
+            //     Stylized::Rendered(stylized) => {
+            //         assert_eq!(stylized.raw_string(), &self.text[start..start + len]);
+
+            //         for piece in stylized.buffer {
+            //             out.push(piece);
+            //         }
+            //     }
+            // }
+
+            last_pos = start + len;
+        }
+
+        if self.text.len() > last_pos {
+            out.push((blank_style, self.text[last_pos..].to_string()));
+        }
+
+        out
     }
 }
 
-pub static KEYWORD: Lazy<Style> = Lazy::new(|| Color::Cyan.into());
-pub static COMMENT: Lazy<Style> = Lazy::new(|| Color::DarkGray.into());
-pub static VAR_NAME: Lazy<Style> = Lazy::new(|| Color::LightPurple.into());
-pub static ENV_VAR_NAME: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::Blue).bold());
-pub static FN_NAME: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::LightPurple).bold());
-pub static PROP_NAME: Lazy<Style> = Lazy::new(|| Color::LightPurple.into());
-pub static FLAG: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::LightMagenta).bold());
-pub static TYPE_NAME: Lazy<Style> = Lazy::new(|| Style::new().fg(Color::LightYellow).bold());
-pub static BOOL: Lazy<Style> = Lazy::new(|| Color::Yellow.into());
-pub static INT: Lazy<Style> = Lazy::new(|| Color::Yellow.into());
-pub static FLOAT: Lazy<Style> = Lazy::new(|| Color::Yellow.into());
-pub static STRING: Lazy<Style> = Lazy::new(|| Color::LightGreen.into());
-pub static ESCAPED_CHAR: Lazy<Style> = Lazy::new(|| Color::LightGreen.into());
-pub static RAW_STR: Lazy<Style> = Lazy::new(|| Color::LightGreen.into());
-pub static PATH: Lazy<Style> = Lazy::new(|| Color::Blue.into());
+struct Highlighted {
+    start: usize,
+    len: usize,
+    // render_as: Stylized,
+    style: Style,
+}
+
+// enum Stylized {
+//     Style(Style),
+//     Rendered(StyledText),
+// }
