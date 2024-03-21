@@ -15,7 +15,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    compat::{TargetFamily, TARGET_FAMILY},
+    compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     utils::lev_distance::levenshtein_distance,
 };
 
@@ -176,17 +176,12 @@ fn build_cmd_completions(
         .to_str()
         .ok_or("PATH variable contains is not a valid UTF-8 string")?;
 
-    let path_var_sep = match TARGET_FAMILY {
-        TargetFamily::Windows => ';',
-        TargetFamily::Unix => ':',
-    };
-
     let current_dir = std::env::current_dir()?;
 
     let path_dirs = [current_dir.to_str()]
         .into_iter()
         .flatten()
-        .chain(path.split(path_var_sep).filter(|entry| !entry.is_empty()));
+        .chain(path.split(PATH_VAR_SEP).filter(|entry| !entry.is_empty()));
 
     let delimiter_chars = delimiter_chars();
 
