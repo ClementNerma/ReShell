@@ -22,10 +22,10 @@ use crate::{
 };
 
 pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
-    eval_piped_fn_call(call, None, ctx)
+    eval_fn_call_type(call, FnCallType::Normal, ctx)
 }
 
-pub fn eval_piped_fn_call(call: &Eaten<FnCall>, piped: Option<LocatedValue>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
+pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: FnCallType, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     let func = if call.data.is_var_name {
         let var = ctx.get_visible_var(&call.data.name).ok_or_else(|| {
             ctx.error(
@@ -64,7 +64,7 @@ pub fn eval_piped_fn_call(call: &Eaten<FnCall>, piped: Option<LocatedValue>, ctx
     call_fn_value(
         RuntimeCodeRange::Parsed(call.at),
         &func,
-        FnPossibleCallArgs::Parsed { piped, args: &call.data.call_args },
+        FnPossibleCallArgs::Parsed { call_type, args: &call.data.call_args },
         ctx,
     )
 }
@@ -170,7 +170,9 @@ fn parse_fn_call_args(
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
-    let mut call_args = flatten_fn_call_args(call_args, ctx)?;
+    let is_method = func.signature.inner().args.data().get(0).is_some_and(|arg| matches!(arg, FnArg::Positional { name, is_optional: _, typ: _ } if name.data() == "self"));
+
+    let mut call_args = flatten_fn_call_args(call_at, is_method, call_args, ctx)?;
 
     // Reverse call args so we can .pop() them! without shifting elements
     call_args.reverse();
@@ -444,15 +446,35 @@ fn parse_fn_call_args(
 }
 
 fn flatten_fn_call_args(
+    call_at: RuntimeCodeRange,
+    is_method: bool,
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<Vec<CmdSingleArgResult>> {
     let mut out = vec![];
 
     match call_args {
-        FnPossibleCallArgs::Parsed { piped, args: parsed } => {
-            if let Some(piped) = piped {
-                out.push(CmdSingleArgResult::Basic(piped));
+        FnPossibleCallArgs::Parsed { call_type, args: parsed } => {
+            match call_type {
+                FnCallType::Normal => {
+                    if is_method {
+                        return Err(ctx.error(call_at, "cannot call a method like a normal function"));
+                    }
+                },
+
+                FnCallType::Piped(piped) => {
+                    // Methods can be called through the value piping operator
+
+                    out.push(CmdSingleArgResult::Basic(piped))
+                },
+
+                FnCallType::Method(left) => {
+                    if !is_method {
+                        return Err(ctx.error(call_at, "cannot call a normal function like a method"));
+                    }
+
+                    out.push(CmdSingleArgResult::Basic(left))
+                },
             }
 
             for parsed in &parsed.data {
@@ -597,8 +619,14 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
 }
 
 pub enum FnPossibleCallArgs<'a> {
-    Parsed { piped: Option<LocatedValue>, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
+    Parsed { call_type: FnCallType, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
     Internal(Vec<CmdArgResult>),
+}
+
+pub enum FnCallType {
+    Normal,
+    Piped(LocatedValue),
+    Method(LocatedValue)
 }
 
 pub struct ValidatedFnCallArg {

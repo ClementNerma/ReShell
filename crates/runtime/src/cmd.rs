@@ -17,7 +17,7 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
-    functions::{call_fn_value, eval_piped_fn_call, FnPossibleCallArgs},
+    functions::{call_fn_value, eval_fn_call_type, FnCallType, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{LocatedValue, RuntimeCmdAlias, RuntimeValue},
@@ -399,7 +399,7 @@ fn eval_non_cmd_call_el(
     } = call;
 
     let returned = match nature {
-        NonCmdCallElNature::Function { is_var_name, name } => eval_piped_fn_call(
+        NonCmdCallElNature::Function { is_var_name, name } => eval_fn_call_type(
             &Eaten::ate(
                 at,
                 FnCall {
@@ -408,7 +408,10 @@ fn eval_non_cmd_call_el(
                     call_args,
                 },
             ),
-            piped,
+            match piped {
+                Some(piped) => FnCallType::Piped(piped),
+                None => FnCallType::Normal,
+            },
             ctx,
         ),
 
@@ -435,7 +438,10 @@ fn eval_non_cmd_call_el(
                 RuntimeCodeRange::Parsed(at),
                 &func,
                 FnPossibleCallArgs::Parsed {
-                    piped,
+                    call_type: match piped {
+                        Some(piped) => FnCallType::Piped(piped),
+                        None => FnCallType::Normal,
+                    },
                     args: &call_args,
                 },
                 ctx,

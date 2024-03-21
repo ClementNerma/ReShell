@@ -23,28 +23,28 @@ impl FnFlagArgNames {
 impl<T> RuntimeEaten<T> {
     pub fn at(&self) -> RuntimeCodeRange {
         match self {
-            RuntimeEaten::Eaten(eaten) => RuntimeCodeRange::Parsed(eaten.at),
+            RuntimeEaten::Parsed(eaten) => RuntimeCodeRange::Parsed(eaten.at),
             RuntimeEaten::Internal(_) => RuntimeCodeRange::Internal,
         }
     }
 
     pub fn data(&self) -> &T {
         match &self {
-            Self::Eaten(eaten) => &eaten.data,
+            Self::Parsed(eaten) => &eaten.data,
             Self::Internal(raw) => raw,
         }
     }
 
     pub fn eaten(&self) -> Option<&Eaten<T>> {
         match self {
-            RuntimeEaten::Eaten(eaten) => Some(eaten),
+            RuntimeEaten::Parsed(eaten) => Some(eaten),
             RuntimeEaten::Internal(_) => None,
         }
     }
 
     pub fn map<U>(self, func: impl FnOnce(T) -> U) -> RuntimeEaten<U> {
         match self {
-            RuntimeEaten::Eaten(eaten) => RuntimeEaten::Eaten(eaten.map(func)),
+            RuntimeEaten::Parsed(eaten) => RuntimeEaten::Parsed(eaten.map(func)),
             RuntimeEaten::Internal(data) => RuntimeEaten::Internal(func(data)),
         }
     }

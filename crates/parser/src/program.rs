@@ -10,10 +10,10 @@ use crate::{
         Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
-        ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-        FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
-        PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
-        SwitchCase, Value, ValueType,
+        ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
+        FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
+        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::SourceFile,
 };
@@ -86,7 +86,7 @@ pub fn program(
             just("fn")
                 .ignore_then(fn_signature.clone())
                 .spanned()
-                .map(RuntimeEaten::Eaten)
+                .map(RuntimeEaten::Parsed)
                 .map(SingleValueType::Function),
             just("struct")
                 .ignore_then(ms)
@@ -96,7 +96,7 @@ pub fn program(
                     ident
                         .clone()
                         .spanned()
-                        .map(RuntimeEaten::Eaten)
+                        .map(RuntimeEaten::Parsed)
                         .then_ignore(ms)
                         .then_ignore(char(':').critical_expectation())
                         .then_ignore(msnl)
@@ -104,12 +104,12 @@ pub fn program(
                             value_type
                                 .clone()
                                 .spanned()
-                                .map(RuntimeEaten::Eaten)
+                                .map(RuntimeEaten::Parsed)
                                 .critical("expected a value type"),
                         )
                         .map(|(name, typ)| StructTypeMember { name, typ })
                         .spanned()
-                        .map(RuntimeEaten::Eaten)
+                        .map(RuntimeEaten::Parsed)
                         .separated_by(char(',').padded()),
                 )
                 .then_ignore(msnl)
@@ -126,7 +126,7 @@ pub fn program(
             single_value_type
                 .clone()
                 .spanned()
-                .map(RuntimeEaten::Eaten)
+                .map(RuntimeEaten::Parsed)
                 .map(ValueType::Single),
             // Type union
             char('(')
@@ -135,7 +135,7 @@ pub fn program(
                     single_value_type
                         .clone()
                         .spanned()
-                        .map(RuntimeEaten::Eaten)
+                        .map(RuntimeEaten::Parsed)
                         .separated_by(char('|').padded())
                         .at_least(2)
                         .critical("expected at least 2 types in union"),
@@ -168,19 +168,19 @@ pub fn program(
             // Long *and* short flags
             fn_arg_long_flag
                 .clone()
-                .map(RuntimeEaten::Eaten)
+                .map(RuntimeEaten::Parsed)
                 .then_ignore(ms)
                 .then_ignore(char('('))
-                .then(fn_arg_short_flag.clone().map(RuntimeEaten::Eaten))
+                .then(fn_arg_short_flag.clone().map(RuntimeEaten::Parsed))
                 .then_ignore(char(')').critical("unclosed short argument, expected ')'"))
                 .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
             // Long flag only
             fn_arg_long_flag
-                .map(RuntimeEaten::Eaten)
+                .map(RuntimeEaten::Parsed)
                 .map(FnFlagArgNames::LongFlag),
             // Long flag only
             fn_arg_short_flag
-                .map(RuntimeEaten::Eaten)
+                .map(RuntimeEaten::Parsed)
                 .map(FnFlagArgNames::ShortFlag),
         ));
 
@@ -195,7 +195,7 @@ pub fn program(
                 ident
                     .clone()
                     .spanned()
-                    .map(RuntimeEaten::Eaten)
+                    .map(RuntimeEaten::Parsed)
                     .map(_ParsedFnArgName::Positional),
                 // Flag
                 fn_flag_arg_names.map(_ParsedFnArgName::Flag),
@@ -204,7 +204,7 @@ pub fn program(
             .then(
                 ms.ignore_then(char(':'))
                     .ignore_then(msnl)
-                    .ignore_then(value_type.clone().spanned().map(RuntimeEaten::Eaten))
+                    .ignore_then(value_type.clone().spanned().map(RuntimeEaten::Parsed))
                     .or_not(),
             )
             .map(|((name, is_optional), typ)| match name {
@@ -229,7 +229,7 @@ pub fn program(
             just("...")
                 .ignore_then(ident.clone())
                 .spanned()
-                .map(RuntimeEaten::Eaten)
+                .map(RuntimeEaten::Parsed)
                 .map(|name| FnArg::Rest { name }),
         ));
 
@@ -240,7 +240,7 @@ pub fn program(
                         .clone()
                         .separated_by(char(',').padded())
                         .spanned()
-                        .map(RuntimeEaten::Eaten),
+                        .map(RuntimeEaten::Parsed),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char(')').critical("missing closing parenthesis for arguments list"))
@@ -253,7 +253,7 @@ pub fn program(
                                 .clone()
                                 .map(Box::new)
                                 .spanned()
-                                .map(RuntimeEaten::Eaten)
+                                .map(RuntimeEaten::Parsed)
                                 .critical("expected a type"),
                         )
                         .then_ignore(ms)
@@ -451,7 +451,7 @@ pub fn program(
                         .clone()
                         .separated_by(char(',').padded())
                         .spanned()
-                        .map(RuntimeEaten::Eaten),
+                        .map(RuntimeEaten::Parsed),
                 )
                 .then_ignore(char('|').critical("unclosed function arguments list"))
                 .then_ignore(ms)
@@ -463,7 +463,7 @@ pub fn program(
                                 .clone()
                                 .map(Box::new)
                                 .spanned()
-                                .map(RuntimeEaten::Eaten)
+                                .map(RuntimeEaten::Parsed)
                                 .critical("expected a type"),
                         )
                         .then_ignore(ms)
@@ -632,18 +632,26 @@ pub fn program(
                 nature,
             });
 
+        let expr_inner_chaining = choice::<_, ExprInnerChaining>((
+            char('.')
+                .ignore_then(fn_call.clone())
+                .spanned()
+                .map(ExprInnerChaining::MethodCall),
+            prop_access.spanned().map(ExprInnerChaining::PropAccess),
+        ));
+
         let expr_inner = expr_inner_content
             .spanned()
-            .then(prop_access.spanned().repeated_vec())
+            .then(expr_inner_chaining.spanned().repeated_vec())
             .then(
                 msnl.ignore_then(just("->"))
                     .ignore_then(msnl)
                     .ignore_then(fn_call.clone().spanned())
                     .separated_by(msnl),
             )
-            .map(|((content, prop_acc), pipes)| ExprInner {
+            .map(|((content, chainings), pipes)| ExprInner {
                 content,
-                prop_acc,
+                chainings,
                 pipes,
             });
 

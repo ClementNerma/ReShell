@@ -158,7 +158,7 @@ pub struct Expr {
 #[derive(Debug, Clone)]
 pub struct ExprInner {
     pub content: Eaten<ExprInnerContent>,
-    pub prop_acc: Vec<Eaten<PropAccess>>,
+    pub chainings: Vec<Eaten<ExprInnerChaining>>,
     pub pipes: Vec<Eaten<FnCall>>,
 }
 
@@ -187,6 +187,12 @@ pub enum ExprInnerContent {
 pub struct ElsIfExpr {
     pub cond: Eaten<Box<Expr>>,
     pub body: Eaten<Box<Expr>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprInnerChaining {
+    PropAccess(Eaten<PropAccess>),
+    MethodCall(Eaten<FnCall>),
 }
 
 #[derive(Debug, Clone)]
@@ -453,7 +459,7 @@ pub enum FnCallArg {
 /// A token that's either eaten from a real input or generated at runtime
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum RuntimeEaten<T> {
-    Eaten(Eaten<T>),
+    Parsed(Eaten<T>),
     Internal(T),
 }
 

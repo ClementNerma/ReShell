@@ -13,10 +13,10 @@ use reshell_parser::{
         Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
-        ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-        FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
-        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        StructTypeMember, SwitchCase, Value, ValueType,
+        ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
+        FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
+        PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
+        SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::{FilesMap, FilesMapInner, SourceFile, SourceFileLocation},
 };
@@ -220,7 +220,7 @@ impl<T: ComputableSize> ComputableSize for Eaten<T> {
 impl<T: ComputableSize> ComputableSize for RuntimeEaten<T> {
     fn compute_heap_size(&self) -> usize {
         match self {
-            RuntimeEaten::Eaten(data) => data.compute_heap_size(),
+            RuntimeEaten::Parsed(data) => data.compute_heap_size(),
             RuntimeEaten::Internal(data) => data.compute_heap_size(),
         }
     }
@@ -598,11 +598,11 @@ impl ComputableSize for ExprInner {
     fn compute_heap_size(&self) -> usize {
         let Self {
             content,
-            prop_acc,
+            chainings,
             pipes,
         } = self;
 
-        content.compute_heap_size() + prop_acc.compute_heap_size() + pipes.compute_heap_size()
+        content.compute_heap_size() + chainings.compute_heap_size() + pipes.compute_heap_size()
     }
 }
 
@@ -638,6 +638,15 @@ impl ComputableSize for ExprInnerContent {
                     + catch_var.compute_heap_size()
                     + catch_expr.compute_heap_size()
             }
+        }
+    }
+}
+
+impl ComputableSize for ExprInnerChaining {
+    fn compute_heap_size(&self) -> usize {
+        match self {
+            ExprInnerChaining::PropAccess(prop_acc) => prop_acc.compute_heap_size(),
+            ExprInnerChaining::MethodCall(method_call) => method_call.compute_heap_size(),
         }
     }
 }
