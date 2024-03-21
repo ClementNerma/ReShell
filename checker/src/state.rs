@@ -6,7 +6,7 @@ use parsy::{CodeRange, Eaten, FileId, Location};
 use crate::{errors::CheckerResult, CheckerError};
 
 pub struct State {
-    scopes: Vec<Scope>,
+    scopes: Vec<CheckerScope>,
     pub fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
 }
 
@@ -18,7 +18,7 @@ impl State {
         }
     }
 
-    pub fn push_scope(&mut self, scope: Scope) {
+    pub fn push_scope(&mut self, scope: CheckerScope) {
         if scope.fn_args_at.is_some() {
             let dup = self.fn_deps.insert(scope.code_range, IndexSet::new());
 
@@ -32,15 +32,15 @@ impl State {
         self.scopes.pop().unwrap();
     }
 
-    pub fn curr_scope(&self) -> &Scope {
+    pub fn curr_scope(&self) -> &CheckerScope {
         self.scopes.last().unwrap()
     }
 
-    pub fn curr_scope_mut(&mut self) -> &mut Scope {
+    pub fn curr_scope_mut(&mut self) -> &mut CheckerScope {
         self.scopes.last_mut().unwrap()
     }
 
-    fn current_function_scope(&self) -> Option<(&Scope, CodeRange)> {
+    fn current_function_scope(&self) -> Option<(&CheckerScope, CodeRange)> {
         self.scopes
             .iter()
             .rev()
@@ -168,7 +168,7 @@ impl State {
 }
 
 #[derive(Clone)]
-pub struct Scope {
+pub struct CheckerScope {
     pub code_range: CodeRange,         /* for fns, body range */
     pub fn_args_at: Option<CodeRange>, /* fns only */
     pub vars: HashMap<String, DeclaredVar>,

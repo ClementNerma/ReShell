@@ -1,8 +1,11 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use indexmap::{IndexMap, IndexSet};
-use parsy::{CodeRange, Eaten, FileId};
-use reshell_checker::{CheckerOutput, Dependency, DependencyType};
+use parsy::{CodeRange, Eaten, FileId, Location};
+use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
 use reshell_parser::ast::{Block, SingleCmdCall, ValueType};
 
 use crate::{
@@ -27,15 +30,57 @@ pub struct Context {
 impl Context {
     pub fn new(home_dir: Option<PathBuf>) -> Self {
         Self {
-            scopes_id_counter: 0,
-            scopes: HashMap::from([(0, generate_native_lib())]),
-            current_scope: 0,
+            scopes_id_counter: 1,
+            scopes: HashMap::from([
+                (0, generate_native_lib()),
+                (
+                    1,
+                    Scope {
+                        id: 1,
+                        call_stack: CallStack::empty(),
+                        call_stack_entry: None,
+                        content: ScopeContent::new(),
+                        parent_scopes: IndexSet::from([1]),
+                        range: ScopeRange::SourceLess,
+                    },
+                ),
+            ]),
+            current_scope: 1,
             files_map: FilesMap::new(),
             home_dir,
             fn_deps: IndexMap::new(),
             fn_deps_cleanup: HashMap::new(),
         }
     }
+
+    pub fn set_home_dir(&mut self, home_dir: PathBuf) {
+        self.home_dir = Some(home_dir);
+    }
+
+    pub fn register_file(&mut self, path: ScopableFilePath, content: String) -> u64 {
+        self.files_map.register_file(path, content)
+    }
+
+    pub fn files_map(&self) -> &FilesMap {
+        &self.files_map
+    }
+
+    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
+        let current_scope = self.current_scope();
+
+        current_scope
+            .parent_scopes
+            .iter()
+            .filter_map(|scope_id| self.scopes.get(scope_id))
+            .chain([current_scope])
+            .rev()
+    }
+
+    pub fn first_scope(&self) -> &Scope {
+        self.scopes.get(&1).unwrap()
+    }
+
+    // =============== Non-public functions =============== //
 
     pub(crate) fn append_checker_output(&mut self, checker_output: CheckerOutput) {
         let CheckerOutput { fn_deps } = checker_output;
@@ -46,16 +91,20 @@ impl Context {
         }
     }
 
-    pub fn generate_scope_id(&mut self) -> u64 {
+    pub(crate) fn generate_scope_id(&mut self) -> u64 {
         self.scopes_id_counter += 1;
         self.scopes_id_counter
     }
 
-    pub fn set_home_dir(&mut self, home_dir: PathBuf) {
-        self.home_dir = Some(home_dir);
+    pub(crate) fn set_curr_scope_range(&mut self, range: CodeRange) {
+        self.scopes.get_mut(&self.current_scope).unwrap().range = ScopeRange::CodeRange(range);
     }
 
-    pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
+    pub(crate) fn reset_to_first_scope(&mut self) {
+        self.current_scope = 1;
+    }
+
+    pub(crate) fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
         let current_scope = self.current_scope();
 
         ExecError {
@@ -68,19 +117,19 @@ impl Context {
         }
     }
 
-    pub fn scopes(&self) -> &HashMap<u64, Scope> {
+    pub(crate) fn scopes(&self) -> &HashMap<u64, Scope> {
         &self.scopes
     }
 
-    pub fn files_map(&self) -> &FilesMap {
-        &self.files_map
-    }
-
-    pub fn home_dir(&self) -> Option<&PathBuf> {
+    pub(crate) fn home_dir(&self) -> Option<&PathBuf> {
         self.home_dir.as_ref()
     }
 
-    pub fn create_and_push_scope(&mut self, range: ScopeRange, content: ScopeContent) -> u64 {
+    pub(crate) fn create_and_push_scope(
+        &mut self,
+        range: ScopeRange,
+        content: ScopeContent,
+    ) -> u64 {
         let id = self.generate_scope_id();
 
         let scope = Scope {
@@ -97,7 +146,7 @@ impl Context {
         id
     }
 
-    pub fn create_and_push_fn_scope(
+    pub(crate) fn create_and_push_fn_scope(
         &mut self,
         range: ScopeRange,
         captured_deps: &CapturedDependencies,
@@ -148,7 +197,7 @@ impl Context {
         self.push_custom_scope(scope);
     }
 
-    pub fn push_custom_scope(&mut self, scope: Scope) {
+    pub(crate) fn push_custom_scope(&mut self, scope: Scope) {
         if let Some(file_id) = scope.source_file_id() {
             assert!(
                 self.files_map.has_file(file_id),
@@ -160,7 +209,7 @@ impl Context {
         self.scopes.insert(scope.id, scope);
     }
 
-    pub fn generate_parent_scopes(&self) -> IndexSet<u64> {
+    pub(crate) fn generate_parent_scopes(&self) -> IndexSet<u64> {
         let current_scope = self.current_scope();
 
         let mut parent_scopes = current_scope.parent_scopes.clone();
@@ -171,15 +220,17 @@ impl Context {
         parent_scopes
     }
 
-    pub fn current_scope(&self) -> &Scope {
+    pub(crate) fn current_scope(&self) -> &Scope {
         self.scopes.get(&self.current_scope).unwrap()
     }
 
-    pub fn current_scope_content_mut(&mut self) -> &mut ScopeContent {
+    pub(crate) fn current_scope_content_mut(&mut self) -> &mut ScopeContent {
         &mut self.scopes.get_mut(&self.current_scope).unwrap().content
     }
 
-    pub fn pop_scope(&mut self) {
+    pub(crate) fn pop_scope(&mut self) {
+        assert!(self.current_scope > 1);
+
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 
         if current_scope.call_stack_entry.is_some() {
@@ -202,39 +253,24 @@ impl Context {
         };
     }
 
-    pub fn current_source_file(&self) -> Option<&SourceFile> {
+    pub(crate) fn current_source_file(&self) -> Option<&SourceFile> {
         self.current_scope()
             .source_file_id()
             .and_then(|file_id| self.files_map.get_file(file_id))
     }
 
-    pub fn current_file_path(&self) -> Option<&PathBuf> {
+    pub(crate) fn current_file_path(&self) -> Option<&PathBuf> {
         self.current_scope()
             .source_file_id()
             .and_then(|file_id| self.files_map.get_file_path(file_id))
     }
 
-    pub fn register_file(&mut self, path: ScopableFilePath, content: String) -> u64 {
-        self.files_map.register_file(path, content)
-    }
-
-    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
-        let current_scope = self.current_scope();
-
-        current_scope
-            .parent_scopes
-            .iter()
-            .filter_map(|scope_id| self.scopes.get(scope_id))
-            .chain([current_scope])
-            .rev()
-    }
-
-    pub fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
+    pub(crate) fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
         self.visible_scopes()
             .find_map(|scope| scope.content.fns.get(&name.data))
     }
 
-    pub fn get_visible_fn_value<'s>(
+    pub(crate) fn get_visible_fn_value<'s>(
         &'s self,
         name: &Eaten<String>,
     ) -> ExecResult<&'s GcCell<RuntimeFnValue>> {
@@ -245,12 +281,12 @@ impl Context {
         Ok(&func.value)
     }
 
-    pub fn get_visible_var<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeVar> {
+    pub(crate) fn get_visible_var<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeVar> {
         self.visible_scopes()
             .find_map(|scope| scope.content.vars.get(&name.data))
     }
 
-    pub fn capture_deps(&self, fn_body: &Eaten<Block>) -> CapturedDependencies {
+    pub(crate) fn capture_deps(&self, fn_body: &Eaten<Block>) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies {
             vars: HashMap::new(),
             fns: HashMap::new(),
@@ -317,27 +353,82 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub fn in_file_id(&self) -> Option<FileId> {
+    pub(crate) fn in_file_id(&self) -> Option<FileId> {
         match self.range {
-            ScopeRange::Global => None,
+            ScopeRange::SourceLess => None,
             ScopeRange::CodeRange(range) => Some(range.start.file_id),
         }
     }
 
-    pub fn source_file_id(&self) -> Option<u64> {
+    pub(crate) fn source_file_id(&self) -> Option<u64> {
         match self.range {
-            ScopeRange::Global => None,
+            ScopeRange::SourceLess => None,
             ScopeRange::CodeRange(range) => match range.start.file_id {
                 FileId::None | FileId::Internal | FileId::Custom(_) => None,
                 FileId::SourceFile(id) => Some(id),
             },
         }
     }
+
+    pub fn to_checker_scope(&self) -> CheckerScope {
+        let Scope { content, range, .. } = self;
+
+        let ScopeContent {
+            vars,
+            fns,
+            cmd_aliases,
+            types,
+        } = content;
+
+        // For now
+        assert!(cmd_aliases.is_empty());
+        assert!(types.is_empty());
+        //////////
+
+        CheckerScope {
+            code_range: match range {
+                ScopeRange::SourceLess => {
+                    // TODO: ugly hack
+                    CodeRange::new(
+                        Location {
+                            file_id: FileId::Internal,
+                            offset: 0,
+                        },
+                        0,
+                    )
+                }
+                ScopeRange::CodeRange(range) => *range,
+            },
+
+            fn_args_at: None,
+
+            cmd_aliases: HashSet::new(), // TODO
+            types: HashSet::new(),       // TODO
+
+            fns: fns
+                .iter()
+                .map(|(name, scope_fn)| (name.clone(), scope_fn.declared_at))
+                .collect(),
+
+            vars: vars
+                .iter()
+                .map(|(name, decl)| {
+                    (
+                        name.clone(),
+                        reshell_checker::DeclaredVar {
+                            is_mut: decl.is_mut,
+                            name_at: decl.declared_at,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
 pub enum ScopeRange {
-    Global,
+    SourceLess,
     CodeRange(CodeRange),
 }
 
@@ -385,11 +476,11 @@ pub struct CallStack {
 }
 
 impl CallStack {
-    pub fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self { history: vec![] }
     }
 
-    pub fn append(&mut self, entry: CallStackEntry) {
+    pub(crate) fn append(&mut self, entry: CallStackEntry) {
         self.history.push(entry);
     }
 
