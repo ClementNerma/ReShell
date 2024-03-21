@@ -7,7 +7,7 @@ crate::define_internal_fn!(
     // map over a list
     //
 
-    "filterList",
+    "filter",
 
     (
         list: RequiredArg<UntypedListType> = Arg::positional("list"),

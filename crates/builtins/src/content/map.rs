@@ -1,34 +1,73 @@
 use reshell_runtime::gc::GcCell;
 
+use crate::utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature};
+
 crate::define_internal_fn!(
     //
-    // Create a map (optionally from a list of entries)
+    // map over a list
     //
 
     "map",
 
     (
-        entries: OptionalArg<
-            Union2Type<
-                UntypedStructType,
-                DetachedListType<Tuple2Type<StringType, AnyType>>
-            >
-        > = Arg::positional("entries")
+        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        mapper: RequiredArg<TypedFunctionType> = mapper_type()
     )
 
-    -> Some(MapType::direct_underlying_type())
+    -> Some(UntypedListType::direct_underlying_type())
 );
 
-fn run() -> Runner {
-    Runner::new(|_, Args { entries }, args_at, _| {
-        let map = match entries {
-            None => HashMap::new(),
-            Some(entries) => match entries {
-                Union2Result::A(obj) => obj.read(args_at.entries.unwrap()).clone(),
-                Union2Result::B(tuples) => tuples.into_iter().collect(),
-            },
-        };
+fn mapper_type() -> RequiredArg<TypedFunctionType> {
+    RequiredArg::new(
+        ArgNames::Positional("mapper"),
+        TypedFunctionType::new(forge_basic_fn_signature(
+            vec![
+                ("value", AnyType::direct_underlying_type()),
+                ("index", ExactIntType::<usize>::direct_underlying_type()),
+            ],
+            Some(AnyType::direct_underlying_type()),
+        )),
+    )
+}
 
-        Ok(Some(RuntimeValue::Map(GcCell::new(map))))
-    })
+fn run() -> Runner {
+    Runner::new(
+        |_,
+         Args { list, mapper },
+         ArgsAt {
+             list: _,
+             mapper: mapper_at,
+         },
+         ctx| {
+            let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
+
+            let mapped = list
+                .read(mapper_at)
+                .iter()
+                .enumerate()
+                .map(|(index, value)| -> ExecResult<RuntimeValue> {
+                    let ret = call_fn_checked(
+                        &mapper,
+                        mapper_type().base_typing().signature(),
+                        vec![
+                            value.clone(),
+                            RuntimeValue::Int(index.try_into().expect(
+                                "list contains too many elements to be represented by an integer",
+                            )),
+                        ],
+                        ctx,
+                    )?;
+
+                    Ok(expect_returned_value(
+                        ret,
+                        mapper_at,
+                        AnyType::new_direct(),
+                        ctx,
+                    ))
+                })
+                .collect::<Result<_, _>>()?;
+
+            Ok(Some(RuntimeValue::List(GcCell::new(mapped))))
+        },
+    )
 }
