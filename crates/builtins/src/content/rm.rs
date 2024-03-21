@@ -11,7 +11,7 @@ crate::define_internal_fn!(
 
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
-        recursive: OptionalArg<BoolType> = Arg::long_and_short_flag("recursive", 'r')
+        recursive: PresenceFlag = Arg::long_and_short_flag("recursive", 'r')
     )
 
     -> None
@@ -30,7 +30,7 @@ fn run() -> Runner {
             })?;
 
             let result = if file_type.is_dir() {
-                if recursive != Some(true) {
+                if !recursive {
                     return Err(ctx.error(path_at, "provided path is a directory ; to remove it, use the '--recursive' / '-r' flag."));
                 }
 

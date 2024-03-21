@@ -3,21 +3,22 @@ use reshell_runtime::{cmd::run_cmd, errors::ExecErrorNature};
 use crate::define_internal_fn;
 
 define_internal_fn!(
-    "succeed",
+    "succeeds",
 
     (
-        cmd_call: RequiredArg<CmdCallType> = Arg::positional("cmd_call")
+        cmd_call: RequiredArg<CmdCallType> = Arg::positional("self"),
+        silent: PresenceFlag = Arg::long_flag("silent")
     )
 
     -> Some(BoolType::direct_underlying_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { cmd_call }, _, ctx| {
+    Runner::new(|_, Args { cmd_call, silent }, _, ctx| {
         let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
 
         // TODO: ensure the error is for the call itself, not inside one of its inner arguments (e.g. closure) etc.
-        match run_cmd(&cmd, ctx, false) {
+        match run_cmd(&cmd, ctx, silent) {
             Ok(_) => Ok(Some(RuntimeValue::Bool(true))),
             Err(err) => match err.nature {
                 ExecErrorNature::CommandFailedToStart { message: _ }

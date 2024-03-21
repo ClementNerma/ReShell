@@ -2,6 +2,8 @@ use reshell_parser::ast::{FnArg, FnFlagArgNames, RuntimeEaten, SingleValueType, 
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
+use crate::type_handlers::BoolType;
+
 // #[derive(Clone)]
 pub enum ArgNames {
     Positional(&'static str),
@@ -114,6 +116,7 @@ pub struct Arg<const OPTIONAL: bool, T: Typing> {
 
 pub type RequiredArg<T> = Arg<false, T>;
 pub type OptionalArg<T> = Arg<true, T>;
+pub type PresenceFlag = RequiredArg<BoolType>;
 
 impl<const OPTIONAL: bool, T: Typing> Arg<OPTIONAL, T> {
     pub fn new(names: ArgNames, base_typing: T) -> Self {

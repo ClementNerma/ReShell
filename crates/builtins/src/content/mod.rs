@@ -60,7 +60,7 @@ mod starts_with;
 mod stringify;
 mod struct_to_map;
 mod substr;
-mod succeed;
+mod succeeds;
 mod take;
 mod term_cols;
 mod term_rows;
@@ -145,7 +145,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::find_str::build_fn(),
             self::struct_to_map::build_fn(),
             self::substr::build_fn(),
-            self::succeed::build_fn(),
+            self::succeeds::build_fn(),
             self::take::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
