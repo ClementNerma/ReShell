@@ -10,12 +10,18 @@ use crate::{
 };
 
 pub fn eval_props_access<T>(
-    mut left: RuntimeValue,
+    left: &mut RuntimeValue,
     accesses: &[Eaten<PropAccessNature>],
     policy: PropAccessPolicy,
     ctx: &mut Context,
     finalize: impl FnOnce(&mut RuntimeValue, &mut Context) -> T,
 ) -> ExecResult<T> {
+    if accesses.is_empty() {
+        return Ok(finalize(left, ctx));
+    }
+
+    let mut left = left.clone();
+
     for (i, acc) in accesses.iter().enumerate() {
         let next_acc = accesses.get(i + 1);
 

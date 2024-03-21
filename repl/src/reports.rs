@@ -2,7 +2,7 @@ use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
 use reshell_runtime::{
     display::dbg_loc,
-    errors::{ExecError, ExecErrorContent, StackTrace, StackTraceEntry},
+    errors::{CallStack, CallStackEntry, ExecError, ExecErrorContent},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
@@ -26,9 +26,9 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         },
     };
 
-    let stack_trace = match err {
+    let call_stack = match err {
         ReportableError::ParsingError(_) => None,
-        ReportableError::ExecError(err) => Some(&err.stack_trace),
+        ReportableError::ExecError(err) => Some(&err.call_stack),
     };
 
     let (source_file, offset, len, msg) = match at.start.file_id {
@@ -83,16 +83,21 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
     };
 
-    let msg = match stack_trace {
+    let msg = match call_stack {
         None => msg,
-        Some(StackTrace { history }) => format!(
+        Some(CallStack { history }) => format!(
             "{msg}{}",
             history
                 .iter()
                 .rev()
-                .map(|StackTraceEntry { fn_called_at }| {
-                    format!("\n| stacktrace: {}", dbg_loc(*fn_called_at, files))
-                })
+                .map(
+                    |CallStackEntry {
+                         fn_called_at,
+                         previous_scope: _,
+                     }| {
+                        format!("\n| called at: {}", dbg_loc(*fn_called_at, files))
+                    }
+                )
                 .collect::<String>()
                 .fg(ariadne::Color::Blue)
         ),

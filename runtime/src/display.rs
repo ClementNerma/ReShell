@@ -26,6 +26,7 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
         | RuntimeValue::Function(_)
         | RuntimeValue::Error { at: _, msg: _ } => Err(ctx.error(
             at,
+            // TODO: colorization problem here (end of string is white)
             format!(
                 "cannot convert a {} to a string",
                 value

@@ -5,7 +5,7 @@ use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::ast::{SingleCmdCall, ValueType};
 
 use crate::{
-    errors::{ExecError, ExecErrorContent, ExecResult, StackTrace, StackTraceEntry},
+    errors::{CallStack, CallStackEntry, ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::GcCell,
     native_lib::generate_native_lib,
@@ -47,7 +47,7 @@ impl Context {
             in_file: self.current_scope().in_file_id(),
             source_file: self.current_source_file().cloned(),
             content: content.into(),
-            stack_trace: self.stack_trace(),
+            call_stack: self.call_stack(),
         }
     }
 
@@ -63,22 +63,17 @@ impl Context {
         self.home_dir.as_ref()
     }
 
-    pub fn stack_trace(&self) -> StackTrace {
+    pub fn call_stack(&self) -> CallStack {
         let history = self
             .scopes
             .values()
-            .filter_map(|scope| scope.history_entry.clone())
+            .filter_map(|scope| scope.call_stack_entry.clone())
             .collect();
 
-        StackTrace { history }
+        CallStack { history }
     }
 
-    pub fn create_and_push_scope(
-        &mut self,
-        range: ScopeRange,
-        content: ScopeContent,
-        history_entry: Option<StackTraceEntry>,
-    ) {
+    pub fn create_and_push_scope(&mut self, range: ScopeRange, content: ScopeContent) {
         let id = self.generate_scope_id();
 
         let scope = Scope {
@@ -86,9 +81,33 @@ impl Context {
             range,
             parent_scopes: self.generate_parent_scopes(),
             content,
-            history_entry,
+            call_stack_entry: None,
         };
 
+        self.push_custom_scope(scope);
+    }
+
+    pub fn create_and_push_called_scope(
+        &mut self,
+        range: ScopeRange,
+        content: ScopeContent,
+        parent_scopes: IndexSet<u64>,
+        call_stack_entry: CallStackEntry,
+    ) {
+        let id = self.generate_scope_id();
+
+        let scope = Scope {
+            id,
+            range,
+            parent_scopes,
+            content,
+            call_stack_entry: Some(call_stack_entry),
+        };
+
+        self.push_custom_scope(scope);
+    }
+
+    pub fn push_custom_scope(&mut self, scope: Scope) {
         if let Some(file_id) = scope.source_file_id() {
             assert!(
                 self.files_map.has_file(file_id),
@@ -96,8 +115,8 @@ impl Context {
             );
         }
 
-        self.scopes.insert(id, scope);
-        self.current_scope = id;
+        self.current_scope = scope.id;
+        self.scopes.insert(scope.id, scope);
     }
 
     pub fn generate_parent_scopes(&self) -> IndexSet<u64> {
@@ -124,7 +143,27 @@ impl Context {
 
         // TODO: garbage collection!
 
-        self.current_scope = current_scope.parent_scopes.last().copied().unwrap();
+        let prev_scope = current_scope
+            .call_stack_entry
+            .as_ref()
+            .map(|entry| entry.previous_scope);
+
+        self.current_scope = match prev_scope {
+            Some(prev_scope) => prev_scope,
+            None => current_scope
+                .parent_scopes
+                .last()
+                .copied()
+                .expect("unexpected: cannot pop a scope without parents"),
+        }
+
+        // self.current_scope = match current_scope.parent_scopes.last() {
+        //     Some(parent_scope_id) => *parent_scope_id,
+        //     None => {
+        //         assert!(current_scope.id != 0);
+        //         0
+        //     }
+        // };
     }
 
     pub fn current_source_file(&self) -> Option<&SourceFile> {
@@ -195,7 +234,7 @@ impl Context {
 pub struct Scope {
     pub id: u64,
     pub range: ScopeRange,
-    pub history_entry: Option<StackTraceEntry>,
+    pub call_stack_entry: Option<CallStackEntry>,
     pub content: ScopeContent,
     pub parent_scopes: IndexSet<u64>,
 }

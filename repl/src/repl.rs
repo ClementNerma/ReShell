@@ -79,7 +79,6 @@ pub fn start() {
                     input.len(),
                 )),
                 ScopeContent::new(),
-                None,
             );
         });
 

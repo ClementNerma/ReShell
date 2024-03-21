@@ -8,8 +8,8 @@ use reshell_parser::ast::{
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecResult, StackTraceEntry},
-    exec::{run_block_with_options, InstrRet, InstrRetType},
+    errors::{CallStackEntry, ExecResult},
+    exec::{run_called_block, InstrRet, InstrRetType},
     expr::eval_expr,
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -87,13 +87,17 @@ pub fn call_fn_value(
                 );
             }
 
-            let instr_ret = run_block_with_options(
+            // TODO: when a function exits (= back from call stack entry) the original scope (just before the call) must be used again!
+
+            let instr_ret = run_called_block(
                 &body.data,
                 ctx,
                 scope_content,
-                Some(StackTraceEntry {
+                func.parent_scopes.clone(),
+                CallStackEntry {
                     fn_called_at: call_at,
-                }),
+                    previous_scope: ctx.current_scope().id,
+                },
             )?;
 
             match instr_ret {
