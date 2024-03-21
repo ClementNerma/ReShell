@@ -47,6 +47,7 @@ mod size_of;
 mod slice;
 mod sort;
 mod split;
+mod stringify;
 mod struct_to_map;
 mod substr;
 mod take;
@@ -113,6 +114,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::slice::build_fn(),
             self::sort::build_fn(),
             self::split::build_fn(),
+            self::stringify::build_fn(),
             self::find_str::build_fn(),
             self::struct_to_map::build_fn(),
             self::substr::build_fn(),
