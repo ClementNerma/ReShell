@@ -1,224 +1,140 @@
-use nu_ansi_term::{Color, Style};
-use reedline::{Highlighter as RlHighlighter, StyledText};
+use nu_ansi_term::Style;
+use reedline::StyledText;
 use regex::Regex;
 
-use crate::highlighting::{Highlighted, SyntaxHighlighter};
-
-pub fn create_highlighter() -> Box<dyn RlHighlighter> {
-    Box::new(Highlighter)
+pub struct SyntaxHighlighter<'a> {
+    input: &'a str,
+    highlighted: Vec<Highlighted>,
 }
 
-pub struct Highlighter;
-
-impl RlHighlighter for Highlighter {
-    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
-        highlight(line)
+impl<'a> SyntaxHighlighter<'a> {
+    pub fn new(text: &'a str) -> Self {
+        Self {
+            input: text,
+            highlighted: vec![],
+        }
     }
-}
 
-fn highlight(input: &str) -> StyledText {
-    let mut h = SyntaxHighlighter::new(input);
+    pub fn input(&self) -> &'a str {
+        self.input
+    }
 
-    highlight_strings(&mut h);
+    pub fn highlighted(&self) -> &[Highlighted] {
+        &self.highlighted
+    }
 
-    macro_rules! highlight {
-            ($(($category: expr) => $regex: expr => $color: ident),+) => {
-                $(
-                    // $category
-                    h.regex(
-                        Regex::new($regex).unwrap(),
-                        &[Style::new().fg(Color::$color)],
-                    );
-                )+
+    pub fn regex(&mut self, regex: Regex, styles: &[Style]) {
+        let mut items = vec![];
+
+        for cap in regex.captures_iter(self.input) {
+            assert_eq!(
+                cap.len() - 1,
+                styles.len(),
+                "Number of captures do not match number of styles"
+            );
+
+            for (i, style) in styles.iter().enumerate() {
+                let cap = cap.get(i + 1).unwrap();
+
+                if self.highlighted.iter().any(|item| {
+                    cap.start() < item.start + item.len && item.start < cap.start() + cap.len()
+                }) {
+                    continue;
+                }
+
+                items.push(Highlighted {
+                    start: cap.start(),
+                    len: cap.len(),
+                    style: *style,
+                })
             }
         }
 
-    highlight!(
-        ("flags") => "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
-        ("keywords") => "(?:^|\\n|;|\\{)\\s*(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
-        ("in") => "(?:\\bfor\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+)(in)\\b" => Magenta,
-        ("types") => "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
-        ("booleans") => "\\b(true|false)\\b" => LightYellow,
-        ("null value") => "\\b(null)\\b" => LightYellow,
-        ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("variables declaration") => "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("loop iterator") => "(?:^|\\n|\\s)for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("function arguments and struct fields") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:" => Red,
-        ("untyped function arguments (1)") => "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
-        ("untyped function arguments (2)") => "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
-        ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
-        ("command") => "(?:^|[\\{;]|\\$\\()\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
-        ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
-        ("command expression opening") => "\\s(\\$)\\(" => Red,
-        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|;=!<>\\?\\+\\-\\*\\/]+)" => Blue,
-        ("raw arguments") => "(.)" => Green
-    );
+        self.highlighted.extend(items);
+    }
 
-    h.finalize(Style::default())
-}
+    pub fn range(&mut self, start: usize, len: usize, style: Style) {
+        assert!(self.input[start..start + len].len() == len);
 
-fn highlight_strings(h: &mut SyntaxHighlighter) {
-    let input = h.input();
+        assert!(!self
+            .highlighted
+            .iter()
+            .any(|item| { start < item.start + item.len && item.start < start + len }));
 
-    let mut next_offset = 0;
-    let mut opened_string = None;
-    let mut escaping = false;
+        self.highlighted.push(Highlighted { start, len, style });
+    }
 
-    let chars = input.chars().collect::<Vec<_>>();
-    let mut i = 0;
+    // pub fn highlight_with(&mut self, regex: Regex, stylize: impl Fn(&str) -> StyledText) {
+    //     let mut items = vec![];
 
-    while i < chars.len() {
-        let c = chars[i];
+    //     for cap in regex.captures_iter(self.text) {
+    //         assert_eq!(cap.len(), 1);
 
-        let offset = next_offset;
-        next_offset += c.len_utf8();
+    //         let cap = cap.get(0).unwrap();
 
-        match opened_string {
-            None => {
-                if c == '"' {
-                    opened_string = Some(offset);
-                }
+    //         if self.items.iter().any(|item| {
+    //             cap.start() < item.start + item.len - 1 && item.start < cap.start() + cap.len() - 1
+    //         }) {
+    //             continue;
+    //         }
+
+    //         items.push(Highlighted {
+    //             start: cap.start(),
+    //             len: cap.len(),
+    //             render_as: Stylized::Rendered(stylize(cap.as_str())),
+    //         })
+    //     }
+
+    //     self.items.extend(items);
+    // }
+
+    pub fn finalize(mut self, blank_style: Style) -> StyledText {
+        self.highlighted.sort_by_key(|item| item.start);
+
+        let mut out = StyledText::new();
+
+        let mut last_pos = 0;
+
+        for Highlighted { start, len, style } in self.highlighted {
+            if start > last_pos {
+                out.push((blank_style, self.input[last_pos..start].to_string()));
             }
 
-            Some(string_started_at) => {
-                if escaping {
-                    h.range(
-                        string_started_at,
-                        offset - string_started_at - '\\'.len_utf8(),
-                        Style::new().fg(Color::Green),
-                    );
+            out.push((style, self.input[start..start + len].to_string()));
 
-                    h.range(
-                        offset - '\\'.len_utf8(),
-                        '\\'.len_utf8() + c.len_utf8(),
-                        Style::new().fg(Color::Cyan),
-                    );
+            // match render_as {
+            //     Stylized::Style(style) => {
+            //         out.push((style, self.text[start..start + len].to_string()))
+            //     }
 
-                    escaping = false;
-                    opened_string = Some(next_offset);
-                } else if c == '\\' {
-                    escaping = true;
-                } else if c == '"' {
-                    h.range(
-                        string_started_at,
-                        next_offset - string_started_at,
-                        Style::new().fg(Color::Green),
-                    );
+            //     Stylized::Rendered(stylized) => {
+            //         assert_eq!(stylized.raw_string(), &self.text[start..start + len]);
 
-                    opened_string = None;
-                } else if c == '$' && chars.len() > i + 1 {
-                    // don't highlight: $... and $(...)
-                    // if c == '$' and not followed by letters => just a normal char
-                    // if c == '$' and followed by letters (or underscore) => variable name
-                    // if c == '$' and followed by opening paren => expression
+            //         for piece in stylized.buffer {
+            //             out.push(piece);
+            //         }
+            //     }
+            // }
 
-                    if chars[i + 1].is_alphabetic() || chars[i + 1] == '_' {
-                        h.range(
-                            string_started_at,
-                            offset - string_started_at,
-                            Style::new().fg(Color::Green),
-                        );
-
-                        let incomplete = loop {
-                            if chars.len() == i + 1 {
-                                break true;
-                            }
-
-                            if !chars[i + 1].is_alphabetic()
-                                && !chars[i + 1].is_alphanumeric()
-                                && chars[i + 1] != '_'
-                            {
-                                break false;
-                            }
-
-                            i += 1;
-                            next_offset += c.len_utf8();
-                        };
-
-                        opened_string = if !incomplete { Some(next_offset) } else { None };
-                    } else if chars.get(i + 1) == Some(&'(') {
-                        h.range(
-                            string_started_at,
-                            offset - string_started_at,
-                            Style::new().fg(Color::Green),
-                        );
-
-                        h.range(
-                            offset,
-                            c.len_utf8() + '('.len_utf8(),
-                            Style::new().fg(Color::Red),
-                        );
-
-                        let mut nested = vec![
-                            // This will be filled with '(' as it's the next character we're going to encounter
-                        ];
-
-                        let incomplete = loop {
-                            if chars.len() <= i + 1 {
-                                break true;
-                            }
-
-                            let c = chars[i + 1];
-
-                            if nested.last() == Some(&c) {
-                                nested.pop();
-
-                                if nested.is_empty() {
-                                    break false;
-                                }
-                            } else if c == '\\' && nested.last() == Some(&'"') {
-                                if chars.len() == i + 2 {
-                                    break true;
-                                }
-
-                                i += 1;
-                                next_offset += chars[i + 2].len_utf8();
-                            } else if c == '(' {
-                                nested.push(')');
-                            } else if c == '[' {
-                                nested.push(']');
-                            } else if c == '{' {
-                                nested.push('}');
-                            } else if c == '"' {
-                                nested.push('"');
-                            }
-
-                            i += 1;
-                            next_offset += c.len_utf8();
-                        };
-
-                        let mut sub_h = SyntaxHighlighter::new(
-                            &input[offset..std::cmp::min(next_offset, input.len())],
-                        );
-
-                        highlight_strings(&mut sub_h);
-
-                        for Highlighted { start, len, style } in sub_h.highlighted() {
-                            h.range(start + offset, *len, *style);
-                        }
-
-                        if !incomplete {
-                            h.range(next_offset, ')'.len_utf8(), Style::new().fg(Color::Red));
-                        }
-
-                        opened_string = if !incomplete {
-                            Some(next_offset + ')'.len_utf8())
-                        } else {
-                            None
-                        };
-                    }
-                }
-            }
+            last_pos = start + len;
         }
 
-        i += 1;
-    }
+        if self.input.len() > last_pos {
+            out.push((blank_style, self.input[last_pos..].to_string()));
+        }
 
-    if let Some(string_started_at) = opened_string {
-        h.range(
-            string_started_at,
-            input.len() - string_started_at,
-            Style::new().fg(Color::Green),
-        );
+        out
     }
 }
+
+pub struct Highlighted {
+    pub start: usize,
+    pub len: usize,
+    // render_as: Stylized,
+    pub style: Style,
+}
+
+// enum Stylized {
+//     Style(Style),
+//     Rendered(StyledText),
+// }

@@ -75,7 +75,7 @@ fn main() {
 fn run_init_script() {
     let Some(home_dir) = dirs::home_dir() else {
         return print_warn(
-            "Cannot run init script: failed to determine path to the user's home directory"
+            "Cannot run init script: failed to determine path to the user's home directory",
         );
     };
 
