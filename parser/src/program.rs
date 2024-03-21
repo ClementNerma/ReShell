@@ -7,13 +7,13 @@ use std::{
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, custom, end, filter, just, late, lookahead, not, recursive, whitespaces,
+    char, choice, custom, empty, end, filter, just, late, lookahead, not, recursive, whitespaces,
     MaybeEaten, Parser,
 };
 
 use crate::ast::{
-    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, EscapableChar,
-    ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess,
+    CmdCallMethod, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr,
+    EscapableChar, ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess,
     PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase, ValueType,
 };
 
@@ -666,12 +666,24 @@ pub fn program() -> impl Parser<Program> {
             .spanned()
             .separated_by(s)
             .spanned()
-            .then(just("@raw").to(()).spanned().then_ignore(s).or_not())
+            .then(choice::<_, CmdCallMethod>((
+                just("@raw")
+                    .to(())
+                    .spanned()
+                    .then_ignore(s)
+                    .map(CmdCallMethod::Raw),
+                just("@var")
+                    .to(())
+                    .spanned()
+                    .then_ignore(s)
+                    .map(CmdCallMethod::Var),
+                empty().to(CmdCallMethod::Normal),
+            )))
             .then(cmd_path.clone().spanned())
             .then(s.ignore_then(cmd_arg.spanned()).repeated_vec().spanned())
-            .map(|(((env_vars, raw_call), path), args)| SingleCmdCall {
+            .map(|(((env_vars, method), path), args)| SingleCmdCall {
                 env_vars,
-                raw_call,
+                method,
                 path,
                 args,
             });

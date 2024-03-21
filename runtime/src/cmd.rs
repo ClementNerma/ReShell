@@ -6,8 +6,8 @@ use std::{
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, FnCall, FnCallArg,
-    SingleCmdCall,
+    CmdArg, CmdCall, CmdCallMethod, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType,
+    FnCall, FnCallArg, SingleCmdCall,
 };
 
 use crate::{
@@ -98,7 +98,7 @@ fn run_cmd_with_env_vars_set(
         .map(|(single_call, pipe_type)| {
             let SingleCmdCall {
                 env_vars,
-                raw_call: _,
+                method: _,
                 path,
                 args,
             } = &single_call.data;
@@ -271,7 +271,7 @@ fn develop_aliases<'a>(
 
             let SingleCmdCall {
                 env_vars,
-                raw_call: _,
+                method: _,
                 path,
                 args,
             } = &alias_cmd;
@@ -299,21 +299,29 @@ fn check_if_cmd_is_fn(
 ) -> ExecResult<Option<Eaten<FnCall>>> {
     let SingleCmdCall {
         path,
-        raw_call,
+        method,
         args,
         env_vars,
     } = &call.data;
 
-    if raw_call.is_some() {
-        return Ok(None);
-    }
-
-    let (name, is_var) = match &path.data {
-        CmdPath::Raw(raw) => match ctx.get_visible_fn(raw) {
-            Some(_) => (raw, false),
-            None => return Ok(None),
+    let (name, is_var) = match method {
+        CmdCallMethod::Raw(_) => return Ok(None),
+        CmdCallMethod::Var(_) => match &path.data {
+            CmdPath::Raw(raw) => match ctx.get_visible_var(raw) {
+                Some(_) => (raw, true),
+                None => return Ok(None),
+            },
+            CmdPath::ComputedString(_) => {
+                return Err(ctx.error(path.at, "Expected a variable name"))
+            }
         },
-        CmdPath::ComputedString(_) => return Ok(None),
+        CmdCallMethod::Normal => match &path.data {
+            CmdPath::Raw(raw) => match ctx.get_visible_fn(raw) {
+                Some(_) => (raw, false),
+                None => return Ok(None),
+            },
+            CmdPath::ComputedString(_) => return Ok(None),
+        },
     };
 
     if !env_vars.data.is_empty() {
