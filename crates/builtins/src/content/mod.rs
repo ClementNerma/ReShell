@@ -67,6 +67,8 @@ mod succeeds;
 mod take;
 mod term_cols;
 mod term_rows;
+mod to_lowercase;
+mod to_uppercase;
 mod transform;
 mod trim;
 mod values;
@@ -156,6 +158,8 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::runtime::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
+            self::to_lowercase::build_fn(),
+            self::to_uppercase::build_fn(),
             self::trim::build_fn(),
             self::which::build_fn(),
             self::write_file::build_fn(),
