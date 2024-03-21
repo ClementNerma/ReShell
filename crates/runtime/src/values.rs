@@ -38,21 +38,11 @@ pub struct RuntimeTypeAlias {
     pub captured_deps: CapturedDependencies,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct CapturedDependencies {
     pub vars: HashMap<Dependency, ScopeVar>,
     pub fns: HashMap<Dependency, ScopeFn>,
     pub cmd_aliases: HashMap<Dependency, RuntimeCmdAlias>,
-}
-
-impl CapturedDependencies {
-    pub fn new() -> Self {
-        Self {
-            vars: HashMap::new(),
-            fns: HashMap::new(),
-            cmd_aliases: HashMap::new(),
-        }
-    }
 }
 
 #[derive(Clone)]

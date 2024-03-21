@@ -52,7 +52,7 @@ impl PrettyPrintable for ValueType {
                     .iter()
                     .map(|typ| typ.data().generate_pretty_data(ctx))
                     .collect(),
-                sep: Colored::with_color(" | ", Color::Magenta),
+                sep: Colored::with_color(" |", Color::Magenta),
                 end: Colored::empty(),
                 suffix: None,
             },
