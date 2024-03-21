@@ -1208,16 +1208,7 @@ pub fn program(
             //
             just("include")
                 .ignore_then(s)
-                .ignore_then(char('"').critical_expectation())
-                .ignore_then(
-                    filter(|c| c != '"' && c != '\r' && c != '\n')
-                        .repeated()
-                        .at_least(1)
-                        .critical("expected a path")
-                        .collect_string(),
-                )
-                .then_ignore(char('"').critical("expected a closing quote after the path (\")"))
-                .spanned()
+                .ignore_then(literal_string.spanned().critical("expected a file path"))
                 .try_map(move |path| load_file(path.data, path.at.start.file_id))
                 .and_then(move |file| {
                     program.parse_str_as_file(&file.content, FileId::SourceFile(file.id))

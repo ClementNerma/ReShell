@@ -41,9 +41,18 @@ impl BinariesResolver {
     }
 
     pub fn refresh(&mut self) -> Result<(), PathParsingError> {
+        println!("refreshed");
         self.path_dirs = Self::parse_path_var()?;
-        self.entries = HashMap::new();
+        self.clear();
         Ok(())
+    }
+
+    pub fn clear(&mut self) {
+        self.entries = HashMap::new();
+    }
+
+    pub fn entries(&self) -> &HashMap<String, PathBuf> {
+        &self.entries
     }
 
     pub fn resolve_binary_path(&mut self, name: &str) -> Result<PathBuf, String> {

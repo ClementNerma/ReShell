@@ -46,7 +46,6 @@ mod parent_dir;
 mod path_exists;
 mod pop;
 mod prepend;
-mod print_runtime_stats;
 mod range;
 mod read_dir;
 mod read_file;
@@ -54,6 +53,7 @@ mod reduce;
 mod replace;
 mod reverse;
 mod rm;
+mod runtime;
 mod set_env;
 mod size_of;
 mod slice;
@@ -134,7 +134,6 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::transform::build_fn(),
             self::prepend::build_fn(),
             self::pop::build_fn(),
-            self::print_runtime_stats::build_fn(),
             self::range::build_fn(),
             self::read_dir::build_fn(),
             self::read_file::build_fn(),
@@ -154,6 +153,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::substr::build_fn(),
             self::succeeds::build_fn(),
             self::take::build_fn(),
+            self::runtime::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
             self::trim::build_fn(),
