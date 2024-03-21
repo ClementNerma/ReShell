@@ -100,23 +100,28 @@ pub fn are_values_equal(
         (_, RuntimeValue::Null) => Ok(matches!(left, RuntimeValue::Null)),
         (RuntimeValue::Null, _) => Ok(matches!(right, RuntimeValue::Null)),
 
+        (RuntimeValue::Error { at: _, msg: _ }, _) | (_, RuntimeValue::Error { at: _, msg: _ }) => {
+            Err(NotComparableTypes)
+        }
+        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Err(NotComparableTypes),
+
         (RuntimeValue::Bool(a), RuntimeValue::Bool(b)) => Ok(a == b),
-        (RuntimeValue::Bool(_), _) | (_, RuntimeValue::Bool(_)) => Err(NotComparableTypes),
+        (RuntimeValue::Bool(_), _) | (_, RuntimeValue::Bool(_)) => Ok(false),
 
         (RuntimeValue::Int(a), RuntimeValue::Int(b)) => Ok(a == b),
-        (RuntimeValue::Int(_), _) | (_, RuntimeValue::Int(_)) => Err(NotComparableTypes),
+        (RuntimeValue::Int(_), _) | (_, RuntimeValue::Int(_)) => Ok(false),
 
         (RuntimeValue::Float(a), RuntimeValue::Float(b)) => Ok(a == b),
-        (RuntimeValue::Float(_), _) | (_, RuntimeValue::Float(_)) => Err(NotComparableTypes),
+        (RuntimeValue::Float(_), _) | (_, RuntimeValue::Float(_)) => Ok(false),
 
         (RuntimeValue::String(a), RuntimeValue::String(b)) => Ok(a == b),
-        (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Err(NotComparableTypes),
+        (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Ok(false),
 
         (RuntimeValue::List(a), RuntimeValue::List(b)) => Ok(a.len() == b.len()
             && a.iter()
                 .zip(b.iter())
                 .all(|(a, b)| are_values_equal(a, b).unwrap_or(false))),
-        (RuntimeValue::List(_), _) | (_, RuntimeValue::List(_)) => Err(NotComparableTypes),
+        (RuntimeValue::List(_), _) | (_, RuntimeValue::List(_)) => Ok(false),
 
         (
             RuntimeValue::Range {
@@ -129,7 +134,7 @@ pub fn are_values_equal(
             },
         ) => Ok(a_from == b_from && a_to == b_to),
         (RuntimeValue::Range { from: _, to: _ }, _)
-        | (_, RuntimeValue::Range { from: _, to: _ }) => Err(NotComparableTypes),
+        | (_, RuntimeValue::Range { from: _, to: _ }) => Ok(false),
 
         (RuntimeValue::Map(a), RuntimeValue::Map(b)) => Ok(a.len() == b.len()
             && a.iter()
@@ -137,7 +142,7 @@ pub fn are_values_equal(
                 .all(|((a_key, a_value), (b_key, b_value))| {
                     a_key == b_key && are_values_equal(a_value, b_value).unwrap_or(false)
                 })),
-        (RuntimeValue::Map(_), _) | (_, RuntimeValue::Map(_)) => Err(NotComparableTypes),
+        (RuntimeValue::Map(_), _) | (_, RuntimeValue::Map(_)) => Ok(false),
 
         (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => Ok(a.len() == b.len()
             && a.iter()
@@ -145,16 +150,7 @@ pub fn are_values_equal(
                 .all(|((a_key, a_value), (b_key, b_value))| {
                     a_key == b_key && are_values_equal(a_value, b_value).unwrap_or(false)
                 })),
-        (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Err(NotComparableTypes),
-
-        (RuntimeValue::Function(_), RuntimeValue::Function(_))
-        | (RuntimeValue::Function(_), _)
-        | (_, RuntimeValue::Function(_)) => Err(NotComparableTypes),
-
-        (RuntimeValue::Error { at: _, msg: _ }, RuntimeValue::Error { at: _, msg: _ })
-        // | (RuntimeValue::Error { at: _, msg: _ }, _)
-        // | (_, RuntimeValue::Error { at: _, msg: _ }) 
-        => Err(NotComparableTypes),
+        // (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
     }
 }
 
