@@ -70,7 +70,7 @@ pub fn readable_single_type(
             "struct".into()
         }
         SingleValueType::Function(signature) => {
-            signature.render(PrettyPrintOptions::inline()).into()
+            format!("fn{}", signature.render(PrettyPrintOptions::inline())).into()
         }
         SingleValueType::Error => "error".into(),
         SingleValueType::TypeAlias(name) => {
@@ -234,9 +234,8 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color("}".to_string(), Color::Blue),
                 suffix: None,
             },
-            RuntimeValue::Function(func) =>
-            // TODO: show something like { ... } after the fn to show it's a value and not a type
-            {
+            RuntimeValue::Function(func) => {
+                // TODO: show something like { ... } after the fn to show it's a value and not a type
                 func.signature.generate_pretty_data()
             }
             RuntimeValue::Error { at: _, msg } => PrintablePiece::List {
@@ -266,7 +265,7 @@ impl PrettyPrintable for FnSignature {
         let Self { args, ret_type } = self;
 
         PrintablePiece::List {
-            begin: Colored::with_color("(".to_string(), Color::Blue),
+            begin: Colored::with_color("fn(".to_string(), Color::Blue),
             items: args
                 .iter()
                 .map(|item| item.generate_pretty_data())
