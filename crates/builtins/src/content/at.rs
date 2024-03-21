@@ -31,7 +31,7 @@ fn run() -> Runner {
 
                 None => match or_else {
                     Some(value) => Ok(Some(value.clone())),
-                    None => Err(ctx.error(
+                    None => Err(ctx.throw(
                         index_at,
                         format!(
                             "index '{index}' is out-of-bounds (list only contains {} elements)",

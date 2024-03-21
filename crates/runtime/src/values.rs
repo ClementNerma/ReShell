@@ -13,9 +13,10 @@ use reshell_parser::ast::{
 
 use crate::cmd::CmdSingleArgResult;
 use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
+use crate::errors::ExecErrorInfoType;
 use crate::functions::ValidatedFnCallArg;
 use crate::gc::{GcOnceCell, GcReadOnlyCell};
-use crate::pretty::PrettyPrintable;
+use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 #[derive(Debug)]
@@ -178,7 +179,7 @@ pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone {
 #[derive(Debug, Clone)]
 pub struct ErrorValueContent {
     pub at: CodeRange,
-    pub msg: String,
+    pub data: RuntimeValue,
 }
 
 #[derive(Debug, Clone)]
@@ -300,4 +301,42 @@ pub fn are_values_equal(
 
 pub struct NotComparableTypes {
     pub reason: &'static str,
+}
+
+pub fn value_to_str(
+    value: &RuntimeValue,
+    err_msg: impl Into<String>,
+    at: impl Into<RuntimeCodeRange>,
+    ctx: &Context,
+) -> ExecResult<String> {
+    match value {
+        RuntimeValue::Bool(bool) => Ok(bool.to_string()),
+        RuntimeValue::Int(num) => Ok(num.to_string()),
+        RuntimeValue::Float(num) => Ok(num.to_string()),
+        RuntimeValue::String(str) => Ok(str.clone()),
+        RuntimeValue::Null
+        | RuntimeValue::List(_)
+        | RuntimeValue::Range { from: _, to: _ }
+        | RuntimeValue::Map(_)
+        | RuntimeValue::Struct(_)
+        | RuntimeValue::Function(_)
+        | RuntimeValue::Error(_)
+        | RuntimeValue::CmdCall { content_at: _ }
+        | RuntimeValue::ArgSpread(_)
+        | RuntimeValue::Custom(_) // TODO?
+        => Err(ctx
+            .error(
+                at,
+                format!(
+                    "cannot convert {} to a string",
+                    value
+                        .get_type()
+                        .render_colored(ctx, PrettyPrintOptions::inline())
+                ),
+            )
+            .with_info(
+                ExecErrorInfoType::Tip,
+                err_msg,
+            )),
+    }
 }

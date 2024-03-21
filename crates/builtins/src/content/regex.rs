@@ -33,7 +33,7 @@ fn run() -> Runner {
          ctx| {
             let regex = if !pomsky {
                 Regex::new(&pattern)
-                    .map_err(|err| ctx.error(pattern_at, format!("Failed to parse regex: {err}")))?
+                    .map_err(|err| ctx.throw(pattern_at, format!("Failed to parse regex: {err}")))?
             } else {
                 let (parsed, diag, _) =
                     Expr::parse_and_compile(&pattern, CompileOptions::default());

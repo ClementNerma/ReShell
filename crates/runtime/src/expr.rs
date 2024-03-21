@@ -10,15 +10,14 @@ use reshell_parser::ast::{
 use crate::{
     cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
     context::{Context, ScopeContent, ScopeVar},
-    display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
     functions::{eval_fn_call, eval_fn_call_type, FnCallType},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
-        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnSignature,
-        RuntimeFnValue, RuntimeValue,
+        are_values_equal, value_to_str, LocatedValue, NotComparableTypes, RuntimeFnBody,
+        RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -352,7 +351,7 @@ fn eval_expr_inner_content(
                 .map(|loc_val| loc_val.value),
 
             Err(err) => match err.nature {
-                ExecErrorNature::Thrown { value } => {
+                ExecErrorNature::Thrown { at, message } => {
                     let mut scope = ScopeContent::new();
 
                     scope.vars.insert(
@@ -360,7 +359,10 @@ fn eval_expr_inner_content(
                         ScopeVar {
                             name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             is_mut: false,
-                            value: GcCell::new(Some(value)),
+                            value: GcCell::new(Some(LocatedValue::new(
+                                RuntimeValue::String(message),
+                                at,
+                            ))),
                         },
                     );
 
@@ -523,12 +525,16 @@ fn eval_computed_string_piece(
                     )
                 })?
                 .value,
+            "only stringifyable variables can be used inside computable strings",
             var_name.at,
             ctx,
         )?),
-        ComputedStringPiece::Expr(expr) => {
-            Ok(value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx)?)
-        }
+        ComputedStringPiece::Expr(expr) => Ok(value_to_str(
+            &eval_expr(&expr.data, ctx)?,
+            "only stringifyable values can be used inside computable strings",
+            expr.at,
+            ctx,
+        )?),
         ComputedStringPiece::CmdCall(call) => Ok(run_cmd(
             call,
             ctx,

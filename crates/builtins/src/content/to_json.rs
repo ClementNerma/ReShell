@@ -15,7 +15,7 @@ define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { value }, ArgsAt { value: value_at }, ctx| {
         let value = value_to_serde_json(value).map_err(|err| {
-            ctx.error(
+            ctx.throw(
                 value_at,
                 format!("failed to stringify value to JSON: {err}"),
             )

@@ -22,7 +22,7 @@ fn run() -> Runner {
         |at, Args { path, lossy }, ArgsAt { path: path_at, .. }, ctx| {
             let path = match path {
                 None => std::env::current_dir().map_err(|err| {
-                    ctx.error(
+                    ctx.throw(
                         at,
                         format!("Failed to get path to current directory: {err}"),
                     )
@@ -32,7 +32,7 @@ fn run() -> Runner {
                     let path = PathBuf::from(path);
 
                     if !path.is_dir() {
-                        return Err(ctx.error(
+                        return Err(ctx.throw(
                             path_at.unwrap(),
                             format!("Directory not found at path: {}", path.display()),
                         ));
@@ -43,20 +43,20 @@ fn run() -> Runner {
             };
 
             let read_dir = fs::read_dir(path)
-                .map_err(|err| ctx.error(at, format!("Failed to read directory: {err}")))?;
+                .map_err(|err| ctx.throw(at, format!("Failed to read directory: {err}")))?;
 
             let mut items = vec![];
 
             for item in read_dir {
                 let item = item.map_err(|err| {
-                    ctx.error(at, format!("Failed to read directory entry: {err}"))
+                    ctx.throw(at, format!("Failed to read directory entry: {err}"))
                 })?;
 
                 let path = if lossy {
                     item.path()
                         .to_str()
                         .ok_or_else(|| {
-                            ctx.error(
+                            ctx.throw(
                                 at,
                                 format!(
                                     "Item name contains invalid UTF-8 characters: {}",

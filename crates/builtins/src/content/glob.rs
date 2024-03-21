@@ -39,7 +39,7 @@ fn run() -> Runner {
             }
 
             let paths = glob_with(&pattern, options).map_err(|err| {
-                ctx.error(pattern_at, format!("invalid glob pattern provided: {err}"))
+                ctx.throw(pattern_at, format!("invalid glob pattern provided: {err}"))
             })?;
 
             let paths = paths

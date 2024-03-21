@@ -26,7 +26,7 @@ fn run() -> Runner {
                     path
                 } else {
                     fs::canonicalize(&path).map_err(|err| {
-                        ctx.error(
+                        ctx.throw(
                             at,
                             format!("failed to canonicalize path '{}': {err}", path.display()),
                         )
@@ -36,7 +36,7 @@ fn run() -> Runner {
         };
 
         let Some(path) = path.to_str() else {
-            return Err(ctx.error(
+            return Err(ctx.throw(
                 at,
                 format!(
                     "current script path contains invalid UTF-8 characters: {}",

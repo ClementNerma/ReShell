@@ -21,7 +21,7 @@ fn run() -> Runner {
         let path = Path::new(&path);
 
         if !path.is_file() {
-            return Err(ctx.error(
+            return Err(ctx.throw(
                 path_at,
                 format!("no file exists at path '{}'", path.display()),
             ));

@@ -27,7 +27,7 @@ fn run() -> Runner {
         });
 
         if !path.is_dir() {
-            return Err(ctx.error(
+            return Err(ctx.throw(
                 path_at,
                 format!("directory '{}' was not found", path.display()),
             ));

@@ -13,13 +13,12 @@ use reshell_parser::ast::{
 
 use crate::{
     context::{Context, DepsScopeCreationData},
-    display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
     functions::{call_fn_value, FnCallType, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    values::{LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
+    values::{value_to_str, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
 #[derive(Clone, Copy)]
@@ -335,8 +334,15 @@ fn complete_cmd_data(
 
         let LocatedValue { value, from } = eval_cmd_value_making_arg(&value.data, ctx)?;
 
-        out.env_vars
-            .insert(name.data.clone(), value_to_str(&value, from, ctx)?);
+        out.env_vars.insert(
+            name.data.clone(),
+            value_to_str(
+                &value,
+                "environment variables can have take stringifyable values",
+                from,
+                ctx,
+            )?,
+        );
     }
 
     for arg in &args.data {
@@ -509,9 +515,12 @@ fn append_cmd_arg_as_string(
 ) -> ExecResult<()> {
     match cmd_arg_result {
         CmdArgResult::Single(value) => match value {
-            CmdSingleArgResult::Basic(value) => {
-                args_str.push(value_to_str(&value.value, cmd_arg_result_at, ctx)?)
-            }
+            CmdSingleArgResult::Basic(value) => args_str.push(value_to_str(
+                &value.value,
+                "arguments to external commands must be stringifyable",
+                cmd_arg_result_at,
+                ctx,
+            )?),
 
             CmdSingleArgResult::Flag { name, value } => {
                 let name = match &name.data {
@@ -522,7 +531,12 @@ fn append_cmd_arg_as_string(
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
-                        let value = value_to_str(&value.value, value.from, ctx)?;
+                        let value = value_to_str(
+                            &value.value,
+                            "arguments to external commands must be stringifyable",
+                            value.from,
+                            ctx,
+                        )?;
 
                         match value_sep {
                             FlagValueSeparator::Space => {
@@ -610,7 +624,13 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                         .read_promise_no_write()
                         .iter()
                         .map(|item| {
-                            value_to_str(item, value.from, ctx).map(|str| {
+                            value_to_str(
+                                item,
+                                "spreaded arguments to external commands must be stringifyable",
+                                value.from,
+                                ctx,
+                            )
+                            .map(|str| {
                                 CmdSingleArgResult::Basic(LocatedValue::new(
                                     RuntimeValue::String(str),
                                     value.from,

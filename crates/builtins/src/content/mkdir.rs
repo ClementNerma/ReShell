@@ -34,7 +34,7 @@ fn run() -> Runner {
                 return if ignore_if_exists {
                     Ok(None)
                 } else {
-                    Err(ctx.error(
+                    Err(ctx.throw(
                         path_at,
                         format!("a directory already exists at path '{}'", path.display()),
                     ))
@@ -42,7 +42,7 @@ fn run() -> Runner {
             }
 
             if path.exists() {
-                return Err(ctx.error(
+                return Err(ctx.throw(
                     path_at,
                     format!(
                         "a non-directory item already exists at path '{}'",
