@@ -283,7 +283,7 @@ macro_rules! define_internal_fn {
             ),*
         }
 
-        fn parse_args(call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ValidatedFnCallArg>)
+        fn parse_args(ctx: &Context, call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ValidatedFnCallArg>)
             -> Result<($args_struct_name, $args_loc_struct_name), (RuntimeCodeRange, String)>
         {
             struct PlaceholderArgsAt {
@@ -318,14 +318,14 @@ macro_rules! define_internal_fn {
             if args.is_empty() {
                 Ok((parsed, args_at))
             } else {
-                Err((call_at, format!("internal error: unknown arguments: {}", args.into_keys().collect::<Vec<_>>().join(", "))))
+                ctx.panic(call_at, format!("unknown arguments in function call: {}", args.into_keys().collect::<Vec<_>>().join(", ")))
             }
         }
 
         fn run(call_data: InternalFnCallData) -> ExecResult<Option<LocatedValue>> {
             let InternalFnCallData { call_at, args, ctx } = call_data;
 
-            let (args, args_at) = parse_args(call_at, args)
+            let (args, args_at) = parse_args(ctx, call_at, args)
                 .map_err(|(at, err)| ctx.error(at, err))?;
 
             fn wrapper() -> impl Fn(RuntimeCodeRange, $args_struct_name, $args_loc_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {

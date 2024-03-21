@@ -345,6 +345,15 @@ impl Context {
         self.error(at, ExecErrorNature::Exit { code })
     }
 
+    /// Panic because of an internal error
+    pub fn panic(&self, at: impl Into<RuntimeCodeRange>, message: impl AsRef<str>) -> ! {
+        panic!(
+            "An internal error occured. This is not supposed to happen and is caused by an error in the shell itself.\n\nDetails : {}\nLocation: {}",
+            message.as_ref(),
+            dbg_loc(at.into(), self.files_map())
+        );
+    }
+
     /// Create and push a new scope above the current one
     pub fn create_and_push_scope(&mut self, range: RuntimeCodeRange, content: ScopeContent) -> u64 {
         let id = self.generate_scope_id();
@@ -573,8 +582,8 @@ impl Context {
     pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies::default();
 
-        let deps_list = self.deps.get(&body_content_at).expect(
-            "internal error: dependencies informations not found while constructing value (this is a bug in the checker)"
+        let deps_list = self.deps.get(&body_content_at).unwrap_or_else(||
+            self.panic(body_content_at, "dependencies informations not found while constructing value (this is a bug in the checker)")
         );
 
         for dep in deps_list {
@@ -597,9 +606,12 @@ impl Context {
                                     RuntimeCodeRange::Internal => false,
                                 })
                         })
-                        .unwrap_or_else(|| panic!(
-                            "internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {})",
-                            dbg_loc(*declared_at, &self.files_map)
+                        .unwrap_or_else(|| self.panic(
+                            body_content_at,
+                            format!(
+                                "cannot find variable to capture (= bug in checker) '{name}' (declared at {})",
+                                dbg_loc(*declared_at, &self.files_map)
+                            )
                         ));
 
                     captured_deps.vars.insert(dep.clone(), var.clone());
@@ -617,7 +629,13 @@ impl Context {
                                     RuntimeCodeRange::Internal => false,
                                 })
                         })
-                        .expect("internal error: cannot find function to capture (this is a bug in the checker)");
+                        .unwrap_or_else(|| self.panic(
+                            body_content_at,
+                            format!(
+                                "cannot find function to capture (= bug in checker) '{name}' (declared at {})",
+                                dbg_loc(*declared_at, &self.files_map)
+                            )
+                        ));
 
                     captured_deps.fns.insert(dep.clone(), func.clone());
                 }
@@ -631,7 +649,13 @@ impl Context {
                                 .get(name)
                                 .filter(|alias| alias.name_at == *declared_at)
                         })
-                        .expect("internal error: cannot find command alias to capture (this is a bug in the checker)");
+                        .unwrap_or_else(|| self.panic(
+                            body_content_at,
+                            format!(
+                                "cannot find command alias to capture (= bug in checker) '{name}' (declared at {})",
+                                dbg_loc(*declared_at, &self.files_map)
+                            )
+                        ));
 
                     captured_deps
                         .cmd_aliases
