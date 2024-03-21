@@ -252,19 +252,6 @@ fn build_cmd_completions(
                     if results.iter().any(|(other, _)| &item_name_lc == other) {
                         continue;
                     }
-
-                    // #[cfg(target_family = "unix")]
-                    // {
-                    //     use std::os::unix::fs::PermissionsExt;
-
-                    //     // Ensure exec permissions are present
-                    //     if mt.permissions().mode() & 111 == 0 {
-                    //         continue;
-                    //     }
-                    // }
-
-                    #[cfg(not(target_family = "unix"))]
-                    unreachable!()
                 }
             }
 
