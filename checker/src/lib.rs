@@ -18,7 +18,7 @@ use reshell_parser::ast::{
 
 pub use self::{
     errors::CheckerError,
-    state::{DeclaredVar, Dependency, Scope},
+    state::{DeclaredVar, Dependency, DependencyType, Scope},
 };
 
 use self::{errors::CheckerResult, state::State};
@@ -33,7 +33,7 @@ pub fn check(program: &Program, native_lib_scope: Scope) -> CheckerResult<Checke
     let Program { content } = program;
 
     let mut state = State::new();
-    state.scopes.push(native_lib_scope);
+    state.push_scope(native_lib_scope);
 
     check_block(content, &mut state)?;
 
@@ -67,7 +67,7 @@ fn check_block_with(
 
     fill_scope(&mut scope);
 
-    state.scopes.push(scope);
+    state.push_scope(scope);
 
     for instr in instructions {
         check_instr(instr, state)?;

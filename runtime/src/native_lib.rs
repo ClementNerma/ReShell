@@ -12,15 +12,18 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
 
-use crate::context::{CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar};
-use crate::display::dbg_loc;
-use crate::errors::ExecResult;
-use crate::files_map::ScopableFilePath;
-use crate::functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs};
-use crate::gc::GcCell;
-use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
-use crate::typechecker::check_fn_equality;
-use crate::values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue};
+use crate::values::CapturedDependencies;
+use crate::{
+    context::{CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
+    display::dbg_loc,
+    errors::ExecResult,
+    files_map::ScopableFilePath,
+    functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs},
+    gc::GcCell,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
+    typechecker::check_fn_equality,
+    values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+};
 
 macro_rules! native_fn {
     ($name: ident ( $($arg_name: ident $({ rest: $rest_type: ident })? $((--$arg_long: ident))? $((-$arg_short: ident))?: $arg_type: ident $([$arg_from: ident])?),* ) $([$ctx: ident $(, $at: ident)?])? $(-> ($ret_type: ident $(| $ret_other_type: ident)*))? $body: block) => {{
@@ -76,7 +79,11 @@ macro_rules! native_fn {
                         ret_type: value_type!($($ret_type $(| $ret_other_type)*)?)
                     },
                     body: RuntimeFnBody::Internal(run),
-                    parent_scopes: IndexSet::new()
+                    parent_scopes: IndexSet::new(),
+                    captured_deps: CapturedDependencies {
+                        vars: HashMap::new(),
+                        fns: HashMap::new()
+                    }
                 }),
             }
         )
@@ -172,7 +179,7 @@ macro_rules! native_var {
             ScopeVar {
                 declared_at: forge_internal_loc(),
                 is_mut: $($is_mut)?,
-                value: Some(LocatedValue::new($value, forge_internal_loc())),
+                value: GcCell::new(Some(LocatedValue::new($value, forge_internal_loc()))),
             },
         )
     };
@@ -513,7 +520,7 @@ pub fn generate_native_lib() -> Scope {
     }
 
     for (name, var) in native_vars {
-        content.vars.insert(name, GcCell::new(var));
+        content.vars.insert(name, var);
     }
 
     Scope {
@@ -556,7 +563,7 @@ pub fn generate_native_lib_for_checker() -> reshell_checker::Scope {
                 (
                     name,
                     reshell_checker::DeclaredVar {
-                        is_mut: decl.read().is_mut,
+                        is_mut: decl.is_mut,
                         name_at: forge_internal_loc(),
                     },
                 )
@@ -579,9 +586,8 @@ pub fn render_prompt(
         .unwrap()
         .clone();
 
-    let prompt_var = prompt_var.read();
-
-    let prompt_var_value = prompt_var.value.as_ref().unwrap();
+    let prompt_var_value = prompt_var.value.read();
+    let prompt_var_value = prompt_var_value.as_ref().unwrap();
 
     if matches!(prompt_var_value.value, RuntimeValue::Null) {
         return Ok(None);
