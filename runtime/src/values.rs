@@ -8,7 +8,7 @@ use reshell_parser::ast::{Block, FnSignature, SingleValueType, StructTypeMember,
 use crate::context::{ScopeFn, ScopeVar};
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
-// TODO: this struct is ultra expensive to clone, put it between an Arc<> or something?
+// TODO: this struct is ultra expensive to clone, put it inside an Arc<> or something?
 #[derive(Debug, Clone)]
 pub struct RuntimeFnValue {
     pub signature: FnSignature,

@@ -172,7 +172,12 @@ pub fn program() -> impl Parser<Program> {
             .then(
                 ms.ignore_then(char(':'))
                     .ignore_then(ms)
-                    .ignore_then(value_type.clone().spanned())
+                    .ignore_then(
+                        value_type
+                            .clone()
+                            .spanned()
+                            .critical("expected a (valid) type"),
+                    )
                     .or_not(),
             )
             .map(|(((is_rest, names), is_optional), typ)| FnArg {
@@ -184,7 +189,7 @@ pub fn program() -> impl Parser<Program> {
 
         fn_signature.finish(
             char('(')
-                .ignore_then(fn_arg.clone().separated_by(char(',').padded()))
+                .ignore_then(fn_arg.clone().separated_by(char(',').padded()).spanned())
                 .then_ignore(msnl)
                 .then_ignore(char(')').critical("missing closing parenthesis for arguments list"))
                 .then_ignore(ms)
@@ -362,7 +367,7 @@ pub fn program() -> impl Parser<Program> {
                 .map(Value::FnAsValue),
             // Closures
             char('|')
-                .ignore_then(fn_arg.clone().separated_by(char(',').padded()))
+                .ignore_then(fn_arg.clone().separated_by(char(',').padded()).spanned())
                 .then_ignore(char('|').critical("unclosed function arguments list"))
                 .then_ignore(ms)
                 .then(
