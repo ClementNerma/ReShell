@@ -64,25 +64,25 @@ pub fn build_native_lib_content() -> ScopeContent {
 
         vars: vars
             .into_iter()
-            .map(
-                |BuiltinVar {
-                     name,
-                     is_mut,
-                     init_value,
-                 }| {
-                    (
-                        name.to_owned(),
-                        ScopeVar {
-                            name_at: forge_internal_loc(),
-                            is_mut,
-                            value: GcCell::new(Some(LocatedValue::new(
-                                init_value,
-                                forge_internal_loc(),
-                            ))),
-                        },
-                    )
-                },
-            )
+            .map(|var| {
+                let BuiltinVar {
+                    name,
+                    is_mut,
+                    init_value,
+                } = var;
+
+                (
+                    name.to_owned(),
+                    ScopeVar {
+                        name_at: forge_internal_loc(),
+                        is_mut,
+                        value: GcCell::new(Some(LocatedValue::new(
+                            init_value,
+                            forge_internal_loc(),
+                        ))),
+                    },
+                )
+            })
             .collect(),
 
         cmd_aliases: HashMap::new(),
