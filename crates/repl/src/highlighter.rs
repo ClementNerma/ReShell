@@ -94,7 +94,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
             ]),
             ("commands", vec![
                 // Command names
-                simple("(?:^|[\\n\\{\\|]|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
+                simple("(?:^|\\$\\(|[\\n\\{\\|])\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
                 // Variables
                 simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
@@ -107,6 +107,14 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
 
                 // Numbers
                 simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
+                
+                // Pipes
+                progressive([
+                    ("(\\|>|\\!?\\|)", [LightYellow]),
+
+                    // Required to highlight commands properly
+                    ("\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue])
+                ]),
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
