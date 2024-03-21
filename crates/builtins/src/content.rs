@@ -6,7 +6,7 @@ use crate::{
     define_internal_fn,
     helper::{Arg, ArgTyping, ArgTypingDirectCreation, OptionalArg, RequiredArg},
     type_handlers::{
-        AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType,
+        AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType, RangeType,
         StringType, Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type,
         UntypedStructType,
     },
@@ -24,10 +24,11 @@ use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME, utils::fo
 pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
         functions: vec![
-            //
-            // Create a map
-            //
             define_internal_fn!(
+                //
+                // Create a map (optionally from a list of entries)
+                //
+
                 "map",
 
                 Args [ArgsAt] (
@@ -51,10 +52,11 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Ok(Some(RuntimeValue::Map(GcCell::new(map))))
                 }
             ),
-            //
-            // Exit the program
-            //
             define_internal_fn!(
+                //
+                // Exit the program (optionally with an error code)
+                //
+
                 "exit",
 
                 Args [ArgsAt] (
@@ -73,6 +75,10 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 }
             ),
             define_internal_fn!(
+                //
+                // Display a message
+                //
+
                 "echo",
 
                 Args [ArgsAt] (
@@ -90,6 +96,10 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 }
             ),
             define_internal_fn!(
+                //
+                // Debug a value
+                //
+
                 "dbg",
 
                 Args [ArgsAt] (
@@ -113,6 +123,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Ok(None)
                 }
             ),
+            //
+            // Debug a value's type
+            //
             define_internal_fn!(
                 "dbg-type",
 
@@ -136,9 +149,30 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                     Ok(None)
                 }
-
             ),
             define_internal_fn!(
+                //
+                // Create a range value
+                //
+
+                "range",
+
+                Args [ArgsAt] (
+                    from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
+                    to: RequiredArg<ExactIntType<usize>> => Arg::positional("to")
+                )
+
+                -> Some(RangeType::new_direct().underlying_type()),
+
+                |_, Args { from, to }, _, _| {
+                    Ok(Some(RuntimeValue::Range { from, to }))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Create an error value
+                //
+
                 "error",
 
                 Args [ArgsAt] (
@@ -153,10 +187,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
         ],
 
-        vars: vec![BuiltinVar {
-            name: GEN_PROMPT_VAR_NAME,
-            is_mut: true,
-            init_value: RuntimeValue::Null,
-        }],
+        vars: vec![
+            // Prompt generation variable
+            BuiltinVar {
+                name: GEN_PROMPT_VAR_NAME,
+                is_mut: true,
+                init_value: RuntimeValue::Null,
+            },
+        ],
     }
 }
