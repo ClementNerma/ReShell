@@ -9,3 +9,4 @@ indexmap = "2.1.0"
 parsy = "0.5.2"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
+dunce = "1.0.4"
