@@ -98,6 +98,8 @@ fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerR
                 ));
             }
 
+            check_value_type(&content.data, state)?;
+
             state
                 .collected
                 .type_aliases
@@ -748,9 +750,17 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::UntypedStruct => Ok(()),
 
         SingleValueType::TypedStruct(members) => {
+            let mut names = HashSet::new();
+
             for member in members {
-                // TODO: ensure no duplicate member
-                let StructTypeMember { name: _, typ } = member.data();
+                let StructTypeMember { name, typ } = member.data();
+
+                if !names.insert(name.data()) {
+                    return Err(CheckerError::new(
+                        name.eaten().unwrap().at,
+                        "duplicate member in struct",
+                    ));
+                }
 
                 check_value_type(typ.data(), state)?;
             }
