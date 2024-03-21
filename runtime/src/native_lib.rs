@@ -9,6 +9,7 @@ use glob::glob;
 use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 use reshell_parser::program;
+use terminal_size::{terminal_size, Height, Width};
 
 use crate::context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar};
 use crate::display::dbg_loc;
@@ -207,8 +208,8 @@ pub fn generate_native_lib() -> Scope {
             println!("{} {}", at.bright_magenta(), value.render_colored(PrettyPrintOptions {
                 pretty: true,
                 line_prefix_size: at.chars().count(),
-                max_line_size: match termsize::get() {
-                    Some(size) => size.cols.into(),
+                max_line_size: match terminal_size() {
+                    Some((Width(cols), Height(_))) => cols.into(),
                     None => 30 // todo: make this a static?
                 },
                 tab_size: 4 // todo: make this configurable?
@@ -309,8 +310,8 @@ pub fn generate_native_lib() -> Scope {
         // get the width of the terminal
         //
         native_fn!(term_cols () -> (Int | Null) {
-            Ok(Some(match termsize::get() {
-                Some(termsize::Size { rows: _, cols }) => RuntimeValue::Int(cols.into()),
+            Ok(Some(match terminal_size() {
+                Some((Width(cols), Height(_))) => RuntimeValue::Int(cols.into()),
                 None => RuntimeValue::Null
             }))
         }),
@@ -318,8 +319,8 @@ pub fn generate_native_lib() -> Scope {
         // get the height of the terminal
         //
         native_fn!(term_rows () -> (Int | Null) {
-            Ok(Some(match termsize::get() {
-                Some(termsize::Size { rows, cols: _ }) => RuntimeValue::Int(rows.into()),
+            Ok(Some(match terminal_size() {
+                Some((Width(_), Height(rows))) => RuntimeValue::Int(rows.into()),
                 None => RuntimeValue::Null
             }))
         }),
