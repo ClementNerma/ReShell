@@ -9,11 +9,12 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
-    ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp,
-    FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, Instruction, LiteralValue,
-    Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
-    SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdPath, CmdPipe,
+    ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
+    ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function,
+    Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeCodeRange,
+    RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
+    ValueType,
 };
 
 pub use self::{
@@ -36,7 +37,7 @@ pub fn check(
     let mut state = State::new();
     state.push_scope(native_lib_scope);
 
-    first_scope.code_range = RuntimeCodeRange::CodeRange(content.data.code_range);
+    first_scope.code_range = RuntimeCodeRange::Parsed(content.data.code_range);
     state.push_scope(first_scope);
 
     check_block_without_push(content, &mut state)?;
@@ -59,7 +60,7 @@ fn check_block_with(
     } = &block.data;
 
     let mut scope = CheckerScope {
-        code_range: RuntimeCodeRange::CodeRange(*code_range),
+        code_range: RuntimeCodeRange::Parsed(*code_range),
         deps: false, // can be changed later on with "fill_scope"
         typ: None,   // can be changed later on with "fill_scope"
         vars: HashMap::new(),
@@ -142,7 +143,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.curr_scope_mut().vars.insert(
                 name.data.clone(),
                 DeclaredVar {
-                    name_at: RuntimeCodeRange::CodeRange(name.at),
+                    name_at: RuntimeCodeRange::Parsed(name.at),
                     is_mut: mutable.is_some(),
                 },
             );
@@ -203,7 +204,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::CodeRange(iter_var.at),
+                        name_at: RuntimeCodeRange::Parsed(iter_var.at),
                         is_mut: false,
                     },
                 );
@@ -224,7 +225,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     key_iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::CodeRange(key_iter_var.at),
+                        name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         is_mut: false,
                     },
                 );
@@ -232,7 +233,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     value_iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::CodeRange(value_iter_var.at),
+                        name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         is_mut: false,
                     },
                 );
@@ -290,7 +291,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state
                 .curr_scope_mut()
                 .fns
-                .insert(name.data.clone(), RuntimeCodeRange::CodeRange(name.at));
+                .insert(name.data.clone(), RuntimeCodeRange::Parsed(name.at));
 
             check_function(content, state)?;
         }
@@ -325,7 +326,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                        name_at: RuntimeCodeRange::Parsed(catch_var.at),
                         is_mut: false,
                     },
                 );
@@ -357,7 +358,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.collected.deps.insert(content.at, HashSet::new());
 
             state.push_scope(CheckerScope {
-                code_range: RuntimeCodeRange::CodeRange(content.at),
+                code_range: RuntimeCodeRange::Parsed(content.at),
                 deps: true,
                 typ: None,
                 vars: HashMap::new(),
@@ -394,7 +395,7 @@ fn check_expr_with(
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
     let mut scope = CheckerScope {
-        code_range: RuntimeCodeRange::CodeRange(expr.at),
+        code_range: RuntimeCodeRange::Parsed(expr.at),
         deps: false, // can be changed later on with "fill_scope"
         typ: None,   // can be changed later on with "fill_scope"
         vars: HashMap::new(),
@@ -480,7 +481,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                        name_at: RuntimeCodeRange::Parsed(catch_var.at),
                         is_mut: false,
                     },
                 );
@@ -736,11 +737,20 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
             state.register_usage(func, DependencyType::Function)?;
             Ok(())
         }
+        CmdArg::Flag(CmdFlagArg {
+            name: _,
+            value,
+            raw: _,
+        }) => match value {
+            Some(value) => check_expr(&value.data, state),
+            None => Ok(()),
+        },
         CmdArg::Raw(_) => Ok(()),
         CmdArg::SpreadVar(var) => {
             state.register_usage(var, DependencyType::Variable)?;
             Ok(())
         }
+        CmdArg::RestSeparator => Ok(()),
     }
 }
 
@@ -785,13 +795,19 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
         if dup.is_some() {
             match var_name.at() {
-                RuntimeCodeRange::CodeRange(var_name_at) => {
+                RuntimeCodeRange::Parsed(var_name_at) => {
                     return Err(CheckerError::new(var_name_at, "Duplicate argument name"))
                 }
 
                 RuntimeCodeRange::Internal => panic!("Duplicate argument name in native function"),
             }
         }
+
+        // TODO: flags can't be rest
+        // TODO: no positional argument after optional one
+        // TODO: no positional argument after rest one
+        // TODO: rest argument can't have a type
+        // TODO: rest argument can't be marked as optional
     }
 
     state
@@ -834,7 +850,8 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Range
         | SingleValueType::Map
         | SingleValueType::Error
-        | SingleValueType::UntypedStruct => Ok(()),
+        | SingleValueType::UntypedStruct
+        | SingleValueType::ArgSpread => Ok(()),
 
         SingleValueType::TypedStruct(members) => {
             let mut names = HashSet::new();

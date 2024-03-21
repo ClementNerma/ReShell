@@ -6,8 +6,8 @@ use std::{
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, Expr, FnCall,
-    FnCallArg, RuntimeCodeRange, SingleCmdCall,
+    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdPath, CmdPipe,
+    CmdPipeType, Expr, FnCall, FnCallArg, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
@@ -78,7 +78,7 @@ pub fn run_cmd(
 
         for alias_dep_scope in aliases_deps_scopes {
             ctx.create_and_push_scope_with_deps(
-                RuntimeCodeRange::CodeRange(call.at),
+                RuntimeCodeRange::Parsed(call.at),
                 DepsScopeCreationData::Retrieved(alias_dep_scope),
                 ScopeContent::new(),
                 ctx.generate_parent_scopes_list(),
@@ -181,14 +181,31 @@ fn single_call_to_chain_el(
 
         for arg in &args.data {
             match eval_cmd_arg(&arg.data, ctx)? {
-                CmdArgResult::Single(value) => {
-                    eval_args.push(value_to_str(&value, arg.at, ctx)?);
-                }
-
-                CmdArgResult::Spreaded(values) => {
-                    for value in values {
-                        eval_args.push(value_to_str(&value, arg.at, ctx)?);
+                CmdArgResult::Single(value) => match value {
+                    CmdSingleArgResult::Basic(value) => {
+                        eval_args.push(value_to_str(&value.value, arg.at, ctx)?)
                     }
+
+                    CmdSingleArgResult::Flag {
+                        name: _,
+                        value: _,
+                        raw,
+                    } => {
+                        for part in raw.split(char::is_whitespace) {
+                            if !part.is_empty() {
+                                eval_args.push(part.to_owned());
+                            }
+                        }
+                    }
+
+                    CmdSingleArgResult::RestSeparator => {
+                        // TODO: make this a constant in the parser or something
+                        eval_args.push("--".to_owned());
+                    }
+                },
+
+                CmdArgResult::Spreaded(_) => {
+                    todo!()
                 }
             }
         }
@@ -222,7 +239,7 @@ fn single_call_to_chain_el(
         } = &*cmd_alias;
 
         ctx.create_and_push_scope_with_deps(
-            RuntimeCodeRange::CodeRange(*name_declared_at),
+            RuntimeCodeRange::Parsed(*name_declared_at),
             DepsScopeCreationData::CapturedDeps(captured_deps.clone()),
             // This scope won't be used anyway, it is only here to provide access to the deps scope
             ScopeContent::new(),
@@ -249,14 +266,14 @@ fn eval_cmd_chain_el_content(
 ) -> ExecResult<Option<LocatedValue>> {
     match content {
         CmdChainElContent::NonCmd(call) => {
-            let NonCmdCall {
+            let NonCmdCallEl {
                 at,
                 nature,
                 call_args,
             } = call;
 
             match nature {
-                NonCmdCallNature::Function { is_var_name, name } => eval_fn_call(
+                NonCmdCallElNature::Function { is_var_name, name } => eval_fn_call(
                     &Eaten::ate(
                         at,
                         FnCall {
@@ -268,7 +285,7 @@ fn eval_cmd_chain_el_content(
                     ctx,
                 ),
 
-                NonCmdCallNature::Expr(expr) => {
+                NonCmdCallElNature::Expr(expr) => {
                     let result = eval_expr(&expr.data, ctx)?;
 
                     let func = match result {
@@ -288,7 +305,7 @@ fn eval_cmd_chain_el_content(
                     };
 
                     call_fn_value(
-                        RuntimeCodeRange::CodeRange(at),
+                        RuntimeCodeRange::Parsed(at),
                         &func,
                         FnPossibleCallArgs::Parsed(&call_args),
                         ctx,
@@ -357,18 +374,18 @@ struct CmdChainEl {
 #[derive(Debug)]
 enum CmdChainElContent {
     Cmd(CmdCallEl),
-    NonCmd(NonCmdCall),
+    NonCmd(NonCmdCallEl),
 }
 
 #[derive(Debug)]
-struct NonCmdCall {
+struct NonCmdCallEl {
     at: CodeRange,
-    nature: NonCmdCallNature,
+    nature: NonCmdCallElNature,
     call_args: Eaten<Vec<Eaten<FnCallArg>>>,
 }
 
 #[derive(Debug)]
-enum NonCmdCallNature {
+enum NonCmdCallElNature {
     Function {
         is_var_name: bool,
         name: Eaten<String>,
@@ -441,7 +458,7 @@ fn develop_aliases(
 fn check_if_cmd_is_fn(
     call: &Eaten<SingleCmdCall>,
     ctx: &mut Context,
-) -> ExecResult<Option<NonCmdCall>> {
+) -> ExecResult<Option<NonCmdCallEl>> {
     let SingleCmdCall {
         path,
         args,
@@ -461,10 +478,10 @@ fn check_if_cmd_is_fn(
                     ));
                 }
 
-                Ok(Some(NonCmdCall {
+                Ok(Some(NonCmdCallEl {
                     at: call.at,
 
-                    nature: NonCmdCallNature::Function {
+                    nature: NonCmdCallElNature::Function {
                         is_var_name: false,
                         name: raw.clone(),
                     },
@@ -488,10 +505,10 @@ fn check_if_cmd_is_fn(
                 ));
             }
 
-            Ok(Some(NonCmdCall {
+            Ok(Some(NonCmdCallEl {
                 at: call.at,
 
-                nature: NonCmdCallNature::Expr(expr.map_ref(|expr| *expr.clone())),
+                nature: NonCmdCallElNature::Expr(expr.map_ref(|expr| *expr.clone())),
 
                 call_args: Eaten::ate(
                     args.at,
@@ -506,16 +523,16 @@ fn check_if_cmd_is_fn(
 }
 
 pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult> {
-    match arg {
-        CmdArg::LiteralValue(lit_val) => {
-            Ok(CmdArgResult::Single(eval_literal_value(&lit_val.data)))
-        }
+    let (value_at, value) = match arg {
+        CmdArg::LiteralValue(lit_val) => (lit_val.at, eval_literal_value(&lit_val.data)),
 
-        CmdArg::ComputedString(computed_str) => Ok(CmdArgResult::Single(
-            eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?,
-        )),
+        CmdArg::ComputedString(computed_str) => (
+            computed_str.at,
+            RuntimeValue::String(eval_computed_string(computed_str, ctx)?),
+        ),
 
-        CmdArg::VarName(name) => Ok(CmdArgResult::Single(
+        CmdArg::VarName(name) => (
+            name.at,
             ctx.get_visible_var(name)
                 .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
                 .value
@@ -529,21 +546,40 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 })?
                 .value
                 .clone(),
-        )),
+        ),
 
-        CmdArg::FnAsValue(name) => Ok(CmdArgResult::Single(RuntimeValue::Function(
-            ctx.get_visible_fn_value(name)?.clone(),
-        ))),
+        CmdArg::FnAsValue(name) => (
+            name.at,
+            RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
+        ),
 
-        CmdArg::ParenExpr(expr) => Ok(CmdArgResult::Single(eval_expr(&expr.data, ctx)?)),
+        CmdArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
-        CmdArg::CmdCall(call) => Ok(CmdArgResult::Single(RuntimeValue::String(
-            run_cmd(call, ctx, true)?.0.unwrap(),
-        ))),
+        CmdArg::CmdCall(call) => (
+            call.at,
+            RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap()),
+        ),
 
-        CmdArg::Raw(raw) => Ok(CmdArgResult::Single(RuntimeValue::String(treat_cwd_raw(
-            raw, ctx,
-        )?))),
+        CmdArg::Raw(raw) => (raw.at, RuntimeValue::String(treat_cwd_raw(raw, ctx)?)),
+
+        CmdArg::RestSeparator => {
+            return Ok(CmdArgResult::Single(CmdSingleArgResult::RestSeparator))
+        }
+
+        CmdArg::Flag(CmdFlagArg { name, value, raw }) => {
+            return Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
+                name: name.clone(),
+                value: value
+                    .as_ref()
+                    .map(|expr| {
+                        eval_expr(&expr.data, ctx).map(|value| {
+                            LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))
+                        })
+                    })
+                    .transpose()?,
+                raw: raw.clone(),
+            }));
+        }
 
         CmdArg::SpreadVar(var_name) => {
             let var = ctx
@@ -559,11 +595,11 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 )
             })?;
 
-            let RuntimeValue::List(items) = &value.value else {
+            let RuntimeValue::ArgSpread(items) = &value.value else {
                 return Err(ctx.error(
                     var_name.at,
                     format!(
-                        "expected a list to spread, found a {}",
+                        "expected a spread value, found a {}",
                         value
                             .value
                             .get_type()
@@ -572,11 +608,13 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 ));
             };
 
-            let items = items.read(var_name.at).iter().cloned().collect();
-
-            Ok(CmdArgResult::Spreaded(items))
+            return Ok(CmdArgResult::Spreaded(Vec::clone(items)));
         }
-    }
+    };
+
+    Ok(CmdArgResult::Single(CmdSingleArgResult::Basic(
+        LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at)),
+    )))
 }
 
 fn treat_cwd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {
@@ -603,7 +641,28 @@ fn treat_cwd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {
     Ok(out)
 }
 
+#[derive(Debug, Clone)]
 pub enum CmdArgResult {
-    Single(RuntimeValue),
-    Spreaded(Vec<RuntimeValue>),
+    Single(CmdSingleArgResult),
+    Spreaded(Vec<CmdSingleArgResult>),
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdSingleArgResult {
+    Basic(LocatedValue),
+    Flag {
+        name: Eaten<CmdFlagNameArg>,
+        value: Option<LocatedValue>,
+        raw: String,
+    },
+    RestSeparator,
+}
+
+#[derive(Debug)]
+pub enum CmdEvalArg {
+    Value(RuntimeValue),
+    Flag {
+        name: Eaten<String>,
+        value: Option<RuntimeValue>,
+    },
 }

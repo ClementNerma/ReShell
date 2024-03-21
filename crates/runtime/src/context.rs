@@ -236,7 +236,7 @@ impl Context {
 
             type_aliases: match range {
                 RuntimeCodeRange::Internal => Default::default(),
-                RuntimeCodeRange::CodeRange(range) => self
+                RuntimeCodeRange::Parsed(range) => self
                     .type_aliases_decl
                     .get(range)
                     .cloned()
@@ -292,7 +292,7 @@ impl Context {
 
         // Update the current scope's range
         self.scopes.get_mut(&self.current_scope).unwrap().range =
-            RuntimeCodeRange::CodeRange(program.content.at);
+            RuntimeCodeRange::Parsed(program.content.at);
 
         // Merge the checker's output
         let CheckerOutput {
@@ -615,7 +615,7 @@ impl Context {
                                 .vars
                                 .get(name)
                                 .filter(|var| match var.name_at {
-                                    RuntimeCodeRange::CodeRange(var_name_at) => var_name_at == *declared_at,
+                                    RuntimeCodeRange::Parsed(var_name_at) => var_name_at == *declared_at,
                                     RuntimeCodeRange::Internal => false,
                                 })
                         })
@@ -635,7 +635,7 @@ impl Context {
                                 .fns
                                 .get(name)
                                 .filter(|func| match func.name_at {
-                                    RuntimeCodeRange::CodeRange(func_name_at) => func_name_at == *declared_at,
+                                    RuntimeCodeRange::Parsed(func_name_at) => func_name_at == *declared_at,
                                     RuntimeCodeRange::Internal => false,
                                 })
                         })
@@ -710,7 +710,7 @@ impl Scope {
     pub fn in_file_id(&self) -> Option<FileId> {
         match self.range {
             RuntimeCodeRange::Internal => None,
-            RuntimeCodeRange::CodeRange(range) => Some(range.start.file_id),
+            RuntimeCodeRange::Parsed(range) => Some(range.start.file_id),
         }
     }
 
@@ -718,7 +718,7 @@ impl Scope {
     pub fn source_file_id(&self) -> Option<u64> {
         match self.range {
             RuntimeCodeRange::Internal => None,
-            RuntimeCodeRange::CodeRange(range) => match range.start.file_id {
+            RuntimeCodeRange::Parsed(range) => match range.start.file_id {
                 FileId::None | FileId::Internal | FileId::Custom(_) => None,
                 FileId::SourceFile(id) => Some(id),
             },

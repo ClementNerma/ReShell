@@ -1,18 +1,18 @@
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    CmdArg, FnArg, FnArgNames, FnCall, FnCallArg, RuntimeCodeRange, RuntimeEaten, SingleValueType,
+    CmdFlagNameArg, FnArg, FnArgNames, FnCall, FnCallArg, RuntimeCodeRange, SingleValueType,
     ValueType,
 };
 
 use crate::{
-    cmd::{eval_cmd_arg, CmdArgResult},
+    cmd::{eval_cmd_arg, CmdArgResult, CmdSingleArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::ExecResult,
     exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
-    gc::GcCell,
+    gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits_type,
     values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
@@ -55,7 +55,7 @@ pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Optio
     };
 
     call_fn_value(
-        RuntimeCodeRange::CodeRange(call.at),
+        RuntimeCodeRange::Parsed(call.at),
         &func,
         FnPossibleCallArgs::Parsed(&call.data.call_args),
         ctx,
@@ -81,7 +81,7 @@ pub fn call_fn_value(
             let mut scope_content = ScopeContent::new();
 
             for (name, parsed) in args {
-                let ParsedFnCallArg {
+                let ValidatedFnCallArg {
                     decl_name_at,
                     arg_value_at,
                     value,
@@ -153,214 +153,146 @@ pub fn call_fn_value(
 fn parse_fn_call_args(
     call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
-    mut call_args: FnPossibleCallArgs,
+    call_args: FnPossibleCallArgs,
     fn_args: &[FnArg],
     ctx: &mut Context,
-) -> ExecResult<HashMap<String, ParsedFnCallArg>> {
-    let mut args: HashMap<String, ParsedFnCallArg> = HashMap::new();
+) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
+    let call_args = flatten_fn_call_args(call_args, ctx)?;
 
-    let mut positional_args = fn_args.iter().filter(|arg| !arg.names.is_flag());
+    let mut out = HashMap::<String, ValidatedFnCallArg>::new();
+    let mut rest_args = None::<Vec<CmdSingleArgResult>>;
 
-    let mut opened_flag = None;
-    let mut opened_rest = None;
+    let mut positional_fn_args = fn_args.iter().filter(|fn_arg| match fn_arg.names {
+        FnArgNames::Positional(_) => true,
 
-    let args_len = match call_args {
-        FnPossibleCallArgs::Parsed(parsed) => parsed.data.len(),
-        FnPossibleCallArgs::Internal(ref args) => args.len(),
-    };
+        FnArgNames::ShortFlag(_)
+        | FnArgNames::LongFlag(_)
+        | FnArgNames::LongAndShortFlag { long: _, short: _ } => false,
+    });
 
-    for arg_index in 0..args_len {
-        let (call_arg, call_arg_at) = match call_args {
-            FnPossibleCallArgs::Parsed(parsed) => {
-                let arg = &parsed.data.get(arg_index).unwrap().data;
+    for (arg_result_at, arg_result) in call_args {
+        if let Some(ref mut rest) = rest_args {
+            // rest.push((arg_result_at, arg_result));
+            rest.push(arg_result);
+            continue;
+        }
 
-                (
-                    FnPossibleCallArg::Parsed(arg),
-                    RuntimeCodeRange::CodeRange(match arg {
-                        FnCallArg::Expr(expr) => expr.at,
-                        FnCallArg::CmdArg(cmd_arg) => cmd_arg.at,
-                    }),
-                )
+        match arg_result {
+            CmdSingleArgResult::RestSeparator => {
+                let has_rest_arg = fn_args.iter().any(|arg| arg.is_rest);
+
+                if !has_rest_arg {
+                    return Err(ctx.error(
+                        arg_result_at,
+                        "called function does not have a rest argument",
+                    ));
+                }
+
+                rest_args = Some(vec![]);
             }
 
-            FnPossibleCallArgs::Internal(ref mut args) => {
-                let arg = args.remove(0);
-                (FnPossibleCallArg::Direct(arg.value), arg.from)
-            }
-        };
+            CmdSingleArgResult::Flag {
+                name,
+                value,
+                raw: _,
+            } => {
+                let matching_arg = fn_args
+                    .iter()
+                    .find(|arg| match &name.data {
+                        CmdFlagNameArg::Short(name) => arg
+                            .names
+                            .short_flag()
+                            .is_some_and(|flag| flag.data() == name),
 
-        if let FnPossibleCallArg::Parsed(FnCallArg::CmdArg(cmd_arg)) = &call_arg {
-            if let CmdArg::Raw(raw) = &cmd_arg.data {
-                if !raw.data.chars().all(|c| c == '-') {
-                    if let Some(without_first_dash) = raw.data.strip_prefix('-') {
-                        // TODO: support for "--flag=<value>" syntax?
+                        CmdFlagNameArg::Long(name) => arg
+                            .names
+                            .long_flag()
+                            .is_some_and(|flag| flag.data() == name),
+                    })
+                    .ok_or_else(|| ctx.error(name.at, "flag not found in called function"))?;
 
-                        if let Some((_, at)) = opened_flag {
-                            return Err(ctx.error(at, "value is missing for this flag".to_string()));
+                match value {
+                    None => {
+                        if matching_arg.typ.is_none()
+                            || matches!(&matching_arg.typ, Some(typ) if is_type_bool(typ.data()))
+                        {
+                            out.insert(
+                                fn_arg_var_name(matching_arg),
+                                ValidatedFnCallArg {
+                                    decl_name_at: fn_arg_var_at(matching_arg),
+                                    arg_value_at: RuntimeCodeRange::Parsed(name.at),
+                                    value: RuntimeValue::Bool(true),
+                                },
+                            );
+                        } else if !matching_arg.is_optional {
+                            return Err(ctx.error(name.at, "this flag requires a value"));
                         }
+                    }
 
-                        let flag = if let Some(long_flag) = raw.data.strip_prefix("--") {
-                            fn_args.iter().find(|arg| {
-                                arg.names
-                                    .long_flag()
-                                    .filter(|eaten| eaten.data() == long_flag)
-                                    .is_some()
-                            })
-                        } else {
-                            let mut chars = without_first_dash.chars();
-
-                            let short_flag = chars.next().unwrap();
-
-                            if chars.next().is_some() {
+                    Some(loc_val) => {
+                        if let Some(typ) = &matching_arg.typ {
+                            if !check_if_single_type_fits_type(
+                                &loc_val.value.get_type(),
+                                typ.data(),
+                                ctx,
+                            ) {
                                 return Err(ctx.error(
-                                    call_arg_at,
-                                    "expected a short flag (single character)",
+                                    loc_val.from,
+                                    format!(
+                                        "type mismatch: expected: {}, found: {}",
+                                        loc_val
+                                            .value
+                                            .get_type()
+                                            .render_colored(ctx, PrettyPrintOptions::inline()),
+                                        typ.data()
+                                            .render_colored(ctx, PrettyPrintOptions::inline())
+                                    ),
                                 ));
                             }
-
-                            fn_args.iter().find(|arg| {
-                                arg.names
-                                    .short_flag()
-                                    .filter(|eaten| *eaten.data() == short_flag)
-                                    .is_some()
-                            })
-                        };
-
-                        let flag = flag.ok_or_else(|| ctx.error(call_arg_at, "flag not found"))?;
-
-                        match &flag.typ {
-                            None => {
-                                args.insert(
-                                    fn_arg_var_name(flag),
-                                    ParsedFnCallArg {
-                                        decl_name_at: fn_arg_var_at(flag),
-                                        arg_value_at: call_arg_at,
-                                        value: RuntimeValue::Bool(true),
-                                    },
-                                );
-                            }
-
-                            Some(typ) => {
-                                if is_type_bool(typ.data()) {
-                                    args.insert(
-                                        fn_arg_var_name(flag),
-                                        ParsedFnCallArg {
-                                            decl_name_at: fn_arg_var_at(flag),
-                                            arg_value_at: call_arg_at,
-                                            value: RuntimeValue::Bool(true),
-                                        },
-                                    );
-                                } else {
-                                    opened_flag = Some((flag, call_arg_at));
-                                }
-                            }
                         }
 
-                        continue;
-                    }
-                }
-            }
-        }
-
-        let fn_arg = if let Some((flag, _)) = opened_flag {
-            opened_flag = None;
-            Some(flag)
-        } else if let Some(fn_arg) = positional_args.next() {
-            if fn_arg.is_rest {
-                opened_rest = Some(vec![]);
-                None
-            } else {
-                Some(fn_arg)
-            }
-        } else {
-            None
-        };
-
-        let Some(fn_arg) = fn_arg else {
-            match opened_rest {
-                None => return Err(ctx.error(call_arg_at, "too many arguments provided")),
-
-                Some(ref mut opened_rest_values) => {
-                    match call_arg {
-                        FnPossibleCallArg::Parsed(parsed) => match parsed {
-                            FnCallArg::Expr(expr) => {
-                                opened_rest_values.push(eval_expr(&expr.data, ctx)?)
-                            }
-                            FnCallArg::CmdArg(cmd_arg) => match eval_cmd_arg(&cmd_arg.data, ctx)? {
-                                CmdArgResult::Single(single) => opened_rest_values.push(single),
-                                CmdArgResult::Spreaded(mut items) => {
-                                    opened_rest_values.append(&mut items);
-                                }
+                        out.insert(
+                            fn_arg_var_name(matching_arg),
+                            ValidatedFnCallArg {
+                                decl_name_at: fn_arg_var_at(matching_arg),
+                                arg_value_at: loc_val.from,
+                                value: loc_val.value,
                             },
-                        },
-                        FnPossibleCallArg::Direct(loc_val) => opened_rest_values.push(loc_val),
+                        );
                     }
-
-                    continue;
                 }
             }
-        };
 
-        let arg_value = match call_arg {
-            FnPossibleCallArg::Parsed(parsed) => match parsed {
-                FnCallArg::Expr(expr) => eval_expr(&expr.data, ctx)?,
-                FnCallArg::CmdArg(cmd_arg) => match eval_cmd_arg(&cmd_arg.data, ctx)? {
-                    CmdArgResult::Single(single) => single,
-                    CmdArgResult::Spreaded(_) => {
+            CmdSingleArgResult::Basic(loc_val) => {
+                let matching_arg = positional_fn_args
+                    .next()
+                    .ok_or_else(|| ctx.error(arg_result_at, "too many arguments provided"))?;
+
+                if let Some(typ) = &matching_arg.typ {
+                    if !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx) {
                         return Err(ctx.error(
-                            cmd_arg.at,
-                            "spreads are not supported for functions outside of rest arguments",
-                        ))
+                            loc_val.from,
+                            format!(
+                                "type mismatch: expected: {}, found: {}",
+                                loc_val
+                                    .value
+                                    .get_type()
+                                    .render_colored(ctx, PrettyPrintOptions::inline()),
+                                typ.data().render_colored(ctx, PrettyPrintOptions::inline())
+                            ),
+                        ));
                     }
-                },
-            },
-            FnPossibleCallArg::Direct(value) => value,
-        };
+                }
 
-        if let Some(expected_type) = &fn_arg.typ {
-            if !check_if_single_type_fits_type(&arg_value.get_type(), expected_type.data(), ctx) {
-                return Err(ctx.error(
-                    call_arg_at,
-                    format!(
-                        "type mismatch for argument '{}': expected a {}, found a {}",
-                        fn_arg_var_name(fn_arg),
-                        expected_type
-                            .data()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
-                        arg_value
-                            .get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
-                    ),
-                ));
+                out.insert(
+                    fn_arg_var_name(matching_arg),
+                    ValidatedFnCallArg {
+                        decl_name_at: fn_arg_var_at(matching_arg),
+                        arg_value_at: loc_val.from,
+                        value: loc_val.value,
+                    },
+                );
             }
-        }
-
-        args.insert(
-            fn_arg_var_name(fn_arg),
-            ParsedFnCallArg {
-                decl_name_at: fn_arg_var_at(fn_arg),
-                arg_value_at: call_arg_at,
-                value: arg_value,
-            },
-        );
-    }
-
-    if let Some((_, at)) = opened_flag {
-        return Err(ctx.error(at, "value is missing for this flag".to_string()));
-    }
-
-    if let Some(arg) = positional_args.next() {
-        if !arg.is_rest && !arg.is_optional {
-            return Err(ctx.error(
-                match call_args {
-                    FnPossibleCallArgs::Parsed(parsed) => RuntimeCodeRange::CodeRange(parsed.at),
-                    FnPossibleCallArgs::Internal(_) => RuntimeCodeRange::Internal,
-                },
-                format!(
-                    "not enough arguments, missing value for argument '{}'",
-                    fn_arg_var_name(arg)
-                ),
-            ));
         }
     }
 
@@ -369,60 +301,125 @@ fn parse_fn_call_args(
         RuntimeFnBody::Internal(_) => true,
     };
 
-    for flag in fn_args.iter().filter(|arg| arg.names.is_flag()) {
-        let arg_name = fn_arg_var_name(flag);
+    for arg in fn_args {
+        let arg_name = fn_arg_var_name(arg);
 
-        if !is_native_fn {
-            if let Entry::Vacant(entry) = args.entry(arg_name) {
-                let value = if matches!(&flag.typ, Some(typ) if is_type_bool(typ.data())) {
-                    RuntimeValue::Bool(false)
-                } else if flag.is_optional {
-                    RuntimeValue::Null
-                } else {
-                    return Err(ctx.error(
-                        call_at,
-                        format!(
-                            "value for flag '{}' was not provided",
-                            fn_arg_var_name(flag)
-                        ),
-                    ));
-                };
+        if out.contains_key(&arg_name) {
+            continue;
+        }
 
-                entry.insert(ParsedFnCallArg {
-                    decl_name_at: fn_arg_var_at(flag),
+        if arg.is_optional {
+            if !is_native_fn {
+                out.insert(
+                    arg_name,
+                    ValidatedFnCallArg {
+                        decl_name_at: fn_arg_var_at(arg),
+                        arg_value_at: RuntimeCodeRange::Internal,
+                        value: RuntimeValue::Null,
+                    },
+                );
+            }
+
+            continue;
+        }
+
+        if arg.is_rest {
+            out.insert(
+                arg_name,
+                ValidatedFnCallArg {
+                    decl_name_at: fn_arg_var_at(arg),
                     arg_value_at: call_at,
-                    value,
-                });
+                    value: RuntimeValue::ArgSpread(GcReadOnlyCell::new(
+                        rest_args.take().unwrap_or_default(),
+                    )),
+                },
+            );
+
+            continue;
+        }
+
+        if arg.names.is_flag() {
+            let is_bool_type = matches!(&arg.typ, Some(typ) if is_type_bool(typ.data()));
+
+            if is_bool_type {
+                out.insert(
+                    arg_name,
+                    ValidatedFnCallArg {
+                        decl_name_at: fn_arg_var_at(arg),
+                        arg_value_at: RuntimeCodeRange::Internal,
+                        value: RuntimeValue::Bool(false),
+                    },
+                );
+
+                continue;
+            }
+        }
+
+        return Err(ctx.error(call_at, format!("argument '{arg_name}' is missing")));
+    }
+
+    // TODO: check all arguments
+    // => not optional and not provided => ERR
+    // => except if bool (then default to "false")
+
+    // TODO: fill REST argument
+
+    Ok(out)
+}
+
+fn flatten_fn_call_args(
+    call_args: FnPossibleCallArgs,
+    ctx: &mut Context,
+) -> ExecResult<Vec<(RuntimeCodeRange, CmdSingleArgResult)>> {
+    let mut out = vec![];
+
+    match call_args {
+        FnPossibleCallArgs::Parsed(parsed) => {
+            for parsed in &parsed.data {
+                match &parsed.data {
+                    FnCallArg::Expr(expr) => {
+                        let eval = eval_expr(&expr.data, ctx)?;
+
+                        out.push((
+                            RuntimeCodeRange::Parsed(parsed.at),
+                            CmdSingleArgResult::Basic(LocatedValue::new(
+                                eval,
+                                RuntimeCodeRange::Parsed(expr.at),
+                            )),
+                        ))
+                    }
+
+                    FnCallArg::CmdArg(arg) => match eval_cmd_arg(&arg.data, ctx)? {
+                        CmdArgResult::Single(single) => {
+                            out.push((RuntimeCodeRange::Parsed(arg.at), single))
+                        }
+
+                        CmdArgResult::Spreaded(items) => {
+                            out.extend(
+                                items
+                                    .into_iter()
+                                    .map(|item| (RuntimeCodeRange::Parsed(arg.at), item)),
+                            );
+                        }
+                    },
+                }
+            }
+        }
+
+        FnPossibleCallArgs::Internal(args) => {
+            for (arg_at, arg_result) in args {
+                match arg_result {
+                    CmdArgResult::Single(single) => out.push((arg_at, single)),
+
+                    CmdArgResult::Spreaded(items) => {
+                        out.extend(items.into_iter().map(|item| (arg_at, item)));
+                    }
+                }
             }
         }
     }
 
-    if let Some(rest_arg) = fn_args.iter().find(|arg| arg.is_rest) {
-        let name = match &rest_arg.names {
-            FnArgNames::Positional(name) => name.clone(),
-            FnArgNames::ShortFlag(_)
-            | FnArgNames::LongFlag(_)
-            | FnArgNames::LongAndShortFlag { long: _, short: _ } => unreachable!(),
-        };
-
-        args.insert(
-            match name {
-                RuntimeEaten::Eaten(value) => value.data.clone(),
-                RuntimeEaten::Internal(value) => value.clone(),
-            },
-            ParsedFnCallArg {
-                decl_name_at: fn_arg_var_at(rest_arg),
-                // NOTE: imprecise due to arguments coming from either actual code or generated data
-                arg_value_at: call_at,
-                value: RuntimeValue::List(GcCell::new(match opened_rest {
-                    Some(list) => list,
-                    None => vec![],
-                })),
-            },
-        );
-    }
-
-    Ok(args)
+    Ok(out)
 }
 
 fn fn_arg_var_name(arg: &FnArg) -> String {
@@ -452,15 +449,10 @@ fn is_type_bool(typ: &ValueType) -> bool {
 
 pub enum FnPossibleCallArgs<'a> {
     Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
-    Internal(Vec<LocatedValue>),
+    Internal(Vec<(RuntimeCodeRange, CmdArgResult)>),
 }
 
-pub enum FnPossibleCallArg<'a> {
-    Parsed(&'a FnCallArg),
-    Direct(RuntimeValue),
-}
-
-pub struct ParsedFnCallArg {
+pub struct ValidatedFnCallArg {
     pub decl_name_at: RuntimeCodeRange,
     pub arg_value_at: RuntimeCodeRange,
     pub value: RuntimeValue,

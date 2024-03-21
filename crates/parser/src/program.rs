@@ -6,11 +6,12 @@ use parsy::{
 };
 
 use crate::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType,
-    ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
-    ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature,
-    Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten,
-    SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdPath,
+    CmdPipe, CmdPipeType, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
+    EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg,
+    FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+    RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
+    ValueType,
 };
 
 pub fn program() -> impl Parser<Program> {
@@ -183,7 +184,7 @@ pub fn program() -> impl Parser<Program> {
             .then(fn_arg_names)
             .then(ms.ignore_then(char('?')).to(()).or_not())
             .then(
-                ms.ignore_then(just("->"))
+                ms.ignore_then(char(':'))
                     .ignore_then(ms)
                     .ignore_then(
                         value_type
@@ -700,6 +701,30 @@ pub fn program() -> impl Parser<Program> {
             )
             .map(|(name, value)| CmdEnvVar { name, value });
 
+        let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
+            just("--")
+                .ignore_then(ident.clone())
+                .map(CmdFlagNameArg::Long),
+            just("-")
+                .ignore_then(first_ident_char)
+                .map(CmdFlagNameArg::Short),
+        ));
+
+        let cmd_flag_arg = cmd_flag_name_arg
+            .spanned()
+            .then(
+                choice((s.map(|_| ()), char('=').map(|_| ())))
+                    .ignore_then(char('('))
+                    .ignore_then(msnl)
+                    .ignore_then(expr.clone().spanned().critical("expected an expression"))
+                    .then_ignore(
+                        char(')').critical("expected a closing parenthesis after the expression"),
+                    )
+                    .or_not(),
+            )
+            .collect_string_and_data()
+            .map(|(raw, (name, value))| CmdFlagArg { name, value, raw });
+
         let cmd_arg = choice::<_, CmdArg>((
             // Literal values
             literal_value.clone().spanned().map(CmdArg::LiteralValue),
@@ -721,8 +746,6 @@ pub fn program() -> impl Parser<Program> {
                     char(')').critical("unclosed command call (expected a closing parenthesis)"),
                 )
                 .map(CmdArg::CmdCall),
-            // Variables
-            var_name.clone().spanned().map(CmdArg::VarName),
             // Spread
             just("$...")
                 .ignore_then(
@@ -747,6 +770,10 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(ident.clone().critical("expected a function name"))
                 .spanned()
                 .map(CmdArg::FnAsValue),
+            // Flag arguments
+            cmd_flag_arg.map(CmdArg::Flag),
+            // Variables
+            var_name.clone().spanned().map(CmdArg::VarName),
             // Raw argument
             cmd_raw.spanned().map(CmdArg::Raw),
         ));

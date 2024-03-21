@@ -3,6 +3,7 @@ use reshell_parser::ast::{
 };
 
 use reshell_runtime::{
+    cmd::{CmdArgResult, CmdSingleArgResult},
     context::Context,
     errors::ExecResult,
     functions::{call_fn_value, FnPossibleCallArgs},
@@ -77,7 +78,15 @@ pub fn call_fn_checked(
         func,
         FnPossibleCallArgs::Internal(
             args.into_iter()
-                .map(|arg| LocatedValue::new(arg, RuntimeCodeRange::Internal))
+                .map(|arg| {
+                    (
+                        RuntimeCodeRange::Internal,
+                        CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
+                            arg,
+                            RuntimeCodeRange::Internal,
+                        ))),
+                    )
+                })
                 .collect(),
         ),
         ctx,

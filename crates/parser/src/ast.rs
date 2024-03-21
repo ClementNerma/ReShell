@@ -212,6 +212,7 @@ pub enum SingleValueType {
     TypedStruct(Vec<RuntimeEaten<StructTypeMember>>),
     Function(RuntimeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
+    ArgSpread,
 }
 
 #[derive(Debug, Clone)]
@@ -321,8 +322,23 @@ pub enum CmdArg {
     ParenExpr(Eaten<Expr>),
     VarName(Eaten<String>),
     FnAsValue(Eaten<String>),
+    Flag(CmdFlagArg),
     Raw(Eaten<String>),
     SpreadVar(Eaten<String>),
+    RestSeparator,
+}
+
+#[derive(Debug, Clone)]
+pub struct CmdFlagArg {
+    pub name: Eaten<CmdFlagNameArg>,
+    pub value: Option<Eaten<Expr>>,
+    pub raw: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdFlagNameArg {
+    Short(char),
+    Long(String),
 }
 
 #[derive(Debug, Clone)]
@@ -380,7 +396,7 @@ pub enum RuntimeEaten<T> {
 impl<T> RuntimeEaten<T> {
     pub fn at(&self) -> RuntimeCodeRange {
         match self {
-            RuntimeEaten::Eaten(eaten) => RuntimeCodeRange::CodeRange(eaten.at),
+            RuntimeEaten::Eaten(eaten) => RuntimeCodeRange::Parsed(eaten.at),
             RuntimeEaten::Internal(_) => RuntimeCodeRange::Internal,
         }
     }
@@ -410,21 +426,21 @@ impl<T> RuntimeEaten<T> {
 /// Either a [`CodeRange`] or an internal location
 #[derive(Debug, Clone, Copy)]
 pub enum RuntimeCodeRange {
-    CodeRange(CodeRange),
+    Parsed(CodeRange),
     Internal,
 }
 
 impl RuntimeCodeRange {
     pub fn real(&self) -> Option<CodeRange> {
         match self {
-            RuntimeCodeRange::CodeRange(range) => Some(*range),
+            RuntimeCodeRange::Parsed(range) => Some(*range),
             RuntimeCodeRange::Internal => None,
         }
     }
 
     pub fn contains(&self, range: CodeRange) -> Result<bool, CodeRangeComparisonError> {
         match self {
-            RuntimeCodeRange::CodeRange(c) => c.contains(range),
+            RuntimeCodeRange::Parsed(c) => c.contains(range),
             RuntimeCodeRange::Internal => Ok(false),
         }
     }
@@ -432,6 +448,6 @@ impl RuntimeCodeRange {
 
 impl From<CodeRange> for RuntimeCodeRange {
     fn from(range: CodeRange) -> Self {
-        Self::CodeRange(range)
+        Self::Parsed(range)
     }
 }
