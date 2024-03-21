@@ -115,11 +115,13 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         followed_by: None,
         followed_by_nesting: None,
         style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-            if COMMANDS_CHECKER.lock().unwrap().check(ctx, matched) {
-                Style::new().fg(Color::Blue)
+            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, matched) {
+                Color::Blue
             } else {
-                Style::new().fg(Color::Red)
-            }
+                Color::Red
+            };
+
+            vec![Style::new().fg(color)]
         }))
     });
 

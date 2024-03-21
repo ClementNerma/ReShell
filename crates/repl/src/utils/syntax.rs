@@ -72,7 +72,7 @@ impl std::fmt::Debug for RuleStylization {
     }
 }
 
-pub type DynamicRuleStylizer = Box<dyn Fn(&mut Context, &str) -> Style + Send + Sync + 'static>;
+pub type DynamicRuleStylizer = Box<dyn Fn(&mut Context, &str) -> Vec<Style> + Send + Sync + 'static>;
 
 pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec<HighlightPiece> {
     let ValidatedRuleSet(rule_set) = rule_set;
@@ -223,10 +223,10 @@ fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<
     let style = match &matched.rule.style {
         RuleStylization::Static(style) => style.clone(),
         RuleStylization::Dynamic(stylizer) => {
-            vec![stylizer(
+            stylizer(
                 SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
                 matched.get(0).unwrap().extract,
-            )]
+            )
         }
     };
 
@@ -401,38 +401,28 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
             );
         }
 
-        match matches.static_captures_len() {
-            None => Err(format!(
-                "Regex '{matches}' does not contain a constant number of capture groups"
-            )),
+        let mut static_len = matches.static_captures_len().ok_or_else(|| format!(
+            "Regex '{matches}' does not contain a constant number of capture groups"
+        ))?;
 
-            Some(mut static_len) => {
-                // Account the zeroth group (full match)
-                static_len -= 1;
+        // Account the zeroth group (full match)
+        static_len -= 1;
 
-                if static_len == 0 {
-                    Err(format!("Regex '{matches}' does not have any capture group"))
-                } else {
-                    match &style {
-                        RuleStylization::Static(style) => {
-                            if style.len() != static_len {
-                                Err(format!("Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it", style.len()))
-                            } else {
-                                Ok(())
-                            }
-                        }
+        if static_len == 0 {
+            return Err(format!("Regex '{matches}' does not have any capture group"));
+        }
 
-                        RuleStylization::Dynamic(_) => {
-                            if static_len != 1 {
-                                Err(format!("Regex '{matches}' has {static_len} capture groups but it should only be 1 for dynamic styling"))
-                            } else {
-                                Ok(())
-                            }
-                        }
-                    }
+        match &style {
+            RuleStylization::Static(style) => {
+                if style.len() != static_len {
+                    return Err(format!("Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it", style.len()));
                 }
             }
+
+            RuleStylization::Dynamic(_) => {}
         }
+
+        Ok(())
     }
 
     fn _validate_rules(rules: &[Rule], groups: &HashMap<String, Vec<Rule>>) -> Result<(), String> {
