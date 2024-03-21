@@ -54,7 +54,7 @@ impl Highlighter {
                 piece.start < text.len(),
                 "out-of-bound piece start: {} vs {}",
                 piece.start,
-                text.len()
+                text.len(),
             );
 
             assert!(
@@ -251,9 +251,11 @@ impl Highlighter {
             *inner_shift < text.len()
         };
 
-        while let Some(matched) =
-            self.find_nearest_simple_rule(&text[inner_shift..], rules, curr_shift + inner_shift)
-        {
+        while let Some(matched) = self.find_nearest_simple_or_progressive_rule(
+            &text[inner_shift..],
+            rules,
+            curr_shift + inner_shift,
+        ) {
             if !highlight_matched(&matched, &mut inner_shift) {
                 return;
             }
@@ -263,7 +265,11 @@ impl Highlighter {
             };
 
             for simple in following {
-                match Self::match_simple_rule(simple, text, curr_shift + inner_shift) {
+                match Self::match_simple_rule(
+                    simple,
+                    &text[inner_shift..],
+                    curr_shift + inner_shift,
+                ) {
                     None => break,
                     Some(matched) => {
                         if !highlight_matched(&matched, &mut inner_shift) {
@@ -275,7 +281,7 @@ impl Highlighter {
         }
     }
 
-    fn find_nearest_simple_rule<'h, 'str>(
+    fn find_nearest_simple_or_progressive_rule<'h, 'str>(
         &'h self,
         text: &'str str,
         rules: &'h [Rule],
@@ -285,37 +291,51 @@ impl Highlighter {
             return None;
         }
 
+        let mut min = None::<Match>;
+
         for rule in rules {
             match rule {
                 Rule::Simple(simple) => {
-                    if let Some(m) = Self::match_simple_rule(simple, text, curr_shift) {
-                        return Some(m);
+                    if let Some(matched) = Self::match_simple_rule(simple, text, curr_shift) {
+                        if min.is_none()
+                            || matches!(min, Some(ref min) if matched.start < min.start)
+                        {
+                            min = Some(matched);
+                        }
                     }
                 }
 
                 Rule::Progressive(simple, following) => {
-                    if let Some(m) = Self::match_simple_rule(simple, text, curr_shift) {
-                        return Some(m.with_following(following));
+                    if let Some(matched) = Self::match_simple_rule(simple, text, curr_shift) {
+                        if min.is_none()
+                            || matches!(min, Some(ref min) if matched.start < min.start)
+                        {
+                            min = Some(matched.with_following(following));
+                        }
                     }
                 }
 
                 Rule::Nested(_) => continue,
 
                 Rule::Group(name) => {
-                    let ret = self.find_nearest_simple_rule(
+                    let matched = self.find_nearest_simple_or_progressive_rule(
                         text,
                         self.rule_set.groups.get(name).unwrap(),
                         curr_shift,
                     );
 
-                    if ret.is_some() {
-                        return ret;
+                    if let Some(matched) = matched {
+                        if min.is_none()
+                            || matches!(min, Some(ref min) if matched.start < min.start)
+                        {
+                            min = Some(matched);
+                        }
                     }
                 }
             }
         }
 
-        None
+        min
     }
 
     fn highlight_piece(matched: &Match, out: &mut Vec<HighlightPiece>) {
