@@ -10,7 +10,6 @@ pub mod display;
 pub mod errors;
 pub mod exec;
 pub mod expr;
-pub mod files_map;
 pub mod functions;
 pub mod gc;
 pub mod pretty;

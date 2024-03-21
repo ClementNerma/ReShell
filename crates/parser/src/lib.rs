@@ -3,6 +3,7 @@
 #![forbid(unused_crate_dependencies)]
 
 pub mod ast;
+pub mod files;
 mod program;
 mod utils;
 

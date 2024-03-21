@@ -1,15 +1,17 @@
 use colored::Color;
 use parsy::FileId;
-use reshell_parser::ast::{
-    CmdFlagNameArg, FlagValueSeparator, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange,
-    SingleValueType, StructTypeMember, ValueType,
+use reshell_parser::{
+    ast::{
+        CmdFlagNameArg, FlagValueSeparator, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange,
+        SingleValueType, StructTypeMember, ValueType,
+    },
+    files::{FilesMap, SourceFileLocation},
 };
 
 use crate::{
     cmd::{CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
     context::Context,
     errors::ExecResult,
-    files_map::{FilesMap, ScopableFilePath},
     pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece},
     values::{RuntimeFnBody, RuntimeValue},
 };
@@ -135,13 +137,9 @@ pub fn dbg_loc(at: impl Into<RuntimeCodeRange>, files_map: &FilesMap) -> String 
 
                 format!(
                     "{}:{}:{}",
-                    match &file.path {
-                        ScopableFilePath::InMemory(name) => format!("<{name}>"),
-
-                        ScopableFilePath::InMemoryWithCounter(name, counter) =>
-                            format!("<{name}[{counter}]>"),
-
-                        ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
+                    match &file.location {
+                        SourceFileLocation::CustomName(name) => format!("<{name}>"),
+                        SourceFileLocation::RealFile(path) => path.to_string_lossy().to_string(),
                     },
                     line,
                     col

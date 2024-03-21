@@ -7,6 +7,5 @@ edition = "2021"
 colored = "2.0.4"
 indexmap = "2.1.0"
 parsy = "0.3.0"
-rand = "0.8.5"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
