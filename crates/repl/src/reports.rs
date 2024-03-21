@@ -2,9 +2,9 @@ use std::borrow::Cow;
 
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
-use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
+use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError};
 use reshell_checker::CheckerError;
-use reshell_parser::ast::RuntimeCodeRange;
+use reshell_parser::ast::{Program, RuntimeCodeRange};
 use reshell_runtime::{
     context::CallStackEntry,
     display::dbg_loc,
@@ -16,14 +16,14 @@ use reshell_runtime::{
 pub enum ReportableError {
     Parsing(ParsingError),
     Checking(CheckerError),
-    Runtime(Box<ExecError>),
+    Runtime(Box<ExecError>, Option<Eaten<Program>>),
 }
 
 impl ReportableError {
     pub fn exit_code(&self) -> Option<i32> {
         match self {
             ReportableError::Parsing(_) | ReportableError::Checking(_) => None,
-            ReportableError::Runtime(err) => match err.nature {
+            ReportableError::Runtime(err, _) => match err.nature {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
                 | ExecErrorNature::Thrown { value: _ } => None,
@@ -49,10 +49,10 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             (RuntimeCodeRange::CodeRange(at), err)
         }
 
-        ReportableError::Runtime(err) => match &err.nature {
+        ReportableError::Runtime(err, _) => match &err.nature {
             ExecErrorNature::Exit { code: _ } => {
                 // This error is designed to be consumed, not displayed
-                return;
+                unreachable!()
             }
             ExecErrorNature::Custom(message) => (
                 err.at,
@@ -82,7 +82,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let call_stack = match err {
         ReportableError::Parsing(_) => None,
         ReportableError::Checking(_) => None,
-        ReportableError::Runtime(err) => Some(&err.call_stack),
+        ReportableError::Runtime(err, _) => Some(&err.call_stack),
     };
 
     let (source_file, offset, len, msg) = match at {
@@ -142,7 +142,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let mut bottom = String::new();
 
-    if let ReportableError::Runtime(err) = err {
+    if let ReportableError::Runtime(err, _) = err {
         if let RuntimeCodeRange::CodeRange(range) = err.scope_range {
             let curr_scope_msg = format!("* In scope : {}", dbg_loc(range, files).bright_magenta());
             bottom = format!("{}", curr_scope_msg.bright_yellow());
@@ -173,7 +173,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ReportableError::Checking(_) => {
             inner.set_note("Error was encountered before running the program")
         }
-        ReportableError::Runtime(err) => {
+        ReportableError::Runtime(err, _) => {
             if let Some(note) = &err.note {
                 inner.set_note(note);
             }
