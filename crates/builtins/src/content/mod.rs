@@ -5,6 +5,7 @@
 
 mod append;
 mod approx_int_div;
+mod at;
 mod cd;
 mod chars;
 mod clone;
@@ -86,6 +87,8 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
         functions: vec![
             // Collect function from individual modules
             self::append::build_fn(),
+            self::approx_int_div::build_fn(),
+            self::at::build_fn(),
             self::cd::build_fn(),
             self::chars::build_fn(),
             self::clone::build_fn(),
@@ -124,7 +127,6 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::transform::build_fn(),
             self::prepend::build_fn(),
             self::pop::build_fn(),
-            self::approx_int_div::build_fn(),
             self::print_runtime_stats::build_fn(),
             self::range::build_fn(),
             self::read_dir::build_fn(),
