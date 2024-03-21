@@ -234,7 +234,7 @@ impl PrettyPrintable for RuntimeValue {
             },
 
             RuntimeValue::Map(map) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("map({", Color::Blue),
+                begin: Colored::with_color("map({", Color::Magenta),
                 items: map
                     .read_promise_no_write()
                     .iter()
@@ -260,7 +260,7 @@ impl PrettyPrintable for RuntimeValue {
                         })
                     .collect(),
                 sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color("})", Color::Blue),
+                end: Colored::with_color("})", Color::Magenta),
                 suffix: None,
             },
 
