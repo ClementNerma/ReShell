@@ -1275,7 +1275,7 @@ pub fn program(
 
 pub static DELIMITER_CHARS: LazyLock<HashSet<char>> = LazyLock::new(|| {
     HashSet::from([
-        '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '`', '$', '#',
+        '(', ')', '[', ']', '{', '}', '<', '>', ';', '|', '\'', '"', '`', '$', '#',
     ])
 });
 
