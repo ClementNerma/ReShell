@@ -5,8 +5,8 @@ use std::{
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, end, filter, just, late, lookahead, newline, not, recursive, silent_choice,
-    whitespaces, FileId, Parser,
+    char, choice, empty, end, filter, just, late, lookahead, newline, not, recursive,
+    silent_choice, whitespaces, FileId, Parser,
 };
 
 use crate::{
@@ -15,8 +15,8 @@ use crate::{
         CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
         ExprInner, ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp,
-        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
-        Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten,
+        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnSignature,
+        Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten,
         SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::SourceFile,
@@ -304,24 +304,26 @@ pub fn program(
             expr.clone().spanned().map(FnCallArg::Expr),
         ));
 
-        let fn_call = char('$')
-            .or_not()
-            .then(ident)
-            .spanned()
-            .then_ignore(char('('))
-            .then(
-                fn_call_arg
-                    .spanned()
-                    .padded_by(msnl)
-                    .separated_by(char(','))
-                    .spanned(),
-            )
-            .then_ignore(char(')').critical("expected an expression"))
-            .map(|(name, call_args)| FnCall {
-                is_var_name: name.data.0.is_some(),
-                name: name.map(|(_, name)| name),
-                call_args,
-            });
+        let fn_call = choice::<_, FnCallNature>((
+            char('$').to(FnCallNature::Variable),
+            char('.').to(FnCallNature::Method),
+            empty().to(FnCallNature::NamedFunction),
+        ))
+        .then(ident.spanned())
+        .then_ignore(char('('))
+        .then(
+            fn_call_arg
+                .spanned()
+                .padded_by(msnl)
+                .separated_by(char(','))
+                .spanned(),
+        )
+        .then_ignore(char(')').critical("expected an expression"))
+        .map(|((nature, name), call_args)| FnCall {
+            nature,
+            name,
+            call_args,
+        });
 
         let escapable_char = char('\\').ignore_then(
             choice((
@@ -673,7 +675,7 @@ pub fn program(
             });
 
         expr_inner_direct_chaining.finish(choice::<_, ExprInnerDirectChaining>((
-            char('.')
+            lookahead(char('.'))
                 .ignore_then(fn_call.clone())
                 .spanned()
                 .map(ExprInnerDirectChaining::MethodCall),

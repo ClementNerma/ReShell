@@ -9,14 +9,14 @@ use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
     CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
-    FlagValueSeparator, RuntimeCodeRange, SingleCmdCall,
+    FlagValueSeparator, FnCallNature, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
     expr::{closure_to_value, eval_computed_string, eval_expr, eval_literal_value, VOID_EXPR_ERR},
-    functions::{call_fn_value, FnCallType, FnPossibleCallArgs},
+    functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{value_to_str, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
@@ -103,14 +103,18 @@ pub fn run_cmd(
             let return_value = call_fn_value(
                 RuntimeCodeRange::Parsed(call_at),
                 &func,
-                FnPossibleCallArgs::ParsedCmdArgs {
-                    call_type: pipe_type.map(|pipe_type| {
+                FnCallInfos {
+                    nature: if func.is_method {
+                        FnCallNature::Method
+                    } else {
+                        FnCallNature::NamedFunction
+                    },
+                    args: FnPossibleCallArgs::ParsedCmdArgs(args),
+                    piped: pipe_type.map(|pipe_type| {
                         assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
 
-                        FnCallType::Piped(last_return_value.unwrap())
+                        last_return_value.unwrap()
                     }),
-
-                    args,
                 },
                 ctx,
             )?;

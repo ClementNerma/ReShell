@@ -23,8 +23,8 @@ use reshell_parser::{
         Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece,
         DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
-        ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature,
-        Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
+        FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
         RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
         SwitchCase, Value, ValueType,
     },
@@ -559,9 +559,7 @@ fn check_expr_direct_chaining(
 ) -> CheckerResult {
     match chaining {
         ExprInnerDirectChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
-        ExprInnerDirectChaining::MethodCall(method_call) => {
-            check_fn_or_method_call(method_call, true, state)
-        }
+        ExprInnerDirectChaining::MethodCall(method_call) => check_fn_call(method_call, state),
     }
 }
 
@@ -765,27 +763,16 @@ fn check_computed_string_piece(
 }
 
 fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
-    check_fn_or_method_call(fn_call, false, state)
-}
-
-fn check_fn_or_method_call(
-    fn_call: &Eaten<FnCall>,
-    is_method: bool,
-    state: &mut State,
-) -> CheckerResult {
     let FnCall {
-        is_var_name,
+        nature,
         name,
         call_args,
     } = &fn_call.data;
 
-    if is_method {
-        assert!(!*is_var_name);
-        state.register_usage(name, DependencyType::Method)?;
-    } else if *is_var_name {
-        state.register_usage(name, DependencyType::Variable)?;
-    } else {
-        state.register_usage(name, DependencyType::Function)?;
+    match nature {
+        FnCallNature::Variable => state.register_usage(name, DependencyType::Variable)?,
+        FnCallNature::Method => state.register_usage(name, DependencyType::Method)?,
+        FnCallNature::NamedFunction => state.register_usage(name, DependencyType::Function)?,
     }
 
     for arg in &call_args.data {
