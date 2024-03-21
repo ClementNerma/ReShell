@@ -11,16 +11,14 @@ use reshell_runtime::{
     values::{RuntimeFnValue, RuntimeValue},
 };
 
-use crate::helper::{
-    ArgSingleTyping, ArgSingleTypingDirectCreation, ArgTyping, ArgTypingDirectCreation,
-};
+use crate::helper::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
 
 macro_rules! declare_basic_types {
     ($($name: ident ($variant: ident) = $type: ty => $value_ident: ident: $parser: expr),+) => {
         $(
             pub struct $name;
 
-            impl ArgSingleTyping for $name {
+            impl SingleTyping for $name {
                 fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::$variant
                 }
@@ -32,7 +30,7 @@ macro_rules! declare_basic_types {
                 }
             }
 
-            impl ArgSingleTypingDirectCreation for $name {
+            impl SingleTypingDirectCreation for $name {
                 fn new_single_direct() -> Self {
                     Self
                 }
@@ -110,7 +108,7 @@ pub struct ExactIntType<From: SpecificIntType> {
     _f: PhantomData<From>,
 }
 
-impl<From: SpecificIntType> ArgSingleTyping for ExactIntType<From> {
+impl<From: SpecificIntType> SingleTyping for ExactIntType<From> {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Int
     }
@@ -131,7 +129,7 @@ impl<From: SpecificIntType> ArgSingleTyping for ExactIntType<From> {
     }
 }
 
-impl<From: SpecificIntType> ArgSingleTypingDirectCreation for ExactIntType<From> {
+impl<From: SpecificIntType> SingleTypingDirectCreation for ExactIntType<From> {
     fn new_single_direct() -> Self {
         Self { _f: PhantomData }
     }
@@ -144,17 +142,17 @@ pub trait SpecificIntType: TryFrom<i64> + Display {
 
 implement_specific_int_types!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
 
-pub struct DetachedListType<Inner: ArgTyping> {
+pub struct DetachedListType<Inner: Typing> {
     inner: Inner,
 }
 
-impl<Inner: ArgTyping> DetachedListType<Inner> {
+impl<Inner: Typing> DetachedListType<Inner> {
     pub fn new(inner: Inner) -> Self {
         Self { inner }
     }
 }
 
-impl<Inner: ArgTyping> ArgSingleTyping for DetachedListType<Inner> {
+impl<Inner: Typing> SingleTyping for DetachedListType<Inner> {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::List
     }
@@ -179,7 +177,7 @@ impl<Inner: ArgTyping> ArgSingleTyping for DetachedListType<Inner> {
     }
 }
 
-impl<Inner: ArgTypingDirectCreation> ArgSingleTypingDirectCreation for DetachedListType<Inner> {
+impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedListType<Inner> {
     fn new_single_direct() -> Self {
         Self::new(Inner::new_direct())
     }
@@ -187,7 +185,7 @@ impl<Inner: ArgTypingDirectCreation> ArgSingleTypingDirectCreation for DetachedL
 
 pub struct MapType;
 
-impl ArgSingleTyping for MapType {
+impl SingleTyping for MapType {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Map
     }
@@ -202,23 +200,23 @@ impl ArgSingleTyping for MapType {
     }
 }
 
-impl ArgSingleTypingDirectCreation for MapType {
+impl SingleTypingDirectCreation for MapType {
     fn new_single_direct() -> Self {
         Self
     }
 }
 
-pub struct NullableType<Inner: ArgSingleTyping> {
+pub struct NullableType<Inner: SingleTyping> {
     inner: Inner,
 }
 
-impl<Inner: ArgSingleTyping> NullableType<Inner> {
+impl<Inner: SingleTyping> NullableType<Inner> {
     pub fn new(inner: Inner) -> Self {
         Self { inner }
     }
 }
 
-impl<Inner: ArgSingleTyping> ArgTyping for NullableType<Inner> {
+impl<Inner: SingleTyping> Typing for NullableType<Inner> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
             RuntimeEaten::Internal(self.inner.underlying_single_type()),
@@ -236,7 +234,7 @@ impl<Inner: ArgSingleTyping> ArgTyping for NullableType<Inner> {
     }
 }
 
-impl<Inner: ArgSingleTypingDirectCreation> ArgTypingDirectCreation for NullableType<Inner> {
+impl<Inner: SingleTypingDirectCreation> TypingDirectCreation for NullableType<Inner> {
     fn new_direct() -> Self {
         Self::new(Inner::new_single_direct())
     }
@@ -256,7 +254,7 @@ impl TypedFunctionType {
     }
 }
 
-impl ArgSingleTyping for TypedFunctionType {
+impl SingleTyping for TypedFunctionType {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Function(RuntimeEaten::Internal(self.signature.clone()))
     }
@@ -275,18 +273,18 @@ impl ArgSingleTyping for TypedFunctionType {
     }
 }
 
-pub struct Tuple2Type<A: ArgTyping, B: ArgTyping> {
+pub struct Tuple2Type<A: Typing, B: Typing> {
     a: A,
     b: B,
 }
 
-// impl<A: ArgTyping, B: ArgTyping> Tuple2Type<A, B> {
+// impl<A: Typing, B: Typing> Tuple2Type<A, B> {
 //     pub fn new(a: A, b: B) -> Self {
 //         Self { a, b }
 //     }
 // }
 
-impl<A: ArgTyping, B: ArgTyping> ArgSingleTyping for Tuple2Type<A, B> {
+impl<A: Typing, B: Typing> SingleTyping for Tuple2Type<A, B> {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::List
     }
@@ -322,7 +320,7 @@ impl<A: ArgTyping, B: ArgTyping> ArgSingleTyping for Tuple2Type<A, B> {
     }
 }
 
-impl<A: ArgTypingDirectCreation, B: ArgTypingDirectCreation> ArgSingleTypingDirectCreation
+impl<A: TypingDirectCreation, B: TypingDirectCreation> SingleTypingDirectCreation
     for Tuple2Type<A, B>
 {
     fn new_single_direct() -> Self {
@@ -333,18 +331,18 @@ impl<A: ArgTypingDirectCreation, B: ArgTypingDirectCreation> ArgSingleTypingDire
     }
 }
 
-pub struct Union2Type<A: ArgSingleTyping, B: ArgSingleTyping> {
+pub struct Union2Type<A: SingleTyping, B: SingleTyping> {
     a: A,
     b: B,
 }
 
-impl<A: ArgSingleTyping, B: ArgSingleTyping> Union2Type<A, B> {
+impl<A: SingleTyping, B: SingleTyping> Union2Type<A, B> {
     pub fn new(a: A, b: B) -> Self {
         Self { a, b }
     }
 }
 
-impl<A: ArgSingleTyping, B: ArgSingleTyping> ArgTyping for Union2Type<A, B> {
+impl<A: SingleTyping, B: SingleTyping> Typing for Union2Type<A, B> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
             RuntimeEaten::Internal(self.a.underlying_single_type()),
@@ -368,7 +366,7 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping> ArgTyping for Union2Type<A, B> {
     }
 }
 
-impl<A: ArgSingleTypingDirectCreation, B: ArgSingleTypingDirectCreation> ArgTypingDirectCreation
+impl<A: SingleTypingDirectCreation, B: SingleTypingDirectCreation> TypingDirectCreation
     for Union2Type<A, B>
 {
     fn new_direct() -> Self {
@@ -376,24 +374,24 @@ impl<A: ArgSingleTypingDirectCreation, B: ArgSingleTypingDirectCreation> ArgTypi
     }
 }
 
-pub enum Union2Result<A: ArgSingleTyping, B: ArgSingleTyping> {
+pub enum Union2Result<A: SingleTyping, B: SingleTyping> {
     A(A::Parsed),
     B(B::Parsed),
 }
 
-pub struct Union3Type<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> {
+pub struct Union3Type<A: SingleTyping, B: SingleTyping, C: SingleTyping> {
     a: A,
     b: B,
     c: C,
 }
 
-impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> Union3Type<A, B, C> {
+impl<A: SingleTyping, B: SingleTyping, C: SingleTyping> Union3Type<A, B, C> {
     pub fn new(a: A, b: B, c: C) -> Self {
         Self { a, b, c }
     }
 }
 
-impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> ArgTyping for Union3Type<A, B, C> {
+impl<A: SingleTyping, B: SingleTyping, C: SingleTyping> Typing for Union3Type<A, B, C> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
             RuntimeEaten::Internal(self.a.underlying_single_type()),
@@ -423,10 +421,10 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> ArgTyping for U
 }
 
 impl<
-        A: ArgSingleTypingDirectCreation,
-        B: ArgSingleTypingDirectCreation,
-        C: ArgSingleTypingDirectCreation,
-    > ArgTypingDirectCreation for Union3Type<A, B, C>
+        A: SingleTypingDirectCreation,
+        B: SingleTypingDirectCreation,
+        C: SingleTypingDirectCreation,
+    > TypingDirectCreation for Union3Type<A, B, C>
 {
     fn new_direct() -> Self {
         Self::new(
@@ -437,7 +435,7 @@ impl<
     }
 }
 
-pub enum Union3Result<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> {
+pub enum Union3Result<A: SingleTyping, B: SingleTyping, C: SingleTyping> {
     A(A::Parsed),
     B(B::Parsed),
     C(C::Parsed),
@@ -446,17 +444,17 @@ pub enum Union3Result<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping
 macro_rules! declare_typed_struct_type {
     ($( $struct: ident { $( $member: ident : $generic: ident ),+ } ),+ ) => {
         $(
-            pub struct $struct<$($generic: ArgTyping),+> {
+            pub struct $struct<$($generic: Typing),+> {
                 $($member: (String, $generic)),+
             }
 
-            impl<$($generic: ArgTyping),+> $struct<$($generic),+> {
+            impl<$($generic: Typing),+> $struct<$($generic),+> {
                 pub fn new( $($member: (impl Into<String>, $generic)),+ ) -> Self {
                     Self { $( $member: ($member.0.into(), $member.1) ),+ }
                 }
             }
 
-            impl<$($generic: ArgTyping),+> ArgSingleTyping for $struct<$($generic),+> {
+            impl<$($generic: Typing),+> SingleTyping for $struct<$($generic),+> {
                 fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::TypedStruct(vec![
                         $(

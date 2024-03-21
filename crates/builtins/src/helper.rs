@@ -21,25 +21,25 @@ impl ArgNames {
     }
 }
 
-pub trait ArgSingleTyping {
+pub trait SingleTyping {
     fn underlying_single_type(&self) -> SingleValueType;
 
     type Parsed;
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
-pub trait ArgSingleTypingDirectCreation: ArgSingleTyping {
+pub trait SingleTypingDirectCreation: SingleTyping {
     fn new_single_direct() -> Self;
 }
 
-pub trait ArgTyping {
+pub trait Typing {
     fn underlying_type(&self) -> ValueType;
 
     type Parsed;
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
-impl<T: ArgSingleTyping> ArgTyping for T {
+impl<T: SingleTyping> Typing for T {
     fn underlying_type(&self) -> ValueType {
         ValueType::Single(RuntimeEaten::Internal(self.underlying_single_type()))
     }
@@ -47,11 +47,11 @@ impl<T: ArgSingleTyping> ArgTyping for T {
     type Parsed = T::Parsed;
 
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        ArgSingleTyping::parse(self, value)
+        SingleTyping::parse(self, value)
     }
 }
 
-pub trait ArgTypingDirectCreation: ArgTyping {
+pub trait TypingDirectCreation: Typing {
     fn new_direct() -> Self;
 
     fn direct_underlying_type() -> ValueType
@@ -62,9 +62,9 @@ pub trait ArgTypingDirectCreation: ArgTyping {
     }
 }
 
-impl<T: ArgSingleTypingDirectCreation> ArgTypingDirectCreation for T {
+impl<T: SingleTypingDirectCreation> TypingDirectCreation for T {
     fn new_direct() -> Self {
-        <T as ArgSingleTypingDirectCreation>::new_single_direct()
+        <T as SingleTypingDirectCreation>::new_single_direct()
     }
 }
 
@@ -79,11 +79,11 @@ pub trait ArgHandler {
     type Parsed;
     fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String>;
 
-    type BaseTyping: ArgTyping;
+    type BaseTyping: Typing;
     fn base_typing(&self) -> &Self::BaseTyping;
 }
 
-pub struct Arg<const OPTIONAL: bool, T: ArgTyping> {
+pub struct Arg<const OPTIONAL: bool, T: Typing> {
     names: ArgNames,
     base_typing: T,
     is_rest: bool,
@@ -92,7 +92,7 @@ pub struct Arg<const OPTIONAL: bool, T: ArgTyping> {
 pub type RequiredArg<T> = Arg<false, T>;
 pub type OptionalArg<T> = Arg<true, T>;
 
-impl<const OPTIONAL: bool, T: ArgTyping> Arg<OPTIONAL, T> {
+impl<const OPTIONAL: bool, T: Typing> Arg<OPTIONAL, T> {
     pub fn new(names: ArgNames, base_typing: T) -> Self {
         Self {
             names,
@@ -107,7 +107,7 @@ impl<const OPTIONAL: bool, T: ArgTyping> Arg<OPTIONAL, T> {
     }
 }
 
-impl<const OPTIONAL: bool, T: ArgTypingDirectCreation> Arg<OPTIONAL, T> {
+impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
     pub fn direct(names: ArgNames) -> Self {
         Self::new(names, T::new_direct())
     }
@@ -129,7 +129,7 @@ impl<const OPTIONAL: bool, T: ArgTypingDirectCreation> Arg<OPTIONAL, T> {
     }
 }
 
-impl<T: ArgTyping> ArgHandler for Arg<false, T> {
+impl<T: Typing> ArgHandler for Arg<false, T> {
     fn names(&self) -> ArgNames {
         self.names
     }
@@ -164,7 +164,7 @@ impl<T: ArgTyping> ArgHandler for Arg<false, T> {
     }
 }
 
-impl<T: ArgTyping> ArgHandler for Arg<true, T> {
+impl<T: Typing> ArgHandler for Arg<true, T> {
     fn names(&self) -> ArgNames {
         self.names
     }
@@ -198,7 +198,7 @@ impl<T: ArgTyping> ArgHandler for Arg<true, T> {
 
 pub(super) fn generate_internal_arg_decl<
     Parsed,
-    BaseTyping: ArgTyping,
+    BaseTyping: Typing,
     A: ArgHandler<Parsed = Parsed, BaseTyping = BaseTyping>,
 >(
     arg: A,

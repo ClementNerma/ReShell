@@ -6,7 +6,7 @@ use terminal_size::{terminal_size, Width};
 use crate::{
     builder::BuiltinVar,
     define_internal_fn,
-    helper::{Arg, ArgNames, ArgTypingDirectCreation, OptionalArg, RequiredArg},
+    helper::{Arg, ArgNames, OptionalArg, RequiredArg, TypingDirectCreation},
     type_handlers::{
         AnyType, BoolType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType,
         NullType, RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type,
