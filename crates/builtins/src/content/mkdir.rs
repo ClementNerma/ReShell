@@ -12,7 +12,7 @@ crate::define_internal_fn!(
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
         parents: PresenceFlag = Arg::long_and_short_flag("parents", 'p'),
-        ignore_if_exists: PresenceFlag = Arg::long_and_short_flag("ignore-if-exists", 'e')
+        ignore_if_exists: PresenceFlag = Arg::long_and_short_flag("ignore-if-exists", 'i')
     )
 
     -> None
