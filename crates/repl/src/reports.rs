@@ -103,7 +103,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 err.at,
                 "Function thrown",
                 format!(
-                    "function throwned a value at {}",
+                    "function thrown a value at {}",
                     dbg_loc(value.from, files).bright_magenta()
                 ),
             ),
