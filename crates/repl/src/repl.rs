@@ -9,9 +9,13 @@ use std::{
 };
 
 use colored::Colorize;
+use parsy::Parser;
 use reedline::{Reedline, Signal, Suggestion};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
-use reshell_parser::{ast::Instruction, files::SourceFileLocation};
+use reshell_parser::{
+    ast::{Instruction, Program},
+    files::SourceFileLocation,
+};
 use reshell_runtime::{
     context::Context,
     errors::ExecErrorNature,
@@ -32,6 +36,7 @@ use crate::{
 
 pub fn start(
     ctx: &mut Context,
+    parser: impl Parser<Program>,
     exec_args: ExecArgs,
     timings: Timings,
     show_timings: bool,
@@ -59,12 +64,6 @@ pub fn start(
 
     // Wrap the line editor in a sharable type
     let line_editor = Arc::new(Mutex::new(line_editor));
-
-    // Prepare a program parser with access to the shared files map
-    let files_map = ctx.files_map().clone();
-
-    let parser =
-        reshell_parser::program(move |path, relative_to| files_map.load_file(&path, relative_to));
 
     // Programs counter in REPL
     let mut counter = 0;
