@@ -1,57 +1,77 @@
+use crossterm::event::Event;
 use reedline::{
-    EditCommand, EditMode as RlEditMode, Emacs, Event, KeyCode, KeyModifiers, PromptEditMode,
-    ReedlineEvent,
+    EditCommand, EditMode as RlEditMode, KeyCode, KeyModifiers, PromptEditMode, ReedlineEvent,
+    ReedlineRawEvent,
 };
 
 use crate::{completer::COMPLETION_MENU_NAME, history::HISTORY_MENU_NAME};
 
 pub fn create_edit_mode() -> Box<dyn RlEditMode> {
     Box::new(EditMode {
-        default: Emacs::default(),
+        // default: Emacs::default(),
     })
 }
 
 pub struct EditMode {
-    default: Emacs,
+    // default: Emacs,
 }
 
-impl EditMode {
-    fn insert_matching(
-        &self,
-        opener: char,
-        closer: char,
-        line: &str,
-        offset: usize,
-    ) -> Vec<EditCommand> {
-        let right_char = line.chars().nth(offset);
+// impl EditMode {
+//     fn insert_matching(
+//         &self,
+//         opener: char,
+//         closer: char,
+//         line: &str,
+//         offset: usize,
+//     ) -> Vec<EditCommand> {
+//         let right_char = line.chars().nth(offset);
 
-        if right_char == Some(opener) || (opener == closer && right_char == Some(closer)) {
-            vec![EditCommand::MoveRight]
-        } else {
-            vec![
-                EditCommand::InsertChar(opener),
-                EditCommand::InsertChar(closer),
-                EditCommand::MoveLeft,
-            ]
-        }
-    }
-}
+//         if right_char == Some(opener) || (opener == closer && right_char == Some(closer)) {
+//             vec![EditCommand::MoveRight]
+//         } else {
+//             vec![
+//                 EditCommand::InsertChar(opener),
+//                 EditCommand::InsertChar(closer),
+//                 EditCommand::MoveLeft,
+//             ]
+//         }
+//     }
+// }
 
 impl RlEditMode for EditMode {
-    fn parse_event(&mut self, event: Event, line: &str, offset: usize) -> ReedlineEvent {
-        match event {
-            Event::Mouse(_) => self.default.parse_event(event, line, offset),
-            Event::Resize(_, _) => self.default.parse_event(event, line, offset),
+    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
+        match event.into() {
+            Event::FocusGained => ReedlineEvent::None, // TODO: update when reedline gets correct focus support
+            Event::FocusLost => ReedlineEvent::None, // TODO: update when reedline gets correct focus support
+            Event::Paste(body) => ReedlineEvent::Edit(vec![EditCommand::InsertString(
+                body.replace("\r\n", "\n").replace('\r', "\n"),
+            )]),
+            Event::Mouse(_) => ReedlineEvent::Mouse, // TODO: update when reedline gets correct mouse support
+            Event::Resize(cols, rows) => ReedlineEvent::Resize(cols, rows),
             Event::Key(key) => match (key.code, key.modifiers) {
-                (KeyCode::Up, KeyModifiers::NONE) => ReedlineEvent::Up,
-                (KeyCode::Down, KeyModifiers::NONE) => ReedlineEvent::Down,
-                (KeyCode::Left, KeyModifiers::NONE) => ReedlineEvent::Left,
+                (KeyCode::Up, KeyModifiers::NONE) => {
+                    ReedlineEvent::UntilFound(vec![ReedlineEvent::MenuUp, ReedlineEvent::Up])
+                }
+
+                (KeyCode::Down, KeyModifiers::NONE) => {
+                    ReedlineEvent::UntilFound(vec![ReedlineEvent::MenuDown, ReedlineEvent::Down])
+                }
+
+                (KeyCode::Left, KeyModifiers::NONE) => {
+                    ReedlineEvent::UntilFound(vec![ReedlineEvent::MenuLeft, ReedlineEvent::Left])
+                }
+
                 (KeyCode::Right, KeyModifiers::NONE) => {
-                    if offset < line.len() {
-                        ReedlineEvent::Right
-                    } else {
-                        ReedlineEvent::HistoryHintComplete
-                    }
+                    // if offset < line.len() {
+                    //     ReedlineEvent::Right
+                    // } else {
+                    //     ReedlineEvent::HistoryHintComplete
+                    // }
+                    ReedlineEvent::UntilFound(vec![
+                        ReedlineEvent::HistoryHintComplete,
+                        ReedlineEvent::MenuRight, // ?
+                        ReedlineEvent::Right,
+                    ])
                 }
 
                 (KeyCode::Left, KeyModifiers::CONTROL) => {
@@ -117,22 +137,21 @@ impl RlEditMode for EditMode {
                         ReedlineEvent::MenuNext,
                     ]),
 
-                    ('"', KeyModifiers::NONE) => {
-                        ReedlineEvent::Edit(self.insert_matching('"', '"', line, offset))
-                    }
+                    // ('"', KeyModifiers::NONE) => {
+                    //     ReedlineEvent::Edit(self.insert_matching('"', '"', line, offset))
+                    // }
 
-                    ('(', KeyModifiers::NONE) => {
-                        ReedlineEvent::Edit(self.insert_matching('(', ')', line, offset))
-                    }
+                    // ('(', KeyModifiers::NONE) => {
+                    //     ReedlineEvent::Edit(self.insert_matching('(', ')', line, offset))
+                    // }
 
-                    ('[', KeyModifiers::NONE) => {
-                        ReedlineEvent::Edit(self.insert_matching('[', ']', line, offset))
-                    }
+                    // ('[', KeyModifiers::NONE) => {
+                    //     ReedlineEvent::Edit(self.insert_matching('[', ']', line, offset))
+                    // }
 
-                    ('{', KeyModifiers::NONE) => {
-                        ReedlineEvent::Edit(self.insert_matching('{', '}', line, offset))
-                    }
-
+                    // ('{', KeyModifiers::NONE) => {
+                    //     ReedlineEvent::Edit(self.insert_matching('{', '}', line, offset))
+                    // }
                     (_, KeyModifiers::NONE) => {
                         ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)])
                     }
