@@ -194,12 +194,22 @@ fn build_cmd_completions(
             continue;
         }
 
-        let items = fs::read_dir(dir)?.collect::<Result<Vec<_>, _>>()?;
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
 
-        for item in items {
-            if !item.file_type()?.is_file()
-                && (!item.file_type()?.is_symlink() || !fs::read_link(&item.path())?.is_file())
-            {
+        for item in entries {
+            let Ok(item) = item else {
+                continue;
+            };
+
+            println!("> {}", item.path().display());
+
+            let Ok(mt) = item.metadata() else {
+                continue;
+            };
+
+            if !mt.is_file() {
                 continue;
             }
 
@@ -248,6 +258,19 @@ fn build_cmd_completions(
                     if results.iter().any(|(other, _)| &item_name_lc == other) {
                         continue;
                     }
+
+                    #[cfg(target_family = "unix")]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+
+                        // Ensure exec permissions are present
+                        if mt.permissions().mode() & 111 == 0 {
+                            continue;
+                        }
+                    }
+
+                    #[cfg(not(target_family = "unix"))]
+                    unreachable!()
                 }
             }
 
