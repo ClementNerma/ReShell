@@ -151,7 +151,7 @@ impl RlCompleter for Completer {
                 FileType::Unknown
             };
 
-            // TODO: what to do about invalid UTF-8 paths?
+            // NOTE: Invalid UTF-8 paths will be displayed lossily (no other way to handle this)
             let mut path_str = path.to_string_lossy().to_string();
 
             if file_type.is_dir() {
