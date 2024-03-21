@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerContent,
-    ExprOp, LiteralValue, PropAccess, SingleOp, Value,
+    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
+    ExprInnerContent, ExprOp, LiteralValue, PropAccess, SingleOp, Value,
 };
 
 use crate::{
@@ -338,8 +338,14 @@ fn eval_computed_string_piece(
     ctx: &mut Context,
 ) -> ExecResult<String> {
     match &piece.data {
-        ComputedStringPiece::Literal(str) => Ok(str.data.to_owned()),
-        ComputedStringPiece::Escaped(char) => Ok(char.data.to_string()),
+        ComputedStringPiece::Literal(str) => Ok(str.clone()),
+        ComputedStringPiece::Escaped(char) => Ok(match char {
+            EscapableChar::Newline => '\n',
+            EscapableChar::DoubleQuote => '"',
+            EscapableChar::Backslash => '\\',
+            EscapableChar::DollarSign => '$',
+        }
+        .to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
             ctx.get_var_value(var_name)?,
             var_name.at,
