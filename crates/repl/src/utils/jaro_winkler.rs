@@ -71,7 +71,7 @@ fn winkler(src: &str, tar: &str) -> f64 {
     let jaro_distance = jaro(src, tar);
     let mut prefix_len = 0;
     if jaro_distance > 0.7 {
-        for (_i, (s_char, t_char)) in src.chars().zip(tar.chars()).enumerate() {
+        for (s_char, t_char) in src.chars().zip(tar.chars()) {
             if s_char == t_char {
                 prefix_len += 1;
             } else {

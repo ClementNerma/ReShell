@@ -101,7 +101,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
     .into_iter()
     .chain(
         // Add typemaking functions
-        self::typemakers::native_typemaking_functions().into_iter(),
+        self::typemakers::native_typemaking_functions(),
     )
     .collect()
 }
