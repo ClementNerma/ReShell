@@ -4,11 +4,15 @@ use std::{
     time::Instant,
 };
 
+use colored::Colorize;
 use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_runtime::{
-    context::Context, errors::ExecErrorContent, exec::ProgramExitStatus,
+    context::Context,
+    errors::ExecErrorContent,
+    exec::ProgramExitStatus,
     files_map::ScopableFilePath,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
 use crate::{
@@ -88,7 +92,16 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
 
         match ret {
             Ok(exit_status) => match exit_status {
-                ProgramExitStatus::Normal => {}
+                ProgramExitStatus::Normal => {
+                    if let Some(value) = ctx.take_wandering_value() {
+                        println!(
+                            "{} {}",
+                            "[eval:]".bright_magenta(),
+                            value.render_colored(ctx, PrettyPrintOptions::inline())
+                        );
+                    }
+                }
+
                 ProgramExitStatus::ExitRequested { code } => {
                     return Some(ExitCode::from(code));
                 }

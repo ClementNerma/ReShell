@@ -12,7 +12,7 @@ use crate::{
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::{GcCell, GcReadOnlyCell},
     values::{
-        CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, 
+        CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue, 
     }, 
 };
 
@@ -33,7 +33,8 @@ pub struct Context {
     type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
     type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
     fn_signatures: HashMap<CodeRange, Rc<Eaten<FnSignature>>>,
-    fn_bodies: HashMap<CodeRange, Rc<Eaten<Block>>>
+    fn_bodies: HashMap<CodeRange, Rc<Eaten<Block>>>,
+    wandering_value: Option<RuntimeValue>
 }
 
 impl Context {
@@ -80,6 +81,7 @@ impl Context {
             type_aliases_decl: HashMap::new(),
             fn_signatures: HashMap::new(),
             fn_bodies: HashMap::new(),
+            wandering_value: None,
             conf,
         }
     }
@@ -443,6 +445,14 @@ impl Context {
         }
 
         captured_deps
+    }
+
+    pub fn set_wandering_value(&mut self, value: RuntimeValue) {
+        self.wandering_value = Some(value);
+    }
+
+    pub fn take_wandering_value(&mut self) -> Option<RuntimeValue> {
+        self.wandering_value.take()
     }
 }
 

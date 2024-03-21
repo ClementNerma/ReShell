@@ -352,7 +352,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 ),
             )),
         },
-        Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.unwrap())),
+        Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap())),
         Value::CmdSuccess(call) => match run_cmd(call, ctx, false) {
             Ok(_) => Ok(RuntimeValue::Bool(true)),
             Err(err) => match err.content {
@@ -435,7 +435,7 @@ fn eval_computed_string_piece(
         ComputedStringPiece::Expr(expr) => {
             Ok(value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx)?)
         }
-        ComputedStringPiece::CmdCall(call) => Ok(run_cmd(call, ctx, true)?.unwrap()),
+        ComputedStringPiece::CmdCall(call) => Ok(run_cmd(call, ctx, true)?.0.unwrap()),
     }
 }
 

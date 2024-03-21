@@ -15,9 +15,9 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
-    functions::{call_fn, call_fn_value, FnPossibleCallArgs},
+    functions::{call_fn, call_fn_value, FnCallResult, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    values::{RuntimeCmdAlias, RuntimeValue},
+    values::{LocatedValue, RuntimeCmdAlias, RuntimeValue},
 };
 
 // TODO: this should be able to return an InstrRet
@@ -25,7 +25,7 @@ pub fn run_cmd(
     call: &Eaten<CmdCall>,
     ctx: &mut Context,
     capture_stdout: bool,
-) -> ExecResult<Option<String>> {
+) -> ExecResult<(Option<String>, Option<LocatedValue>)> {
     let CmdCall { base, pipes } = &call.data;
 
     let chain = [(base, None)]
@@ -46,6 +46,8 @@ pub fn run_cmd(
         .iter()
         .map(|(_, pipe_type)| *pipe_type)
         .collect::<Vec<_>>();
+
+    let mut last_return_value = None;
 
     for (i, (item, pipe_type)) in chain.into_iter().enumerate() {
         let next_pipe_type = pipe_types
@@ -75,8 +77,7 @@ pub fn run_cmd(
                     );
                 }
 
-                // TODO: handle non-success outputs (e.g. Thrown etc.)
-                let _result = match nature {
+                let result = match nature {
                     NonCmdCallNature::Function { is_var_name, name } => {
                         // TODO: handle non-success cases (e.g. Thrown)
                         call_fn(
@@ -114,6 +115,19 @@ pub fn run_cmd(
                         call_fn_value(at, &func, FnPossibleCallArgs::Parsed(&call_args), ctx)?
                     }
                 };
+
+                match result {
+                    FnCallResult::Success { returned } => {
+                        if let Some(returned) = returned {
+                            // Only if there is no function to run afterwards
+                            if next_pipe_type.is_none() {
+                                last_return_value = Some(returned);
+                            }
+                        }
+                    }
+
+                    FnCallResult::Thrown(_) => todo!(),
+                }
 
                 if has_deps_scope {
                     ctx.pop_scope();
@@ -206,7 +220,7 @@ pub fn run_cmd(
         last_output = Some(output.stdout);
     }
 
-    Ok(if capture_stdout {
+    let captured = if capture_stdout {
         // Invalid UTF-8 output will be handled with "unknown" symbols
         let mut out = String::from_utf8_lossy(&last_output.unwrap()).into_owned();
 
@@ -217,7 +231,9 @@ pub fn run_cmd(
         Some(out)
     } else {
         None
-    })
+    };
+
+    Ok((captured, last_return_value))
 }
 
 fn single_call_to_chain_el(
@@ -489,7 +505,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         ))),
         CmdArg::ParenExpr(expr) => Ok(CmdArgResult::Single(eval_expr(&expr.data, ctx)?)),
         CmdArg::CmdCall(call) => Ok(CmdArgResult::Single(RuntimeValue::String(
-            run_cmd(call, ctx, true)?.unwrap(),
+            run_cmd(call, ctx, true)?.0.unwrap(),
         ))),
         CmdArg::Raw(raw) => Ok(CmdArgResult::Single(RuntimeValue::String(treat_cwd_raw(
             raw, ctx,
