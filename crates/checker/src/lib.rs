@@ -644,7 +644,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         } = arg;
 
         let var_name = match names {
-            FnArgNames::NotFlag(name) => name.clone(),
+            FnArgNames::Positional(name) => name.clone(),
             FnArgNames::ShortFlag(name) => name.map(|c| c.to_string()),
             FnArgNames::LongFlag(name) => name.clone(),
             FnArgNames::LongAndShortFlag { long, short: _ } => long.clone(),
@@ -736,7 +736,7 @@ fn check_fn_signature(signature: &FnSignature, state: &mut State) -> CheckerResu
         } = arg;
 
         let (long, short) = match names {
-            FnArgNames::NotFlag(name) => (Some(name), None),
+            FnArgNames::Positional(name) => (Some(name), None),
             FnArgNames::ShortFlag(flag) => (None, Some(flag)),
             FnArgNames::LongFlag(flag) => (Some(flag), None),
             FnArgNames::LongAndShortFlag { long, short } => (Some(long), Some(short)),

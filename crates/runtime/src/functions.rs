@@ -14,7 +14,7 @@ use crate::{
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits,
-    values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
 pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResult> {
@@ -67,13 +67,13 @@ pub fn call_fn_value(
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<FnCallResult> {
-    let call_args = parse_fn_call_args(call_at, call_args, &func.signature.args.data, ctx)?;
+    let args = parse_fn_call_args(call_at, call_args, &func.signature.args.data, ctx)?;
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
             let mut scope_content = ScopeContent::new();
 
-            for (name, loc_value) in call_args {
+            for (name, loc_value) in args {
                 scope_content.vars.insert(
                     name.data,
                     ScopeVar {
@@ -109,7 +109,7 @@ pub fn call_fn_value(
             }
         }
 
-        RuntimeFnBody::Internal(run) => run(call_at, call_args, ctx)?,
+        RuntimeFnBody::Internal(run) => run(InternalFnCallData { call_at, args, ctx })?,
     };
 
     if let Some(ret_type) = &func.signature.ret_type {
@@ -378,7 +378,7 @@ fn parse_fn_call_args(
 
     if let Some(rest_arg) = fn_args.iter().find(|arg| arg.is_rest) {
         let name = match &rest_arg.names {
-            FnArgNames::NotFlag(name) => name.clone(),
+            FnArgNames::Positional(name) => name.clone(),
             FnArgNames::ShortFlag(_)
             | FnArgNames::LongFlag(_)
             | FnArgNames::LongAndShortFlag { long: _, short: _ } => unreachable!(),
@@ -403,7 +403,7 @@ fn parse_fn_call_args(
 fn fn_arg_var_name(arg: &FnArg) -> Eaten<String> {
     // TODO: performance
     match &arg.names {
-        FnArgNames::NotFlag(name) => name.clone(),
+        FnArgNames::Positional(name) => name.clone(),
         FnArgNames::ShortFlag(short) => short.map_ref(|c| c.to_string()),
         FnArgNames::LongFlag(long) => long.clone(),
         FnArgNames::LongAndShortFlag { long, short: _ } => long.clone(),

@@ -312,7 +312,7 @@ impl PrettyPrintable for FnArg {
         }
 
         match names {
-            FnArgNames::NotFlag(name) => {
+            FnArgNames::Positional(name) => {
                 out.extend([PrintablePiece::colored_atomic(
                     name.data.clone(),
                     Color::Red,

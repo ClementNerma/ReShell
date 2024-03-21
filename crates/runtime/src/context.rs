@@ -11,10 +11,10 @@ use crate::{
     errors::{ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::{GcCell, GcReadOnlyCell},
-    native_lib::generate_native_lib,
     values::{
         CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, 
     },
+    builtins::content::build_native_lib_content,
 };
 
 pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
@@ -38,7 +38,16 @@ pub struct Context {
 impl Context {
     pub fn new(conf: RuntimeConf) -> Self {
         let scopes_to_add = [
-            generate_native_lib(),
+            Scope {
+                id: NATIVE_LIB_SCOPE_ID,
+                call_stack: CallStack::empty(),
+                call_stack_entry: None,
+                content: build_native_lib_content(),
+                parent_scopes: IndexSet::new(),
+                range: ScopeRange::SourceLess,
+                previous_scope: None,
+                deps_scope: None
+            },
             Scope {
                 id: FIRST_SCOPE_ID,
                 call_stack: CallStack::empty(),
@@ -355,11 +364,7 @@ impl Context {
     }
 
     pub fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
-        let mut captured_deps = CapturedDependencies {
-            vars: HashMap::new(),
-            fns: HashMap::new(),
-            cmd_aliases: HashMap::new(),
-        };
+        let mut captured_deps = CapturedDependencies::new();
 
         let deps_list = self.deps.get(&body_content_at).expect(
             "internal error: dependencies informations not found while constructing value (this is a bug in the checker)"
@@ -459,61 +464,7 @@ impl Scope {
     }
 
     pub fn to_checker_scope(&self, ctx: &Context) -> CheckerScope {
-        let Scope { content, range, .. } = self;
-
-        let ScopeContent {
-            vars,
-            fns,
-            cmd_aliases,
-            
-        } = content;
-
-        CheckerScope {
-            code_range: match range {
-                ScopeRange::SourceLess => {
-                    // TODO: ugly hack
-                    CodeRange::new(
-                        Location {
-                            file_id: FileId::Internal,
-                            offset: 0,
-                        },
-                        0,
-                    )
-                }
-                ScopeRange::CodeRange(range) => *range,
-            },
-
-            deps: false, // TODO: isn't that incorrect?
-            fn_args_at: None,
-
-            cmd_aliases: cmd_aliases
-                .iter()
-                .map(|(key, value)| (key.clone(), value.name_declared_at))
-                .collect(),
-
-            type_aliases: match range {
-                ScopeRange::SourceLess => Default::default(),
-                ScopeRange::CodeRange(range) => ctx.type_aliases_decl.get(range).cloned().unwrap_or_default(),
-            },
-
-            fns: fns
-                .iter()
-                .map(|(name, scope_fn)| (name.clone(), scope_fn.declared_at))
-                .collect(),
-
-            vars: vars
-                .iter()
-                .map(|(name, decl)| {
-                    (
-                        name.clone(),
-                        reshell_checker::DeclaredVar {
-                            is_mut: decl.is_mut,
-                            name_at: decl.declared_at,
-                        },
-                    )
-                })
-                .collect(),
-        }
+        self.content.to_checker_scope(self.range, ctx)
     }
 }
 
@@ -536,6 +487,61 @@ impl ScopeContent {
             vars: HashMap::new(),
             fns: HashMap::new(),
             cmd_aliases: HashMap::new(),
+        }
+    }
+
+    pub fn to_checker_scope(&self, range: ScopeRange, ctx: &Context) -> CheckerScope {
+        let ScopeContent {
+            vars,
+            fns,
+            cmd_aliases,
+        } = self;
+
+        CheckerScope {
+            code_range: match range {
+                ScopeRange::SourceLess => {
+                    // TODO: ugly hack
+                    CodeRange::new(
+                        Location {
+                            file_id: FileId::Internal,
+                            offset: 0,
+                        },
+                        0,
+                    )
+                }
+                ScopeRange::CodeRange(range) => range,
+            },
+
+            deps: false, // TODO: isn't that incorrect?
+            fn_args_at: None,
+
+            cmd_aliases: cmd_aliases
+                .iter()
+                .map(|(key, value)| (key.clone(), value.name_declared_at))
+                .collect(),
+
+            type_aliases: match range {
+                ScopeRange::SourceLess => Default::default(),
+                ScopeRange::CodeRange(range) => ctx.type_aliases_decl.get(&range).cloned().unwrap_or_default(),
+            },
+
+            fns: fns
+                .iter()
+                .map(|(name, scope_fn)| (name.clone(), scope_fn.declared_at))
+                .collect(),
+
+            vars: vars
+                .iter()
+                .map(|(name, decl)| {
+                    (
+                        name.clone(),
+                        reshell_checker::DeclaredVar {
+                            is_mut: decl.is_mut,
+                            name_at: decl.declared_at,
+                        },
+                    )
+                })
+                .collect(),
         }
     }
 }

@@ -3,10 +3,10 @@ use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    context::Context,
+    builtins::content::build_native_lib_content,
+    context::{Context, ScopeRange},
     exec::{run_program, ProgramExitStatus},
     files_map::ScopableFilePath,
-    native_lib::generate_native_lib,
 };
 
 use crate::reports::ReportableError;
@@ -25,8 +25,8 @@ pub fn code_check_script(
         .parse_str_as_file(input, FileId::SourceFile(file_id))
         .map_err(ReportableError::Parsing)?;
 
-    let native_lib_for_checker =
-        NATIVE_LIB_FOR_CHECKER.get_or_init(|| generate_native_lib().to_checker_scope(ctx));
+    let native_lib_for_checker = NATIVE_LIB_FOR_CHECKER
+        .get_or_init(|| build_native_lib_content().to_checker_scope(ScopeRange::SourceLess, ctx));
 
     reshell_checker::check(
         &parsed.data,

@@ -45,17 +45,29 @@ pub struct CapturedDependencies {
     pub cmd_aliases: HashMap<Dependency, RuntimeCmdAlias>,
 }
 
+impl CapturedDependencies {
+    pub fn new() -> Self {
+        Self {
+            vars: HashMap::new(),
+            fns: HashMap::new(),
+            cmd_aliases: HashMap::new(),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub enum RuntimeFnBody {
     Block(Eaten<Block>),
     Internal(InternalFnBody),
 }
 
-pub type InternalFnBody = fn(
-    CodeRange,
-    HashMap<Eaten<String>, LocatedValue>,
-    &mut Context,
-) -> ExecResult<Option<LocatedValue>>;
+pub struct InternalFnCallData<'c> {
+    pub call_at: CodeRange,
+    pub args: HashMap<Eaten<String>, LocatedValue>,
+    pub ctx: &'c mut Context,
+}
+
+pub type InternalFnBody = fn(InternalFnCallData) -> ExecResult<Option<LocatedValue>>;
 
 impl Debug for RuntimeFnBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
