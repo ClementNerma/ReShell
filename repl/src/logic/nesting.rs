@@ -93,6 +93,8 @@ pub fn handle_nesting(input: &str) -> Vec<(char, usize, NestingCharAction)> {
 
     output
 }
+
+#[derive(PartialEq, Eq)]
 pub enum NestingCharAction {
     OpeningPrefix,
     Opening,
