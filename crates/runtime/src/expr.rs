@@ -23,26 +23,9 @@ use crate::{
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let Expr {
-        inner,
-        right_ops,
-        method_calls,
-    } = &expr;
+    let Expr { inner, right_ops } = &expr;
 
-    let expr_value = eval_expr_ref(inner, right_ops, ctx)?;
-
-    let mut value = LocatedValue::new(
-        expr_value,
-        // TODO: location must cover inner + right_ops
-        RuntimeCodeRange::Parsed(inner.at),
-    );
-
-    for call in method_calls {
-        value = eval_piped_fn_call(call, Some(value), ctx)?
-            .ok_or_else(|| ctx.error(call.at, "method call did not return a value"))?;
-    }
-
-    Ok(value.value)
+    eval_expr_ref(inner, right_ops, ctx)
 }
 
 fn eval_expr_ref(
@@ -215,7 +198,11 @@ fn apply_double_op(
 }
 
 fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let ExprInner { content, prop_acc } = &inner.data;
+    let ExprInner {
+        content,
+        prop_acc,
+        method_calls,
+    } = &inner.data;
 
     let mut left = eval_expr_inner_content(&content.data, ctx)?;
 
@@ -236,6 +223,18 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                 PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => unreachable!(),
             },
         )?;
+    }
+
+    // TODO: cover "prop_acc" as well
+    let mut left_loc = RuntimeCodeRange::Parsed(content.at);
+
+    for call in method_calls {
+        let LocatedValue { value, from } =
+            eval_piped_fn_call(call, Some(LocatedValue::new(left, left_loc)), ctx)?
+                .ok_or_else(|| ctx.error(call.at, "method call did not return a value"))?;
+
+        left_loc = from;
+        left = value;
     }
 
     Ok(left)
