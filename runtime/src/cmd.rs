@@ -330,7 +330,10 @@ fn check_if_cmd_is_fn(
     }
 
     if capture_stdout {
-        return Err(ctx.error(call.at, "cannot capture output of a function call"));
+        return Err(ctx.error(
+            call.at,
+            "cannot capture output of a function call (tip: call the function directly instead)",
+        ));
     }
 
     let fn_call = FnCall {
