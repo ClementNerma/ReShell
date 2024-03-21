@@ -100,6 +100,7 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Map, _) | (_, SingleValueType::Map) => Ok(false),
 
         (SingleValueType::UntypedStruct, SingleValueType::UntypedStruct) => Ok(true),
+        (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => Ok(true),
 
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
             // TODO: make comparison stricter (no excess properties?)

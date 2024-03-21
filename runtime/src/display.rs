@@ -189,7 +189,35 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color(")".to_string(), Color::Blue),
                 suffix: None,
             },
-            RuntimeValue::Map(_) => todo!(),
+            RuntimeValue::Map(map) => PrintablePiece::List {
+                begin: Colored::with_color("map({".to_string(), Color::Blue),
+                items: map
+                    .iter()
+                    .map(|(key, value)|
+                        // Yes, that part is a hack :p
+                        PrintablePiece::List {
+                            begin: Colored::with_color(
+                            format!(
+                                "\"{}\": ",
+                                key
+                                    .replace('\\', "\\\\")
+                                    .replace('\"', "\\\"")
+                                    .replace('\n', "\\n")
+                                ),
+                                Color::Green
+                            ),
+                            items: vec![
+                                value.generate_pretty_data()
+                            ],
+                            sep: Colored::colorless(String::new()),
+                            end: Colored::colorless(String::new()),
+                            suffix: None
+                        })
+                    .collect(),
+                sep: Colored::with_color(",".to_string(), Color::Blue),
+                end: Colored::with_color("})".to_string(), Color::Blue),
+                suffix: None,
+            },
             RuntimeValue::Struct(obj) => PrintablePiece::List {
                 begin: Colored::with_color("{".to_string(), Color::Blue),
                 items: obj
