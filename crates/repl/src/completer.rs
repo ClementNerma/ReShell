@@ -1,17 +1,16 @@
 use std::{
     borrow::Cow,
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     error::Error,
     fs,
     path::{Path, MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
-    sync::{Arc, Mutex},
 };
 
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_parser::delimiter_chars;
+use reshell_parser::{ast::RuntimeCodeRange, delimiter_chars};
 use reshell_runtime::{
-    context::{Context, ScopeContent},
+    context::Context,
     pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
@@ -22,8 +21,10 @@ use crate::{
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
-pub fn create_completer(completion_data: Arc<Mutex<CompletionData>>) -> Box<dyn RlCompleter> {
-    Box::new(Completer { completion_data })
+pub fn create_completer(
+    completer: impl Fn(CompletionContext) -> Vec<Suggestion> + Send + 'static,
+) -> Box<dyn RlCompleter> {
+    Box::new(Completer { completer })
 }
 
 pub fn create_completion_menu() -> ReedlineMenu {
@@ -31,82 +32,95 @@ pub fn create_completion_menu() -> ReedlineMenu {
     ReedlineMenu::EngineCompleter(Box::new(menu))
 }
 
-pub struct Completer {
-    completion_data: Arc<Mutex<CompletionData>>,
+pub struct CompletionContext {
+    pub line: String,
+    pub pos: usize,
 }
 
-impl RlCompleter for Completer {
+pub struct Completer<F: Fn(CompletionContext) -> Vec<Suggestion> + Send + 'static> {
+    completer: F,
+}
+
+impl<F: Fn(CompletionContext) -> Vec<Suggestion> + Send + 'static> RlCompleter for Completer<F> {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let completion_data = self.completion_data.lock().unwrap();
-
-        let delimiter_chars = delimiter_chars();
-
-        let split = |c: char| c.is_whitespace() && !delimiter_chars.contains(&c);
-
-        let word_start = match line[..pos].rfind(split) {
-            Some(index) => index + 1,
-            None => 0,
-        };
-
-        let word_end = match line[word_start..pos].find(split) {
-            Some(index) => index,
-            None => pos,
-        };
-
-        let after_space = word_start > 0
-            && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
-
-        let word = &line[word_start..word_end];
-
-        let span = Span {
-            start: word_start,
-            end: word_end,
-        };
-
-        if word == "~" {
-            return vec![];
-        }
-
-        if let Some(word) = word.strip_prefix('$') {
-            return complete_var_name(word, Some("$"), span, &completion_data);
-        }
-
-        if let Some(word) = word.strip_prefix('@') {
-            return complete_fn_name(word, Some("@"), span, &completion_data);
-        }
-
-        if !after_space && !word.contains(['/', '\\']) {
-            let mut cmd_comp = build_cmd_completions(word, span)
-                .ok()
-                .flatten()
-                .unwrap_or_default();
-
-            cmd_comp.extend(build_fn_completions(word, None, span, &completion_data));
-
-            return sort_results(word, cmd_comp);
-        }
-
-        complete_path(word, span, completion_data.home_dir.as_deref())
+        (self.completer)(CompletionContext {
+            line: line.to_owned(),
+            pos,
+        })
     }
 }
 
 type SortableSuggestion = (String, Suggestion);
 
+pub fn generate_completions(
+    completion_context: CompletionContext,
+    ctx: &Context,
+) -> Vec<Suggestion> {
+    let CompletionContext { line, pos } = completion_context;
+
+    let delimiter_chars = delimiter_chars();
+
+    let split = |c: char| c.is_whitespace() && !delimiter_chars.contains(&c);
+
+    let word_start = match line[..pos].rfind(split) {
+        Some(index) => index + 1,
+        None => 0,
+    };
+
+    let word_end = match line[word_start..pos].find(split) {
+        Some(index) => index,
+        None => pos,
+    };
+
+    let after_space = word_start > 0
+        && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
+
+    let word = &line[word_start..word_end];
+
+    let span = Span {
+        start: word_start,
+        end: word_end,
+    };
+
+    if word == "~" {
+        return vec![];
+    }
+
+    if let Some(word) = word.strip_prefix('$') {
+        return complete_var_name(word, Some("$"), span, ctx);
+    }
+
+    if let Some(word) = word.strip_prefix('@') {
+        return complete_fn_name(word, Some("@"), span, ctx);
+    }
+
+    if !after_space && !word.contains(['/', '\\']) {
+        let mut cmd_comp = build_cmd_completions(word, span)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+        cmd_comp.extend(build_fn_completions(word, None, span, ctx));
+
+        return sort_results(word, cmd_comp);
+    }
+
+    complete_path(word, span, ctx)
+}
+
 fn build_fn_completions<'a>(
     word: &str,
     add_prefix: Option<&str>,
     span: Span,
-    completion_data: &'a CompletionData,
+    ctx: &'a Context,
 ) -> impl Iterator<Item = SortableSuggestion> + 'a {
     let word = word.to_lowercase();
     let add_prefix = add_prefix.map(str::to_owned);
 
-    completion_data
-        .scopes
-        .iter()
+    ctx.visible_scopes()
         .flat_map(|scope| scope.fns.iter())
         .filter(move |(name, _)| name.to_lowercase().contains(&word))
-        .map(move |(name, signature)| {
+        .map(move |(name, func)| {
             (
                 name.clone(),
                 Suggestion {
@@ -114,7 +128,12 @@ fn build_fn_completions<'a>(
                         Some(ref prefix) => format!("{prefix}{name}"),
                         None => name.clone(),
                     },
-                    description: Some(signature.clone()),
+                    description: Some(
+                        func.value
+                            .signature
+                            .inner()
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
+                    ),
                     extra: None,
                     span,
                     append_whitespace: true,
@@ -127,11 +146,11 @@ fn complete_fn_name(
     word: &str,
     add_prefix: Option<&str>,
     span: Span,
-    completion_data: &CompletionData,
+    ctx: &Context,
 ) -> Vec<Suggestion> {
     sort_results(
         word,
-        build_fn_completions(word, add_prefix, span, completion_data).collect(),
+        build_fn_completions(word, add_prefix, span, ctx).collect(),
     )
 }
 
@@ -194,12 +213,22 @@ fn build_cmd_completions(
 
             match TARGET_FAMILY {
                 TargetFamily::Windows => {
-                    let possible_names = [item_name_lc.clone()]
+                    let Some((filename, ext)) = item_name_lc.rsplit_once('.') else {
+                        continue;
+                    };
+
+                    let exe_exts = ["bat", "cmd", "exe"];
+
+                    if !exe_exts.contains(&ext) {
+                        continue;
+                    }
+
+                    let possible_names = [filename.to_owned()]
                         .into_iter()
                         .chain(
                             ["bat", "cmd", "exe"]
                                 .into_iter()
-                                .map(|ext| format!("{item_name_lc}.{ext}")),
+                                .map(|ext| format!("{filename}.{ext}")),
                         )
                         .collect::<HashSet<_>>();
 
@@ -238,13 +267,12 @@ fn complete_var_name(
     word: &str,
     add_prefix: Option<&str>,
     span: Span,
-    completion_data: &CompletionData,
+    ctx: &Context,
 ) -> Vec<Suggestion> {
     let word = word.to_lowercase();
 
-    let results = completion_data
-        .scopes
-        .iter()
+    let results = ctx
+        .visible_scopes()
         .flat_map(|scope| scope.vars.iter())
         .filter(|(name, _)| name.to_lowercase().contains(&word))
         .map(|(name, item)| {
@@ -255,8 +283,11 @@ fn complete_var_name(
                         Some(prefix) => format!("{prefix}{name}"),
                         None => name.clone(),
                     },
-                    description: Some(match item {
-                        Some(value_type) => value_type.clone(),
+                    description: Some(match item.value.read(RuntimeCodeRange::Internal).as_ref() {
+                        Some(loc_val) => loc_val
+                            .value
+                            .get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
                         None => "<value not set>".to_string(),
                     }),
                     extra: None,
@@ -270,7 +301,7 @@ fn complete_var_name(
     sort_results(&word, results)
 }
 
-fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggestion> {
+fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
     let mut search = word
         .split(['/', '\\'])
         .filter(|segment| !segment.is_empty() && *segment != ".")
@@ -284,11 +315,14 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
         .collect::<Vec<_>>();
 
     let starts_with_home_dir = if word.starts_with("~/") || word.starts_with("~\\") {
-        let Some(home_dir) = home_dir else {
+        let Some(home_dir) = ctx.home_dir() else {
             return vec![];
         };
 
-        search[0] = home_dir.trim_end_matches(['/', '\\']).to_string();
+        search[0] = home_dir
+            .to_string_lossy()
+            .trim_end_matches(['/', '\\'])
+            .to_string();
 
         Some(home_dir)
     } else {
@@ -346,7 +380,7 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
             path_str = format!(
                 "~{MAIN_SEPARATOR}{}",
                 path_str
-                    .strip_prefix(&format!("{home_dir}{MAIN_SEPARATOR}"))
+                    .strip_prefix(&format!("{}{MAIN_SEPARATOR}", home_dir.display()))
                     .unwrap()
             )
         }
@@ -375,70 +409,6 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
 fn sort_results(input: &str, mut values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
     values.sort_by_key(|(candidate, _)| levenshtein_distance(input, candidate));
     values.into_iter().map(|(_, value)| value).collect()
-}
-
-pub struct CompletionData {
-    scopes: Vec<CompletionDataScope>,
-    home_dir: Option<String>,
-}
-
-impl CompletionData {
-    pub fn generate_from_context(ctx: &Context) -> Self {
-        Self {
-            home_dir: ctx.home_dir().map(|dir| dir.to_string_lossy().into_owned()),
-            scopes: ctx
-                .visible_scopes()
-                .map(|scope| CompletionDataScope::new(scope, ctx))
-                .collect(),
-        }
-    }
-
-    pub fn update_with(&mut self, ctx: &Context) {
-        *self = Self::generate_from_context(ctx);
-    }
-}
-
-pub struct CompletionDataScope {
-    // TODO: requires computing type of all vars ahead of time (costly)
-    pub vars: HashMap<String, Option<String>>,
-    pub fns: HashMap<String, String>,
-}
-
-impl CompletionDataScope {
-    fn new(scope: &ScopeContent, ctx: &Context) -> Self {
-        Self {
-            fns: scope
-                .fns
-                .iter()
-                .map(|(name, func)| {
-                    (
-                        name.clone(),
-                        func.value
-                            .signature
-                            .inner()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
-                    )
-                })
-                .collect(),
-
-            vars: scope
-                .vars
-                .iter()
-                .map(|(name, var)| {
-                    (
-                        name.clone(),
-                        var.value.with_ref(|value| {
-                            value.as_ref().map(|loc_val| {
-                                loc_val
-                                    .value
-                                    .render_colored(ctx, PrettyPrintOptions::inline())
-                            })
-                        }),
-                    )
-                })
-                .collect(),
-        }
-    }
 }
 
 fn escape_raw<'a>(str: &'a str, delimiter_chars: &HashSet<char>) -> Cow<'a, str> {

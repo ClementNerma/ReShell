@@ -44,7 +44,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
+fn inner_main(started: Instant) -> Result<ExitCode, String> {
     let Args {
         exec_file,
         eval,
@@ -84,7 +84,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
             if home_dir.is_dir() {
                 ctx.set_home_dir(home_dir);
             } else {
-                print_warn(&format!(
+                print_warn(format!(
                     "Determined path to home directory was {} but it does not exist",
                     home_dir.to_string_lossy().bright_magenta()
                 ));
@@ -100,15 +100,15 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
 
     if let Some(file_path) = exec_file {
         if !file_path.exists() {
-            return Err("Error: provided file was not found");
+            return Err("Error: provided file was not found".to_owned());
         }
 
         if !file_path.is_file() {
-            return Err("Error: provided file path is a directory");
+            return Err("Error: provided file path is a directory".to_owned());
         }
 
         let Ok(content) = fs::read_to_string(&file_path) else {
-            return Err("Failed to read thep rovided path");
+            return Err("Failed to read thep rovided path".to_owned());
         };
 
         return match run_script(
@@ -154,7 +154,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
                 if init_file.is_file() {
                     match fs::read_to_string(&init_file) {
                         Err(err) => {
-                            print_err(&format!(
+                            print_err(format!(
                                 "Failed to read init script at path {}: {err}",
                                 init_file.to_string_lossy().bright_magenta()
                             ));
@@ -194,18 +194,17 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         before_repl: Instant::now(),
     };
 
-    match repl::start(&mut ctx, timings, show_timings) {
-        Some(exit_code) => Ok(exit_code),
-        None => Ok(ExitCode::SUCCESS),
-    }
+    repl::start(&mut ctx, timings, show_timings)
+        .map(|code| code.unwrap_or(ExitCode::SUCCESS))
+        .map_err(|err| format!("REPL crashed: {err:?}"))
 }
 
-fn print_warn(msg: &str) {
-    eprintln!("{}", msg.bright_yellow());
+fn print_warn(msg: impl AsRef<str>) {
+    eprintln!("{}", msg.as_ref().bright_yellow());
 }
 
-fn print_err(msg: &str) {
-    eprintln!("{}", msg.bright_red());
+fn print_err(msg: impl AsRef<str>) {
+    eprintln!("{}", msg.as_ref().bright_red());
 }
 
 static INIT_SCRIPT_FILE_NAME: &str = "init.rsh";

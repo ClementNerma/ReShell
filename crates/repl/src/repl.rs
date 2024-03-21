@@ -1,11 +1,15 @@
 use std::{
+    error::Error,
     process::ExitCode,
-    sync::{Arc, Mutex},
+    sync::{
+        mpsc::{channel, TryRecvError},
+        Arc, Mutex,
+    },
     time::Instant,
 };
 
 use colored::Colorize;
-use reedline::{Reedline, Signal};
+use reedline::{Reedline, Signal, Suggestion};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_parser::files::SourceFileLocation;
 use reshell_runtime::{
@@ -15,7 +19,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    completer::{self, CompletionData},
+    completer::{self, generate_completions, CompletionContext},
     edit_mode,
     exec::run_script,
     highlighter, hinter, history,
@@ -25,20 +29,30 @@ use crate::{
     Timings,
 };
 
-pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<ExitCode> {
-    let completion_data = Arc::new(Mutex::new(CompletionData::generate_from_context(ctx)));
+pub fn start(
+    ctx: &mut Context,
+    timings: Timings,
+    show_timings: bool,
+) -> Result<Option<ExitCode>, Box<dyn Error>> {
+    let (sx_req, rx_req) = channel::<CompletionContext>();
+    let (sx_res, rx_res) = channel::<Vec<Suggestion>>();
 
-    let mut line_editor = Reedline::create()
+    let line_editor = Reedline::create()
         .with_history(history::create_history(ctx.conf()))
         .with_menu(history::create_history_menu())
         .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())
         .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
-        .with_completer(completer::create_completer(Arc::clone(&completion_data)))
+        .with_completer(completer::create_completer(move |data| {
+            sx_req.send(data).unwrap();
+            rx_res.recv().unwrap()
+        }))
         .with_edit_mode(edit_mode::create_edit_mode())
         .with_quick_completions(true)
         .with_partial_completions(true);
+
+    let line_editor = Arc::new(Mutex::new(line_editor));
 
     let files_map = ctx.files_map().clone();
 
@@ -60,7 +74,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
                 if let ExecErrorNature::Exit { code } = err.nature {
-                    return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
+                    return Ok(Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS)));
                 }
 
                 reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
@@ -74,10 +88,39 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             println!("* Time to interaction: {:?}", line_start.elapsed());
         }
 
-        let input = match line_editor.read_line(&prompt) {
+        let line_editor = Arc::clone(&line_editor);
+
+        let child = std::thread::spawn(move || line_editor.lock().unwrap().read_line(&prompt));
+
+        let signal = loop {
+            if child.is_finished() {
+                break child
+                    .join()
+                    .map_err(|err| format!("Line reading thread panicked: {err:?}"))?;
+            }
+
+            match rx_req.try_recv() {
+                Ok(completion_context) => {
+                    sx_res
+                        .send(generate_completions(completion_context, ctx))
+                        .map_err(|err| {
+                            format!(
+                                "Failed to send completions result to line reading thread: {err}"
+                            )
+                        })?;
+                }
+
+                Err(err) => match err {
+                    TryRecvError::Empty => {}
+                    TryRecvError::Disconnected => panic!(),
+                },
+            };
+        };
+
+        let input = match signal {
             Ok(Signal::Success(buffer)) => buffer,
             Ok(Signal::CtrlC) => continue,
-            Ok(Signal::CtrlD) => break None,
+            Ok(Signal::CtrlD) => break Ok(None),
             Err(err) => {
                 eprintln!("> Failed to read line: {err}");
                 continue;
@@ -94,8 +137,6 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             &parser,
             ctx,
         );
-
-        completion_data.lock().unwrap().update_with(ctx);
 
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
@@ -118,7 +159,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
                     let program = program.as_ref().unwrap();
 
                     if let ExecErrorNature::Exit { code } = err.nature {
-                        return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
+                        return Ok(Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS)));
                     }
 
                     // If we only run a single command (not more, no pipes, etc.) and it failed,
