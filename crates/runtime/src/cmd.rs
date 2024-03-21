@@ -101,7 +101,7 @@ pub fn run_cmd(
                 EvaluatedCmdTarget::Function(func) => func,
             };
 
-            last_return_value = call_fn_value(
+            let return_value = call_fn_value(
                 RuntimeCodeRange::Parsed(call_at),
                 &func,
                 FnPossibleCallArgs::ParsedCmdArgs {
@@ -115,6 +115,10 @@ pub fn run_cmd(
                 },
                 ctx,
             )?;
+
+            last_return_value = return_value.map(|loc_value| {
+                LocatedValue::new(loc_value.value, RuntimeCodeRange::Parsed(call_at))
+            });
 
             if i + 1 < chain_len && last_return_value.is_none() {
                 return Err(ctx.error(call_at, "piped function did not return a value"));
