@@ -1,9 +1,9 @@
 use parsy::MaybeEaten;
 use reshell_parser::ast::{FnArg, FnArgNames, SingleValueType, ValueType};
 
-use crate::values::{InternalFnBody, RuntimeValue};
+use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
-use super::utils::forge_internal_token;
+use crate::utils::forge_internal_token;
 
 #[derive(Clone, Copy)]
 pub enum ArgNames {
@@ -219,12 +219,13 @@ macro_rules! define_internal_fn {
         use reshell_parser::ast::FnArg;
         use parsy::{CodeRange, Eaten};
 
-        use $crate::{
+        use reshell_runtime::{
             context::Context,
-            builtins::helper::{ArgHandler, InternalFunction, generate_internal_arg_decl},
             errors::ExecResult,
             values::{RuntimeValue, LocatedValue, InternalFnCallData}
         };
+
+        use $crate::helper::{ArgHandler, InternalFunction, generate_internal_arg_decl};
 
         struct $args_struct_name {
             $( $arg_name: <$arg_handler as ArgHandler>::Parsed ),*

@@ -5,11 +5,9 @@ use std::{
 };
 
 use reedline::{Reedline, Signal};
+use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_runtime::{
-    builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering},
-    context::Context,
-    errors::ExecErrorContent,
-    exec::ProgramExitStatus,
+    context::Context, errors::ExecErrorContent, exec::ProgramExitStatus,
     files_map::ScopableFilePath,
 };
 

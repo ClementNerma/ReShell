@@ -1,14 +1,13 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
-// TEMPORARY
-#![allow(clippy::result_large_err)]
 
 use std::process::ExitCode;
 use std::{fs, time::Instant};
 
 use clap::Parser as _;
 use colored::Colorize;
+use reshell_builtins::builder::build_native_lib_content;
 use reshell_parser::program;
 use reshell_runtime::{
     conf::RuntimeConf, context::Context, exec::ProgramExitStatus, files_map::ScopableFilePath,
@@ -52,7 +51,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
     } = Args::parse();
 
     // TODO: allow to configure through CLI
-    let mut ctx = Context::new(RuntimeConf::default());
+    let mut ctx = Context::new(RuntimeConf::default(), build_native_lib_content());
 
     match dirs::home_dir() {
         Some(home_dir) => {
