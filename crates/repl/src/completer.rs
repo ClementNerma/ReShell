@@ -509,11 +509,18 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
             .unwrap()
     });
 
-    non_matching_start.sort_by(|(a, _), (b, _)| {
-        jaro_winkler_distance(&input, a)
-            .partial_cmp(&jaro_winkler_distance(&input, b))
-            .unwrap()
-    });
+    // If we have suggestions that have a common start...
+    if !matching_start.is_empty() {
+        // Ignore all other ones
+        non_matching_start.clear();
+    } else {
+        // Otherwise, sort the non-start-matching suggestions as well
+        non_matching_start.sort_by(|(a, _), (b, _)| {
+            jaro_winkler_distance(&input, a)
+                .partial_cmp(&jaro_winkler_distance(&input, b))
+                .unwrap()
+        });
+    }
 
     matching_start
         .into_iter()
