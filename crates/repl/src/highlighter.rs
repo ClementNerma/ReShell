@@ -58,40 +58,23 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(#.*)$", [DarkGray]),
                 
                 // Variable declaration
-                // TODO
-                // progressive([
-                //     ("\\b(let)\\b", [Magenta]),
-                //     ("(\\s+mut\\b|)", [Magenta]),
-                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
-                //     ("\\s*(=)\\s*", [LightYellow])
-                // ]),
+                simple("\\b(let)\\s+(mut)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)", [Magenta, Magenta, Red, LightYellow]),
+                simple("\\b(let)\\s+(mut)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Magenta, Red]),
+                simple("\\b(let)\\s+(mut)\\b", [Magenta, Magenta]),
                 
                 // For loop
-                // TODO
-                // progressive([
-                //     ("\\b(for)\\b", [Magenta]),
-                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
-                //     ("\\s+(in)\\b", [Magenta])
-                // ]),
+                simple("\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(in)\\b", [Magenta, Red, Magenta]),
+                simple("\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Red]),
                 
                 // Function declaration
-                // TODO
-                // progressive([
-                //     ("\\b(fn)\\b", [Magenta]),
-                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Blue]),
-                //     ("\\s*(\\()", [LightYellow])
-                // ]),
+                simple("\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Blue]),
 
                 // Command aliases
-                // TODO
-                // progressive([
-                //     ("\\b(alias)\\b", [Magenta]),
-                //     ("\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Blue]),
-                //     ("\\s*(=)", [LightYellow])
-                // ]),
+                simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(=)", [Magenta, Blue, LightYellow]),
+                simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Magenta, Blue]),
                 
                 // Keywords
-                simple("\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
+                simple("\\b(alias|fn|for|while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
 
                 // Argument names and structure keys
                 simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]", [Red, LightYellow]),
@@ -119,13 +102,8 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(true|false)\\b", [LightYellow]),
                 
                 // Pipes
-                // TODO
-                // progressive([
-                //     ("(\\->|\\!?\\|)", [LightYellow]),
-
-                //     // Required to highlight commands properly
-                //     ("\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue])
-                // ]),
+                simple("(\\->|\\!?\\|)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [LightYellow, Blue]),
+                simple("(\\->|\\!?\\|)", [LightYellow]),
 
                 // Flags
                 simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
