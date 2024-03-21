@@ -241,10 +241,13 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color("}".to_string(), Color::Blue),
                 suffix: None,
             },
-            RuntimeValue::Function(func) => {
-                // TODO: show something like { ... } after the fn to show it's a value and not a type
-                func.signature.generate_pretty_data()
-            }
+            RuntimeValue::Function(func) => PrintablePiece::Join(vec![
+                func.signature.generate_pretty_data(),
+                PrintablePiece::Atomic(Colored::with_color(
+                    " { ... }".to_string(),
+                    Color::BrightBlack,
+                )),
+            ]),
             RuntimeValue::Error { at: _, msg } => PrintablePiece::List {
                 begin: Colored::with_color("error(".to_string(), Color::Red),
                 items: vec![

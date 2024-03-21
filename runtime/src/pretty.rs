@@ -59,6 +59,7 @@ pub enum PrintablePiece {
         end: Colored,
         suffix: Option<Colored>,
     },
+    Join(Vec<PrintablePiece>),
 }
 
 impl PrintablePiece {
@@ -116,6 +117,8 @@ impl PrintablePiece {
                         None => 0,
                     }
             }
+
+            PrintablePiece::Join(pieces) => pieces.iter().map(PrintablePiece::len_chars).sum(),
         }
     }
 
@@ -143,11 +146,13 @@ impl PrintablePiece {
 
         match self {
             PrintablePiece::Atomic(atom) => w(atom),
+
             PrintablePiece::Suite(items) => {
                 for item in items {
                     w(item);
                 }
             }
+
             PrintablePiece::List {
                 begin,
                 items,
@@ -193,6 +198,12 @@ impl PrintablePiece {
                     if let Some(suffix) = suffix {
                         w(suffix);
                     }
+                }
+            }
+
+            PrintablePiece::Join(pieces) => {
+                for piece in pieces {
+                    piece.render_inner(opts, w, current_ident);
                 }
             }
         }
