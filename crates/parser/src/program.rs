@@ -661,6 +661,7 @@ pub fn program(
         let prop_access_nature = choice::<_, PropAccessNature>((
             char('.')
                 .ignore_then(ident.spanned().critical("expected a property name"))
+                .not_followed_by(char('('))
                 .map(PropAccessNature::Prop),
             char('[')
                 .not_followed_by(char(']'))
@@ -964,7 +965,7 @@ pub fn program(
             //
             var_name
                 .spanned()
-                .then(prop_access_nature.spanned().repeated_vec())
+                .then(prop_access_nature.clone().spanned().repeated_vec())
                 .then(just("[]").to(()).spanned().or_not())
                 .then_ignore(ms)
                 .then_ignore(char('='))
@@ -1270,7 +1271,22 @@ pub fn program(
             //
             // Function call
             //
-            fn_call.spanned().map(Instruction::FnCall),
+            fn_call.clone().spanned().map(Instruction::FnCall),
+            //
+            // Method call
+            //
+            var_name
+                .spanned()
+                .then(prop_access_nature.spanned().repeated_vec())
+                .then_ignore(char('.'))
+                .then(fn_call.spanned())
+                .map(
+                    |((var_name, prop_acc), method_call)| Instruction::MethodCall {
+                        var_name,
+                        prop_acc,
+                        method_call,
+                    },
+                ),
             //
             // Command calls
             //
