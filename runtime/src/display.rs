@@ -95,7 +95,7 @@ pub fn readable_single_type(
             //             None
             //         }) {
             //         Some(typ) => format!("({})", readable_type(typ, ctx)),
-            //         None => "(unknown type alias)".to_string(),
+            //         None => "(unknown type alias)",
             //     }
             // )
             // .into()
@@ -141,9 +141,7 @@ pub fn dbg_loc(at: CodeRange, files_map: &FilesMap) -> String {
 impl PrettyPrintable for RuntimeValue {
     fn generate_pretty_data(&self) -> PrintablePiece {
         match self {
-            RuntimeValue::Null => {
-                PrintablePiece::colored_atomic("null".to_string(), Color::BrightYellow)
-            }
+            RuntimeValue::Null => PrintablePiece::colored_atomic("null", Color::BrightYellow),
 
             RuntimeValue::Bool(bool) => {
                 PrintablePiece::colored_atomic(bool.to_string(), Color::BrightYellow)
@@ -169,26 +167,26 @@ impl PrettyPrintable for RuntimeValue {
             ),
 
             RuntimeValue::List(list) => PrintablePiece::List {
-                begin: Colored::with_color("[".to_string(), Color::Blue),
+                begin: Colored::with_color("[", Color::Blue),
                 items: list
                     .iter()
                     .map(|item| item.generate_pretty_data())
                     .collect(),
-                sep: Colored::with_color(",".to_string(), Color::Blue),
-                end: Colored::with_color("]".to_string(), Color::Blue),
+                sep: Colored::with_color(",", Color::Blue),
+                end: Colored::with_color("]", Color::Blue),
                 suffix: None,
             },
 
             RuntimeValue::Range { from, to } => PrintablePiece::Join(vec![
-                PrintablePiece::colored_atomic("range(".to_string(), Color::Blue),
+                PrintablePiece::colored_atomic("range(", Color::Blue),
                 PrintablePiece::colored_atomic(from.to_string(), Color::BrightYellow),
-                PrintablePiece::colored_atomic(",".to_string(), Color::Blue),
+                PrintablePiece::colored_atomic(",", Color::Blue),
                 PrintablePiece::colored_atomic(to.to_string(), Color::BrightYellow),
-                PrintablePiece::colored_atomic(")".to_string(), Color::Blue),
+                PrintablePiece::colored_atomic(")", Color::Blue),
             ]),
 
             RuntimeValue::Map(map) => PrintablePiece::List {
-                begin: Colored::with_color("map({".to_string(), Color::Blue),
+                begin: Colored::with_color("map({", Color::Blue),
                 items: map
                     .iter()
                     .map(|(key, value)|
@@ -212,13 +210,13 @@ impl PrettyPrintable for RuntimeValue {
                             suffix: None
                         })
                     .collect(),
-                sep: Colored::with_color(",".to_string(), Color::Blue),
-                end: Colored::with_color("})".to_string(), Color::Blue),
+                sep: Colored::with_color(",", Color::Blue),
+                end: Colored::with_color("})", Color::Blue),
                 suffix: None,
             },
 
             RuntimeValue::Struct(obj) => PrintablePiece::List {
-                begin: Colored::with_color("{".to_string(), Color::Blue),
+                begin: Colored::with_color("{", Color::Blue),
                 items: obj
                     .iter()
                     .map(|(field, value)|
@@ -236,18 +234,18 @@ impl PrettyPrintable for RuntimeValue {
                             suffix: None
                         })
                     .collect(),
-                sep: Colored::with_color(",".to_string(), Color::Blue),
-                end: Colored::with_color("}".to_string(), Color::Blue),
+                sep: Colored::with_color(",", Color::Blue),
+                end: Colored::with_color("}", Color::Blue),
                 suffix: None,
             },
 
             RuntimeValue::Function(func) => PrintablePiece::Join(vec![
                 func.signature.generate_pretty_data(),
-                PrintablePiece::colored_atomic(" { ... }".to_string(), Color::BrightBlack),
+                PrintablePiece::colored_atomic(" { ... }", Color::BrightBlack),
             ]),
 
             RuntimeValue::Error { at: _, msg } => PrintablePiece::Join(vec![
-                PrintablePiece::colored_atomic("error(".to_string(), Color::Red),
+                PrintablePiece::colored_atomic("error(", Color::Red),
                 PrintablePiece::colored_atomic(
                     format!(
                         "\"{}\"",
@@ -258,7 +256,7 @@ impl PrettyPrintable for RuntimeValue {
                     Color::Green,
                 ),
                 // TODO: printing "at" requires access to context in order to find the filename
-                PrintablePiece::colored_atomic(")".to_string(), Color::Red),
+                PrintablePiece::colored_atomic(")", Color::Red),
             ]),
         }
     }
@@ -269,13 +267,13 @@ impl PrettyPrintable for FnSignature {
         let Self { args, ret_type } = self;
 
         PrintablePiece::List {
-            begin: Colored::with_color("fn(".to_string(), Color::Blue),
+            begin: Colored::with_color("fn(", Color::Blue),
             items: args
                 .iter()
                 .map(|item| item.generate_pretty_data())
                 .collect(),
-            sep: Colored::with_color(",".to_string(), Color::Blue),
-            end: Colored::with_color(")".to_string(), Color::Blue),
+            sep: Colored::with_color(",", Color::Blue),
+            end: Colored::with_color(")", Color::Blue),
             suffix: ret_type.as_ref().map(|ret_type| {
                 // TODO: colors for return type?
                 Colored::with_color(
@@ -299,7 +297,7 @@ impl PrettyPrintable for FnArg {
         let mut out = vec![];
 
         if *is_rest {
-            out.push(Colored::with_color("...".to_string(), Color::BrightYellow));
+            out.push(Colored::with_color("...", Color::BrightYellow));
         }
 
         match names {
@@ -308,34 +306,34 @@ impl PrettyPrintable for FnArg {
             }
             FnArgNames::ShortFlag(short) => {
                 out.extend([
-                    Colored::with_color("-".to_string(), Color::BrightYellow),
-                    Colored::with_color(short.data.to_string(), Color::Red),
+                    Colored::with_color("-", Color::BrightYellow),
+                    Colored::with_color(short.data, Color::Red),
                 ]);
             }
             FnArgNames::LongFlag(long) => {
                 out.extend([
-                    Colored::with_color("--".to_string(), Color::BrightYellow),
+                    Colored::with_color("--", Color::BrightYellow),
                     Colored::with_color(long.data.clone(), Color::Red),
                 ]);
             }
             FnArgNames::LongAndShortFlag { long, short } => {
                 out.extend([
-                    Colored::with_color("--".to_string(), Color::BrightYellow),
+                    Colored::with_color("--", Color::BrightYellow),
                     Colored::with_color(long.data.clone(), Color::Red),
-                    Colored::with_color(" (".to_string(), Color::Blue),
-                    Colored::with_color("-".to_string(), Color::BrightYellow),
-                    Colored::with_color(short.data.to_string(), Color::BrightYellow),
-                    Colored::with_color(")".to_string(), Color::Blue),
+                    Colored::with_color(" (", Color::Blue),
+                    Colored::with_color("-", Color::BrightYellow),
+                    Colored::with_color(short.data, Color::BrightYellow),
+                    Colored::with_color(")", Color::Blue),
                 ]);
             }
         }
 
         if *is_optional {
-            out.push(Colored::with_color("?".to_string(), Color::BrightYellow));
+            out.push(Colored::with_color("?", Color::BrightYellow));
         }
 
         if let Some(typ) = typ {
-            out.push(Colored::with_color(": ".to_string(), Color::BrightYellow));
+            out.push(Colored::with_color(": ", Color::BrightYellow));
             out.push(Colored::with_color(
                 readable_type(&typ.data).into_owned(),
                 Color::BrightMagenta,
