@@ -208,7 +208,7 @@ fn parse_fn_call_args(
                             .long_flag()
                             .is_some_and(|flag| flag.data() == name),
                     })
-                    .ok_or_else(|| ctx.error(name.at, "flag not found in called function"))?;
+                    .ok_or_else(|| ctx.error(name.at, "called function does not have this flag"))?;
 
                 match value {
                     None => {
@@ -359,7 +359,19 @@ fn parse_fn_call_args(
             }
         }
 
-        return Err(ctx.error(call_at, format!("argument '{arg_name}' is missing")));
+        return Err(ctx.error(
+            call_at,
+            format!(
+                "argument '{}' is missing",
+                match &arg.names {
+                    FnArgNames::Positional(name) => name.data().clone(),
+                    FnArgNames::ShortFlag(short) => format!("-{}", short.data()),
+                    FnArgNames::LongFlag(long) => format!("--{}", long.data()),
+                    FnArgNames::LongAndShortFlag { long, short } =>
+                        format!("-{} / --{}", short.data(), long.data()),
+                }
+            ),
+        ));
     }
 
     // TODO: check all arguments

@@ -832,7 +832,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
 
         // TODO: flags can't be rest
-        // TODO: no positional argument after optional one
+        // TODO: no positional argument after optional positional one
         // TODO: no positional argument after rest one
         // TODO: rest argument can't have a type
         // TODO: rest argument can't be marked as optional
