@@ -18,7 +18,7 @@ use reshell_runtime::{
     values::RuntimeValue,
 };
 
-use crate::utils::lev_distance::levenshtein_distance;
+use crate::utils::jaro_winkler::jaro_winkler_distance;
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
@@ -463,7 +463,12 @@ fn sort_results(input: &str, mut values: Vec<(String, Suggestion)>) -> Vec<Sugge
         values = matching_start;
     }
 
-    values.sort_by_key(|(candidate, _)| levenshtein_distance(&input, candidate));
+    values.sort_by(|(a, _), (b, _)| {
+        jaro_winkler_distance(&input, a)
+            .partial_cmp(&jaro_winkler_distance(&input, b))
+            .unwrap()
+    });
+
     values.into_iter().map(|(_, value)| value).collect()
 }
 
