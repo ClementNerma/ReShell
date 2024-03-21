@@ -509,13 +509,13 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let mut matched = false;
 
-            for SwitchCase { cond, body } in cases {
-                let case_value = eval_expr(&cond.data, ctx)?;
+            for SwitchCase { matches, body } in cases {
+                let case_value = eval_expr(&matches.data, ctx)?;
 
                 let cmp = are_values_equal(&switch_on, &case_value).map_err(
                     |NotComparableTypes { reason }| {
                         ctx.error(
-                            cond.at,
+                            matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
                                 switch_on

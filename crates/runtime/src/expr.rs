@@ -4,7 +4,7 @@ use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
     ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, Function, LiteralValue,
-    PropAccess, RuntimeCodeRange, SingleOp, Value,
+    PropAccess, RuntimeCodeRange, SingleOp, SwitchExprCase, Value,
 };
 
 use crate::{
@@ -392,6 +392,37 @@ fn eval_expr_inner_content(
 
                 if cond_val {
                     return eval_expr(&body.data, ctx);
+                }
+            }
+
+            eval_expr(&els.data, ctx)
+        }
+
+        ExprInnerContent::Switch { expr, cases, els } => {
+            let switch_on = eval_expr(&expr.data, ctx)?;
+
+            for SwitchExprCase { matches, then } in cases {
+                let case_value = eval_expr(&matches.data, ctx)?;
+
+                let cmp = are_values_equal(&switch_on, &case_value).map_err(
+                    |NotComparableTypes { reason }| {
+                        ctx.error(
+                            matches.at,
+                            format!(
+                                "cannot compare {} and {}: {reason}",
+                                switch_on
+                                    .get_type()
+                                    .render_colored(ctx, PrettyPrintOptions::inline()),
+                                case_value
+                                    .get_type()
+                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                            ),
+                        )
+                    },
+                )?;
+
+                if cmp {
+                    return eval_expr(&then.data, ctx);
                 }
             }
 
