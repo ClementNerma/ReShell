@@ -14,7 +14,7 @@ reshell-runtime = { path = "../runtime" }
 reshell-builtins = { path = "../builtins" }
 parsy = "0.5.5"
 clap = { version = "4.5.3", features = ["derive"] }
-reedline = { path = "../../../reedline" }
+reedline = { git = "https://github.com/ClementNerma/reedline.git" }
 nu-ansi-term = "0.50.0"
 glob = "0.3.1"
 colored = "2.1.0"

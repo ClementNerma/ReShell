@@ -719,6 +719,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.30.0"
+source = "git+https://github.com/ClementNerma/reedline.git#73936382eb38fcf07a9fc3c69b5a999b90243dd5"
 dependencies = [
  "chrono",
  "crossterm",
