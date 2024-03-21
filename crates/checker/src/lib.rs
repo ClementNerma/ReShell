@@ -18,14 +18,17 @@ pub mod output;
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::{
-    Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
-    CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
-    ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-    ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-    FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
-    PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-    StructTypeMember, SwitchCase, Value, ValueType,
+use reshell_parser::{
+    ast::{
+        Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
+        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
+        ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg,
+        FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
+        PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
+        SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+    },
+    scope::ScopeId,
 };
 
 use self::state::UsedItem;
@@ -63,8 +66,13 @@ fn check_block_with(
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
+    let Block {
+        scope_id,
+        instructions,
+    } = &block.data;
+
     let mut scope = CheckerScope {
-        code_range: RuntimeCodeRange::Parsed(block.at),
+        id: *scope_id,
         special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
@@ -76,30 +84,18 @@ fn check_block_with(
 
     state.push_scope(scope);
 
-    check_block_without_push(block, state)
-}
-
-fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
-    check_block_in_current_scope(block, state)?;
-
-    state.pop_scope();
-
-    Ok(())
-}
-
-fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
-    let Block { instructions } = &block.data;
-
-    assert_eq!(
-        state.curr_scope().code_range.parsed_range().unwrap(),
-        block.at
-    );
+    // assert_eq!(
+    //     state.curr_scope().code_range.parsed_range().unwrap(),
+    //     block.at
+    // );
 
     block_first_pass(instructions, block, state)?;
 
     for instr in instructions {
         check_instr(instr, state)?;
     }
+
+    state.pop_scope();
 
     Ok(())
 }
@@ -144,13 +140,17 @@ fn block_first_pass(
                 state.curr_scope_mut().fns.insert(
                     name.data.clone(),
                     DeclaredFn {
-                        name_at: RuntimeCodeRange::Parsed(name.at),
+                        scope_id: state.curr_scope().id,
                         is_method: content.signature.data.is_method(),
                     },
                 );
             }
 
-            Instruction::CmdAliasDecl { name, content } => {
+            Instruction::CmdAliasDecl {
+                name,
+                content,
+                content_scope_id: _,
+            } => {
                 if state.curr_scope_mut().cmd_aliases.contains_key(&name.data) {
                     return Err(CheckerError::new(
                         name.at,
@@ -168,7 +168,7 @@ fn block_first_pass(
                 state.curr_scope_mut().cmd_aliases.insert(
                     name.data.clone(),
                     DeclaredCmdAlias {
-                        name_at: name.at,
+                        scope_id: state.curr_scope().id,
                         content_at: content.at,
                         is_ready: false,
                     },
@@ -179,7 +179,10 @@ fn block_first_pass(
 
             Instruction::Include(program) => {
                 let Program { content } = &program.data;
-                let Block { instructions } = &content.data;
+                let Block {
+                    scope_id: _,
+                    instructions,
+                } = &content.data;
 
                 block_first_pass(instructions, block, state)?;
             }
@@ -207,7 +210,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.curr_scope_mut().vars.insert(
                 name.data.clone(),
                 DeclaredVar {
-                    name_at: RuntimeCodeRange::Parsed(name.at),
+                    scope_id: state.curr_scope().id,
                     is_mut: mutable.is_some(),
                 },
             );
@@ -274,7 +277,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::Parsed(iter_var.at),
+                        scope_id: scope.id,
                         is_mut: false,
                     },
                 );
@@ -295,7 +298,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     key_iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
+                        scope_id: scope.id,
                         is_mut: false,
                     },
                 );
@@ -303,7 +306,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     value_iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
+                        scope_id: scope.id,
                         is_mut: false,
                     },
                 );
@@ -388,20 +391,24 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                        scope_id: scope.id,
                         is_mut: false,
                     },
                 );
             })?;
         }
 
-        Instruction::CmdAliasDecl { name, content } => {
+        Instruction::CmdAliasDecl {
+            name,
+            content,
+            content_scope_id,
+        } => {
             // NOTE: command alias was already registered during init.
 
             state.prepare_deps(content.at);
 
             state.push_scope(CheckerScope {
-                code_range: RuntimeCodeRange::Parsed(content.at),
+                id: *content_scope_id,
                 special_scope_type: Some(SpecialScopeType::CmdAlias),
                 vars: HashMap::new(),
                 fns: HashMap::new(),
@@ -431,7 +438,10 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::Include(program) => {
             let Program { content } = &program.data;
-            let Block { instructions } = &content.data;
+            let Block {
+                instructions,
+                scope_id: _,
+            } = &content.data;
 
             for instr in instructions {
                 check_instr(instr, state)?;
@@ -444,11 +454,12 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
 fn check_expr_with(
     expr: &Eaten<impl AsRef<Expr>>,
+    scope_id: ScopeId,
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
     let mut scope = CheckerScope {
-        code_range: RuntimeCodeRange::Parsed(expr.at),
+        id: scope_id,
         special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
@@ -570,14 +581,15 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             fn_call,
             catch_var,
             catch_expr,
+            catch_expr_scope_id,
         } => {
             check_fn_call(fn_call, state)?;
 
-            check_expr_with(catch_expr, state, |scope| {
+            check_expr_with(catch_expr, *catch_expr_scope_id, state, |scope| {
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
-                        name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                        scope_id: scope.id,
                         is_mut: false,
                     },
                 );
@@ -896,7 +908,7 @@ fn find_if_cmd_or_fn(
         Some(target) => match target {
             Target::CmdAlias(cmd_alias) => {
                 let DeclaredCmdAlias {
-                    name_at: _,
+                    scope_id,
                     content_at,
                     is_ready,
                 } = cmd_alias;
@@ -909,7 +921,6 @@ fn find_if_cmd_or_fn(
                 }
 
                 developed_aliases.push(DevelopedCmdAliasCall {
-                    content_at,
                     called_alias_name: name.clone(),
                 });
 
@@ -1012,6 +1023,14 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         RuntimeEaten::Internal(_) => unreachable!(),
     };
 
+    let fn_body_scope_id = match &body.data {
+        FunctionBody::Expr {
+            content: _,
+            scope_id,
+        } => *scope_id,
+        FunctionBody::Block(block) => block.data.scope_id,
+    };
+
     let mut vars = HashMap::with_capacity(checked_args.len());
 
     for checked_arg in checked_args {
@@ -1024,7 +1043,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         let dup = vars.insert(
             var_name,
             DeclaredVar {
-                name_at: RuntimeCodeRange::Parsed(name_at),
+                scope_id: fn_body_scope_id,
                 is_mut: false,
             },
         );
@@ -1043,9 +1062,9 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     };
 
     match &body.data {
-        FunctionBody::Expr(expr) => {
+        FunctionBody::Expr { content, scope_id } => {
             // Check expr
-            check_expr_with(expr, state, fill_scope)
+            check_expr_with(content, *scope_id, state, fill_scope)
         }
 
         FunctionBody::Block(block) => {

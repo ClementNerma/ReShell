@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use parsy::{CodeRange, Eaten};
 
+use crate::scope::ScopeId;
+
 /// A complete parsed program
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -11,7 +13,7 @@ pub struct Program {
 /// A block (= set of instructions)
 #[derive(Debug, Clone)]
 pub struct Block {
-    pub id: u64,
+    pub scope_id: ScopeId,
     pub instructions: Vec<Eaten<Instruction>>,
 }
 
@@ -97,6 +99,7 @@ pub enum Instruction {
     /// Command alias declaratin
     CmdAliasDecl {
         name: Eaten<String>,
+        content_scope_id: ScopeId,
         content: Eaten<SingleCmdCall>,
     },
 
@@ -139,7 +142,10 @@ pub struct Function {
 
 #[derive(Debug, Clone)]
 pub enum FunctionBody {
-    Expr(Eaten<Box<Expr>>),
+    Expr {
+        content: Eaten<Box<Expr>>,
+        scope_id: ScopeId,
+    },
     Block(Eaten<Block>),
 }
 
@@ -175,6 +181,7 @@ pub enum ExprInnerContent {
         fn_call: Eaten<FnCall>,
         catch_var: Eaten<String>,
         catch_expr: Eaten<Box<Expr>>,
+        catch_expr_scope_id: ScopeId,
     },
 }
 

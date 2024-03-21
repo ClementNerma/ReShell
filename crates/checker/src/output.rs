@@ -4,7 +4,10 @@ use std::{
 };
 
 use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::{CmdCall, FnSignature, FunctionBody, SingleCmdCall, ValueType};
+use reshell_parser::{
+    ast::{CmdCall, FnSignature, FunctionBody, SingleCmdCall, ValueType},
+    scope::ScopeId,
+};
 
 /// Sharing type used to avoid cloning in the runtime
 pub type SharingType<T> = Rc<T>;
@@ -43,9 +46,9 @@ pub struct CheckerOutput {
 
     /// List of all type aliases declaration, by scope
     ///
-    /// Associates a scope's code range to a mapping between the type aliases' name and location.
+    /// Associates a scope's ID to a mapping between the type aliases' name and location.
     /// The aliases can then be retrieved using `type_alias_decl` in this struct
-    pub type_aliases_decl_by_scope: HashMap<CodeRange, HashMap<String, CodeRange>>,
+    pub type_aliases_decl_by_scope: HashMap<ScopeId, HashMap<String, CodeRange>>,
 
     /// Signature of all functions and closures
     ///
@@ -149,9 +152,6 @@ pub struct DevelopedSingleCmdCall {
 /// Developed command alias call
 #[derive(Debug, Clone)]
 pub struct DevelopedCmdAliasCall {
-    /// Alias content's location ([`Eaten::<SingleCmdCall>::at`])
-    pub content_at: CodeRange,
-
     /// Alias name
     pub called_alias_name: Eaten<String>,
 }

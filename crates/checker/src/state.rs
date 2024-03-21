@@ -1,7 +1,7 @@
 use std::collections::{HashSet, HashMap};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdCall, Block};
+use reshell_parser::{ast::{FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdCall, Block}, scope::{ScopeId, NATIVE_LIB_SCOPE_ID}};
 
 use crate::{errors::CheckerResult, CheckerError, output::*};
 
@@ -26,6 +26,8 @@ impl State {
 
     /// Enter a new scope
     pub fn push_scope(&mut self, scope: CheckerScope) {
+        assert!(!self.scopes.iter().any(|c| c.id == scope.id));
+
         self.scopes.push(scope);
     }
 
@@ -120,26 +122,24 @@ impl State {
             })
             .ok_or_else(|| CheckerError::new(item_usage.at, format!("{dep_type} was not found")))??;
 
-        let name_declared_at = match item {
-            UsedItem::Variable(var) => var.name_at,
-            UsedItem::Function(func) => func.name_at,
-            UsedItem::CmdAlias(cmd_alias) => RuntimeCodeRange::Parsed(cmd_alias.name_at)
+        let item_declared_in = match item {
+            UsedItem::Variable(var) => var.scope_id,
+            UsedItem::Function(func) => func.scope_id,
+            UsedItem::CmdAlias(cmd_alias) => cmd_alias.scope_id
         };
 
         // Don't capture if the value if the item was declared internally (e.g. native library)
-        let name_declared_at = match name_declared_at {
-            RuntimeCodeRange::Parsed(at) => at,
-            RuntimeCodeRange::Internal => return Ok(item)
-        };
+        if item_declared_in == NATIVE_LIB_SCOPE_ID {
+            return Ok(item);
+        }
 
         // Don't collect anything if we're not inside a deps-collecting scope
         let Some(deps_scope) = self.current_deps_collecting_scope() else {
             return Ok(item);
         };
 
-        // Get the code range of the dependency-collecting scope
-        // It cannot be an internal one, by design
-        let deps_scope_range = deps_scope.code_range.parsed_range().unwrap();
+        // Get the dependency-collecting scope's ID
+        let deps_scope_range = deps_scope.id;
 
         // Determine if the variable was declared in the current deps-collecting scope (or in a descendent scope)
         let var_declared_in_deps_scope = 
@@ -290,8 +290,8 @@ pub enum UsedItem {
 /// Scope in the checker
 #[derive(Clone)]
 pub struct CheckerScope {
-    /// Code range covered by the scope
-    pub code_range: RuntimeCodeRange,
+    /// Scope ID
+    pub id: ScopeId,
 
     /// Optional special scope type
     pub special_scope_type: Option<SpecialScopeType>,
@@ -335,8 +335,8 @@ impl SpecialScopeType {
 /// Variable declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredVar {
-    /// Location of the variable's name in its declaration
-    pub name_at: RuntimeCodeRange,
+    /// Scope the variable is defined in
+    pub scope_id: ScopeId,
 
     /// Is the variable mutable?
     pub is_mut: bool,
@@ -345,39 +345,24 @@ pub struct DeclaredVar {
 /// Function declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredFn {
-    /// Location of the function's name in its declaration
-    pub name_at: RuntimeCodeRange,
+    /// Scope the function is defined in
+    pub scope_id: ScopeId,
 
     /// Is it a method?
     pub is_method: bool
 }
 
-impl DeclaredFn {
-    pub fn new(name_at: RuntimeCodeRange, is_method: bool) -> Self {
-        Self { name_at, is_method }
-    }
-}
-
 /// Command alias declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredCmdAlias {
-    /// Location of the command alias' name in its declaration
-    pub name_at: CodeRange,
+    /// Scope the comment alias is defined in
+    pub scope_id: ScopeId,
 
     /// Location of the command alias' content in its declaration
     pub content_at: CodeRange,
 
     /// Is the declared alias ready?
     /// See [`Context::mark_cmd_alias_as_ready`]
-    pub(crate) is_ready: bool,
+    pub is_ready: bool,
 }
 
-impl DeclaredCmdAlias {
-    pub fn ready(name_at: CodeRange, content_at: CodeRange) -> Self {
-        Self {
-            name_at,
-            content_at,
-            is_ready: true,
-        }
-    }
-}
