@@ -16,4 +16,5 @@ mod type_handlers;
 mod utils;
 
 pub mod builder;
+pub mod on_dir_jump;
 pub mod prompt;

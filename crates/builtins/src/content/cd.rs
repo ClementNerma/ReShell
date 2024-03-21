@@ -34,6 +34,7 @@ fn run() -> Runner {
         }
 
         std::env::set_current_dir(path).context("failed to change current directory", at, ctx)?;
+        ctx.trigger_directory_jump_event(at)?;
 
         Ok(None)
     })

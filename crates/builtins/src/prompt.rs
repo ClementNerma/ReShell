@@ -11,7 +11,7 @@ use crate::{
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
 
-pub static GEN_PROMPT_VAR_NAME: &str = "gen_prompt";
+pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
 
 /// Render the prompt (used for the REPL)
 pub fn render_prompt(

@@ -26,7 +26,11 @@ use reshell_parser::{
 use crate::{
     cmd::{CmdSingleArgResult, FlagArgValueResult},
     conf::{HistoryConf, RuntimeConf},
-    context::{CallStackEntry, Scope, ScopeCmdAlias, ScopeContent, ScopeFn, ScopeVar},
+    context::{
+        CallStackEntry, Context, ContextCreationParams, Scope, ScopeCmdAlias, ScopeContent,
+        ScopeFn, ScopeVar,
+    },
+    errors::ExecResult,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     values::{
         CapturedDependencies, ErrorValueContent, InternalFnBody, LocatedValue, RuntimeCmdAlias,
@@ -1090,5 +1094,35 @@ impl ComputableSize for CheckerOutput {
             + cmd_aliases.compute_heap_size()
             + cmd_calls.compute_heap_size()
             + cmd_call_values.compute_heap_size()
+    }
+}
+
+impl ComputableSize for ContextCreationParams {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            runtime_conf,
+            take_ctrl_c_indicator,
+            on_dir_jump,
+            files_map,
+            home_dir,
+        } = self;
+
+        runtime_conf.compute_heap_size()
+            + take_ctrl_c_indicator.compute_heap_size()
+            + on_dir_jump.compute_heap_size()
+            + files_map.compute_heap_size()
+            + home_dir.compute_heap_size()
+    }
+}
+
+impl ComputableSize for fn() -> bool {
+    fn compute_heap_size(&self) -> usize {
+        0
+    }
+}
+
+impl ComputableSize for fn(&mut Context, RuntimeCodeRange) -> ExecResult<()> {
+    fn compute_heap_size(&self) -> usize {
+        0
     }
 }
