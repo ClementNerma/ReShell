@@ -2,6 +2,7 @@ use std::any::Any;
 use std::rc::Rc;
 use std::{collections::HashMap, fmt::Debug};
 
+use dyn_clone::DynClone;
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::Dependency;
@@ -102,7 +103,7 @@ pub enum RuntimeValue {
     ArgSpread(GcReadOnlyCell<Vec<CmdSingleArgResult>>),
 
     // Custom value type
-    Custom(GcReadOnlyCell<dyn CustomValueType>),
+    Custom(GcReadOnlyCell<Box<dyn CustomValueType>>),
 }
 
 impl RuntimeValue {
@@ -166,8 +167,12 @@ impl RuntimeValue {
 }
 
 /// Custom value type
-pub trait CustomValueType: Any + Debug + PrettyPrintable {
+pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone {
     fn typename(&self) -> &'static str;
+
+    fn typename_static() -> &'static str
+    where
+        Self: Sized;
 }
 
 #[derive(Debug, Clone)]

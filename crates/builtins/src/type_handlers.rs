@@ -3,7 +3,7 @@
 //! allow to convert and parse some of the scripting language's native types.
 //!
 
-use std::{collections::HashMap, fmt::Display, marker::PhantomData};
+use std::{any::Any, collections::HashMap, fmt::Display, marker::PhantomData};
 
 use colored::Colorize;
 use parsy::CodeRange;
@@ -13,7 +13,7 @@ use reshell_parser::ast::{
 
 use reshell_runtime::{
     gc::{GcCell, GcReadOnlyCell},
-    values::{ErrorValueContent, RuntimeFnValue, RuntimeValue},
+    values::{CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
 };
 
 use crate::helper::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
@@ -284,6 +284,39 @@ impl SingleTyping for TypedFunctionType {
             }
             _ => Err("expected a function".to_owned()),
         }
+    }
+}
+
+pub struct CustomType<C: CustomValueType> {
+    _c: PhantomData<C>,
+}
+
+impl<C: CustomValueType> SingleTyping for CustomType<C> {
+    fn underlying_single_type(&self) -> SingleValueType {
+        SingleValueType::Custom(C::typename_static())
+    }
+
+    type Parsed = Box<C>;
+
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        match value {
+            RuntimeValue::Custom(value) => {
+                Box::<dyn Any>::downcast::<C>(dyn_clone::clone_box::<dyn CustomValueType>(&**value))
+                    .map_err(|_| {
+                        format!(
+                            "Failed to download value of type '{}'",
+                            C::typename_static()
+                        )
+                    })
+            }
+            _ => Err(format!("expected a {}", C::typename_static())),
+        }
+    }
+}
+
+impl<C: CustomValueType> SingleTypingDirectCreation for CustomType<C> {
+    fn new_single_direct() -> Self {
+        Self { _c: PhantomData }
     }
 }
 
