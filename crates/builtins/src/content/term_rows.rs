@@ -5,7 +5,7 @@ crate::define_internal_fn!(
     // Get the current number of colums of the terminal
     //
 
-    "term_rows",
+    "termRows",
 
     ()
 
