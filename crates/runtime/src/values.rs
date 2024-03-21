@@ -12,7 +12,7 @@ use reshell_parser::ast::{
 use crate::cmd::CmdSingleArgResult;
 use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
 use crate::functions::ValidatedFnCallArg;
-use crate::gc::GcReadOnlyCell;
+use crate::gc::{GcOnceCell, GcReadOnlyCell};
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 #[derive(Debug)]
@@ -20,7 +20,10 @@ pub struct RuntimeFnValue {
     pub signature: RuntimeFnSignature,
     pub body: RuntimeFnBody,
     pub parent_scopes: IndexSet<u64>,
-    pub captured_deps: CapturedDependencies,
+
+    /// Function's captured dependencies
+    /// Uninit before the function's actual declaration point
+    pub captured_deps: GcOnceCell<CapturedDependencies>,
 }
 
 #[derive(Debug)]

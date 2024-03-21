@@ -100,9 +100,13 @@ pub fn call_fn_value(
                 );
             }
 
+            let Some(captured_deps) = func.captured_deps.get().as_ref().cloned() else {
+                return Err(ctx.error(call_at, "function called before its declaration"));
+            };
+
             let instr_ret = run_body_with_deps(
                 &body.data,
-                func.captured_deps.clone(),
+                captured_deps.clone(),
                 ctx,
                 scope_content,
                 func.parent_scopes.clone(),

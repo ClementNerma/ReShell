@@ -13,7 +13,7 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
     functions::eval_fn_call,
-    gc::{GcCell, GcReadOnlyCell},
+    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
@@ -418,7 +418,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 ),
 
                 parent_scopes: ctx.generate_parent_scopes_list(),
-                captured_deps: ctx.capture_deps(body.data.code_range),
+                captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.data.code_range)),
             }),
         )),
     }

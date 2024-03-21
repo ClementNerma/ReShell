@@ -784,7 +784,7 @@ pub struct ScopeFn {
     pub name_at: RuntimeCodeRange,
 
     /// Value of the function
-    /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
+    /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
 }
 
