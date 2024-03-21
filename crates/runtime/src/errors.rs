@@ -38,7 +38,9 @@ impl ExecError {
 pub enum ExecErrorNature {
     /// Parsing of a program failed
     ParsingErr(ParsingError),
-    /// A command couldn't be started or failed
+    /// A command could not be started
+    CommandFailedToStart { message: String },
+    /// A command failed
     CommandFailed {
         message: String,
         exit_status: Option<i32>,
