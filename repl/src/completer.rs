@@ -146,7 +146,9 @@ impl RlCompleter for Completer {
         let mut out = vec![];
 
         for path in paths {
-            let Ok(metadata) = path.metadata() else { return vec![] };
+            let Ok(metadata) = path.metadata() else {
+                return vec![];
+            };
 
             let file_type = metadata.file_type();
 
@@ -172,15 +174,21 @@ impl RlCompleter for Completer {
                 )
             }
 
+            let mut value = if starts_with_dot_slash {
+                format!("./{path_str}")
+            } else {
+                path_str
+            };
+
+            if value.contains(' ') {
+                value = format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
+            }
+
             // TODO: if path contains a space, wrap it with double quotes (and escape double quotes inside it with backslashes!)
             out.push((
                 file_type_enum,
                 Suggestion {
-                    value: if starts_with_dot_slash {
-                        format!("./{path_str}")
-                    } else {
-                        path_str
-                    },
+                    value,
                     description: Some(
                         match file_type_enum {
                             FileType::Directory => "Dir",
