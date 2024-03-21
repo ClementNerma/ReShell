@@ -26,7 +26,6 @@ mod env;
 mod error;
 mod exit;
 mod file_exists;
-mod filename;
 mod filter;
 mod find_str;
 mod fold;
@@ -109,7 +108,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::error::build_fn(),
         self::exit::build_fn(),
         self::file_exists::build_fn(),
-        self::filename::build_fn(),
         self::fold::build_fn(),
         self::for_each::build_fn(),
         self::get::build_fn(),
