@@ -517,25 +517,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<Runt
             content_at: call.at,
         },
 
-        Value::Closure(Function { signature, body }) => {
-            RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
-                is_method: false,
-
-                signature: RuntimeFnSignature::Shared(
-                    ctx.get_fn_signature(signature).unwrap_or_else(|| {
-                        ctx.panic(signature.at, "unregistered function signature")
-                    }),
-                ),
-
-                body: RuntimeFnBody::Block(
-                    ctx.get_fn_body(body)
-                        .unwrap_or_else(|| ctx.panic(body.at, "unregistered function body")),
-                ),
-
-                parent_scopes: ctx.generate_parent_scopes_list(),
-                captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
-            }))
-        }
+        Value::Closure(func) => closure_to_value(func, ctx),
     };
 
     Ok(Some(value))
@@ -603,6 +585,27 @@ fn eval_computed_string_piece(
         .as_captured()
         .unwrap()),
     }
+}
+
+pub fn closure_to_value(closure: &Function, ctx: &mut Context) -> RuntimeValue {
+    let Function { signature, body } = &closure;
+
+    RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
+        is_method: false,
+
+        signature: RuntimeFnSignature::Shared(
+            ctx.get_fn_signature(signature)
+                .unwrap_or_else(|| ctx.panic(signature.at, "unregistered function signature")),
+        ),
+
+        body: RuntimeFnBody::Block(
+            ctx.get_fn_body(body)
+                .unwrap_or_else(|| ctx.panic(body.at, "unregistered function body")),
+        ),
+
+        parent_scopes: ctx.generate_parent_scopes_list(),
+        captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
+    }))
 }
 
 fn operator_precedence(op: DoubleOp) -> u8 {
