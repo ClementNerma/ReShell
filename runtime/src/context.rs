@@ -14,15 +14,21 @@ pub struct Context {
     scopes: Vec<Scope>,
     files_map: FilesMap,
     in_fork: bool,
+    home_dir: Option<PathBuf>,
 }
 
 impl Context {
-    pub fn new() -> Self {
+    pub fn new(home_dir: Option<PathBuf>) -> Self {
         Self {
             scopes: vec![generate_native_lib()],
             files_map: FilesMap::new(),
             in_fork: false,
+            home_dir,
         }
+    }
+
+    pub fn set_home_dir(&mut self, home_dir: PathBuf) {
+        self.home_dir = Some(home_dir);
     }
 
     pub fn error<S: Into<ExecErrorContent>>(&self, at: CodeRange, content: S) -> ExecError {
@@ -40,6 +46,10 @@ impl Context {
 
     pub fn files_map(&self) -> &FilesMap {
         &self.files_map
+    }
+
+    pub fn home_dir(&self) -> Option<&PathBuf> {
+        self.home_dir.as_ref()
     }
 
     pub fn create_scope(&self) -> Scope {

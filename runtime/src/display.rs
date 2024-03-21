@@ -4,7 +4,7 @@ use parsy::{CodeRange, FileId};
 use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, ValueType};
 
 use crate::{
-    errors::ExecResult, files_map::ScopableFilePath, scoping::Context, values::RuntimeValue,
+    context::Context, errors::ExecResult, files_map::ScopableFilePath, values::RuntimeValue,
 };
 
 pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecResult<String> {

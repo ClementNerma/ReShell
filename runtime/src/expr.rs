@@ -8,10 +8,10 @@ use reshell_parser::ast::{
 
 use crate::{
     cmd::run_cmd,
+    context::Context,
     display::{readable_value_type, value_to_str},
     errors::{ExecErrorContent, ExecResult},
     functions::call_fn,
-    scoping::Context,
     typechecker::check_if_type_fits_single,
     values::{RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
