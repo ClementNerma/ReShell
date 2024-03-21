@@ -13,7 +13,7 @@ use crate::{
     },
     errors::{ExecErrorNature, ExecResult},
     expr::eval_expr,
-    functions::{eval_fn_call, eval_fn_call_type, FnCallType},
+    functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAccessTailPolicy, PropAssignment},
@@ -678,45 +678,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         }
 
-        Instruction::FnCall(call) => {
-            let returned = eval_fn_call(call, ctx)?;
+        Instruction::Expr(expr) => {
+            let returned = eval_expr(&expr.data, ctx)?;
 
             if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
-                if let Some(returned) = returned {
-                    ctx.set_wandering_value(returned.value);
-                }
-            }
-        }
-
-        Instruction::MethodCall {
-            var_name,
-            prop_acc,
-            method_call,
-        } => {
-            let var = ctx.get_visible_var(var_name).clone();
-
-            let returned = eval_props_access(
-                &mut var.value.write(var_name.at, ctx)?.value,
-                prop_acc.iter(),
-                PropAccessPolicy::Read,
-                ctx,
-                |left, ctx| match left {
-                    PropAssignment::ReadExisting(existing) => eval_fn_call_type(
-                        method_call,
-                        Some(FnCallType::Method(LocatedValue::new(
-                            existing.clone(),
-                            RuntimeCodeRange::Parsed(var_name.at),
-                        ))),
-                        ctx,
-                    ),
-                    PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => unreachable!(),
-                },
-            )??;
-
-            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
-                if let Some(returned) = returned {
-                    ctx.set_wandering_value(returned.value);
-                }
+                ctx.set_wandering_value(returned);
             }
         }
 

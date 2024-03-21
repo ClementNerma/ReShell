@@ -135,7 +135,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
                 // Markers
-                simple("(@direct|@include)\\b", [Magenta]),
+                simple("\\b(direct|include)\\b", [Magenta]),
 
                 // Normalized flags
                 simple_followed_by("\\s((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
@@ -153,7 +153,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple_preceded_by("(\\\\\\n)\\s+$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Green]),
 
                 // Command names
-                simple_preceded_by("(^|[\\|\\n;\\{]|\\->|@direct\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Blue]),
+                simple_preceded_by("(^|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Blue]),
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),

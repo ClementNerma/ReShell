@@ -727,7 +727,7 @@ pub fn program(
 
         let cmd_path = choice::<_, CmdPath>((
             // Direct
-            just("@direct")
+            just("direct")
                 .ignore_then(ms)
                 .ignore_then(
                     cmd_computed_string
@@ -1157,7 +1157,11 @@ pub fn program(
             //
             just("throw")
                 .ignore_then(s)
-                .ignore_then(expr.spanned().critical("expected an expression to throw"))
+                .ignore_then(
+                    expr.clone()
+                        .spanned()
+                        .critical("expected an expression to throw"),
+                )
                 .map(Instruction::Throw),
             //
             // Try/Catch
@@ -1233,7 +1237,7 @@ pub fn program(
             //
             // Include statement
             //
-            just("@include")
+            just("include")
                 .ignore_then(s)
                 .ignore_then(
                     literal_string
@@ -1246,25 +1250,8 @@ pub fn program(
                         }),
                 )
                 .map(Instruction::Include),
-            //
-            // Function call
-            //
-            fn_call.clone().spanned().map(Instruction::FnCall),
-            //
-            // Method call
-            //
-            var_name
-                .spanned()
-                .then(prop_access_nature.spanned().repeated_vec())
-                .then_ignore(char('.'))
-                .then(fn_call.spanned())
-                .map(
-                    |((var_name, prop_acc), method_call)| Instruction::MethodCall {
-                        var_name,
-                        prop_acc,
-                        method_call,
-                    },
-                ),
+            // Expression
+            expr.spanned().map(Instruction::Expr),
             //
             // Command calls
             //

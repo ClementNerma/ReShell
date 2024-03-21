@@ -119,15 +119,8 @@ pub enum Instruction {
     /// 'do' block
     DoBlock(Eaten<Block>),
 
-    /// Function call
-    FnCall(Eaten<FnCall>),
-
-    /// Method call
-    MethodCall {
-        var_name: Eaten<String>,
-        prop_acc: Vec<Eaten<PropAccessNature>>,
-        method_call: Eaten<FnCall>,
-    },
+    /// Expression
+    Expr(Eaten<Expr>),
 
     /// Command call
     CmdCall(Eaten<CmdCall>),
