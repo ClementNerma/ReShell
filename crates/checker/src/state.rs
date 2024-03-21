@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody};
+use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdPath};
 
 use crate::{errors::CheckerResult, CheckerError};
 
@@ -56,8 +56,45 @@ pub struct CheckerOutput {
 
     /// List of command aliases
     /// 
-    /// Maps the command alias' name token location to its content
-    pub cmd_aliases: HashMap<CodeRange, Eaten<SingleCmdCall>>
+    /// Maps the command alias' content token location to its content
+    pub cmd_aliases: HashMap<CodeRange, Eaten<SingleCmdCall>>,
+
+    /// List of command calls
+    ///
+    /// Used to speed up runtime by collecting informations on command calls
+    /// ahead of time
+    /// 
+    /// Maps the single command's token location to the expanded call
+    pub cmd_calls: HashMap<CodeRange, DevelopedSingleCmdCall>,
+}
+
+/// Developed command call
+#[derive(Debug)]
+pub struct DevelopedSingleCmdCall {
+    /// Location that can be found in the related [`Eaten::<SingleCmdCall>::at`]
+    pub at: CodeRange,
+
+    /// Final command path
+    pub final_cmd_path: Eaten<CmdPath>,
+
+    /// Command call target type
+    pub target_type: CmdPathTargetType,
+
+    /// Developed aliases
+    pub developed_aliases: Vec<DevelopedCmdAliasCall>,
+}
+
+/// Developed command alias call
+#[derive(Debug, Clone, Copy)]
+pub struct DevelopedCmdAliasCall {
+    /// Alias declaration's name's location ([`Eaten::<CmdPath>::at`])
+    pub declared_name_at: CodeRange,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CmdPathTargetType {
+    Function,
+    ExternalCommand,
 }
 
 impl State {
@@ -66,6 +103,7 @@ impl State {
         Self {
             scopes: vec![],
             collected: CheckerOutput {
+                cmd_calls: HashMap::new(),
                 deps: HashMap::new(),
                 type_aliases_decl: HashMap::new(),
                 type_aliases_usages: HashMap::new(),
@@ -115,21 +153,6 @@ impl State {
         self.scopes.iter().rev()
     }
 
-    /// Mark a command alias as ready to be used
-    /// By default they are not marked as ready to prevent circular references
-    /// 
-    /// e.g. `alias echo = echo` would result in an infinite loop otherwise
-    pub fn mark_cmd_alias_as_ready(&mut self, name: &Eaten<String>) {
-        let cmd_alias = self.scopes
-            .iter_mut()
-            .rev()
-            .find_map(|scope| {
-                scope.cmd_aliases.get_mut(&name.data)
-            }).expect("internal error: command alias to mark as ready was not found");
-
-        cmd_alias.is_ready = true;
-    }
-
     /// Register usage of an item
     /// This function is responsible to check if the item exists and is used correctly,
     /// and if it must be collected.
@@ -146,24 +169,30 @@ impl State {
             .iter()
             .rev()
             .find_map(|scope| match dep_type {
-                DependencyType::Variable => scope
-                    .vars
-                    .get(&item.data)
-                    .map(|var| Ok(UsedItem::new(var.name_at, var.is_mut))),
+                DependencyType::Variable => {
+                    scope
+                        .vars
+                        .get(&item.data)
+                        .map(|var| Ok(UsedItem::new(var.name_at, var.is_mut)))
+                },
 
-                    DependencyType::Function => scope
-                    .fns
-                    .get(&item.data)
-                    .map(|func| Ok(UsedItem::new(func.name_at, false))),
+                DependencyType::Function => {
+                    scope
+                        .fns
+                        .get(&item.data)
+                        .map(|func| Ok(UsedItem::new(func.name_at, false)))
+                },
 
-                    DependencyType::CmdAlias => scope
-                    .cmd_aliases
-                    .get(&item.data)
-                    .map(|DeclaredCmdAlias { name_at, is_ready }| if *is_ready {
-                        Ok(UsedItem::new(RuntimeCodeRange::Parsed(*name_at), false))
-                    } else {
-                        Err(CheckerError::new(item.at, "cannot use a command alias before its assignment"))
-                    }),
+                DependencyType::CmdAlias => {
+                    scope
+                        .cmd_aliases
+                        .get(&item.data)
+                        .map(|DeclaredCmdAlias { name_at, content_at: _, is_ready }| if *is_ready {
+                            Ok(UsedItem::new(RuntimeCodeRange::Parsed(*name_at), false))
+                        } else {
+                            Err(CheckerError::new(item.at, "cannot use a command alias before its assignment"))
+                        })
+                },
             })
             .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))??;
 
@@ -272,8 +301,22 @@ impl State {
     /// Register a command alias
     pub fn register_cmd_alias(&mut self, alias_content: Eaten<SingleCmdCall>) {
         let dup = self.collected.cmd_aliases.insert(alias_content.at, alias_content);
-
         assert!(dup.is_none());
+    }
+
+    /// Mark a command alias as ready to be used
+    /// By default they are not marked as ready to prevent circular references
+    /// 
+    /// e.g. `alias echo = echo` would result in an infinite loop otherwise
+    pub fn mark_cmd_alias_as_ready(&mut self, name: &Eaten<String>) {
+        let cmd_alias = self.scopes
+            .iter_mut()
+            .rev()
+            .find_map(|scope| {
+                scope.cmd_aliases.get_mut(&name.data)
+            }).expect("internal error: command alias to mark as ready was not found");
+
+        cmd_alias.is_ready = true;
     }
 
     /// Register a function's signature
@@ -364,8 +407,11 @@ impl DeclaredFn {
 /// Command alias declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredCmdAlias {
-    /// Location of the command alias's name in its declaration
+    /// Location of the command alias' name in its declaration
     pub name_at: CodeRange,
+
+    /// Location of the command alias' content in its declaration
+    pub content_at: CodeRange,
 
     /// Is the declared alias ready?
     /// See [`Context::mark_cmd_alias_as_ready`]
@@ -373,8 +419,8 @@ pub struct DeclaredCmdAlias {
 }
 
 impl DeclaredCmdAlias {
-    pub fn ready(name_at: CodeRange) -> Self {
-        Self {name_at, is_ready: true}
+    pub fn ready( name_at: CodeRange, content_at: CodeRange) -> Self {
+        Self { name_at, content_at, is_ready: true }
     }
 }
 
@@ -404,16 +450,6 @@ pub enum DependencyType {
     CmdAlias,
 }
 
-impl std::fmt::Display for DependencyType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DependencyType::Variable => write!(f, "variable"),
-            DependencyType::Function => write!(f, "function"),
-            DependencyType::CmdAlias => write!(f, "command alias"),
-        }
-    }
-}
-
 pub struct UsedItem {
     pub name_declared_at: RuntimeCodeRange,
     pub is_mut: bool,
@@ -424,6 +460,26 @@ impl UsedItem {
         Self {
             name_declared_at,
             is_mut,
+        }
+    }
+}
+
+
+impl std::fmt::Display for DependencyType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DependencyType::Variable => write!(f, "variable"),
+            DependencyType::Function => write!(f, "function"),
+            DependencyType::CmdAlias => write!(f, "command alias"),
+        }
+    }
+}
+
+impl std::fmt::Display for CmdPathTargetType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CmdPathTargetType::Function => write!(f, "function"),
+            CmdPathTargetType::ExternalCommand => write!(f, "external command"),
         }
     }
 }

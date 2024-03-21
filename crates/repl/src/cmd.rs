@@ -15,9 +15,13 @@ pub struct Args {
     )]
     pub eval: Option<String>,
 
+    #[clap(
+        long,
+        help = "Skip the initialization script file",
+        conflicts_with = "exec_file"
+    )]
+    pub skip_init_script: bool,
+
     #[clap(short, long, help = "Display timings")]
     pub timings: bool,
-
-    #[clap(long, help = "Skip the initialization script file")]
-    pub skip_init_script: bool,
 }

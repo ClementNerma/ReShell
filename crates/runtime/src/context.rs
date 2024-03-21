@@ -8,7 +8,7 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, SourceFileID};
 use reshell_checker::{
     CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
-    DependencyType,
+    DependencyType, DevelopedSingleCmdCall,
 };
 use reshell_parser::{
     ast::{FnSignature, FunctionBody, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
@@ -100,6 +100,9 @@ pub struct Context {
     /// everytime we encounter the same command alias during runtime (e.g. in a loop)
     cmd_aliases: HashMap<CodeRange, Rc<Eaten<SingleCmdCall>>>,
 
+    /// List of all command calls, developed by the checker
+    cmd_calls: HashMap<CodeRange, DevelopedSingleCmdCall>,
+
     /// Value returned by the very last function or command call in a program
     /// that was not assigned or used as an argument
     /// Reset at each new instruction, set by the last function or command call,
@@ -157,6 +160,7 @@ impl Context {
             fn_signatures: HashMap::new(),
             fn_bodies: HashMap::new(),
             cmd_aliases: HashMap::new(),
+            cmd_calls: HashMap::new(),
             wandering_value: None,
             take_ctrl_c_indicator,
             conf,
@@ -254,7 +258,12 @@ impl Context {
 
             cmd_aliases: cmd_aliases
                 .iter()
-                .map(|(key, value)| (key.clone(), DeclaredCmdAlias::ready(value.name_at)))
+                .map(|(key, value)| {
+                    (
+                        key.clone(),
+                        DeclaredCmdAlias::ready(value.name_at, value.value.alias_content.at),
+                    )
+                })
                 .collect(),
 
             type_aliases: match range {
@@ -323,6 +332,7 @@ impl Context {
             fn_signatures,
             fn_bodies,
             cmd_aliases,
+            cmd_calls,
         } = checker_output;
 
         self.deps.extend(deps);
@@ -330,6 +340,7 @@ impl Context {
         self.type_aliases_usages.extend(type_aliases_usages);
         self.type_aliases_decl_by_scope
             .extend(type_aliases_decl_by_scope);
+        self.cmd_calls.extend(cmd_calls);
 
         self.fn_signatures.extend(
             fn_signatures
@@ -374,7 +385,7 @@ impl Context {
     /// Panic because of an internal error
     pub fn panic(&self, at: impl Into<RuntimeCodeRange>, message: impl AsRef<str>) -> ! {
         panic!(
-            "An internal error occured. This is not supposed to happen and is caused by an error in the shell itself.\n\nDetails : {}\nLocation: {}",
+            "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
             dbg_loc(at.into(), self.files_map())
         );
@@ -887,6 +898,7 @@ impl ComputableSize for Context {
             fn_signatures,
             fn_bodies,
             cmd_aliases,
+            cmd_calls,
             wandering_value,
         } = self;
 
@@ -905,6 +917,7 @@ impl ComputableSize for Context {
             + fn_signatures.compute_heap_size()
             + fn_bodies.compute_heap_size()
             + cmd_aliases.compute_heap_size()
+            + cmd_calls.compute_heap_size()
             + wandering_value.compute_heap_size()
     }
 }
