@@ -330,7 +330,7 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
     };
 
     if word.starts_with(['/', '\\']) {
-        search.insert(0, MAIN_SEPARATOR.to_string());
+        search.insert(0, String::new());
     }
 
     let mut search = search.join(MAIN_SEPARATOR_STR);
