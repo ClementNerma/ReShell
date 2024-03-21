@@ -33,6 +33,13 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
         Rule::Simple(simple_rule(regex, colors))
     }
 
+    // /// Create a simple rule that must be located inside a specific nesting type
+    // fn simple_inside(regex: &'static str, colors: impl AsRef<[Color]>, inside: impl Into<HashSet<NestingOpeningType>>) -> Rule {
+    //     let mut rule = simple_rule(regex, colors);
+    //     rule.inside = Some(inside.into());
+    //     Rule::Simple(rule)
+    // }
+
     /// Create a simple rule that must be followed by a specific nesting type
     fn simple_followed_by(regex: &'static str, colors: impl AsRef<[Color]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
         let mut rule = simple_rule(regex, colors);
