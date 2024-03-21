@@ -53,9 +53,9 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
                     };
 
-                    let mut list = list.write(key_expr.at, ctx)?;
+                    let items = list.read(key_expr.at);
 
-                    match list.get_mut(index) {
+                    match items.get(index) {
                         Some(value) => match next_acc {
                             Some(next_acc) => match value.is_primitive() {
                                 false => left = value.clone(),
@@ -66,7 +66,18 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 }
                             },
 
-                            None => return Ok(finalize(PropAssignment::Existing(value), ctx)),
+                            None => {
+                                // TODO: give either a reference or a mutable reference depending on what's asked
+
+                                drop(items);
+
+                                return Ok(finalize(
+                                    PropAssignment::Existing(
+                                        list.write(key_expr.at, ctx)?.get_mut(index).unwrap(),
+                                    ),
+                                    ctx,
+                                ));
+                            }
                         },
 
                         None => {
@@ -147,9 +158,9 @@ pub fn eval_props_access<'ast, 'c, T>(
 
             PropAccessNature::Prop(prop) => match left {
                 RuntimeValue::Struct(content) => {
-                    let mut map = content.write(prop.at, ctx)?;
+                    let mut entries = content.write(prop.at, ctx)?;
 
-                    match map.get_mut(&prop.data) {
+                    match entries.get_mut(&prop.data) {
                         Some(value) => match next_acc {
                             Some(next_acc) => match value.is_primitive() {
                                 false => left = value.clone(),

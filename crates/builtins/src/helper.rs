@@ -2,8 +2,6 @@ use reshell_parser::ast::{FnArg, FnArgNames, RuntimeEaten, SingleValueType, Valu
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
-use crate::utils::forge_internal_token;
-
 #[derive(Clone, Copy)]
 pub enum ArgNames {
     Positional(&'static str),
@@ -43,7 +41,7 @@ pub trait ArgTyping {
 
 impl<T: ArgSingleTyping> ArgTyping for T {
     fn underlying_type(&self) -> ValueType {
-        ValueType::Single(RuntimeEaten::Raw(self.underlying_single_type()))
+        ValueType::Single(RuntimeEaten::Internal(self.underlying_single_type()))
     }
 
     type Parsed = T::Parsed;
@@ -208,21 +206,23 @@ pub(super) fn generate_internal_arg_decl<
     FnArg {
         names: match arg.names() {
             ArgNames::Positional(name) => {
-                FnArgNames::Positional(forge_internal_token(name.to_owned()))
+                FnArgNames::Positional(RuntimeEaten::Internal(name.to_owned()))
             }
 
-            ArgNames::ShortFlag(flag) => FnArgNames::ShortFlag(forge_internal_token(flag)),
+            ArgNames::ShortFlag(flag) => FnArgNames::ShortFlag(RuntimeEaten::Internal(flag)),
 
-            ArgNames::LongFlag(flag) => FnArgNames::LongFlag(forge_internal_token(flag.to_owned())),
+            ArgNames::LongFlag(flag) => {
+                FnArgNames::LongFlag(RuntimeEaten::Internal(flag.to_owned()))
+            }
 
             ArgNames::LongAndShortFlag(long, short) => FnArgNames::LongAndShortFlag {
-                long: forge_internal_token(long.to_owned()),
-                short: forge_internal_token(short),
+                long: RuntimeEaten::Internal(long.to_owned()),
+                short: RuntimeEaten::Internal(short),
             },
         },
         is_optional: arg.is_optional(),
         is_rest: arg.is_rest(),
-        typ: Some(forge_internal_token(arg.base_typing().underlying_type())),
+        typ: Some(RuntimeEaten::Internal(arg.base_typing().underlying_type())),
     }
 }
 
@@ -238,12 +238,13 @@ macro_rules! define_internal_fn {
     ($name: expr, $args_struct_name: ident [$args_loc_struct_name: ident, $args_types_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
         use std::collections::HashMap;
 
-        use parsy::{CodeRange, Eaten};
+        use reshell_parser::ast::RuntimeCodeRange;
 
         use reshell_runtime::{
             context::Context,
             errors::ExecResult,
-            values::{RuntimeValue, LocatedValue, InternalFnCallData}
+            values::{RuntimeValue, LocatedValue, InternalFnCallData},
+            functions::ParsedFnCallArg
         };
 
         use $crate::helper::{ArgHandler, InternalFunction, generate_internal_arg_decl};
@@ -255,7 +256,7 @@ macro_rules! define_internal_fn {
         struct $args_loc_struct_name {
             $(
                 #[allow(dead_code)]
-                $arg_name: <$arg_handler as ArgHandler>::FixedOptionality<CodeRange>
+                $arg_name: <$arg_handler as ArgHandler>::FixedOptionality<RuntimeCodeRange>
             ),*
         }
 
@@ -266,20 +267,15 @@ macro_rules! define_internal_fn {
             ),*
         }
 
-        fn parse_args(call_at: CodeRange, args: HashMap<Eaten<String>, LocatedValue>)
-            -> Result<($args_struct_name, $args_loc_struct_name, $args_types_struct_name), (CodeRange, String)>
+        fn parse_args(call_at: RuntimeCodeRange, mut args: HashMap<String, ParsedFnCallArg>)
+            -> Result<($args_struct_name, $args_loc_struct_name, $args_types_struct_name), (RuntimeCodeRange, String)>
         {
-            let mut args = args
-                .into_iter()
-                .map(|(Eaten { at, data }, value)| (data, (at, value)))
-                .collect::<HashMap<_, _>>();
-
             let args_ty = $args_types_struct_name {
                 $( $arg_name: $gen ),*
             };
 
             struct PlaceholderArgsAt {
-                $( $arg_name: Option<CodeRange> ),*
+                $( $arg_name: Option<RuntimeCodeRange> ),*
             }
 
             let mut placeholder_args_at = PlaceholderArgsAt {
@@ -290,19 +286,13 @@ macro_rules! define_internal_fn {
                 $( $arg_name: {
                     let arg = args.remove(&args_ty.$arg_name.names().static_name());
 
-                    let arg_may_be_at = match arg {
-                        Some((at, _)) => {
-                            placeholder_args_at.$arg_name = Some(at);
-                            at
-                        },
+                    if let Some(arg) = &arg {
+                        placeholder_args_at.$arg_name = Some(arg.arg_value_at);
+                    }
 
-                        None => call_at
-                    };
+                    let arg_may_be_at = arg.as_ref().map(|arg| arg.arg_value_at).unwrap_or(call_at);
 
-                    let parsed =
-                        args_ty.$arg_name.parse(arg.map(|arg| arg.1.value)).map_err(|err| (arg_may_be_at, err))?;
-
-                    parsed
+                    args_ty.$arg_name.parse(arg.map(|arg| arg.value)).map_err(|err| (arg_may_be_at, err))?
                 } ),*
             };
 
@@ -323,13 +313,13 @@ macro_rules! define_internal_fn {
             let (args, args_at, args_ty) = parse_args(call_at, args)
                 .map_err(|(at, err)| ctx.error(at, err))?;
 
-            fn wrapper() -> impl Fn(CodeRange, $args_struct_name, $args_loc_struct_name, $args_types_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {
+            fn wrapper() -> impl Fn(RuntimeCodeRange, $args_struct_name, $args_loc_struct_name, $args_types_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {
                 $run
             }
 
             #[allow(clippy::redundant_closure_call)]
             wrapper()(call_at, args, args_at, args_ty, ctx)
-                .map(|value| value.map(|value| LocatedValue::new(value, forge_internal_loc())))
+                .map(|value| value.map(|value| LocatedValue::new(value, RuntimeCodeRange::Internal)))
         }
 
         InternalFunction {

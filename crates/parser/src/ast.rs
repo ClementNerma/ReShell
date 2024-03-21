@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -216,8 +216,8 @@ pub struct StructTypeMember {
 
 #[derive(Debug, Clone)]
 pub struct FnSignature {
-    pub args: Eaten<Vec<FnArg>>,
-    pub ret_type: Option<Eaten<Box<ValueType>>>,
+    pub args: RuntimeEaten<Vec<FnArg>>,
+    pub ret_type: Option<RuntimeEaten<Box<ValueType>>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,17 +337,17 @@ pub struct FnArg {
     pub names: FnArgNames,
     pub is_optional: bool,
     pub is_rest: bool,
-    pub typ: Option<Eaten<ValueType>>,
+    pub typ: Option<RuntimeEaten<ValueType>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum FnArgNames {
-    Positional(Eaten<String>),
-    ShortFlag(Eaten<char>),
-    LongFlag(Eaten<String>),
+    Positional(RuntimeEaten<String>),
+    ShortFlag(RuntimeEaten<char>),
+    LongFlag(RuntimeEaten<String>),
     LongAndShortFlag {
-        long: Eaten<String>,
-        short: Eaten<char>,
+        long: RuntimeEaten<String>,
+        short: RuntimeEaten<char>,
     },
 }
 
@@ -365,30 +365,67 @@ pub enum FnCallArg {
 }
 
 /// A token that's either eaten from a real input or generated at runtime
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub enum RuntimeEaten<T> {
     Eaten(Eaten<T>),
-    Raw(T),
+    Internal(T),
 }
 
 impl<T> RuntimeEaten<T> {
+    pub fn at(&self) -> RuntimeCodeRange {
+        match self {
+            RuntimeEaten::Eaten(eaten) => RuntimeCodeRange::CodeRange(eaten.at),
+            RuntimeEaten::Internal(_) => RuntimeCodeRange::Internal,
+        }
+    }
+
     pub fn data(&self) -> &T {
         match &self {
             Self::Eaten(eaten) => &eaten.data,
-            Self::Raw(raw) => raw,
+            Self::Internal(raw) => raw,
         }
     }
 
     pub fn eaten(&self) -> Option<&Eaten<T>> {
         match self {
             RuntimeEaten::Eaten(eaten) => Some(eaten),
-            RuntimeEaten::Raw(_) => None,
+            RuntimeEaten::Internal(_) => None,
+        }
+    }
+
+    pub fn map<U>(self, func: impl FnOnce(T) -> U) -> RuntimeEaten<U> {
+        match self {
+            RuntimeEaten::Eaten(eaten) => RuntimeEaten::Eaten(eaten.map(func)),
+            RuntimeEaten::Internal(data) => RuntimeEaten::Internal(func(data)),
         }
     }
 }
 
 /// Either a [`CodeRange`] or an internal location
+#[derive(Debug, Clone, Copy)]
 pub enum RuntimeCodeRange {
     CodeRange(CodeRange),
     Internal,
+}
+
+impl RuntimeCodeRange {
+    pub fn real(&self) -> Option<CodeRange> {
+        match self {
+            RuntimeCodeRange::CodeRange(range) => Some(*range),
+            RuntimeCodeRange::Internal => None,
+        }
+    }
+
+    pub fn contains(&self, range: CodeRange) -> Result<bool, CodeRangeComparisonError> {
+        match self {
+            RuntimeCodeRange::CodeRange(c) => c.contains(range),
+            RuntimeCodeRange::Internal => Ok(false),
+        }
+    }
+}
+
+impl From<CodeRange> for RuntimeCodeRange {
+    fn from(range: CodeRange) -> Self {
+        Self::CodeRange(range)
+    }
 }

@@ -2,8 +2,9 @@ use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
 use reshell_checker::CheckerError;
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{
-    context::{CallStackEntry, ScopeRange},
+    context::CallStackEntry,
     display::dbg_loc,
     errors::{ExecError, ExecErrorContent},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
@@ -18,14 +19,23 @@ pub enum ReportableError {
 
 pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let (at, msg) = match err {
-        ReportableError::Parsing(err) => parsing_error(err),
+        ReportableError::Parsing(err) => {
+            let (at, err) = parsing_error(err);
+            (RuntimeCodeRange::CodeRange(at), err)
+        }
 
-        ReportableError::Checking(err) => checking_error(err),
+        ReportableError::Checking(err) => {
+            let (at, err) = checking_error(err);
+            (RuntimeCodeRange::CodeRange(at), err)
+        }
 
         ReportableError::Runtime(err) => match &err.content {
             ExecErrorContent::Str(str) => (err.at, str.to_string()),
             ExecErrorContent::String(string) => (err.at, string.clone()),
-            ExecErrorContent::ParsingErr(err) => parsing_error(err),
+            ExecErrorContent::ParsingErr(err) => {
+                let (at, err) = parsing_error(err);
+                (RuntimeCodeRange::CodeRange(at), err)
+            }
             ExecErrorContent::CommandFailed {
                 message,
                 exit_status: _,
@@ -39,10 +49,40 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ReportableError::Runtime(err) => Some(&err.call_stack),
     };
 
-    let (source_file, offset, len, msg) = match at.start.file_id {
-        FileId::None => unreachable!(),
+    let (source_file, offset, len, msg) = match at {
+        RuntimeCodeRange::CodeRange(at) => match at.start.file_id {
+            FileId::None => unreachable!("internal error: got 'None' file ID in error"),
+            FileId::Internal => unreachable!("internal error: got internal file ID in error"),
 
-        FileId::Internal => {
+            FileId::Custom(id) => {
+                assert_eq!(id, 0);
+
+                let src = "<source-less code>";
+
+                (
+                    SourceFile {
+                        id: 0,
+                        path: ScopableFilePath::InMemory("source-less code"),
+                        content: src.to_string(),
+                    },
+                    0,
+                    src.as_bytes().len(),
+                    msg,
+                )
+            }
+
+            FileId::SourceFile(id) => {
+                let file = files.get_file(id).unwrap();
+
+                let offset = at.start.offset();
+                let offset = file.content[..offset].chars().count();
+                let len = file.content[offset..offset + at.len].chars().count();
+
+                (file.clone(), offset, len, msg)
+            }
+        },
+
+        RuntimeCodeRange::Internal => {
             let src = "<native code>";
 
             (
@@ -56,33 +96,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 msg,
             )
         }
-
-        FileId::Custom(id) => {
-            assert_eq!(id, 0);
-
-            let src = "<source-less code>";
-
-            (
-                SourceFile {
-                    id: 0,
-                    path: ScopableFilePath::InMemory("source-less code"),
-                    content: src.to_string(),
-                },
-                0,
-                src.as_bytes().len(),
-                msg,
-            )
-        }
-
-        FileId::SourceFile(id) => {
-            let file = files.get_file(id).unwrap();
-
-            let offset = at.start.offset();
-            let offset = file.content[..offset].chars().count();
-            let len = file.content[offset..offset + at.len].chars().count();
-
-            (file.clone(), offset, len, msg)
-        }
     };
 
     let display_file = match &source_file.path {
@@ -94,7 +107,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let mut bottom = String::new();
 
     if let ReportableError::Runtime(err) = err {
-        if let ScopeRange::CodeRange(range) = err.scope_range {
+        if let RuntimeCodeRange::CodeRange(range) = err.scope_range {
             let curr_scope_msg = format!("* In scope : {}", dbg_loc(range, files).bright_magenta());
             bottom = format!("{}", curr_scope_msg.bright_yellow());
         }

@@ -5,10 +5,12 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
 use reshell_checker::Dependency;
 use reshell_parser::ast::{
-    Block, FnSignature, RuntimeEaten, SingleCmdCall, SingleValueType, StructTypeMember, ValueType,
+    Block, FnSignature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
+    StructTypeMember, ValueType,
 };
 
 use crate::context::{ScopeFn, ScopeVar};
+use crate::functions::ParsedFnCallArg;
 use crate::gc::GcReadOnlyCell;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
@@ -66,8 +68,8 @@ pub enum RuntimeFnBody {
 }
 
 pub struct InternalFnCallData<'c> {
-    pub call_at: CodeRange,
-    pub args: HashMap<Eaten<String>, LocatedValue>,
+    pub call_at: RuntimeCodeRange,
+    pub args: HashMap<String, ParsedFnCallArg>,
     pub ctx: &'c mut Context,
 }
 
@@ -118,11 +120,11 @@ impl RuntimeValue {
                     members
                         .iter()
                         .map(|(name, value)| {
-                            RuntimeEaten::Raw(StructTypeMember {
-                                name: RuntimeEaten::Raw(name.clone()),
-                                typ: RuntimeEaten::Raw(ValueType::Single(RuntimeEaten::Raw(
-                                    value.get_type(),
-                                ))),
+                            RuntimeEaten::Internal(StructTypeMember {
+                                name: RuntimeEaten::Internal(name.clone()),
+                                typ: RuntimeEaten::Internal(ValueType::Single(
+                                    RuntimeEaten::Internal(value.get_type()),
+                                )),
                             })
                         })
                         .collect()
@@ -132,7 +134,7 @@ impl RuntimeValue {
                 // TODO: performance
                 SingleValueType::Function(match &content.signature {
                     RuntimeFnSignature::Shared(shared) => RuntimeEaten::Eaten(Eaten::clone(shared)),
-                    RuntimeFnSignature::Owned(owned) => RuntimeEaten::Raw(owned.clone()),
+                    RuntimeFnSignature::Owned(owned) => RuntimeEaten::Internal(owned.clone()),
                 })
             }
             RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
@@ -160,11 +162,11 @@ impl RuntimeValue {
 #[derive(Debug, Clone)]
 pub struct LocatedValue {
     pub value: RuntimeValue,
-    pub from: CodeRange,
+    pub from: RuntimeCodeRange,
 }
 
 impl LocatedValue {
-    pub fn new(value: RuntimeValue, from: CodeRange) -> Self {
+    pub fn new(value: RuntimeValue, from: RuntimeCodeRange) -> Self {
         Self { value, from }
     }
 }

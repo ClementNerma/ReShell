@@ -1,21 +1,19 @@
-use parsy::{CodeRange, FileId, ParsingError};
+use parsy::{FileId, ParsingError};
+use reshell_parser::ast::RuntimeCodeRange;
 
-use crate::{
-    context::{CallStack, ScopeRange},
-    files_map::SourceFile,
-};
+use crate::{context::CallStack, files_map::SourceFile};
 
 pub type ExecResult<T> = Result<T, Box<ExecError>>;
 
 #[derive(Debug)]
 pub struct ExecError {
     pub has_exit_code: Option<u8>,
-    pub at: CodeRange,
+    pub at: RuntimeCodeRange,
     pub in_file: Option<FileId>,
     pub source_file: Option<SourceFile>,
     pub content: ExecErrorContent,
     pub call_stack: CallStack,
-    pub scope_range: ScopeRange,
+    pub scope_range: RuntimeCodeRange,
     pub note: Option<String>,
 }
 

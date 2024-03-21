@@ -5,7 +5,7 @@ use std::{
 };
 
 use colored::Colorize;
-use parsy::CodeRange;
+use reshell_parser::ast::RuntimeCodeRange;
 
 use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 
@@ -13,7 +13,7 @@ use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 #[derive(Debug, Clone)]
 pub struct GcCell<T> {
     value: Rc<RefCell<T>>,
-    read_lock: Rc<RefCell<Option<CodeRange>>>,
+    read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
 }
 
 impl<T> GcCell<T> {
@@ -28,11 +28,11 @@ impl<T> GcCell<T> {
         map(self.value.borrow())
     }
 
-    pub fn read(&self, at: CodeRange) -> GcRef<T> {
-        GcRef::new(self.value.borrow(), Rc::clone(&self.read_lock), at)
+    pub fn read(&self, at: impl Into<RuntimeCodeRange>) -> GcRef<T> {
+        GcRef::new(self.value.borrow(), Rc::clone(&self.read_lock), at.into())
     }
 
-    pub fn write(&self, at: CodeRange, ctx: &Context) -> ExecResult<RefMut<T>> {
+    pub fn write(&self, at: impl Into<RuntimeCodeRange>, ctx: &Context) -> ExecResult<RefMut<T>> {
         self.value.try_borrow_mut().map_err(|_| {
             let borrowed_at = self
                 .read_lock
@@ -40,7 +40,7 @@ impl<T> GcCell<T> {
                 .expect("internal error: read lock is not available in GC cell");
 
             ctx.error(
-                at,
+                at.into(),
                 format!(
                     "Failed to write as parent value is borrowed from {}",
                     dbg_loc(borrowed_at, ctx.files_map()).bright_magenta()
@@ -52,12 +52,16 @@ impl<T> GcCell<T> {
 
 pub struct GcRef<'a, T> {
     inner: Ref<'a, T>,
-    read_lock: Rc<RefCell<Option<CodeRange>>>,
+    read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
     is_read_lock_initiator: bool,
 }
 
 impl<'a, T> GcRef<'a, T> {
-    fn new(inner: Ref<'a, T>, read_lock: Rc<RefCell<Option<CodeRange>>>, at: CodeRange) -> Self {
+    fn new(
+        inner: Ref<'a, T>,
+        read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
+        at: RuntimeCodeRange,
+    ) -> Self {
         let mut read_lock_mut = read_lock.borrow_mut();
 
         let initiator = read_lock_mut.is_none();

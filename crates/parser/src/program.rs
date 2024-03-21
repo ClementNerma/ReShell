@@ -156,17 +156,26 @@ pub fn program() -> impl Parser<Program> {
             // Long *and* short flags
             fn_arg_long_flag
                 .clone()
+                .map(RuntimeEaten::Eaten)
                 .then_ignore(ms)
                 .then_ignore(char('('))
-                .then(fn_arg_short_flag.clone())
+                .then(fn_arg_short_flag.clone().map(RuntimeEaten::Eaten))
                 .then_ignore(char(')').critical("unclosed short argument, expected ')'"))
                 .map(|(long, short)| FnArgNames::LongAndShortFlag { short, long }),
             // Long flag only
-            fn_arg_long_flag.map(FnArgNames::LongFlag),
+            fn_arg_long_flag
+                .map(RuntimeEaten::Eaten)
+                .map(FnArgNames::LongFlag),
             // Long flag only
-            fn_arg_short_flag.map(FnArgNames::ShortFlag),
+            fn_arg_short_flag
+                .map(RuntimeEaten::Eaten)
+                .map(FnArgNames::ShortFlag),
             // No flag
-            ident.clone().spanned().map(FnArgNames::Positional),
+            ident
+                .clone()
+                .spanned()
+                .map(RuntimeEaten::Eaten)
+                .map(FnArgNames::Positional),
         ));
 
         let fn_arg = just("...")
@@ -180,6 +189,7 @@ pub fn program() -> impl Parser<Program> {
                         value_type
                             .clone()
                             .spanned()
+                            .map(RuntimeEaten::Eaten)
                             .critical("expected a (valid) type"),
                     )
                     .or_not(),
@@ -193,7 +203,13 @@ pub fn program() -> impl Parser<Program> {
 
         fn_signature.finish(
             char('(')
-                .ignore_then(fn_arg.clone().separated_by(char(',').padded()).spanned())
+                .ignore_then(
+                    fn_arg
+                        .clone()
+                        .separated_by(char(',').padded())
+                        .spanned()
+                        .map(RuntimeEaten::Eaten),
+                )
                 .then_ignore(msnl)
                 .then_ignore(char(')').critical("missing closing parenthesis for arguments list"))
                 .then_ignore(ms)
@@ -205,6 +221,7 @@ pub fn program() -> impl Parser<Program> {
                                 .clone()
                                 .map(Box::new)
                                 .spanned()
+                                .map(RuntimeEaten::Eaten)
                                 .critical("expected a type"),
                         )
                         .then_ignore(ms)
@@ -378,7 +395,13 @@ pub fn program() -> impl Parser<Program> {
                 .map(Value::FnAsValue),
             // Closures
             char('|')
-                .ignore_then(fn_arg.clone().separated_by(char(',').padded()).spanned())
+                .ignore_then(
+                    fn_arg
+                        .clone()
+                        .separated_by(char(',').padded())
+                        .spanned()
+                        .map(RuntimeEaten::Eaten),
+                )
                 .then_ignore(char('|').critical("unclosed function arguments list"))
                 .then_ignore(ms)
                 .then(
@@ -389,6 +412,7 @@ pub fn program() -> impl Parser<Program> {
                                 .clone()
                                 .map(Box::new)
                                 .spanned()
+                                .map(RuntimeEaten::Eaten)
                                 .critical("expected a type"),
                         )
                         .then_ignore(ms)

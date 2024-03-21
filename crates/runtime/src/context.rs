@@ -1,9 +1,9 @@
 use std::{collections::{HashMap, HashSet}, path::PathBuf,  rc::Rc};
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, FileId, Location};
+use parsy::{CodeRange, Eaten, FileId, };
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType, DeclaredVar};
-use reshell_parser::ast::{ValueType, FnSignature, Block, Program};
+use reshell_parser::ast::{ValueType, FnSignature, Block, Program, RuntimeCodeRange};
 
 use crate::{
     conf::RuntimeConf,
@@ -100,7 +100,7 @@ impl Context {
                 call_stack: CallStack::empty(),
                 content: native_lib_content,
                 parent_scopes: IndexSet::new(),
-                range: ScopeRange::SourceLess,
+                range: RuntimeCodeRange::Internal,
                 previous_scope: None,
                 deps_scope: None
             },
@@ -109,7 +109,7 @@ impl Context {
                 call_stack: CallStack::empty(),
                 content: ScopeContent::new(),
                 parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
-                range: ScopeRange::SourceLess,
+                range: RuntimeCodeRange::Internal,
                 previous_scope: None,
                 deps_scope: None,
             }
@@ -215,7 +215,7 @@ impl Context {
     /// Requires the program to have already been checked
     pub fn prepare_for_new_program(&mut self, program: &Program, checker_output: CheckerOutput) {
         // Update the current scope's range
-        self.scopes.get_mut(&self.current_scope).unwrap().range = ScopeRange::CodeRange(program.content.at);
+        self.scopes.get_mut(&self.current_scope).unwrap().range = RuntimeCodeRange::CodeRange(program.content.at);
 
         // Merge the checker's output
         let CheckerOutput { deps, type_aliases, type_aliases_usages, type_aliases_decl, fn_signatures, fn_bodies } = checker_output;
@@ -236,12 +236,12 @@ impl Context {
     /// Generate an error object
     /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
     /// Given an error will almost always lead to a program's end, the allocation overhead is acceptable
-    pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> Box<ExecError> {
+    pub fn error(&self, at: impl Into<RuntimeCodeRange>, content: impl Into<ExecErrorContent>) -> Box<ExecError> {
         let current_scope = self.current_scope();
 
         Box::new(ExecError {
             has_exit_code: None, // may be changed afterwards
-            at,
+            at: at.into(),
             in_file: current_scope.in_file_id(),
             source_file: self.current_source_file().cloned(),
             content: content.into(),
@@ -252,7 +252,7 @@ impl Context {
     }
 
     /// Generate an exit value
-    pub fn exit(&self, at: CodeRange, code: Option<u8>) -> Box<ExecError> {
+    pub fn exit(&self, at: impl Into<RuntimeCodeRange>, code: Option<u8>) -> Box<ExecError> {
         let mut err = self.error(at, "<program requested exit>");
         err.has_exit_code = Some(code.unwrap_or(0));
         err
@@ -261,7 +261,7 @@ impl Context {
     /// Create and push a new scope above the current one
     pub fn create_and_push_scope(
         &mut self,
-        range: ScopeRange,
+        range: RuntimeCodeRange,
         content: ScopeContent,
     ) -> u64 {
         let id = self.generate_scope_id();
@@ -284,7 +284,7 @@ impl Context {
     /// Create and push a new scope with dependencies above the current one
     pub fn create_and_push_scope_with_deps(
         &mut self,
-        range: ScopeRange,
+        range: RuntimeCodeRange,
         creation_data: DepsScopeCreationData,
         content: ScopeContent,
         parent_scopes: IndexSet<u64>,
@@ -517,7 +517,10 @@ impl Context {
                             scope
                                 .vars
                                 .get(name)
-                                .filter(|var| var.name_at == *declared_at)
+                                .filter(|var| match var.name_at {
+                                    RuntimeCodeRange::CodeRange(var_name_at) => var_name_at == *declared_at,
+                                    RuntimeCodeRange::Internal => false,
+                                })
                         })
                         .unwrap_or_else(|| panic!(
                             "internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {})",
@@ -535,7 +538,10 @@ impl Context {
                                 
                                 .fns
                                 .get(name)
-                                .filter(|func| func.name_at == *declared_at)
+                                .filter(|func| match func.name_at {
+                                    RuntimeCodeRange::CodeRange(func_name_at) => func_name_at == *declared_at,
+                                    RuntimeCodeRange::Internal => false,
+                                })
                         })
                         .expect("internal error: cannot find function to capture (this is a bug in the checker)");
 
@@ -588,7 +594,7 @@ pub struct Scope {
     /// Unique ID of the scope (not two scopes must have the same ID)
     pub id: u64,
     /// Range of the scope
-    pub range: ScopeRange,
+    pub range: RuntimeCodeRange,
     /// Content of the scope
     pub content: ScopeContent,
     /// List of parent scopes, from farthest to the nearest
@@ -608,16 +614,16 @@ impl Scope {
     /// Get this scope's file ID
     pub fn in_file_id(&self) -> Option<FileId> {
         match self.range {
-            ScopeRange::SourceLess => None,
-            ScopeRange::CodeRange(range) => Some(range.start.file_id),
+            RuntimeCodeRange::Internal => None,
+            RuntimeCodeRange::CodeRange(range) => Some(range.start.file_id),
         }
     }
 
     /// Get this scope's source file ID
     pub fn source_file_id(&self) -> Option<u64> {
         match self.range {
-            ScopeRange::SourceLess => None,
-            ScopeRange::CodeRange(range) => match range.start.file_id {
+            RuntimeCodeRange::Internal => None,
+            RuntimeCodeRange::CodeRange(range) => match range.start.file_id {
                 FileId::None | FileId::Internal | FileId::Custom(_) => None,
                 FileId::SourceFile(id) => Some(id),
             },
@@ -629,15 +635,6 @@ impl Scope {
     }
 }
 
-/// Range of a scope
-#[derive(Debug, Clone, Copy)]
-pub enum ScopeRange {
-    /// Scope backed by a source file
-    CodeRange(CodeRange),
-    /// Scope without a source code
-    /// (e.g. scopes built directly with the runtime API like the native library)
-    SourceLess,
-}
 
 /// Content of a scope
 #[derive(Debug, Clone)]
@@ -664,7 +661,7 @@ impl ScopeContent {
     }
 
     /// Create a [`CheckerScope`] from this one
-    fn to_checker_scope(&self, range: ScopeRange, ctx: &Context) -> CheckerScope {
+    fn to_checker_scope(&self, range: RuntimeCodeRange, ctx: &Context) -> CheckerScope {
         let ScopeContent {
             vars,
             fns,
@@ -672,19 +669,7 @@ impl ScopeContent {
         } = self;
 
         CheckerScope {
-            code_range: match range {
-                ScopeRange::SourceLess => {
-                    // TODO: ugly hack
-                    CodeRange::new(
-                        Location {
-                            file_id: FileId::Internal,
-                            offset: 0,
-                        },
-                        0,
-                    )
-                }
-                ScopeRange::CodeRange(range) => range,
-            },
+            code_range: range,
 
             deps: false, // TODO: isn't that incorrect?
             typ: None,
@@ -695,8 +680,8 @@ impl ScopeContent {
                 .collect(),
 
             type_aliases: match range {
-                ScopeRange::SourceLess => Default::default(),
-                ScopeRange::CodeRange(range) => ctx.type_aliases_decl.get(&range).cloned().unwrap_or_default(),
+                RuntimeCodeRange::Internal => Default::default(),
+                RuntimeCodeRange::CodeRange(range) => ctx.type_aliases_decl.get(&range).cloned().unwrap_or_default(),
             },
 
             fns: fns
@@ -724,7 +709,7 @@ impl ScopeContent {
 #[derive(Debug, Clone)]
 pub struct ScopeVar {
     /// Location of the variable's name in its declaration
-    pub name_at: CodeRange,
+    pub name_at: RuntimeCodeRange,
     /// Is the variable mutable?
     pub is_mut: bool,
     /// Value of the variable
@@ -737,7 +722,7 @@ pub struct ScopeVar {
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
     /// Location of the function's name in its declaration
-    pub name_at: CodeRange,
+    pub name_at: RuntimeCodeRange,
     /// Value of the function
     /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
@@ -771,7 +756,7 @@ impl CallStack {
 #[derive(Debug, Clone, Copy)]
 pub struct CallStackEntry {
     /// Location of a function call
-    pub fn_called_at: CodeRange,
+    pub fn_called_at: RuntimeCodeRange,
 }
 
 /// Dependency scope creation data

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use parsy::{CodeRange, Eaten, FileId, Location};
-use reshell_parser::ast::{Block, FnSignature, ValueType};
+use parsy::{CodeRange, Eaten, Location};
+use reshell_parser::ast::{Block, FnSignature, RuntimeCodeRange, ValueType};
 
 use crate::{errors::CheckerResult, CheckerError};
 
@@ -89,14 +89,16 @@ impl State {
                     .vars
                     .get(&item.data)
                     .map(|var| FetchedDependency::new(var.name_at, var.is_mut)),
-                DependencyType::Function => scope
+
+                    DependencyType::Function => scope
                     .fns
                     .get(&item.data)
                     .map(|func_at| FetchedDependency::new(*func_at, false)),
-                DependencyType::CmdAlias => scope
+
+                    DependencyType::CmdAlias => scope
                     .cmd_aliases
                     .get(&item.data)
-                    .map(|alias_at| FetchedDependency::new(*alias_at, false)),
+                    .map(|alias_at| FetchedDependency::new(RuntimeCodeRange::CodeRange( *alias_at), false)),
             })
             .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))?;
 
@@ -105,15 +107,21 @@ impl State {
             is_mut: _,
         } = dep;
 
-        if matches!(declared_at.start.file_id, FileId::Internal) {
+        if matches!(declared_at, RuntimeCodeRange::Internal) {
             return Ok(dep);
         }
 
-        if let Some(deps_scope) = self.current_deps_scope() {
-            let var_declared_in_deps_scope = deps_scope
-                .code_range
-                .contains(declared_at)
-                .map_err(|err| {
+        let Some(deps_scope) = self.current_deps_scope() else {
+            return Ok(dep);
+        };
+        
+        
+            let  Some(declared_at) = declared_at.real() else {
+                return Ok(dep);
+            };
+
+            let var_declared_in_deps_scope = 
+                    deps_scope.code_range.real().unwrap().contains(declared_at).map_err(|err| {
                     CheckerError::new(
                         CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
                         format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
@@ -125,9 +133,8 @@ impl State {
             }
 
             if let Some(ScopeType::Function { args_at }) = deps_scope.typ {
-                let var_declared_in_fn_args = args_at
-                .contains(declared_at)
-                .map_err(|err| {
+                let var_declared_in_fn_args = 
+                    args_at.contains(declared_at).map_err(|err| {
                     CheckerError::new(
                         CodeRange::new(Location { file_id: item.at.start.file_id, offset: 0 }, 0),
                         format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
@@ -139,7 +146,7 @@ impl State {
                 }
             }
 
-            let code_range = deps_scope.code_range;
+            let code_range = deps_scope.code_range.real().unwrap();
 
             self.collected
                 .deps
@@ -150,9 +157,9 @@ impl State {
                     declared_at,
                     dep_type,
                 });
-        }
 
-        Ok(dep)
+                Ok(dep)
+        
     }
 
     pub fn register_type_alias_usage(&mut self, name: &Eaten<String>) -> CheckerResult {
@@ -165,10 +172,14 @@ impl State {
                 CheckerError::new(name.at, format!("type alias {} was not found", name.data))
             })?;
 
+        let Some(decl_scope_at) = decl_scope.code_range.real() else {
+            return Ok(())
+        };
+
         let type_alias = self
             .collected
             .type_aliases_decl
-            .get(&decl_scope.code_range)
+            .get(&decl_scope_at)
             .unwrap()
             .get(&name.data)
             .unwrap();
@@ -181,7 +192,11 @@ impl State {
     }
 
     pub fn register_function_body(&mut self, body: Eaten<Block>) {
-        let dup = self.collected.fn_bodies.insert(body.at, body);
+        let dup = self
+            .collected
+            .fn_bodies
+            .insert(body.at, body);
+
         assert!(dup.is_none());
     }
 
@@ -194,10 +209,10 @@ impl State {
 #[derive(Clone)]
 pub struct CheckerScope {
     pub deps: bool,
-    pub code_range: CodeRange,
+    pub code_range: RuntimeCodeRange,
     pub typ: Option<ScopeType>,
     pub vars: HashMap<String, DeclaredVar>,
-    pub fns: HashMap<String, CodeRange>,
+    pub fns: HashMap<String, RuntimeCodeRange>,
     pub cmd_aliases: HashMap<String, CodeRange>,
     pub type_aliases: HashMap<String, CodeRange>,
 }
@@ -210,7 +225,7 @@ pub enum ScopeType {
 
 #[derive(Clone, Copy)]
 pub struct DeclaredVar {
-    pub name_at: CodeRange,
+    pub name_at: RuntimeCodeRange,
     pub is_mut: bool,
 }
 
@@ -239,12 +254,12 @@ impl std::fmt::Display for DependencyType {
 }
 
 pub struct FetchedDependency {
-    pub declared_at: CodeRange,
+    pub declared_at: RuntimeCodeRange,
     pub is_mut: bool,
 }
 
 impl FetchedDependency {
-    fn new(declared_at: CodeRange, is_mut: bool) -> Self {
+    fn new(declared_at: RuntimeCodeRange, is_mut: bool) -> Self {
         Self {
             declared_at,
             is_mut,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use indexmap::IndexSet;
-use reshell_parser::ast::FnSignature;
+use reshell_parser::ast::{FnSignature, RuntimeCodeRange, RuntimeEaten};
 
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeVar},
@@ -12,11 +12,7 @@ use reshell_runtime::{
     },
 };
 
-use super::{
-    content::define_native_lib,
-    helper::InternalFunction,
-    utils::{forge_internal_loc, forge_internal_token},
-};
+use super::{content::define_native_lib, helper::InternalFunction};
 
 pub struct NativeLibDefinition {
     pub functions: Vec<InternalFunction>,
@@ -46,12 +42,12 @@ pub fn build_native_lib_content() -> ScopeContent {
                 (
                     name.to_owned(),
                     ScopeFn {
-                        name_at: forge_internal_loc(),
+                        name_at: RuntimeCodeRange::Internal,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             signature: RuntimeFnSignature::Owned(FnSignature {
-                                args: forge_internal_token(args),
+                                args: RuntimeEaten::Internal(args),
                                 ret_type: ret_type
-                                    .map(|ret_type| forge_internal_token(Box::new(ret_type))),
+                                    .map(|ret_type| RuntimeEaten::Internal(Box::new(ret_type))),
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
@@ -74,11 +70,11 @@ pub fn build_native_lib_content() -> ScopeContent {
                 (
                     name.to_owned(),
                     ScopeVar {
-                        name_at: forge_internal_loc(),
+                        name_at: RuntimeCodeRange::Internal,
                         is_mut,
                         value: GcCell::new(Some(LocatedValue::new(
                             init_value,
-                            forge_internal_loc(),
+                            RuntimeCodeRange::Internal,
                         ))),
                     },
                 )

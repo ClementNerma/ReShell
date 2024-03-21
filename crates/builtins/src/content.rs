@@ -20,7 +20,7 @@ use reshell_runtime::{
     values::RuntimeValue,
 };
 
-use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME, utils::forge_internal_loc};
+use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME};
 
 pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
@@ -180,8 +180,11 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> Some(ErrorType::direct_underlying_type()),
 
-                |at, Args { content }, _, _, _| {
-                    Ok(Some(RuntimeValue::Error { at, msg: content }))
+                |at, Args { content }, _, _, ctx| {
+                    match at {
+                        RuntimeCodeRange::CodeRange(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
+                        RuntimeCodeRange::Internal => Err(ctx.error(at, "cannot generate an error from an internal location"))
+                    }
                 }
             ),
             define_internal_fn!(
@@ -268,7 +271,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 -> Some(UntypedListType::direct_underlying_type()),
 
                 |_, Args { list, mapper }, ArgsAt { list: _, mapper: mapper_at }, ArgsTy { list: _, mapper: mapper_ty }, ctx| {
-                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
+                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at.into());
 
                     let mapped = list
                         .read(mapper_at)
