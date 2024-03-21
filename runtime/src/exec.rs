@@ -77,7 +77,6 @@ pub fn run_block_with_options(
 
     ctx.push_scope(Scope {
         id: *id,
-        // TODO: performance
         visible_scopes: visible_scopes.clone(),
         in_file_id: ctx.current_file_id(),
         history_entry,
@@ -125,7 +124,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 })
                 .transpose()?;
 
-            // TODO: ugly access
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
                 ScopeVar {
