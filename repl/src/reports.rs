@@ -116,9 +116,7 @@ fn parser_expection_to_str(err: &ParserExpectation) -> String {
         ParserExpectation::Char(c) => format!("expected char '{c}'"),
         ParserExpectation::Str(str) => format!("expected '{str}'"),
         ParserExpectation::Custom(msg) => format!("{msg}"),
-        ParserExpectation::Break => {
-            "Break (todo: move this not an error but something else)".to_string()
-        }
+        ParserExpectation::Break => unreachable!(),
     }
 }
 

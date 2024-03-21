@@ -31,18 +31,9 @@ pub fn run_cmd(
     for env_var in env_vars {
         let CmdEnvVar { name, value } = &env_var.data;
 
-        // TODO: this code is a duplicate of the same one a bit below
-        let value = match &value.data {
-            CmdEnvVarValue::Raw(raw) => treat_cmd_raw(raw, ctx)?,
-            CmdEnvVarValue::ComputedString(computed_str) => {
-                eval_computed_string(computed_str, ctx)?
-            }
-            CmdEnvVarValue::Expr(expr) => value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx)?,
-        };
-
         backup.insert(&name.data, std::env::var_os(&name.data));
 
-        std::env::set_var(&name.data, value);
+        std::env::set_var(&name.data, compute_env_var_value(&value.data, ctx)?);
     }
 
     let result = run_cmd_with_env_vars_set(call, ctx, capture_stdout);
@@ -115,17 +106,7 @@ fn run_cmd_with_env_vars_set(
             for env_var in &env_vars.data {
                 let CmdEnvVar { name, value } = &env_var.data;
 
-                let value = match &value.data {
-                    CmdEnvVarValue::Raw(raw) => treat_cmd_raw(raw, ctx)?,
-                    CmdEnvVarValue::ComputedString(computed_str) => {
-                        eval_computed_string(computed_str, ctx)?
-                    }
-                    CmdEnvVarValue::Expr(expr) => {
-                        value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx)?
-                    }
-                };
-
-                eval_env_vars.insert(name.data.clone(), value);
+                eval_env_vars.insert(name.data.clone(), compute_env_var_value(&value.data, ctx)?);
             }
 
             let mut eval_args = Vec::with_capacity(args.data.len());
@@ -263,6 +244,14 @@ fn run_cmd_with_env_vars_set(
     } else {
         None
     })
+}
+
+fn compute_env_var_value(value: &CmdEnvVarValue, ctx: &mut Context) -> ExecResult<String> {
+    match value {
+        CmdEnvVarValue::Raw(raw) => treat_cmd_raw(raw, ctx),
+        CmdEnvVarValue::ComputedString(computed_str) => eval_computed_string(computed_str, ctx),
+        CmdEnvVarValue::Expr(expr) => value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx),
+    }
 }
 
 fn develop_aliases<'a>(
