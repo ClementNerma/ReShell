@@ -1,15 +1,18 @@
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+};
+
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_runtime::pretty::{PrettyPrintOptions, PrettyPrintable};
-
-use crate::state::RUNTIME_CONTEXT;
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
-pub fn create_completer() -> Box<dyn RlCompleter> {
+pub fn create_completer(completion_data: Arc<Mutex<CompletionData>>) -> Box<dyn RlCompleter> {
     Box::new(Completer {
         home_dir: dirs::home_dir()
             .and_then(|home_dir| home_dir.to_str().map(|str| str.to_string())),
+        completion_data,
     })
 }
 
@@ -20,10 +23,13 @@ pub fn create_completion_menu() -> ReedlineMenu {
 
 pub struct Completer {
     home_dir: Option<String>,
+    completion_data: Arc<Mutex<CompletionData>>,
 }
 
 impl RlCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+        let completion_data = self.completion_data.lock().unwrap();
+
         let after_last_ws = match line[..pos].rfind(char::is_whitespace) {
             Some(index) => index + 1,
             None => 0,
@@ -43,22 +49,17 @@ impl RlCompleter for Completer {
         }
 
         if let Some(word_pr) = word.strip_prefix('$') {
-            let ctx = &RUNTIME_CONTEXT.read().unwrap();
-
             let word_lc = word_pr.to_lowercase();
 
-            return ctx
-                .visible_scopes()
+            return completion_data
+                .scopes
+                .iter()
                 .flat_map(|scope| scope.vars.iter())
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
-                    description: Some(match item.value.read().as_ref() {
-                        Some(located_val) => located_val
-                            .value
-                            .get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
-
+                    description: Some(match item {
+                        Some(value_type) => value_type.clone(),
                         None => "<value not set>".to_string(),
                     }),
                     extra: None,
@@ -69,21 +70,16 @@ impl RlCompleter for Completer {
         }
 
         if let Some(word_pr) = word.strip_prefix('@') {
-            let ctx = &RUNTIME_CONTEXT.read().unwrap();
-
             let word_lc = word_pr.to_lowercase();
 
-            return ctx
-                .visible_scopes()
+            return completion_data
+                .scopes
+                .iter()
                 .flat_map(|scope| scope.fns.iter())
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
-                .map(|(name, item)| Suggestion {
+                .map(|(name, signature)| Suggestion {
                     value: format!("@{name}"),
-                    description: Some(
-                        item.value
-                            .signature
-                            .render_uncolored(ctx, PrettyPrintOptions::inline()),
-                    ),
+                    description: Some(signature.clone()),
                     extra: None,
                     span,
                     append_whitespace: true,
@@ -214,4 +210,24 @@ impl RlCompleter for Completer {
 
         out.into_iter().map(|(_, sugg)| sugg).collect()
     }
+}
+
+pub struct CompletionData {
+    scopes: Vec<CompletionDataScope>,
+}
+
+impl CompletionData {
+    pub fn new() -> Self {
+        Self { scopes: vec![] }
+    }
+
+    pub fn replace_with(&mut self, scopes: Vec<CompletionDataScope>) {
+        self.scopes = scopes;
+    }
+}
+
+pub struct CompletionDataScope {
+    // TODO: requires computing type of all vars ahead of time (costly)
+    pub vars: HashMap<String, Option<String>>,
+    pub fns: HashMap<String, String>,
 }

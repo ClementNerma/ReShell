@@ -1,40 +1,41 @@
 use std::{
+    cell::{Ref, RefCell, RefMut},
     ops::Deref,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    rc::Rc,
 };
 
 // Garbage-collectable cell
 #[derive(Debug, Clone)]
 pub struct GcCell<T> {
-    value: Arc<RwLock<T>>,
+    value: Rc<RefCell<T>>,
 }
 
 impl<T> GcCell<T> {
     pub fn new(value: T) -> Self {
         Self {
-            value: Arc::new(RwLock::new(value)),
+            value: Rc::new(RefCell::new(value)),
         }
     }
 
-    pub fn read(&self) -> RwLockReadGuard<'_, T> {
-        self.value.read().unwrap()
+    pub fn read(&self) -> Ref<T> {
+        self.value.borrow()
     }
 
-    pub fn write(&self) -> RwLockWriteGuard<'_, T> {
-        self.value.write().unwrap()
+    pub fn write(&self) -> RefMut<T> {
+        self.value.borrow_mut()
     }
 }
 
 // Garbage-collectable read-only cell
 #[derive(Debug)]
 pub struct GcReadOnlyCell<T> {
-    value: Arc<T>,
+    value: Rc<T>,
 }
 
 impl<T> GcReadOnlyCell<T> {
     pub fn new(value: T) -> Self {
         Self {
-            value: Arc::new(value),
+            value: Rc::new(value),
         }
     }
 }
@@ -51,7 +52,7 @@ impl<T> Deref for GcReadOnlyCell<T> {
 impl<T> Clone for GcReadOnlyCell<T> {
     fn clone(&self) -> Self {
         Self {
-            value: Arc::clone(&self.value),
+            value: Rc::clone(&self.value),
         }
     }
 }
