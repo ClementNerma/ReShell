@@ -19,6 +19,24 @@ pub enum ReportableError {
     Runtime(Box<ExecError>),
 }
 
+impl ReportableError {
+    pub fn exit_code(&self) -> Option<Option<i32>> {
+        match self {
+            ReportableError::Parsing(_) | ReportableError::Checking(_) => None,
+            ReportableError::Runtime(err) => match err.nature {
+                ExecErrorNature::Custom(_)
+                | ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::Thrown { value: _ } => None,
+                ExecErrorNature::CommandFailed {
+                    message: _,
+                    exit_status,
+                } => Some(exit_status),
+                ExecErrorNature::Exit { code } => Some(code.map(i32::from)),
+            },
+        }
+    }
+}
+
 pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let (at, msg) = match err {
         ReportableError::Parsing(err) => {
@@ -32,7 +50,10 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         }
 
         ReportableError::Runtime(err) => match &err.nature {
-            ExecErrorNature::Exit { code: _ } => unreachable!(),
+            ExecErrorNature::Exit { code: _ } => {
+                // This error is designed to be consumed, not displayed
+                unreachable!()
+            }
             ExecErrorNature::Custom(message) => (
                 err.at,
                 match message {
@@ -48,6 +69,13 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 message,
                 exit_status: _,
             } => (err.at, message.clone()),
+            ExecErrorNature::Thrown { value } => (
+                err.at,
+                format!(
+                    "function throwned a value at {}",
+                    dbg_loc(value.from, files).bright_magenta()
+                ),
+            ),
         },
     };
 

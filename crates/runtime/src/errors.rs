@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use parsy::{FileId, ParsingError};
 use reshell_parser::ast::RuntimeCodeRange;
 
-use crate::{context::CallStack, files_map::SourceFile};
+use crate::{context::CallStack, files_map::SourceFile, values::LocatedValue};
 
 pub type ExecResult<T> = Result<T, Box<ExecError>>;
 
@@ -39,6 +39,9 @@ pub enum ExecErrorNature {
     },
     Exit {
         code: Option<u8>,
+    },
+    Thrown {
+        value: LocatedValue,
     },
 }
 

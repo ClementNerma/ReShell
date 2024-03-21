@@ -2,11 +2,7 @@ use once_cell::sync::OnceCell;
 use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
-use reshell_runtime::{
-    context::Context,
-    exec::{run_program, ProgramExitStatus},
-    files_map::ScopableFilePath,
-};
+use reshell_runtime::{context::Context, exec::run_program, files_map::ScopableFilePath};
 
 use crate::reports::ReportableError;
 
@@ -41,7 +37,7 @@ pub fn run_script(
     file_path: ScopableFilePath,
     parser: &impl Parser<Program>,
     ctx: &mut Context,
-) -> Result<ProgramExitStatus, ReportableError> {
+) -> Result<(), ReportableError> {
     let (parsed, checker_output) = code_check_script(input, file_path, parser, ctx)?;
 
     run_program(&parsed.data, checker_output, ctx).map_err(ReportableError::Runtime)

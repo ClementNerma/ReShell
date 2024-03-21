@@ -403,6 +403,11 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                     message: _,
                     exit_status: _,
                 } => Ok(RuntimeValue::Bool(false)),
+
+                ExecErrorNature::Thrown { value: _ } => {
+                    // TODO: reset scope
+                    Ok(RuntimeValue::Bool(false))
+                }
             },
         },
         Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(

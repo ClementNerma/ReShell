@@ -4,16 +4,9 @@ use std::{
     time::Instant,
 };
 
-use colored::Colorize;
 use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
-use reshell_runtime::{
-    context::Context,
-    errors::ExecErrorNature,
-    exec::ProgramExitStatus,
-    files_map::ScopableFilePath,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-};
+use reshell_runtime::{context::Context, errors::ExecErrorNature, files_map::ScopableFilePath};
 
 use crate::{
     completer::{self, CompletionData},
@@ -90,24 +83,15 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             ctx,
         );
 
-        match ret {
-            Ok(exit_status) => match exit_status {
-                ProgramExitStatus::Normal => {
-                    if let Some(value) = ctx.take_wandering_value() {
-                        println!(
-                            "{} {}",
-                            "[eval:]".bright_magenta(),
-                            value.render_colored(ctx, PrettyPrintOptions::inline())
-                        );
+        match &ret {
+            Ok(()) => todo!(),
+            Err(err) => {
+                if let ReportableError::Runtime(err) = &err {
+                    if let ExecErrorNature::Exit { code } = err.nature {
+                        return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
                     }
                 }
 
-                ProgramExitStatus::ExitRequested { code } => {
-                    return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
-                }
-            },
-
-            Err(ref err) => {
                 reports::print_error(err, ctx.files_map());
             }
         }
@@ -115,17 +99,13 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
             duration_ms: start.elapsed().as_millis(),
-            exit_code: ret.as_ref().err().and_then(|err| match err {
-                ReportableError::Parsing(_) => None,
-                ReportableError::Checking(_) => None,
-                ReportableError::Runtime(err) => match err.nature {
-                    ExecErrorNature::Custom(_) | ExecErrorNature::ParsingErr(_) => None,
-                    ExecErrorNature::Exit { code: _ } => unreachable!(),
-                    ExecErrorNature::CommandFailed {
-                        message: _,
-                        exit_status,
-                    } => exit_status,
-                },
+            exit_code: ret.err().and_then(|err| {
+                err.exit_code().map(|code| {
+                    code.unwrap_or(
+                        // NOTE: fallback exit code
+                        1,
+                    )
+                })
             }),
         });
     }
