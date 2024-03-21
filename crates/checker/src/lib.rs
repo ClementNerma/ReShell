@@ -372,7 +372,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             }
         }
 
-        Instruction::Switch { expr, cases } => {
+        Instruction::Switch { expr, cases, els } => {
             check_expr(&expr.data, state)?;
 
             for case in cases {
@@ -380,6 +380,10 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
                 check_expr(&cond.data, state)?;
                 check_block(body, state)?;
+            }
+
+            if let Some(els) = els {
+                check_block(els, state)?;
             }
         }
 

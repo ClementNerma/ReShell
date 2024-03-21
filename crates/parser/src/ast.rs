@@ -75,6 +75,7 @@ pub enum Instruction {
     Switch {
         expr: Eaten<Expr>,
         cases: Vec<SwitchCase>,
+        els: Option<Eaten<Block>>,
     },
 
     /// Function declaration
