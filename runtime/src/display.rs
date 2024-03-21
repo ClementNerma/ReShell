@@ -157,24 +157,24 @@ impl PrettyPrintable for RuntimeValue {
                 Color::BrightGreen,
             ),
             RuntimeValue::List(list) => PrintablePiece::List {
-                begin: Colored::with_color("[".to_string(), Color::BrightBlue),
+                begin: Colored::with_color("[".to_string(), Color::Blue),
                 items: list
                     .iter()
                     .map(|item| item.generate_pretty_data())
                     .collect(),
-                sep: Colored::with_color(",".to_string(), Color::BrightBlue),
-                end: Colored::with_color("]".to_string(), Color::BrightBlue),
+                sep: Colored::with_color(",".to_string(), Color::Blue),
+                end: Colored::with_color("]".to_string(), Color::Blue),
                 suffix: None,
             },
             // RuntimeValue::Range { from, to } => PrintablePiece::Suite(vec![
-            //     Colored::with_color("range".to_string(), Color::BrightBlue),
-            //     Colored::with_color("(".to_string(), Color::BrightBlue),
+            //     Colored::with_color("range".to_string(), Color::Blue),
+            //     Colored::with_color("(".to_string(), Color::Blue),
             //     Colored::with_color("")
-            //     Colored::with_color(", ".to_string(), Color::BrightBlue),
-            //     Colored::with_color(")".to_string(), Color::BrightBlue),
+            //     Colored::with_color(", ".to_string(), Color::Blue),
+            //     Colored::with_color(")".to_string(), Color::Blue),
             // ]),
             RuntimeValue::Range { from, to } => PrintablePiece::List {
-                begin: Colored::with_color("range(".to_string(), Color::BrightBlue),
+                begin: Colored::with_color("range(".to_string(), Color::Blue),
                 items: vec![
                     PrintablePiece::Atomic(Colored::with_color(
                         from.to_string(),
@@ -185,12 +185,34 @@ impl PrettyPrintable for RuntimeValue {
                         Color::BrightYellow,
                     )),
                 ],
-                sep: Colored::with_color(",".to_string(), Color::BrightBlue),
-                end: Colored::with_color(")".to_string(), Color::BrightBlue),
+                sep: Colored::with_color(",".to_string(), Color::Blue),
+                end: Colored::with_color(")".to_string(), Color::Blue),
                 suffix: None,
             },
             RuntimeValue::Map(_) => todo!(),
-            RuntimeValue::Struct(_) => todo!(),
+            RuntimeValue::Struct(obj) => PrintablePiece::List {
+                begin: Colored::with_color("{".to_string(), Color::Blue),
+                items: obj
+                    .iter()
+                    .map(|(field, value)|
+                        // Yes, that part is a hack :p
+                        PrintablePiece::List {
+                            begin: Colored::with_color(
+                                format!("{field}: "),
+                                Color::Red
+                            ),
+                            items: vec![
+                                value.generate_pretty_data()
+                            ],
+                            sep: Colored::colorless(String::new()),
+                            end: Colored::colorless(String::new()),
+                            suffix: None
+                        })
+                    .collect(),
+                sep: Colored::with_color(",".to_string(), Color::Blue),
+                end: Colored::with_color("}".to_string(), Color::Blue),
+                suffix: None,
+            },
             RuntimeValue::Function(func) =>
             // TODO: show something like { ... } after the fn to show it's a value and not a type
             {
@@ -206,13 +228,13 @@ impl PrettyPrintable for FnSignature {
         let Self { args, ret_type } = self;
 
         PrintablePiece::List {
-            begin: Colored::with_color("(".to_string(), Color::BrightBlue),
+            begin: Colored::with_color("(".to_string(), Color::Blue),
             items: args
                 .iter()
                 .map(|item| item.generate_pretty_data())
                 .collect(),
-            sep: Colored::with_color(",".to_string(), Color::BrightBlue),
-            end: Colored::with_color(")".to_string(), Color::BrightBlue),
+            sep: Colored::with_color(",".to_string(), Color::Blue),
+            end: Colored::with_color(")".to_string(), Color::Blue),
             suffix: ret_type.as_ref().map(|ret_type| {
                 // TODO: colors for return type?
                 Colored::with_color(
@@ -241,28 +263,28 @@ impl PrettyPrintable for FnArg {
 
         match names {
             FnArgNames::NotFlag(name) => {
-                out.extend([Colored::with_color(name.data.clone(), Color::BrightRed)]);
+                out.extend([Colored::with_color(name.data.clone(), Color::Red)]);
             }
             FnArgNames::ShortFlag(short) => {
                 out.extend([
                     Colored::with_color("-".to_string(), Color::BrightYellow),
-                    Colored::with_color(short.data.to_string(), Color::BrightRed),
+                    Colored::with_color(short.data.to_string(), Color::Red),
                 ]);
             }
             FnArgNames::LongFlag(long) => {
                 out.extend([
                     Colored::with_color("--".to_string(), Color::BrightYellow),
-                    Colored::with_color(long.data.clone(), Color::BrightRed),
+                    Colored::with_color(long.data.clone(), Color::Red),
                 ]);
             }
             FnArgNames::LongAndShortFlag { long, short } => {
                 out.extend([
                     Colored::with_color("--".to_string(), Color::BrightYellow),
-                    Colored::with_color(long.data.clone(), Color::BrightRed),
-                    Colored::with_color(" (".to_string(), Color::BrightBlue),
+                    Colored::with_color(long.data.clone(), Color::Red),
+                    Colored::with_color(" (".to_string(), Color::Blue),
                     Colored::with_color("-".to_string(), Color::BrightYellow),
                     Colored::with_color(short.data.to_string(), Color::BrightYellow),
-                    Colored::with_color(")".to_string(), Color::BrightBlue),
+                    Colored::with_color(")".to_string(), Color::Blue),
                 ]);
             }
         }

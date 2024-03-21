@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::time::Instant;
 use std::{collections::HashMap, env::VarError, path::Path};
@@ -518,7 +519,7 @@ pub fn render_prompt(
                 duration_ms,
             } = status;
 
-            RuntimeValue::Struct(HashMap::from([
+            RuntimeValue::Struct(BTreeMap::from([
                 ("success".to_string(), RuntimeValue::Bool(success)),
                 (
                     "exit_code".to_string(),
@@ -535,7 +536,7 @@ pub fn render_prompt(
         }
     };
 
-    let prompt_data = RuntimeValue::Struct(HashMap::from([(
+    let prompt_data = RuntimeValue::Struct(BTreeMap::from([(
         "last_cmd_status".to_string(),
         last_cmd_status,
     )]));

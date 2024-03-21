@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
@@ -249,7 +249,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             let props = obj
                 .iter()
                 .map(|(name, expr)| eval_expr(&expr.data, ctx).map(|value| (name.clone(), value)))
-                .collect::<Result<HashMap<String, RuntimeValue>, _>>()?;
+                .collect::<Result<BTreeMap<String, RuntimeValue>, _>>()?;
 
             Ok(RuntimeValue::Struct(props))
         }
