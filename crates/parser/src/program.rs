@@ -872,6 +872,39 @@ pub fn program() -> impl Parser<Program> {
                     body,
                 }),
             //
+            // keyed 'for' loops
+            //
+            just("for")
+                .ignore_then(s)
+                .ignore_then(ident.clone().spanned())
+                .then_ignore(ms)
+                .then_ignore(char(','))
+                .then_ignore(ms)
+                .then(ident.clone().spanned())
+                .then_ignore(s)
+                .then_ignore(just("in"))
+                .then_ignore(s)
+                .then(
+                    expr.clone()
+                        .spanned()
+                        .critical("expected an expression to iterate on"),
+                )
+                .then_ignore(ms)
+                .then(
+                    block
+                        .clone()
+                        .spanned()
+                        .critical("expected a body for the 'for' loop"),
+                )
+                .map(|(((key_iter_var, value_iter_var), iter_on), body)| {
+                    Instruction::ForLoopKeyed {
+                        key_iter_var,
+                        value_iter_var,
+                        iter_on,
+                        body,
+                    }
+                }),
+            //
             // 'while' loop
             //
             just("while")

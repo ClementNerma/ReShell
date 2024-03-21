@@ -42,7 +42,7 @@ impl<T> GcCell<T> {
             ctx.error(
                 at.into(),
                 format!(
-                    "Failed to write as parent value is borrowed from {}",
+                    "Failed to write as parent value is currently borrowed from {}",
                     dbg_loc(borrowed_at, ctx.files_map()).bright_magenta()
                 ),
             )

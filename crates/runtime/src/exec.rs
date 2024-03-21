@@ -365,6 +365,64 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         },
 
+        Instruction::ForLoopKeyed {
+            key_iter_var,
+            value_iter_var,
+            iter_on,
+            body,
+        } => {
+            let map = match eval_expr(&iter_on.data, ctx)? {
+                RuntimeValue::Map(map) => map,
+                value => {
+                    return Err(ctx.error(
+                        iter_on.at,
+                        format!(
+                            "expected a map, got a {}",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
+            };
+
+            for (key, value) in map.read(iter_on.at).iter() {
+                let mut loop_scope = ScopeContent::new();
+
+                loop_scope.vars.insert(
+                    key_iter_var.data.clone(),
+                    ScopeVar {
+                        name_at: RuntimeCodeRange::CodeRange(key_iter_var.at),
+                        is_mut: false,
+                        value: GcCell::new(Some(LocatedValue::new(
+                            RuntimeValue::String(key.clone()),
+                            RuntimeCodeRange::CodeRange(key_iter_var.at),
+                        ))),
+                    },
+                );
+
+                loop_scope.vars.insert(
+                    value_iter_var.data.clone(),
+                    ScopeVar {
+                        name_at: RuntimeCodeRange::CodeRange(value_iter_var.at),
+                        is_mut: false,
+                        value: GcCell::new(Some(LocatedValue::new(
+                            value.clone(),
+                            RuntimeCodeRange::CodeRange(value_iter_var.at),
+                        ))),
+                    },
+                );
+
+                if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
+                    let InstrRet { typ, from: _ } = ret;
+
+                    if matches!(typ, InstrRetType::BreakLoop) {
+                        break;
+                    }
+                }
+            }
+        }
+
         Instruction::WhileLoop { cond, body } => loop {
             let cond_val =
                 match eval_expr(&cond.data, ctx)? {
