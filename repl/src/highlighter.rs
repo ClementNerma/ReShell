@@ -555,7 +555,7 @@ impl Highlight for Eaten<Value> {
             }
             Value::Object(obj) => {
                 // TODO: find a way to highlight the names?
-                for (_, expr) in obj {
+                for expr in obj.values() {
                     expr.data.highlight(h);
                 }
             }

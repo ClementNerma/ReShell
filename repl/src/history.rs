@@ -2,7 +2,7 @@ use reedline::{FileBackedHistory, History, ListMenu, ReedlineMenu};
 
 use crate::print_warn;
 
-pub static HISTORY_MENU_NAME: &'static str = "history_menu";
+pub static HISTORY_MENU_NAME: &str = "history_menu";
 
 pub fn create_history() -> Box<dyn History> {
     // TODO: allow to customize:

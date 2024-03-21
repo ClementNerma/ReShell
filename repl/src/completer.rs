@@ -4,7 +4,7 @@ use reshell_runtime::display::{dbg_fn_signature, readable_value_type};
 
 use crate::state::RUNTIME_CONTEXT;
 
-pub static COMPLETION_MENU_NAME: &'static str = "completion_menu";
+pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
 pub fn create_completer() -> Box<dyn RlCompleter> {
     Box::new(Completer {
@@ -42,25 +42,22 @@ impl RlCompleter for Completer {
             return vec![];
         }
 
-        if word.starts_with('$') {
+        if let Some(word_pr) = word.strip_prefix('$') {
             let ctx = &RUNTIME_CONTEXT.read().unwrap();
 
-            let word_lc = &word[1..].to_lowercase();
+            let word_lc = word_pr.to_lowercase();
 
             return ctx
                 .all_vars()
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
-                    description: Some(
-                        match &item.value {
-                            Some(located_val) => {
-                                readable_value_type(&located_val.value, ctx).into_owned()
-                            }
-                            None => "<value not set>".to_string(),
+                    description: Some(match &item.value {
+                        Some(located_val) => {
+                            readable_value_type(&located_val.value, ctx).into_owned()
                         }
-                        .to_string(),
-                    ),
+                        None => "<value not set>".to_string(),
+                    }),
                     extra: None,
                     span,
                     append_whitespace: true,
@@ -68,10 +65,10 @@ impl RlCompleter for Completer {
                 .collect::<Vec<_>>();
         }
 
-        if word.starts_with('@') {
+        if let Some(word_pr) = word.strip_prefix('@') {
             let ctx = &RUNTIME_CONTEXT.read().unwrap();
 
-            let word_lc = &word[1..].to_lowercase();
+            let word_lc = word_pr.to_lowercase();
 
             return ctx
                 .all_fns()
@@ -103,7 +100,7 @@ impl RlCompleter for Completer {
                 return vec![];
             };
 
-            search[0] = format!("{}", home_dir.trim_end_matches('/').to_string());
+            search[0] = home_dir.trim_end_matches('/').to_string();
 
             Some(home_dir)
         } else {

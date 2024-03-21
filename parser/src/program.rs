@@ -27,7 +27,7 @@ pub fn program() -> impl Parser<Program> {
         let block = char('{')
             .critical("expected an opening brace '{'")
             .ignore_then(msnl)
-            .ignore_then(raw_block.clone())
+            .ignore_then(raw_block)
             .then_ignore(msnl)
             .then_ignore(char('}').critical("expected a closing brace '}'"));
 
@@ -36,7 +36,6 @@ pub fn program() -> impl Parser<Program> {
         let first_ident_char = filter(|c| c == '_' || c.is_alphabetic());
 
         let ident = first_ident_char
-            .clone()
             .then(filter(|c| c == '_' || c.is_alphanumeric()).repeated())
             .collect_string();
 
@@ -324,15 +323,15 @@ pub fn program() -> impl Parser<Program> {
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical("expected closing brace '}' for opened object"))
                 .map(|members| {
-                    Value::Object(HashMap::from(
+                    Value::Object(
                         members
                             .into_iter()
                             .map(|(name, expr)| (name.data, expr))
                             .collect::<HashMap<_, _>>(),
-                    ))
+                    )
                 }),
             // Function calls
-            fn_call.clone().spanned().map(Value::FnCall),
+            fn_call.spanned().map(Value::FnCall),
             // Command calls
             just("$(")
                 .ignore_then(cmd_call.clone().spanned())
@@ -405,7 +404,7 @@ pub fn program() -> impl Parser<Program> {
                 // Single operator (e.g. '!')
                 single_op
                     .spanned()
-                    .then(expr_inner_content.clone().map(Box::new).spanned())
+                    .then(expr_inner_content.map(Box::new).spanned())
                     .map(|(op, right)| ExprInnerContent::SingleOp { op, right }),
                 // Parenthesis-wrapped expression
                 char('(')
@@ -558,7 +557,7 @@ pub fn program() -> impl Parser<Program> {
                 .spanned()
                 .map(CmdArg::FnAsValue),
             // Raw argument
-            cmd_raw.clone().spanned().map(CmdArg::Raw),
+            cmd_raw.spanned().map(CmdArg::Raw),
         ));
 
         let single_cmd_call = cmd_env_var
@@ -639,7 +638,6 @@ pub fn program() -> impl Parser<Program> {
             // Variables assignment
             //
             var_name
-                .clone()
                 .spanned()
                 .then_ignore(ms)
                 .then_ignore(char('='))
@@ -784,8 +782,8 @@ pub fn program() -> impl Parser<Program> {
             //
             just("throw")
                 .ignore_then(s)
-                .ignore_then(expr.clone().spanned())
-                .map(|expr| Instruction::Throw(expr)),
+                .ignore_then(expr.spanned())
+                .map(Instruction::Throw),
             //
             // Aliases declaration
             //
@@ -814,7 +812,6 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(s)
                 .ignore_then(
                     ident
-                        .clone()
                         .spanned()
                         .critical("expected a type name (identifier)"),
                 )

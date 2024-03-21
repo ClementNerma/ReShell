@@ -19,7 +19,7 @@ pub struct ReplReport {
     pub msg: String,
 }
 
-pub fn create_report<'a>(at: CodeRange, msg: String, files: &FilesMap) -> ReplReport {
+pub fn create_report(at: CodeRange, msg: String, files: &FilesMap) -> ReplReport {
     match at.start.file_id {
         FileId::None => unreachable!(),
 
@@ -82,7 +82,7 @@ fn create_report_raw(file: SourceFile, offset: usize, len: usize, msg: String) -
     ReplReport {
         inner,
         file,
-        display_file: display_file.to_string(),
+        display_file,
         msg,
     }
 }
@@ -158,7 +158,7 @@ fn parser_expection_to_str(err: &ParserExpectation) -> String {
         ParserExpectation::Str(str) => format!("expected '{str}'"),
         ParserExpectation::Custom(msg) => format!("{msg}"),
         ParserExpectation::Break => {
-            format!("Break (todo: move this not an error but something else)")
+            "Break (todo: move this not an error but something else)".to_string()
         }
     }
 }

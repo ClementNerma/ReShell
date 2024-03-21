@@ -248,7 +248,7 @@ pub fn generate_native_lib() -> Scope {
         //
         native_fn!(env (name: String [name_from]) [ctx] -> (String) {
             match std::env::var(&name) {
-                Ok(value) => Ok(Some(RuntimeValue::String(value.to_string()))),
+                Ok(value) => Ok(Some(RuntimeValue::String(value))),
                 Err(VarError::NotPresent) => Err(ctx.error(name_from, format!("environment variable '{name}' is not set"))),
                 Err(VarError::NotUnicode(_)) => Err(ctx.error(name_from, format!("environment variable '{name}' does not contain valid UTF-8 content")))
             }
@@ -316,7 +316,7 @@ pub fn generate_native_lib() -> Scope {
         // change current directory
         //
         native_fn!(cd (path: String [path_at]) [ctx] {
-            match std::env::set_current_dir(&path) {
+            match std::env::set_current_dir(path) {
                 Ok(()) => Ok(None),
                 Err(err) => Err(ctx.error(path_at, format!("failed to change current directory: {err}")))
             }
@@ -363,7 +363,7 @@ pub fn generate_native_lib() -> Scope {
             })?;
 
             let file_scope = ctx.create_file_scope(
-                ScopableFilePath::RealFile(file_path.clone()),
+                ScopableFilePath::RealFile(file_path),
                 source.clone(),
             );
 
@@ -535,7 +535,7 @@ pub fn render_prompt(
     )]));
 
     let ret_val = call_fn_checked(
-        &prompt_var_value,
+        prompt_var_value,
         &expected_signature,
         vec![prompt_data],
         ctx,
@@ -608,19 +608,19 @@ fn call_fn_checked(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    dbg_fn_signature(&expected_signature, ctx),
-                    readable_value_type(&value, ctx)
+                    dbg_fn_signature(expected_signature, ctx),
+                    readable_value_type(value, ctx)
                 ),
             ))
         }
     };
 
-    if !check_fn_equality(&func.signature, &expected_signature, ctx)? {
+    if !check_fn_equality(&func.signature, expected_signature, ctx)? {
         return Err(ctx.error(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                dbg_fn_signature(&expected_signature, ctx),
+                dbg_fn_signature(expected_signature, ctx),
                 readable_value_type(&loc_val.value, ctx)
             ),
         ));

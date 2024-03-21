@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![forbid(unused_crate_dependencies)]
+// TEMPORARY
+#![allow(clippy::result_large_err)]
 
 use clap::Parser;
 use colored::Colorize;
@@ -54,11 +56,7 @@ fn main() {
             fail("Failed to read thep rovided path");
         };
 
-        return run_script(
-            ScopableFilePath::RealFile(file_path.clone()),
-            &content,
-            true,
-        );
+        return run_script(ScopableFilePath::RealFile(file_path), &content, true);
     }
 
     if let Some(input) = args.eval {
@@ -112,7 +110,7 @@ fn run_script(file: ScopableFilePath, content: &str, exit_on_fail: bool) {
     if let Err(err) = repl::eval(content, &reshell_parser::program()) {
         reports::print_error_report(reports::repl_error_report(
             &err,
-            &RUNTIME_CONTEXT.read().unwrap().files_map(),
+            RUNTIME_CONTEXT.read().unwrap().files_map(),
         ));
 
         if exit_on_fail {

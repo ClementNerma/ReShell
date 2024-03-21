@@ -41,11 +41,11 @@ pub fn start() {
 
     loop {
         let prompt_rendering = match repl_try_render_prompt(last_cmd_status.take()) {
-            Ok(prompt) => prompt.unwrap_or_else(|| PromptRendering::default()),
+            Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
                 reports::print_error_report(reports::exec_error_report(
                     &err,
-                    &RUNTIME_CONTEXT.read().unwrap().files_map(),
+                    RUNTIME_CONTEXT.read().unwrap().files_map(),
                 ));
 
                 PromptRendering::default()
@@ -92,7 +92,7 @@ pub fn start() {
         if let Err(err) = ret {
             reports::print_error_report(reports::repl_error_report(
                 &err,
-                &RUNTIME_CONTEXT.read().unwrap().files_map(),
+                RUNTIME_CONTEXT.read().unwrap().files_map(),
             ));
         }
     }
@@ -108,7 +108,7 @@ pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), ReplError>
     let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
 
     let parsed = parser
-        .parse_str_as_file(&input, FileId::Id(ctx.current_scope().in_file_id))
+        .parse_str_as_file(input, FileId::Id(ctx.current_scope().in_file_id))
         .map_err(ReplError::ParsingError)?;
 
     run_in_existing_scope(&parsed.data, ctx).map_err(ReplError::ExecError)
