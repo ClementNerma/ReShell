@@ -283,6 +283,57 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // Check if a path exists
+                //
+
+                "pathExists",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path")
+                )
+
+                -> Some(BoolType::direct_underlying_type()),
+
+                |_, Args { path }, _, _| {
+                    Ok(Some(RuntimeValue::Bool(Path::new(&path).exists())))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Check if a directory exists
+                //
+
+                "dirExists",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path")
+                )
+
+                -> Some(BoolType::direct_underlying_type()),
+
+                |_, Args { path }, _, _| {
+                    Ok(Some(RuntimeValue::Bool(Path::new(&path).is_dir())))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Check if a file exists
+                //
+
+                "fileExists",
+
+                Args [ArgsAt] (
+                    path: RequiredArg<StringType> = Arg::positional("path")
+                )
+
+                -> Some(BoolType::direct_underlying_type()),
+
+                |_, Args { path }, _, _| {
+                    Ok(Some(RuntimeValue::Bool(Path::new(&path).is_file())))
+                }
+            ),
+            define_internal_fn!(
+                //
                 // Get the value of an environment variable
                 //
 

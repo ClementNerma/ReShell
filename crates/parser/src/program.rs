@@ -454,6 +454,7 @@ pub fn program() -> impl Parser<Program> {
                 // Single operator (e.g. '!')
                 single_op
                     .spanned()
+                    .then_ignore(ms)
                     .then(expr_inner_content.map(Box::new).spanned())
                     .map(|(op, right)| ExprInnerContent::SingleOp { op, right }),
                 // Parenthesis-wrapped expression

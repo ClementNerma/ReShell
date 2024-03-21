@@ -49,6 +49,21 @@ pub fn run_cmd(
 
     let mut last_return_value = None;
 
+    let chain_has_non_cmd_call = chain.iter().any(|(el, _)| match el.content {
+        CmdChainElContent::Cmd(_) => false,
+        CmdChainElContent::NonCmd(_) => true,
+    });
+
+    if chain_has_non_cmd_call {
+        if capture_stdout {
+            return Err(ctx.error(call.at, "cannot capture a function's output"));
+        }
+
+        if chain.len() > 1 {
+            return Err(ctx.error(call.at, "cannot apply input or output types on functions"));
+        }
+    }
+
     for (i, (item, pipe_type)) in chain.into_iter().enumerate() {
         let next_pipe_type = pipe_types
             .get(i + 1)
