@@ -5,5 +5,5 @@ edition = "2021"
 
 [dependencies]
 indexmap = "2.0.2"
-parsy = "0.2.6"
+parsy = "0.2.11"
 reshell-parser = { path = "../parser" }

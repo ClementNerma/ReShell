@@ -73,6 +73,8 @@ fn check_block_with(
         check_instr(instr, state)?;
     }
 
+    state.pop_scope();
+
     Ok(())
 }
 

@@ -28,6 +28,10 @@ impl State {
         self.scopes.push(scope);
     }
 
+    pub fn pop_scope(&mut self) {
+        self.scopes.pop().unwrap();
+    }
+
     pub fn curr_scope(&self) -> &Scope {
         self.scopes.last().unwrap()
     }
