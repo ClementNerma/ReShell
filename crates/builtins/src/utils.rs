@@ -1,5 +1,5 @@
 use parsy::{CodeRange, Eaten, FileId, Location};
-use reshell_parser::ast::FnSignature;
+use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, ValueType};
 
 use reshell_runtime::{
     context::Context,
@@ -24,6 +24,26 @@ pub fn forge_internal_token<T>(data: T) -> Eaten<T> {
     Eaten {
         at: forge_internal_loc(),
         data,
+    }
+}
+
+pub fn forge_basic_fn_signature(
+    args: Vec<(impl Into<String>, ValueType)>,
+    ret_type: Option<ValueType>,
+) -> FnSignature {
+    FnSignature {
+        args: forge_internal_token(
+            args.into_iter()
+                .map(|(name, typ)| FnArg {
+                    names: FnArgNames::Positional(forge_internal_token(name.into())),
+                    is_optional: false,
+                    is_rest: false,
+                    typ: Some(forge_internal_token(typ)),
+                })
+                .collect(),
+        ),
+
+        ret_type: ret_type.map(|ret_type| forge_internal_token(Box::new(ret_type))),
     }
 }
 

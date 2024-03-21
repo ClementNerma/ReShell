@@ -16,7 +16,7 @@ use crate::{
         BoolType, ExactIntType, IntType, NullType, StringType, TypedStruct1Type, TypedStruct3Type,
         TypedStruct4Type, Union2Type,
     },
-    utils::{call_fn_checked, forge_internal_token},
+    utils::{call_fn_checked, forge_basic_fn_signature},
 };
 
 pub static GEN_PROMPT_VAR_NAME: &str = "gen_prompt";
@@ -42,24 +42,20 @@ pub fn render_prompt(
         return Ok(None);
     }
 
-    let expected_signature = FnSignature {
-        args: forge_internal_token(vec![FnArg {
-            names: FnArgNames::Positional(forge_internal_token("prompt_data".to_string())),
-            is_optional: false,
-            is_rest: false,
-            typ: Some(forge_internal_token(
-                TypedStruct1Type::new((
-                    "last_cmd_status",
-                    TypedStruct3Type::new(
-                        ("success", BoolType),
-                        ("exit_code", Union2Type::<IntType, NullType>::new_direct()),
-                        ("duration_ms", ExactIntType::<i64>::new_direct()),
-                    ),
-                ))
-                .underlying_type(),
-            )),
-        }]),
-        ret_type: Some(forge_internal_token(Box::new(
+    let expected_signature = forge_basic_fn_signature(
+        vec![(
+            "prompt_data",
+            TypedStruct1Type::new((
+                "last_cmd_status",
+                TypedStruct3Type::new(
+                    ("success", BoolType),
+                    ("exit_code", Union2Type::<IntType, NullType>::new_direct()),
+                    ("duration_ms", ExactIntType::<i64>::new_direct()),
+                ),
+            ))
+            .underlying_type(),
+        )],
+        Some(
             TypedStruct4Type::new(
                 (
                     "prompt_left",
@@ -79,8 +75,8 @@ pub fn render_prompt(
                 ),
             )
             .underlying_type(),
-        ))),
-    };
+        ),
+    );
 
     let last_cmd_status = match last_cmd_status {
         None => RuntimeValue::Null,
