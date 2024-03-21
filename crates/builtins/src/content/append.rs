@@ -15,14 +15,9 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, append }, _, _| {
-        let list = list.with_ref(|list| {
-            append.with_ref(|append| {
-                let mut out = list.clone();
-                out.extend(append.iter().cloned());
-                out
-            })
-        });
+        let mut out = list.read_promise_no_write().clone();
+        out.extend(append.read_promise_no_write().iter().cloned());
 
-        Ok(Some(RuntimeValue::List(GcCell::new(list))))
+        Ok(Some(RuntimeValue::List(GcCell::new(out))))
     })
 }

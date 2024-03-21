@@ -180,13 +180,12 @@ impl<Inner: Typing> SingleTyping for DetachedListType<Inner> {
             _ => return Err("expected a list".to_owned()),
         };
 
-        let values = list.with_ref(|items| {
-            items
-                .clone()
-                .into_iter()
-                .map(|item| self.inner.parse(item))
-                .collect::<Result<Vec<_>, _>>()
-        })?;
+        let values = list
+            .read_promise_no_write()
+            .iter()
+            .cloned()
+            .map(|item| self.inner.parse(item))
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(values)
     }
@@ -312,26 +311,26 @@ impl<A: Typing, B: Typing> SingleTyping for Tuple2Type<A, B> {
             _ => return Err("expected a tuple (list)".to_owned()),
         };
 
-        items.with_ref(|items| {
-            if items.len() != 2 {
-                return Err(format!(
-                    "tuple is expected to contain exactly 2 elements, contains {}",
-                    items.len()
-                ));
-            }
+        let items = items.read_promise_no_write();
 
-            let a = self
-                .a
-                .parse(items[0].clone())
-                .map_err(|err| format!("error in tuple's first element: {err}"))?;
+        if items.len() != 2 {
+            return Err(format!(
+                "tuple is expected to contain exactly 2 elements, contains {}",
+                items.len()
+            ));
+        }
 
-            let b = self
-                .b
-                .parse(items[1].clone())
-                .map_err(|err| format!("error in tuple's second element: {err}"))?;
+        let a = self
+            .a
+            .parse(items[0].clone())
+            .map_err(|err| format!("error in tuple's first element: {err}"))?;
 
-            Ok((a, b))
-        })
+        let b = self
+            .b
+            .parse(items[1].clone())
+            .map_err(|err| format!("error in tuple's second element: {err}"))?;
+
+        Ok((a, b))
     }
 }
 
@@ -490,21 +489,21 @@ macro_rules! declared_typed_struct_type_handler {
                         _ => return Err("expected a struct".to_owned()),
                     };
 
-                    members.with_ref(|members| {
-                        $(
-                            let $member = members
-                                .get(&self.$member.0)
-                                .ok_or_else(|| format!("property '{}' is missing", self.$member.0))?;
+                    let members = members.read_promise_no_write();
 
-                            let $member = self
-                                .$member
-                                .1
-                                .parse($member.clone())
-                                .map_err(|err| format!("type mismatch in struct member '{}': {err}", self.$member.0))?;
-                        )+
+                    $(
+                        let $member = members
+                            .get(&self.$member.0)
+                            .ok_or_else(|| format!("property '{}' is missing", self.$member.0))?;
 
-                        Ok(( $( $member ),+ ))
-                    })
+                        let $member = self
+                            .$member
+                            .1
+                            .parse($member.clone())
+                            .map_err(|err| format!("type mismatch in struct member '{}': {err}", self.$member.0))?;
+                    )+
+
+                    Ok(( $( $member ),+ ))
                 }
             }
         )+

@@ -48,6 +48,7 @@ pub enum Rule {
 pub struct SimpleRule {
     pub matches: Regex,
     pub inside: Option<HashSet<NestingOpeningType>>,
+    pub preceded_by: Option<Regex>,
     pub followed_by: Option<HashSet<NestingOpeningType>>,
     pub style: Vec<Style>,
 }
@@ -208,16 +209,9 @@ fn find_matching_rule<'h, 'str>(
 }
 
 fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<HighlightPiece>) {
-    let SimpleRule {
-        matches: _,
-        inside: _,
-        followed_by: _,
-        style,
-    } = matched.rule;
-
     covering.mark_as_covered(matched.start, matched.end - matched.start);
 
-    for (i, style) in style.iter().enumerate() {
+    for (i, style) in matched.rule.style.iter().enumerate() {
         let Some(captured) = matched.get(i + 1) else {
             continue;
         };
@@ -290,9 +284,15 @@ impl<'h, 'str> Match<'h, 'str> {
                 return None;
             }
 
-            if let Some(must_be_followed_by) = &rule.followed_by {
+            if let Some(preceded_by) = &rule.preceded_by {
+                if !preceded_by.is_match(&input[..range.from + capture_shift]) {
+                    return None;
+                }
+            }
+
+            if let Some(followed_by) = &rule.followed_by {
                 if cap.end < input.len()
-                    || !matches!(next_nesting, Some(next_nesting) if must_be_followed_by.contains(&next_nesting))
+                    || !matches!(next_nesting, Some(next_nesting) if followed_by.contains(&next_nesting))
                 {
                     capture_shift = cap.end - range.from + 1;
 
@@ -364,8 +364,17 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
             matches,
             inside: _,
             followed_by: _,
+            preceded_by,
             style,
         } = rule;
+
+        if let Some(preceded_by) = &preceded_by {
+            if !preceded_by.to_string().ends_with('$') {
+                return Err(format!(
+                    "Precedence regex '{preceded_by}' should end with a '$'"
+                ));
+            }
+        }
 
         match matches.static_captures_len() {
             None => Err(format!(

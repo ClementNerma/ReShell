@@ -24,12 +24,12 @@ impl<T> GcCell<T> {
         }
     }
 
-    pub fn with_ref<U>(&self, map: impl FnOnce(Ref<T>) -> U) -> U {
-        map(self.value.borrow())
-    }
-
     pub fn read(&self, at: impl Into<RuntimeCodeRange>) -> GcRef<T> {
         GcRef::new(self.value.borrow(), Rc::clone(&self.read_lock), at.into())
+    }
+
+    pub fn read_promise_no_write(&self) -> Ref<T> {
+        self.value.borrow()
     }
 
     pub fn write(&self, at: impl Into<RuntimeCodeRange>, ctx: &Context) -> ExecResult<RefMut<T>> {

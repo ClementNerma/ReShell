@@ -24,7 +24,7 @@ impl RlHighlighter for Highlighter {
 static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     /// Create a simple rule's inner content
     fn simple_rule<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>) -> SimpleRule {
-        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, followed_by: None, style: colors.as_ref().iter().copied().map(S::into).collect() }
+        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, preceded_by: None, followed_by: None, style: colors.as_ref().iter().copied().map(S::into).collect() }
     }
 
     /// Create a simple rule
@@ -36,6 +36,13 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     fn simple_followed_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.followed_by = Some(followed_by.into());
+        Rule::Simple(rule)
+    }
+
+    /// Create a simple rule that must be preceded by a given pattern
+    fn simple_preceded_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, preceded_by: &'static str) -> Rule {
+        let mut rule = simple_rule(regex, colors);
+        rule.preceded_by = Some(Regex::new(preceded_by).unwrap());
         Rule::Simple(rule)
     }
 
@@ -87,11 +94,13 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
             ]),
             ("commands", vec![
                 // Pipes
-                simple("(\\->|\\!?\\|)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [LightYellow, Blue]),
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
+                // @direct marker
+                simple("(@direct)\\b", [Magenta]),
+
                 // Command names
-                simple("(?:^|[\\|\\n])\\s*([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
+                simple_preceded_by("([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue], "(^\\s*|[\\|\\n;]\\s*|@direct\\s+)$"),
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),
