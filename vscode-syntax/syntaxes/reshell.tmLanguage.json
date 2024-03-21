@@ -46,7 +46,7 @@
 					"name": "keyword"
 				},
 				{
-					"match": "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b",
+					"match": "\\b(any|bool|int|float|string|list|map|error|struct|fn|cmdcall)\\b",
 					"name": "storage.type"
 				},
 				{
