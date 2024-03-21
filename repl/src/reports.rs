@@ -10,7 +10,7 @@ use reshell_runtime::{
 use crate::repl::ReplError;
 
 pub struct ReplReport {
-    pub inner: Report<(String, Range<usize>)>,
+    pub inner: Report<'static, (String, Range<usize>)>,
     pub file: SourceFile,
     pub display_file: String,
     pub msg: String,

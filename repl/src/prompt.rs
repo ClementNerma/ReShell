@@ -37,7 +37,7 @@ impl RlPrompt for Prompt {
     }
 
     fn render_prompt_indicator(&self, prompt_mode: PromptEditMode) -> Cow<str> {
-        assert!(matches!(prompt_mode, PromptEditMode::Emacs));
+        assert!(matches!(prompt_mode, PromptEditMode::Custom(_)));
 
         if let Some(str) = &self.rendering.prompt_indicator {
             return str.clone().into();
