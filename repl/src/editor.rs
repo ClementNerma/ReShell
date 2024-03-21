@@ -15,16 +15,44 @@ pub struct EditMode {
     default: Emacs,
 }
 
+impl EditMode {
+    fn insert_matching(
+        &self,
+        opener: char,
+        closer: char,
+        line: &str,
+        offset: usize,
+    ) -> Vec<EditCommand> {
+        let right_char = line[offset..].chars().nth(0);
+
+        if right_char == Some(opener) || (opener == closer && right_char == Some(closer)) {
+            vec![EditCommand::MoveRight]
+        } else {
+            vec![
+                EditCommand::InsertChar(opener),
+                EditCommand::InsertChar(closer),
+                EditCommand::MoveLeft,
+            ]
+        }
+    }
+}
+
 impl RlEditMode for EditMode {
-    fn parse_event(&mut self, event: Event) -> ReedlineEvent {
+    fn parse_event(&mut self, event: Event, line: &str, offset: usize) -> ReedlineEvent {
         match event {
-            Event::Mouse(_) => self.default.parse_event(event),
-            Event::Resize(_, _) => self.default.parse_event(event),
+            Event::Mouse(_) => self.default.parse_event(event, line, offset),
+            Event::Resize(_, _) => self.default.parse_event(event, line, offset),
             Event::Key(key) => match (key.code, key.modifiers) {
-                (KeyCode::Left, KeyModifiers::NONE) => ReedlineEvent::Left,
-                (KeyCode::Right, KeyModifiers::NONE) => ReedlineEvent::Right,
                 (KeyCode::Up, KeyModifiers::NONE) => ReedlineEvent::Up,
                 (KeyCode::Down, KeyModifiers::NONE) => ReedlineEvent::Down,
+                (KeyCode::Left, KeyModifiers::NONE) => ReedlineEvent::Left,
+                (KeyCode::Right, KeyModifiers::NONE) => {
+                    if offset < line.len() {
+                        ReedlineEvent::Right
+                    } else {
+                        ReedlineEvent::HistoryHintComplete
+                    }
+                }
 
                 (KeyCode::Left, KeyModifiers::CONTROL) => {
                     ReedlineEvent::Edit(vec![EditCommand::MoveWordLeft])
@@ -85,25 +113,21 @@ impl RlEditMode for EditMode {
                     ('z', KeyModifiers::CONTROL) => ReedlineEvent::Edit(vec![EditCommand::Undo]),
                     ('y', KeyModifiers::CONTROL) => ReedlineEvent::Edit(vec![EditCommand::Redo]),
 
-                    ('"', KeyModifiers::NONE) => ReedlineEvent::Edit(vec![
-                        EditCommand::InsertString("\"\"".to_string()),
-                        EditCommand::MoveLeft,
-                    ]),
+                    ('"', KeyModifiers::NONE) => {
+                        ReedlineEvent::Edit(self.insert_matching('"', '"', line, offset))
+                    }
 
-                    ('(', KeyModifiers::NONE) => ReedlineEvent::Edit(vec![
-                        EditCommand::InsertString("()".to_string()),
-                        EditCommand::MoveLeft,
-                    ]),
+                    ('(', KeyModifiers::NONE) => {
+                        ReedlineEvent::Edit(self.insert_matching('(', ')', line, offset))
+                    }
 
-                    ('[', KeyModifiers::NONE) => ReedlineEvent::Edit(vec![
-                        EditCommand::InsertString("[]".to_string()),
-                        EditCommand::MoveLeft,
-                    ]),
+                    ('[', KeyModifiers::NONE) => {
+                        ReedlineEvent::Edit(self.insert_matching('[', ']', line, offset))
+                    }
 
-                    ('{', KeyModifiers::NONE) => ReedlineEvent::Edit(vec![
-                        EditCommand::InsertString("{}".to_string()),
-                        EditCommand::MoveLeft,
-                    ]),
+                    ('{', KeyModifiers::NONE) => {
+                        ReedlineEvent::Edit(self.insert_matching('{', '}', line, offset))
+                    }
 
                     (_, KeyModifiers::NONE) => {
                         ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)])
