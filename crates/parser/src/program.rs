@@ -1231,11 +1231,7 @@ pub fn program(
             .padded()
             .spanned()
             .repeated_vec()
-            .spanned()
-            .map(|spanned| Block {
-                instructions: spanned.data,
-                code_range: spanned.at,
-            })
+            .map(|instructions| Block { instructions })
     });
 
     outer.finish(

@@ -12,9 +12,6 @@ pub struct Program {
 #[derive(Debug, Clone)]
 pub struct Block {
     pub instructions: Vec<Eaten<Instruction>>,
-
-    /// Code range covered by this block
-    pub code_range: CodeRange,
 }
 
 #[derive(Debug, Clone)]
