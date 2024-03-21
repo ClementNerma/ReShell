@@ -3,13 +3,15 @@ use terminal_size::{terminal_size, Width};
 
 use crate::{
     builtins::{
-        helper::{Arg, OptionalArg, RequiredArg},
+        helper::{Arg, ArgTyping, ArgTypingDirectCreation, OptionalArg, RequiredArg},
         type_handlers::{
-            AnyType, ExactIntType, FloatType, IntType, StringType, Union3Result, Union3Type,
+            AnyType, DetachedListType, ExactIntType, FloatType, IntType, MapType, StringType,
+            Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type, UntypedStructType,
         },
     },
     define_internal_fn,
     display::dbg_loc,
+    gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::RuntimeValue,
 };
@@ -20,9 +22,36 @@ pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
         functions: vec![
             (
+                "map",
+                define_internal_fn!(
+                    Args [ArgsAt] (
+                        entries: OptionalArg<Union2Type<
+                            UntypedStructType,
+                            DetachedListType<Tuple2Type<StringType, AnyType>>
+                        >> =>
+                            Arg::positional("entries")
+                    ) ->
+                        Some(MapType::new_direct().underlying_type()),
+
+                    |_, Args { entries }, _, _| {
+                        let map = match entries {
+                            None => HashMap::new(),
+                            Some(entries) => match entries {
+                                Union2Result::A(obj) => obj.read().clone(),
+                                Union2Result::B(tuples) => tuples.into_iter().collect()
+                            }
+                        };
+
+                        Ok(Some(RuntimeValue::Map(GcCell::new(map))))
+                    }
+                ),
+            ),
+            (
                 "exit",
                 define_internal_fn!(
-                    Args [ArgsAt] ( code: OptionalArg<IntType> => Arg::positional("code") ),
+                    Args [ArgsAt] (
+                        code: OptionalArg<IntType> => Arg::positional("code")
+                    ) -> None,
 
                     |at, Args { code }, ArgsAt { code: code_at }, ctx| {
                         let code = code
@@ -39,7 +68,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
             (
                 "echo",
                 define_internal_fn!(
-                    Args [ArgsAt] ( message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message") ),
+                    Args [ArgsAt] (
+                        message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
+                    ) -> None,
 
                     |_, Args { message }, _, _| {
                         println!("{}", match message {
@@ -59,7 +90,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         value: RequiredArg<AnyType> => Arg::positional("value"),
                         tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
                         max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
-                    ),
+                    ) -> None,
 
                     |at, Args { value, tab_size, max_line_size }, _, ctx| {
                         let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));

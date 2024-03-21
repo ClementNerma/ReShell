@@ -55,7 +55,7 @@ pub fn render_prompt(
                         ("duration_ms", ExactIntType::<i64>::new_direct()),
                     ),
                 ))
-                .arg_type(),
+                .underlying_type(),
             )),
         }]),
         ret_type: Some(forge_internal_token(Box::new(
@@ -77,7 +77,7 @@ pub fn render_prompt(
                     Union2Type::<StringType, NullType>::new_direct(),
                 ),
             )
-            .arg_type(),
+            .underlying_type(),
         ))),
     };
 

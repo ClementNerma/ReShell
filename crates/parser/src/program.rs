@@ -228,7 +228,8 @@ pub fn program() -> impl Parser<Program> {
                     .spanned()
                     .map(FnCallArg::Expr)
                     .spanned()
-                    .separated_by(char(',').padded())
+                    .padded()
+                    .separated_by(char(','))
                     .spanned(),
             )
             .then_ignore(char(')').critical("expected an expression"))
