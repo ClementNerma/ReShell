@@ -1,4 +1,4 @@
-use crate::logic::nesting::{handle_nesting, NestingCharAction};
+use crate::logic::nesting::{handle_nesting, NestingActionType};
 use reedline::{ValidationResult, Validator as RlValidator};
 
 pub fn create_validator() -> Box<dyn RlValidator> {
@@ -11,7 +11,7 @@ impl RlValidator for Validator {
     fn validate(&self, line: &str) -> ValidationResult {
         if handle_nesting(line)
             .iter()
-            .any(|(_, _, action)| *action == NestingCharAction::Unclosed)
+            .any(|action| matches!(action.action_type, NestingActionType::Unclosed))
         {
             ValidationResult::Incomplete
         } else {
