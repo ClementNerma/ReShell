@@ -935,7 +935,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
             check_computed_string(computed_string, state)
         }
 
-        CmdValueMakingArg::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
+        CmdValueMakingArg::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
 
         CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
 
