@@ -16,5 +16,5 @@ pub static INIT_SCRIPT_PATH: LazyCell<Option<PathBuf>> =
 pub static HISTORY_PATH: LazyCell<Option<PathBuf>> = LazyCell::new(|| {
     SHELL_LOCAL_DATA_DIR
         .as_ref()
-        .map(|dir| dir.join("history.db"))
+        .map(|dir| dir.join("history.txt"))
 });

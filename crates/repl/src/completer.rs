@@ -8,7 +8,9 @@ use std::{
 };
 
 use glob::{glob_with, MatchOptions};
-use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
+use reedline::{
+    ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
+};
 use regex::{Captures, Regex};
 use reshell_parser::DELIMITER_CHARS;
 use reshell_runtime::{
@@ -154,6 +156,7 @@ fn build_fn_completions<'a>(
                             .inner()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
                     ),
+                    style: None,
                     extra: None,
                     span,
                     append_whitespace,
@@ -191,6 +194,7 @@ fn build_method_completions<'a>(
                             .inner()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
                     ),
+                    style: None,
                     extra: None,
                     span,
                     append_whitespace,
@@ -292,6 +296,7 @@ fn build_cmd_completions(
                 Suggestion {
                     value: escape_raw(item_name).into_owned(),
                     description: None,
+                    style: None,
                     extra: None,
                     span,
                     append_whitespace,
@@ -330,6 +335,7 @@ fn complete_var_name(
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
                     ),
+                    style: None,
                     extra: None,
                     span,
                     append_whitespace: false,
@@ -484,6 +490,7 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
             Suggestion {
                 value,
                 description: None,
+                style: None,
                 extra: None,
                 span,
                 append_whitespace: !file_type.is_dir(),
