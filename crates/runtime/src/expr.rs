@@ -9,7 +9,7 @@ use reshell_parser::ast::{
 
 use crate::{
     cmd::run_cmd,
-    context::Context,
+    context::{Context, ScopeContent, ScopeVar},
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     functions::{call_fn, FnCallResult},
@@ -297,6 +297,37 @@ fn eval_expr_inner_content(
 
             eval_expr(&els.data, ctx)
         }
+
+        ExprInnerContent::Try {
+            fn_call,
+            catch_var,
+            catch_expr,
+        } => match call_fn(fn_call, ctx)? {
+            FnCallResult::Success { returned } => returned
+                .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
+                .map(|loc_val| loc_val.value),
+
+            FnCallResult::Thrown(thrown) => {
+                let mut scope = ScopeContent::new();
+
+                scope.vars.insert(
+                    catch_var.data.clone(),
+                    ScopeVar {
+                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                        is_mut: false,
+                        value: GcCell::new(Some(thrown)),
+                    },
+                );
+
+                ctx.create_and_push_scope(RuntimeCodeRange::CodeRange(catch_expr.at), scope);
+
+                let result = eval_expr(&catch_expr.data, ctx)?;
+
+                ctx.pop_scope();
+
+                Ok(result)
+            }
+        },
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
     }
