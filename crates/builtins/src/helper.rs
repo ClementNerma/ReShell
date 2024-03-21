@@ -247,6 +247,7 @@ macro_rules! define_internal_fn {
             functions::ParsedFnCallArg
         };
 
+        #[allow(unused_imports)]
         use $crate::helper::{ArgHandler, InternalFunction, generate_internal_arg_decl};
 
         struct $args_struct_name {
@@ -260,13 +261,14 @@ macro_rules! define_internal_fn {
             ),*
         }
 
-        fn parse_args(call_at: RuntimeCodeRange, mut args: HashMap<String, ParsedFnCallArg>)
+        fn parse_args(call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ParsedFnCallArg>)
             -> Result<($args_struct_name, $args_loc_struct_name), (RuntimeCodeRange, String)>
         {
             struct PlaceholderArgsAt {
                 $( $arg_name: Option<RuntimeCodeRange> ),*
             }
 
+            #[allow(unused_mut, unused_variables)]
             let mut placeholder_args_at = PlaceholderArgsAt {
                 $( $arg_name: None ),*
             };
