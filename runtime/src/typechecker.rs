@@ -8,12 +8,10 @@ pub fn check_if_type_fits(
     ctx: &Context,
 ) -> ExecResult<bool> {
     match value_type {
-        ValueType::Single(single_type) => {
-            check_if_single_type_fits(&single_type.inner(), into, ctx)
-        }
+        ValueType::Single(single_type) => check_if_single_type_fits(&single_type.data(), into, ctx),
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits(&typ.inner(), into, ctx)? == true {
+                if check_if_single_type_fits(&typ.data(), into, ctx)? == true {
                     return Ok(true);
                 }
             }
@@ -30,12 +28,12 @@ pub fn check_if_single_type_fits(
 ) -> ExecResult<bool> {
     match into {
         ValueType::Single(single) => {
-            check_if_single_type_fits_single(value_type, &single.inner(), ctx)
+            check_if_single_type_fits_single(value_type, &single.data(), ctx)
         }
 
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits_single(value_type, &typ.inner(), ctx)? == true {
+                if check_if_single_type_fits_single(value_type, &typ.data(), ctx)? == true {
                     return Ok(true);
                 }
             }
@@ -106,15 +104,15 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
             // TODO: make comparison stricter (no excess properties?)
             for member in b {
-                let StructTypeMember { name, typ } = &member.inner();
+                let StructTypeMember { name, typ } = &member.data();
 
                 match a
                     .iter()
-                    .find(|member| member.inner().name.inner() == name.inner())
+                    .find(|member| member.data().name.data() == name.data())
                 {
                     None => return Ok(false),
                     Some(member) => {
-                        if !check_if_type_fits(&member.inner().typ.inner(), &typ.inner(), ctx)? {
+                        if !check_if_type_fits(&member.data().typ.data(), &typ.data(), ctx)? {
                             return Ok(false);
                         }
                     }

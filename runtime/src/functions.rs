@@ -366,7 +366,7 @@ fn fn_arg_var_name(arg: &FnArg) -> String {
 
 fn is_type_bool(typ: &ValueType) -> bool {
     match typ {
-        ValueType::Single(maybe_eaten) => matches!(maybe_eaten.inner(), SingleValueType::Bool),
+        ValueType::Single(maybe_eaten) => matches!(maybe_eaten.data(), SingleValueType::Bool),
         ValueType::Union(_) => false,
     }
 }
