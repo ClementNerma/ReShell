@@ -28,7 +28,7 @@ use reshell_parser::{
         PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
         SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
     },
-    scope::ScopeId,
+    scope::AstScopeId,
 };
 
 use self::state::UsedItem;
@@ -137,10 +137,12 @@ fn block_first_pass(
                     ));
                 }
 
+                let curr_scope_id = state.curr_scope().id;
+
                 state.curr_scope_mut().fns.insert(
                     name.data.clone(),
                     DeclaredFn {
-                        scope_id: state.curr_scope().id,
+                        scope_id: curr_scope_id,
                         is_method: content.signature.data.is_method(),
                     },
                 );
@@ -165,10 +167,12 @@ fn block_first_pass(
                     ));
                 }
 
+                let curr_scope_id = state.curr_scope().id;
+
                 state.curr_scope_mut().cmd_aliases.insert(
                     name.data.clone(),
                     DeclaredCmdAlias {
-                        scope_id: state.curr_scope().id,
+                        scope_id: curr_scope_id,
                         content_at: content.at,
                         is_ready: false,
                     },
@@ -207,10 +211,12 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
             check_expr(&init_expr.data, state)?;
 
+            let curr_scope_id = state.curr_scope().id;
+
             state.curr_scope_mut().vars.insert(
                 name.data.clone(),
                 DeclaredVar {
-                    scope_id: state.curr_scope().id,
+                    scope_id: curr_scope_id,
                     is_mut: mutable.is_some(),
                 },
             );
@@ -405,7 +411,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         } => {
             // NOTE: command alias was already registered during init.
 
-            state.prepare_deps(content.at);
+            state.prepare_deps(*content_scope_id);
 
             state.push_scope(CheckerScope {
                 id: *content_scope_id,
@@ -454,7 +460,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
 fn check_expr_with(
     expr: &Eaten<impl AsRef<Expr>>,
-    scope_id: ScopeId,
+    scope_id: AstScopeId,
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
@@ -908,7 +914,7 @@ fn find_if_cmd_or_fn(
         Some(target) => match target {
             Target::CmdAlias(cmd_alias) => {
                 let DeclaredCmdAlias {
-                    scope_id,
+                    scope_id: _,
                     content_at,
                     is_ready,
                 } = cmd_alias;
@@ -921,7 +927,8 @@ fn find_if_cmd_or_fn(
                 }
 
                 developed_aliases.push(DevelopedCmdAliasCall {
-                    called_alias_name: name.clone(),
+                    alias_called_at: name.clone(),
+                    alias_content_at: content_at,
                 });
 
                 state.register_usage(name, DependencyType::CmdAlias)?;
@@ -1023,19 +1030,13 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         RuntimeEaten::Internal(_) => unreachable!(),
     };
 
-    let fn_body_scope_id = match &body.data {
-        FunctionBody::Expr {
-            content: _,
-            scope_id,
-        } => *scope_id,
-        FunctionBody::Block(block) => block.data.scope_id,
-    };
+    let fn_body_scope_id = body.data.ast_scope_id();
 
     let mut vars = HashMap::with_capacity(checked_args.len());
 
     for checked_arg in checked_args {
         let CheckedFnArg {
-            name_at,
+            name_at: _,
             var_name,
             is_rest: _,
         } = checked_arg;
@@ -1051,7 +1052,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         assert!(dup.is_none());
     }
 
-    state.prepare_deps(body.at);
+    state.prepare_deps(fn_body_scope_id);
 
     let fill_scope = |scope: &mut CheckerScope| {
         scope.special_scope_type = Some(SpecialScopeType::Function { args_at: args.at });

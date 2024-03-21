@@ -62,7 +62,7 @@ fn run_block(
     content: Option<ScopeContent>,
 ) -> ExecResult<Option<InstrRet>> {
     ctx.create_and_push_scope(
-        RuntimeCodeRange::Parsed(block.at),
+        block.data.scope_id,
         content.unwrap_or_else(ScopeContent::new),
     );
 
@@ -74,7 +74,10 @@ fn run_block(
 }
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
-    let Block { instructions } = block;
+    let Block {
+        scope_id: _,
+        instructions,
+    } = block;
 
     // First pass: collect functions declaration
     for instr in instructions {
@@ -127,8 +130,10 @@ pub(crate) fn run_body_with_deps(
     parent_scopes: IndexSet<u64>,
     call_stack_entry: Option<CallStackEntry>,
 ) -> ExecResult<Option<InstrRet>> {
+    let body_scope_id = body.data.ast_scope_id();
+
     ctx.create_and_push_scope_with_deps(
-        RuntimeCodeRange::Parsed(body.at),
+        body_scope_id,
         DepsScopeCreationData::CapturedDeps(captured_deps),
         scope_content,
         parent_scopes,
@@ -137,7 +142,10 @@ pub(crate) fn run_body_with_deps(
 
     let result = match &body.data {
         FunctionBody::Block(block) => run_block_in_current_scope(&block.data, ctx),
-        FunctionBody::Expr(expr) => eval_expr(&expr.data, ctx).map(|value| {
+        FunctionBody::Expr {
+            content,
+            scope_id: _,
+        } => eval_expr(&content.data, ctx).map(|value| {
             Some(InstrRet::FnReturn(Some(LocatedValue::new(
                 value,
                 RuntimeCodeRange::Parsed(body.at),
@@ -485,7 +493,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::FnDecl { name, content } => {
-            let captured_deps = ctx.capture_deps(content.body.at);
+            let captured_deps = ctx.capture_deps(content.body.at, content.body.data.ast_scope_id());
 
             ctx.current_scope_content_mut()
                 .fns
@@ -563,7 +571,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         }
 
-        Instruction::CmdAliasDecl { name, content } => {
+        Instruction::CmdAliasDecl {
+            name,
+            content,
+            content_scope_id,
+        } => {
             // We can do this thanks to the checker
             assert!(!ctx
                 .current_scope_content_mut()
@@ -572,7 +584,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let parent_scopes = ctx.generate_parent_scopes_list();
 
-            let captured_deps = ctx.capture_deps(content.at);
+            let captured_deps = ctx.capture_deps(content.at, *content_scope_id);
 
             let alias_content = ctx
                 .get_cmd_alias_content(content)
@@ -586,7 +598,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     name_at: name.at,
                     value: GcReadOnlyCell::new(RuntimeCmdAlias {
                         name_declared_at: name.at,
-                        alias_content,
+                        content: alias_content,
+                        content_scope_id: *content_scope_id,
                         parent_scopes,
                         captured_deps,
                     }),

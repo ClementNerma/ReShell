@@ -405,6 +405,7 @@ fn eval_expr_inner_content(
             fn_call,
             catch_var,
             catch_expr,
+            catch_expr_scope_id,
         } => match eval_fn_call(fn_call, ctx) {
             Ok(returned) => returned
                 .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
@@ -426,7 +427,7 @@ fn eval_expr_inner_content(
                         },
                     );
 
-                    ctx.create_and_push_scope(RuntimeCodeRange::Parsed(catch_expr.at), scope);
+                    ctx.create_and_push_scope(*catch_expr_scope_id, scope);
 
                     let result = eval_expr(&catch_expr.data, ctx);
 
@@ -513,7 +514,9 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 ),
 
                 parent_scopes: ctx.generate_parent_scopes_list(),
-                captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at)),
+                captured_deps: GcOnceCell::new_init(
+                    ctx.capture_deps(body.at, body.data.ast_scope_id()),
+                ),
             }),
         )),
     }

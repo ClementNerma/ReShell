@@ -21,7 +21,7 @@ define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { command, direct }, _, ctx| {
         if !direct {
-            for scope in ctx.visible_scopes() {
+            for scope in ctx.visible_scopes_content() {
                 let ScopeContent {
                     vars: _,
                     fns,

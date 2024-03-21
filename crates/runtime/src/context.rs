@@ -15,6 +15,7 @@ use reshell_parser::{
         ValueType,
     },
     files::FilesMap,
+    scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
 
 use crate::{
@@ -88,26 +89,15 @@ impl Context {
         bin_resolver: BinariesResolver,
         native_lib_content: ScopeContent,
     ) -> Self {
-        let scopes_to_add = [
-            Scope {
-                id: NATIVE_LIB_SCOPE_ID,
-                call_stack: CallStack::empty(),
-                content: native_lib_content,
-                parent_scopes: IndexSet::new(),
-                range: RuntimeCodeRange::Internal,
-                previous_scope: None,
-                deps_scope: None,
-            },
-            Scope {
-                id: FIRST_SCOPE_ID,
-                call_stack: CallStack::empty(),
-                content: ScopeContent::new(),
-                parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
-                range: RuntimeCodeRange::Internal,
-                previous_scope: None,
-                deps_scope: None,
-            },
-        ];
+        let scopes_to_add = [Scope {
+            id: NATIVE_LIB_SCOPE_ID,
+            ast_scope_id: NATIVE_LIB_AST_SCOPE_ID,
+            call_stack: CallStack::empty(),
+            content: native_lib_content,
+            parent_scopes: IndexSet::new(),
+            previous_scope: None,
+            deps_scope: None,
+        }];
 
         let mut scopes = HashMap::new();
 
@@ -116,11 +106,11 @@ impl Context {
         }
 
         Self {
-            scopes_id_counter: FIRST_SCOPE_ID,
+            scopes_id_counter: NATIVE_LIB_SCOPE_ID,
             scopes,
             bin_resolver,
             deps_scopes: HashMap::new(),
-            current_scope: FIRST_SCOPE_ID,
+            current_scope: NATIVE_LIB_SCOPE_ID,
             program_main_scope: None,
             collected: CheckerOutput::empty(),
             wandering_value: None,
@@ -178,7 +168,7 @@ impl Context {
 
     /// Get the  list of all scopes visible by the current one
     /// Iterating in visibility order
-    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
+    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
         let current_scope = self.current_scope();
 
         current_scope
@@ -189,6 +179,14 @@ impl Context {
             .filter_map(|scope_id| self.scopes.get(scope_id))
             // Add the current scope
             .chain([current_scope])
+            // Latest scopes in history are the first one to see
+            .rev()
+    }
+
+    /// Get the  list of all scopes' content visible by the current one
+    /// Iterating in visibility order
+    pub fn visible_scopes_content(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
+        self.visible_scopes()
             // Inject scope dependencies
             .flat_map(|scope| {
                 [
@@ -201,8 +199,6 @@ impl Context {
                 ]
             })
             .flatten()
-            // Latest scopes in history are the first one to see
-            .rev()
     }
 
     /// Generate checker scopes from current runtime scope hierarchy
@@ -212,7 +208,11 @@ impl Context {
             .map(|scope_id| {
                 let scope = self.scopes.get(scope_id).unwrap();
 
-                let Scope { range, content, .. } = &scope;
+                let Scope {
+                    content,
+                    ast_scope_id,
+                    ..
+                } = &scope;
 
                 let ScopeContent {
                     vars,
@@ -221,7 +221,7 @@ impl Context {
                 } = &content;
 
                 CheckerScope {
-                    code_range: *range,
+                    id: *ast_scope_id,
 
                     special_scope_type: None,
 
@@ -230,33 +230,31 @@ impl Context {
                         .map(|(key, value)| {
                             (
                                 key.clone(),
-                                DeclaredCmdAlias::ready(
-                                    value.name_at,
-                                    value.value.alias_content.at,
-                                ),
+                                DeclaredCmdAlias {
+                                    scope_id: *ast_scope_id,
+                                    content_at: value.value.content.at,
+                                    is_ready: true,
+                                },
                             )
                         })
                         .collect(),
 
-                    type_aliases: match range {
-                        RuntimeCodeRange::Internal => Default::default(),
-                        RuntimeCodeRange::Parsed(range) => self
-                            .collected
-                            .type_aliases_decl_by_scope
-                            .get(range)
-                            .cloned()
-                            .unwrap_or_default(),
-                    },
+                    type_aliases: self
+                        .collected
+                        .type_aliases_decl_by_scope
+                        .get(ast_scope_id)
+                        .cloned()
+                        .unwrap_or_default(),
 
                     fns: fns
                         .iter()
                         .map(|(name, scope_fn)| {
                             (
                                 name.clone(),
-                                DeclaredFn::new(
-                                    scope_fn.name_at,
-                                    scope_fn.value.signature.inner().is_method(),
-                                ),
+                                DeclaredFn {
+                                    scope_id: *ast_scope_id,
+                                    is_method: scope_fn.value.signature.inner().is_method(),
+                                },
                             )
                         })
                         .collect(),
@@ -267,8 +265,8 @@ impl Context {
                             (
                                 name.clone(),
                                 DeclaredVar {
+                                    scope_id: *ast_scope_id,
                                     is_mut: decl.is_mut,
-                                    name_at: decl.name_at,
                                 },
                             )
                         })
@@ -292,7 +290,7 @@ impl Context {
     ) {
         // Create a new scope for this program
         let scope_id =
-            self.create_and_push_scope(RuntimeCodeRange::Parsed(program.at), ScopeContent::new());
+            self.create_and_push_scope(program.data.content.data.scope_id, ScopeContent::new());
 
         // Reset scope
         self.current_scope = scope_id;
@@ -365,12 +363,16 @@ impl Context {
     }
 
     /// Create and push a new scope above the current one
-    pub fn create_and_push_scope(&mut self, range: RuntimeCodeRange, content: ScopeContent) -> u64 {
+    pub fn create_and_push_scope(
+        &mut self,
+        ast_scope_id: AstScopeId,
+        content: ScopeContent,
+    ) -> u64 {
         let id = self.generate_scope_id();
 
         let scope = Scope {
             id,
-            range,
+            ast_scope_id,
             parent_scopes: self.generate_parent_scopes_list(),
             content,
             call_stack: self.current_scope().call_stack.clone(),
@@ -386,7 +388,7 @@ impl Context {
     /// Create and push a new scope with dependencies above the current one
     pub fn create_and_push_scope_with_deps(
         &mut self,
-        range: RuntimeCodeRange,
+        ast_scope_id: AstScopeId,
         creation_data: DepsScopeCreationData,
         content: Option<ScopeContent>,
         parent_scopes: IndexSet<u64>,
@@ -436,7 +438,7 @@ impl Context {
         // Create the new scope
         let scope = Scope {
             id: self.generate_scope_id(),
-            range,
+            ast_scope_id,
             parent_scopes,
             content: content.unwrap_or_else(ScopeContent::new),
             call_stack,
@@ -504,7 +506,7 @@ impl Context {
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
     pub fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
-        self.visible_scopes()
+        self.visible_scopes_content()
             .find_map(|scope| scope.fns.get(&name.data))
     }
 
@@ -526,7 +528,7 @@ impl Context {
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
     pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> &'c ScopeVar {
-        self.visible_scopes()
+        self.visible_scopes_content()
             .find_map(|scope| scope.vars.get(&name.data))
             .unwrap_or_else(|| self.panic(name.at, "variable was not found (= bug in checker)"))
     }
@@ -567,11 +569,11 @@ impl Context {
         &self,
         from: &DevelopedCmdAliasCall,
     ) -> Rc<Eaten<SingleCmdCall>> {
-        match self.collected.cmd_aliases.get(&from.content_at) {
+        match self.collected.cmd_aliases.get(&from.alias_content_at) {
             Some(developed) => Rc::clone(developed),
 
             None => self.panic(
-                from.content_at,
+                from.alias_content_at,
                 "command alias is missing (= bug in checker)",
             ),
         }
@@ -627,38 +629,53 @@ impl Context {
     /// is dropped.
     ///
     /// References work through [`GcCell`] values which allow to share access to multiple items at the same time
-    pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
+    pub(crate) fn capture_deps(
+        &self,
+        body_content_at: CodeRange,
+        body_ast_scope_id: AstScopeId,
+    ) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies::default();
 
-        let deps_list = self.collected.deps.get(&body_content_at).unwrap_or_else(||
+        let deps_list = self.collected.deps.get(&body_ast_scope_id).unwrap_or_else(||
             self.panic(body_content_at, "dependencies informations not found while constructing value (this is a bug in the checker)")
         );
 
         for dep in deps_list {
             let Dependency {
                 name,
-                declared_name_at: declared_at,
+                declared_in,
                 dep_type,
             } = dep;
 
+            let Some(decl_scope) = self
+                .visible_scopes()
+                .find(|scope| scope.ast_scope_id == *declared_in)
+                .map(|scope| &scope.content)
+            else {
+                self.panic(
+                    body_content_at,
+                    format!(
+                        "cannot find {} '{name}' to capture (= bug in checker) (ocurred at {})",
+                        match dep_type {
+                            DependencyType::Variable => "variable",
+                            DependencyType::Function => "function",
+                            DependencyType::CmdAlias => "command alias",
+                        },
+                        dbg_loc(body_content_at, &self.conf.files_map)
+                    ),
+                );
+            };
+
             match dep_type {
                 DependencyType::Variable => {
-                    let var = self
-                        .visible_scopes()
-                        .find_map(|scope| {
-                            scope
-                                .vars
-                                .get(name)
-                                .filter(|var| match var.name_at {
-                                    RuntimeCodeRange::Parsed(var_name_at) => var_name_at == *declared_at,
-                                    RuntimeCodeRange::Internal => false,
-                                })
-                        })
+                    let var = decl_scope
+                        .vars
+                        .get(name)
                         .unwrap_or_else(|| self.panic(
                             body_content_at,
                             format!(
-                                "cannot find variable to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(*declared_at, &self.conf.files_map)
+                                "cannot find variable '{name}' to capture (= bug in checker) '{name}' (declared at {})",
+                                dbg_loc(body_content_at, &self.conf.files_map)
                             )
                         ));
 
@@ -666,22 +683,14 @@ impl Context {
                 }
 
                 DependencyType::Function => {
-                    let func = self
-                        .visible_scopes()
-                        .find_map(|scope| {
-                            scope
-                                .fns
-                                .get(name)
-                                .filter(|func| match func.name_at {
-                                    RuntimeCodeRange::Parsed(func_name_at) => func_name_at == *declared_at,
-                                    RuntimeCodeRange::Internal => false,
-                                })
-                        })
+                    let func = decl_scope
+                        .fns
+                        .get(name)
                         .unwrap_or_else(|| self.panic(
                             body_content_at,
                             format!(
-                                "cannot find function to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(*declared_at, &self.conf.files_map)
+                                "cannot find function '{name}' to capture (= bug in checker) '{name}' (declared at {})",
+                                dbg_loc(body_content_at, &self.conf.files_map)
                             )
                         ));
 
@@ -689,19 +698,14 @@ impl Context {
                 }
 
                 DependencyType::CmdAlias => {
-                    let cmd_alias = self
-                        .visible_scopes()
-                        .find_map(|scope| {
-                            scope
-                                .cmd_aliases
-                                .get(name)
-                                .filter(|alias| alias.name_at == *declared_at)
-                        })
+                    let cmd_alias = decl_scope
+                        .cmd_aliases
+                        .get(name)
                         .unwrap_or_else(|| self.panic(
                             body_content_at,
                             format!(
-                                "cannot find command alias to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(*declared_at, &self.conf.files_map)
+                                "cannot find command alias '{name}' to capture (= bug in checker) '{name}' (declared at {})",
+                                dbg_loc(body_content_at, &self.conf.files_map)
                             )
                         ));
 
@@ -749,8 +753,8 @@ pub struct Scope {
     /// Unique ID of the scope (not two scopes must have the same ID)
     pub id: u64,
 
-    /// Range of the scope
-    pub range: RuntimeCodeRange,
+    /// AST scope ID
+    pub ast_scope_id: AstScopeId,
 
     /// Content of the scope
     pub content: ScopeContent,

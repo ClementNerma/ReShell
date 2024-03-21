@@ -249,9 +249,8 @@ pub fn check_fn_signature_equality(
                 if a_name.data() != b_name.data() {
                     return false;
                 }
-            }
-            //
-            // (FnArg::Rest { name: _ }, _) | (_, FnArg::Rest { name: _ }) => return false,
+            } //
+              // (FnArg::Rest { name: _ }, _) | (_, FnArg::Rest { name: _ }) => return false,
         }
     }
 

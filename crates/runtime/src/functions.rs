@@ -1,18 +1,14 @@
 use std::collections::HashMap;
 
-use parsy::{Eaten, CodeRange};
+use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    CmdFlagNameArg,  FnArg, FnCall, FnCallArg,
-    FnFlagArgNames, RuntimeCodeRange, FlagValueSeparator,
+    CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, RuntimeCodeRange,
 };
 
 use crate::{
-    cmd::{
-        eval_cmd_arg,  CmdArgResult, CmdSingleArgResult,
-        FlagArgValueResult,
-    },
+    cmd::{eval_cmd_arg, CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
-    errors::{ExecResult, ExecInfoType},
+    errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
@@ -25,7 +21,11 @@ pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Optio
     eval_fn_call_type(call, None, ctx)
 }
 
-pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: Option<FnCallType>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
+pub fn eval_fn_call_type(
+    call: &Eaten<FnCall>,
+    call_type: Option<FnCallType>,
+    ctx: &mut Context,
+) -> ExecResult<Option<LocatedValue>> {
     let func = if call.data.is_var_name {
         let var = ctx.get_visible_var(&call.data.name);
 
@@ -52,7 +52,10 @@ pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: Option<FnCallType>, ct
     call_fn_value(
         RuntimeCodeRange::Parsed(call.at),
         &func,
-        FnPossibleCallArgs::Parsed { call_type, args: &call.data.call_args },
+        FnPossibleCallArgs::Parsed {
+            call_type,
+            args: &call.data.call_args,
+        },
         ctx,
     )
 }
@@ -186,7 +189,9 @@ fn parse_fn_call_args(
 
     let mut value_on_hold = None::<CmdSingleArgResult>;
 
-    let has_rest_argument = fn_args.iter().any(|arg| matches!(arg, FnArg::Rest { name: _ }));
+    let has_rest_argument = fn_args
+        .iter()
+        .any(|arg| matches!(arg, FnArg::Rest { name: _ }));
 
     'iter: while let Some(arg_result) = value_on_hold.take().or_else(|| call_args.pop()) {
         if !rest_args.is_empty() {
@@ -199,13 +204,14 @@ fn parse_fn_call_args(
                 for arg in fn_args {
                     match arg {
                         FnArg::PresenceFlag { names } => {
-                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
+                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx)
+                            else {
                                 continue;
                             };
 
                             if let Some(FlagArgValueResult { value, value_sep }) = value {
                                 // Skip the flag if was associated the `false` value using the `=` sign
-                                
+
                                 let mut is_true_with_eq_sign = false;
 
                                 if value_sep == FlagValueSeparator::Equal {
@@ -242,7 +248,8 @@ fn parse_fn_call_args(
                             is_optional,
                             typ,
                         } => {
-                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
+                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx)
+                            else {
                                 continue;
                             };
 
@@ -265,12 +272,25 @@ fn parse_fn_call_args(
                                     }
                                 }
 
-                                Some(FlagArgValueResult { value, value_sep: _ }) => {
+                                Some(FlagArgValueResult {
+                                    value,
+                                    value_sep: _,
+                                }) => {
                                     if let Some(typ) = typ {
-                                        if !check_if_single_type_fits_type(&value.value.get_type(), typ.data(), ctx) {
-                                            return Err(ctx.error(value.from, 
-                                                format!("expected a value of type '{}' for flag '{}', found '{}'", typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
-                                            names.render_colored(ctx, PrettyPrintOptions::inline()), value.value.get_type().render_colored(ctx, PrettyPrintOptions::inline()))
+                                        if !check_if_single_type_fits_type(
+                                            &value.value.get_type(),
+                                            typ.data(),
+                                            ctx,
+                                        ) {
+                                            return Err(
+                                                ctx.error(
+                                                    value.from,
+                                                format!(
+                                                    "expected a value of type '{}' for flag '{}', found '{}'",
+                                                    typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
+                                                    names.render_colored(ctx, PrettyPrintOptions::inline()),
+                                                    value.value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
+                                                )
                                             ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
                                         }
                                     }
@@ -303,10 +323,15 @@ fn parse_fn_call_args(
                     continue;
                 }
 
-                return Err(
-                    ctx.error(name.at,"unknown flag provided")
-                        .with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline())))
-                );
+                return Err(ctx.error(name.at, "unknown flag provided").with_info(
+                    ExecInfoType::Tip,
+                    format!(
+                        "called function's signature is: {}",
+                        func.signature
+                            .inner()
+                            .render_colored(ctx, PrettyPrintOptions::inline())
+                    ),
+                ));
             }
 
             CmdSingleArgResult::Basic(loc_val) => {
@@ -316,8 +341,17 @@ fn parse_fn_call_args(
                         continue;
                     }
 
-                    return Err(ctx.error(loc_val.from, "too many arguments provided")
-                        .with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
+                    return Err(ctx
+                        .error(loc_val.from, "too many arguments provided")
+                        .with_info(
+                            ExecInfoType::Tip,
+                            format!(
+                                "called function's signature is: {}",
+                                func.signature
+                                    .inner()
+                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                            ),
+                        ));
                 };
 
                 if let Some(typ) = typ {
@@ -325,7 +359,7 @@ fn parse_fn_call_args(
                         let is_method_self_arg = name.data() == "self";
 
                         return Err(ctx.error(
-                        loc_val.from,
+                            loc_val.from,
                             format!(
                                 "type mismatch: {} '{}', found '{}'",
                                 if is_method_self_arg {
@@ -390,10 +424,20 @@ fn parse_fn_call_args(
                         );
                     }
                 } else {
-                    return Err(
-                        ctx.error(call_at, format!("missing value for argument: {}", fn_arg_human_name(arg)))
-                            .with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline())))
-                    );
+                    return Err(ctx
+                        .error(
+                            call_at,
+                            format!("missing value for argument: {}", fn_arg_human_name(arg)),
+                        )
+                        .with_info(
+                            ExecInfoType::Tip,
+                            format!(
+                                "called function's signature is: {}",
+                                func.signature
+                                    .inner()
+                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                            ),
+                        ));
                 }
             }
 
@@ -414,9 +458,7 @@ fn parse_fn_call_args(
                     ValidatedFnCallArg {
                         decl_name_at: fn_arg_var_at(arg),
                         arg_value_at: call_at,
-                        value: RuntimeValue::ArgSpread(GcReadOnlyCell::new(
-                            rest_args,
-                        )),
+                        value: RuntimeValue::ArgSpread(GcReadOnlyCell::new(rest_args)),
                     },
                 );
 
@@ -445,12 +487,10 @@ fn flatten_fn_call_args(
                 // if is_method {
                 //     return Err(ctx.error(call_at, "cannot call a method like a normal function"));
                 // }
-            },
+            }
 
             // Methods can be called through the value piping operator
-            Some(FnCallType::Piped(piped)) => {
-                out.push(CmdSingleArgResult::Basic(piped))
-            },
+            Some(FnCallType::Piped(piped)) => out.push(CmdSingleArgResult::Basic(piped)),
 
             Some(FnCallType::Method(left)) => {
                 if !is_method {
@@ -458,14 +498,17 @@ fn flatten_fn_call_args(
                 }
 
                 out.push(CmdSingleArgResult::Basic(left))
-            },
+            }
         }
 
         Ok(())
     };
 
     match call_args {
-        FnPossibleCallArgs::Parsed { call_type, args: parsed } => {
+        FnPossibleCallArgs::Parsed {
+            call_type,
+            args: parsed,
+        } => {
             treat_call_type(call_type)?;
 
             for parsed in &parsed.data {
@@ -479,15 +522,16 @@ fn flatten_fn_call_args(
                         )))
                     }
 
-                    FnCallArg::Flag { name, value } => {
-                        out.push(CmdSingleArgResult::Flag {
-                            name: name.clone(),
-                            value: Some(FlagArgValueResult {
-                                value: LocatedValue::new(eval_expr(&value.data, ctx)?, RuntimeCodeRange::Parsed(value.at)),
-                                value_sep: FlagValueSeparator::Equal
-                            }),
-                        })
-                    }
+                    FnCallArg::Flag { name, value } => out.push(CmdSingleArgResult::Flag {
+                        name: name.clone(),
+                        value: Some(FlagArgValueResult {
+                            value: LocatedValue::new(
+                                eval_expr(&value.data, ctx)?,
+                                RuntimeCodeRange::Parsed(value.at),
+                            ),
+                            value_sep: FlagValueSeparator::Equal,
+                        }),
+                    }),
 
                     FnCallArg::CmdArg(arg) => match eval_cmd_arg(&arg.data, ctx)? {
                         CmdArgResult::Single(single) => out.push(single),
@@ -502,7 +546,7 @@ fn flatten_fn_call_args(
 
         FnPossibleCallArgs::ParsedCmdArgs { call_type, args } => {
             treat_call_type(call_type)?;
-            
+
             for (arg_result, _) in args {
                 match arg_result {
                     CmdArgResult::Single(single) => out.push(single),
@@ -536,10 +580,17 @@ fn fn_arg_human_name(arg: &FnArg) -> String {
             typ: _,
         } => name.data().clone(),
 
-        FnArg::PresenceFlag { names } | FnArg::NormalFlag { names, is_optional: _, typ: _ } => match names {
+        FnArg::PresenceFlag { names }
+        | FnArg::NormalFlag {
+            names,
+            is_optional: _,
+            typ: _,
+        } => match names {
             FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data()),
             FnFlagArgNames::LongFlag(long) => format!("--{}", long.data()),
-            FnFlagArgNames::LongAndShortFlag { long, short } => format!("--{} (-{})", long.data(), short.data()),
+            FnFlagArgNames::LongAndShortFlag { long, short } => {
+                format!("--{} (-{})", long.data(), short.data())
+            }
         },
 
         FnArg::Rest { name } => name.data().clone(),
@@ -602,34 +653,37 @@ fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
     }
 }
 
-fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames, ctx: &mut Context) -> Option<String> {
+fn get_matching_var_name(
+    name: &CmdFlagNameArg,
+    into: &FnFlagArgNames,
+    ctx: &mut Context,
+) -> Option<String> {
     match name {
-        CmdFlagNameArg::Short(name) => {
-            match into {
-                FnFlagArgNames::ShortFlag(short) => {
-                    if name == short.data() {
-                        Some(short.data().to_string())
-                    } else {
-                        None
-                    }
-                },
+        CmdFlagNameArg::Short(name) => match into {
+            FnFlagArgNames::ShortFlag(short) => {
+                if name == short.data() {
+                    Some(short.data().to_string())
+                } else {
+                    None
+                }
+            }
 
-                FnFlagArgNames::LongFlag(_) => None,
+            FnFlagArgNames::LongFlag(_) => None,
 
-                FnFlagArgNames::LongAndShortFlag { long, short } => {
-                    if name == short.data() {
-                        Some(ctx.get_long_flag_var_name(long))
-                    } else {
-                        None
-                    }
-                },
+            FnFlagArgNames::LongAndShortFlag { long, short } => {
+                if name == short.data() {
+                    Some(ctx.get_long_flag_var_name(long))
+                } else {
+                    None
+                }
             }
         },
 
         CmdFlagNameArg::Long(name) => match into {
             FnFlagArgNames::ShortFlag(_) => None,
 
-            FnFlagArgNames::LongFlag(long) | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
+            FnFlagArgNames::LongFlag(long)
+            | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 if name == long.data() {
                     Some(ctx.get_long_flag_var_name(long))
                 } else {
@@ -641,7 +695,8 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames, ctx: &mut
         CmdFlagNameArg::LongNoConvert(name) => match into {
             FnFlagArgNames::ShortFlag(_) => None,
 
-            FnFlagArgNames::LongFlag(long) | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
+            FnFlagArgNames::LongFlag(long)
+            | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 let var_name = ctx.get_long_flag_var_name(long);
 
                 if name == &var_name {
@@ -650,18 +705,24 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames, ctx: &mut
                     None
                 }
             }
-        },        
+        },
     }
 }
 pub enum FnPossibleCallArgs<'a> {
-    Parsed { call_type: Option<FnCallType>, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
-    ParsedCmdArgs { call_type: Option<FnCallType>, args: Vec<(CmdArgResult, CodeRange)> },
+    Parsed {
+        call_type: Option<FnCallType>,
+        args: &'a Eaten<Vec<Eaten<FnCallArg>>>,
+    },
+    ParsedCmdArgs {
+        call_type: Option<FnCallType>,
+        args: Vec<(CmdArgResult, CodeRange)>,
+    },
     Internal(Vec<CmdArgResult>),
 }
 
 pub enum FnCallType {
     Piped(LocatedValue),
-    Method(LocatedValue)
+    Method(LocatedValue),
 }
 
 pub struct ValidatedFnCallArg {
