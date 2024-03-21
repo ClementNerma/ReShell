@@ -200,7 +200,7 @@ fn build_cmd_completions(
                 continue;
             };
 
-            if !file_type.is_file() {
+            if !file_type.is_file() && !file_type.is_symlink() {
                 continue;
             }
 
