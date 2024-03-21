@@ -11,9 +11,9 @@ use crate::{
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
         ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-        FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase,
-        Value, ValueType,
+        FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
+        PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
+        SwitchCase, Value, ValueType,
     },
     files::SourceFile,
 };
@@ -471,7 +471,17 @@ pub fn program(
                 )
                 .map(|(args, ret_type)| FnSignature { args, ret_type })
                 .spanned()
-                .then(block.clone().spanned())
+                .then_ignore(ms)
+                .then(
+                    choice::<_, FunctionBody>((
+                        lookahead(char('{'))
+                            .ignore_then(block.clone().spanned())
+                            .map(FunctionBody::Block),
+                        expr.clone().map(Box::new).spanned().map(FunctionBody::Expr),
+                    ))
+                    .critical("expected a function body")
+                    .spanned(),
+                )
                 .map(|(signature, body)| Value::Closure(Function { signature, body })),
         ));
 
@@ -1097,7 +1107,9 @@ pub fn program(
                     block
                         .clone()
                         .spanned()
-                        .critical("expected a body for the function"),
+                        .critical("expected a body for the function")
+                        .map(FunctionBody::Block)
+                        .spanned(),
                 )
                 .map(|((name, signature), body)| Instruction::FnDecl {
                     name,
@@ -1252,6 +1264,8 @@ pub fn delimiter_chars() -> HashSet<char> {
     ])
 }
 
-// fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
-//     println!("{d:#?}");
-// }
+// Usage: .debug(simple_debug) after any parser
+#[allow(dead_code)]
+fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
+    println!("{d:#?}");
+}

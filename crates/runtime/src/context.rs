@@ -11,7 +11,7 @@ use reshell_checker::{
     DependencyType,
 };
 use reshell_parser::{
-    ast::{Block, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
+    ast::{FnSignature, FunctionBody, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
     files::FilesMap,
 };
 
@@ -93,7 +93,7 @@ pub struct Context {
     /// List of function bodies
     /// Used to avoid cloning the whole signature object (which is heavy)
     /// everytime we encounter the same function during runtime (e.g. in a loop)
-    fn_bodies: HashMap<CodeRange, Rc<Eaten<Block>>>,
+    fn_bodies: HashMap<CodeRange, Rc<Eaten<FunctionBody>>>,
 
     /// List of command aliases
     /// Used to avoid cloning the whole alias' content (which is heavy)
@@ -579,7 +579,7 @@ impl Context {
 
     /// Get a specific function's body from its location
     /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
-    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Rc<Eaten<Block>>> {
+    pub fn get_fn_body(&self, from: &Eaten<FunctionBody>) -> Option<Rc<Eaten<FunctionBody>>> {
         self.fn_bodies.get(&from.at).map(Rc::clone)
     }
 

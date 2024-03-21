@@ -14,9 +14,9 @@ use reshell_parser::{
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
         ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-        FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-        RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
-        SwitchCase, Value, ValueType,
+        FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
+        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::{FilesMap, FilesMapInner, SourceFile, SourceFileLocation},
 };
@@ -717,6 +717,15 @@ impl ComputableSize for Function {
     fn compute_heap_size(&self) -> usize {
         let Self { signature, body } = self;
         signature.compute_heap_size() + body.compute_heap_size()
+    }
+}
+
+impl ComputableSize for FunctionBody {
+    fn compute_heap_size(&self) -> usize {
+        match self {
+            FunctionBody::Expr(expr) => expr.compute_heap_size(),
+            FunctionBody::Block(block) => block.compute_heap_size(),
+        }
     }
 }
 

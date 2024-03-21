@@ -3,7 +3,9 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{Eaten, FileId};
 use reshell_checker::CheckerOutput;
-use reshell_parser::ast::{Block, ElsIf, Instruction, Program, RuntimeCodeRange, SwitchCase};
+use reshell_parser::ast::{
+    Block, ElsIf, FunctionBody, Instruction, Program, RuntimeCodeRange, SwitchCase,
+};
 
 use crate::{
     cmd::run_cmd,
@@ -120,7 +122,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 }
 
 pub(crate) fn run_body_with_deps(
-    block: &Eaten<Block>,
+    body: &Eaten<FunctionBody>,
     captured_deps: CapturedDependencies,
     ctx: &mut Context,
     content: ScopeContent,
@@ -128,14 +130,22 @@ pub(crate) fn run_body_with_deps(
     call_stack_entry: Option<CallStackEntry>,
 ) -> ExecResult<Option<InstrRet>> {
     ctx.create_and_push_scope_with_deps(
-        RuntimeCodeRange::Parsed(block.at),
+        RuntimeCodeRange::Parsed(body.at),
         DepsScopeCreationData::CapturedDeps(captured_deps),
         content,
         parent_scopes,
         call_stack_entry,
     );
 
-    let result = run_block_in_current_scope(&block.data, ctx);
+    let result = match &body.data {
+        FunctionBody::Block(block) => run_block_in_current_scope(&block.data, ctx),
+        FunctionBody::Expr(expr) => eval_expr(&expr.data, ctx).map(|value| {
+            Some(InstrRet::FnReturn(Some(LocatedValue::new(
+                value,
+                RuntimeCodeRange::Parsed(body.at),
+            ))))
+        }),
+    };
 
     ctx.pop_scope();
 

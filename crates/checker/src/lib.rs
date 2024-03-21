@@ -20,9 +20,9 @@ use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagValueArg, CmdPath,
     CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
     ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-    FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-    RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
-    SwitchCase, Value, ValueType,
+    FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
+    PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+    StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub use self::{
@@ -910,13 +910,25 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     state.collected.deps.insert(body.at, HashSet::new());
 
-    check_block_with(body, state, |scope| {
+    let fill_scope = |scope: &mut CheckerScope| {
         scope.special_scope_type = Some(SpecialScopeType::Function { args_at: args.at });
 
         for (name, var) in vars {
             scope.vars.insert(name, var);
         }
-    })
+    };
+
+    match &body.data {
+        FunctionBody::Expr(expr) => {
+            // Check expr
+            check_expr_with(expr, state, fill_scope)
+        }
+
+        FunctionBody::Block(block) => {
+            // Check block
+            check_block_with(block, state, fill_scope)
+        }
+    }
 }
 
 fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
