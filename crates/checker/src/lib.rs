@@ -38,8 +38,6 @@ use self::{
     state::{SpecialScopeType, State},
 };
 
-// TODO: re-use the same checker scope for multiple programs
-// allows re-using type aliases, command calls development, etc.
 pub fn check(
     program: &Program,
     scopes: Vec<CheckerScope>,
