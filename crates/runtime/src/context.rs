@@ -654,6 +654,7 @@ pub struct ScopeContent {
 
 impl ScopeContent {
     /// Create a new (empty) scope content
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             vars: HashMap::new(),

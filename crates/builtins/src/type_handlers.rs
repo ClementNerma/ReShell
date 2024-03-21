@@ -272,11 +272,11 @@ pub struct Tuple2Type<A: ArgTyping, B: ArgTyping> {
     b: B,
 }
 
-impl<A: ArgTyping, B: ArgTyping> Tuple2Type<A, B> {
-    pub fn new(a: A, b: B) -> Self {
-        Self { a, b }
-    }
-}
+// impl<A: ArgTyping, B: ArgTyping> Tuple2Type<A, B> {
+//     pub fn new(a: A, b: B) -> Self {
+//         Self { a, b }
+//     }
+// }
 
 impl<A: ArgTyping, B: ArgTyping> ArgSingleTyping for Tuple2Type<A, B> {
     fn underlying_single_type(&self) -> SingleValueType {
