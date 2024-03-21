@@ -31,6 +31,7 @@ impl RlHighlighter for Highlighter {
             ("types") => "\\b(any|null|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
             ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
             ("loop iterator") => "(?:^|\\n|\\s)(?:for|let|mut)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+            ("function parameters and struct fields") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:" => Red,
             ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
             ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\.]+)\\b" => LightBlue,
             ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
