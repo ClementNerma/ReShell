@@ -26,14 +26,15 @@ pub fn value_to_str(
         RuntimeValue::Int(num) => Ok(num.to_string()),
         RuntimeValue::Float(num) => Ok(num.to_string()),
         RuntimeValue::String(str) => Ok(str.clone()),
-        RuntimeValue::ArgSpread(_) => Err(ctx.error(at, "cannot convert a spread to a string".to_owned())),
         RuntimeValue::Null
         | RuntimeValue::List(_)
         | RuntimeValue::Range { from: _, to: _ }
         | RuntimeValue::Map(_)
         | RuntimeValue::Struct(_)
         | RuntimeValue::Function(_)
-        | RuntimeValue::Error(_) => Err(ctx
+        | RuntimeValue::Error(_)
+        | RuntimeValue::CmdCall { content_at: _ }
+        | RuntimeValue::ArgSpread(_) => Err(ctx
             .error(
                 at,
                 format!(
@@ -82,6 +83,7 @@ impl PrettyPrintable for SingleValueType {
             Self::Range => PrettyPrintablePiece::colored_atomic("range", Color::Magenta),
             Self::Map => PrettyPrintablePiece::colored_atomic("map", Color::Magenta),
             Self::Error => PrettyPrintablePiece::colored_atomic("error", Color::Magenta),
+            Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
             Self::ArgSpread => PrettyPrintablePiece::colored_atomic("spread", Color::Magenta),
             Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
             Self::TypedStruct(members) => PrettyPrintablePiece::List {
@@ -195,6 +197,15 @@ impl PrettyPrintable for RuntimeValue {
                     PrettyPrintablePiece::colored_atomic(")", Color::Red),
                 ])
             }
+
+            RuntimeValue::CmdCall { content_at } => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic("@{", Color::Magenta),
+                PrettyPrintablePiece::colored_atomic(
+                    dbg_loc(*content_at, ctx.files_map()),
+                    Color::Black,
+                ),
+                PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
+            ]),
 
             RuntimeValue::ArgSpread(items) => PrettyPrintablePiece::List {
                 begin: Colored::with_color("spread(", Color::Magenta),

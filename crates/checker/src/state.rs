@@ -1,164 +1,27 @@
 use std::{collections::{HashMap, HashSet}, rc::Rc};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody};
+use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdCall, Block};
 
 use crate::{errors::CheckerResult, CheckerError};
 
 /// Checker's state
 pub struct State {
     scopes: Vec<CheckerScope>,
-    pub collected: CheckerOutput,
-}
-
-/// Sharing type used to avoid cloning in the runtime
-type SharingType<T> = Rc<T>;
-
-fn shared<T>(value: T) -> SharingType<T> {
-    Rc::new(value)
-}
-
-/// Data returned by the checker in case of success
-#[derive(Debug)]
-pub struct CheckerOutput {
-    /// Dependencies list
-    /// 
-    /// Associates an item's content (e.g. a command alias' content or a function's body)
-    /// with a set of dependency, which will be captured when encountering this item at runtime
-    /// 
-    /// This is filled by the [`State::register_usage`] method
-    /// 
-    /// Capture is required in order to drop scopes safely without losing a reference to the original value
-    /// from other values (e.g. functions) when they are returned to an outer scope
-    pub deps: HashMap<CodeRange, HashSet<Dependency>>,
-
-    /// List of type aliases declaration
-    /// 
-    /// Maps the type alias' name token location to its content
-    pub type_aliases_decl: HashMap<CodeRange, Eaten<ValueType>>,
-
-    /// List of all type aliases usage
-    /// 
-    /// Maps the type alias' name usage token to the type alias' location.
-    /// The alias can then be retrieved using `type_aliases_decl` in this struct
-    /// 
-    /// This is useful to determine what type alias a type is referring to,
-    /// especially when multiple type aliases in different scopes have the same name
-    pub type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
-
-    /// List of all type aliases declaration, by scope
-    /// 
-    /// Associates a scope's code range to a mapping between the type aliases' name and location.
-    /// The aliases can then be retrieved using `type_alias_decl` in this struct
-    pub type_aliases_decl_by_scope: HashMap<CodeRange, HashMap<String, CodeRange>>,
-
-    /// Signature of all functions and closures
-    /// 
-    /// Maps the signature's location to its content
-    pub fn_signatures: HashMap<CodeRange, SharingType<Eaten<FnSignature>>>,
-
-    /// Body of all functions and closures
-    /// 
-    /// Maps the body's location to its content
-    pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<FunctionBody>>>,
-
-    /// List of command aliases
-    /// 
-    /// Maps the command alias' content token location to its content
-    pub cmd_aliases: HashMap<CodeRange, SharingType<Eaten<SingleCmdCall>>>,
-
-    /// List of command calls
-    ///
-    /// Used to speed up runtime by collecting informations on command calls
-    /// ahead of time
-    /// 
-    /// Maps the single command's token location to the expanded call
-    pub cmd_calls: HashMap<CodeRange, SharingType<DevelopedSingleCmdCall>>,
-}
-
-impl CheckerOutput {
-    pub fn empty() -> Self {
-        Self {
-            deps: HashMap::new(),
-            type_aliases_decl: HashMap::new(),
-            type_aliases_usages: HashMap::new(),
-            type_aliases_decl_by_scope: HashMap::new(),
-            fn_signatures: HashMap::new(),
-            fn_bodies: HashMap::new(),
-            cmd_aliases: HashMap::new(),
-            cmd_calls: HashMap::new(),
-        }
-    }
-
-    pub fn merge(&mut self, other: CheckerOutput) {
-        #[deny(unused_variables)]
-        let CheckerOutput {
-            deps,
-            type_aliases_decl,
-            type_aliases_usages,
-            type_aliases_decl_by_scope,
-            fn_signatures,
-            fn_bodies,
-            cmd_aliases,
-            cmd_calls,
-        } = other;
-
-        self.deps.extend(deps);
-        self.type_aliases_decl.extend(type_aliases_decl);
-        self.type_aliases_usages.extend(type_aliases_usages);
-        self.type_aliases_decl_by_scope
-            .extend(type_aliases_decl_by_scope);
-        self.cmd_calls.extend(cmd_calls);
-        self.fn_signatures.extend(fn_signatures);
-        self.fn_bodies.extend(fn_bodies);
-        self.cmd_aliases.extend(cmd_aliases);
-    }
-
-    // TODO: find a way to avoid a massive cloning
-    pub fn reuse_in_checker(&self) -> Self {
-        Self {
-            deps: self.deps.clone(),
-            type_aliases_decl: self.type_aliases_decl.clone(),
-            type_aliases_usages: self.type_aliases_usages.clone(),
-            type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
-            fn_signatures: self.fn_signatures.clone(),
-            fn_bodies: self.fn_bodies.clone(),
-            cmd_aliases: self.cmd_aliases.clone(),
-            cmd_calls: self.cmd_calls.clone(),
-        }
-    }
-}
-
-/// Developed command call
-#[derive(Debug, Clone)]
-pub struct DevelopedSingleCmdCall {
-    /// Location that can be found in the related [`Eaten::<SingleCmdCall>::at`]
-    pub at: CodeRange,
-
-    /// Is the target a function?
-    pub is_function: bool,
-
-    /// Developed aliases
-    pub developed_aliases: Vec<DevelopedCmdAliasCall>,
-}
-
-/// Developed command alias call
-#[derive(Debug, Clone)]
-pub struct DevelopedCmdAliasCall {
-    /// Alias content's location ([`Eaten::<SingleCmdCall>::at`])
-    pub content_at: CodeRange,
-
-    /// Alias name
-    pub called_alias_name: Eaten<String>
+    collected: CheckerOutput,
 }
 
 impl State {
     /// Create an empty state
-    pub fn new() -> Self {
+    pub fn new(prev: Option<CheckerOutput>) -> Self {
         Self {
             scopes: vec![],
-            collected: CheckerOutput::empty(),
+            collected: prev.unwrap_or_else(CheckerOutput::empty),
         }
+    }
+
+    pub fn consume(self) -> CheckerOutput {
+        self.collected
     }
 
     /// Enter a new scope
@@ -197,6 +60,17 @@ impl State {
     /// Get the list of all scopes
     pub fn scopes(&self) -> impl Iterator<Item = &CheckerScope> {
         self.scopes.iter().rev()
+    }
+
+    /// Prepare deps for a block
+    pub fn prepare_deps(&mut self, at: CodeRange) {
+        let dup = self.collected.deps.insert(at, HashSet::new());
+        assert!(dup.is_none());
+    }
+
+    /// Retrieve a registered developed command call
+    pub fn get_developed_cmd_call_at(&self, at: CodeRange) -> Option<SharingType<DevelopedSingleCmdCall>> {
+        self.collected.cmd_calls.get(&at).map(SharingType::clone)
     }
 
     /// Register usage of an item
@@ -313,6 +187,16 @@ impl State {
         
     }
 
+    /// Register a type alias declaration
+    pub fn register_type_alias(&mut self, name: &Eaten<String>, content: &Eaten<ValueType>, inside_block: &Eaten<Block>) {
+        self.collected.type_aliases_decl.insert(name.at, content.clone());
+
+        self.collected.type_aliases_decl_by_scope
+            .entry(inside_block.at)
+            .or_default()
+            .insert(name.data.clone(), name.at);
+    }
+
     /// Register usage of a type alias
     /// This function will check if the type alias exists and register the usage globally
     pub fn register_type_alias_usage(&mut self, name: &Eaten<String>) -> CheckerResult {
@@ -388,6 +272,163 @@ impl State {
         let dup = self.collected.cmd_calls.insert(from.at, shared(collected));
         assert!(dup.is_none());
     }
+
+    /// Register a command call used as a value
+    pub fn register_cmd_call_value(&mut self, from: &Eaten<CmdCall>) {
+        let dup = self.collected.cmd_call_values.insert(from.at, shared(from.clone()));
+        assert!(dup.is_none());
+    }
+}
+
+
+/// Sharing type used to avoid cloning in the runtime
+type SharingType<T> = Rc<T>;
+
+fn shared<T>(value: T) -> SharingType<T> {
+    Rc::new(value)
+}
+
+/// Data returned by the checker in case of success
+#[derive(Debug)]
+pub struct CheckerOutput {
+    /// Dependencies list
+    /// 
+    /// Associates an item's content (e.g. a command alias' content or a function's body)
+    /// with a set of dependency, which will be captured when encountering this item at runtime
+    /// 
+    /// This is filled by the [`State::register_usage`] method
+    /// 
+    /// Capture is required in order to drop scopes safely without losing a reference to the original value
+    /// from other values (e.g. functions) when they are returned to an outer scope
+    pub deps: HashMap<CodeRange, HashSet<Dependency>>,
+
+    /// List of type aliases declaration
+    /// 
+    /// Maps the type alias' name token location to its content
+    pub type_aliases_decl: HashMap<CodeRange, Eaten<ValueType>>,
+
+    /// List of all type aliases usage
+    /// 
+    /// Maps the type alias' name usage token to the type alias' location.
+    /// The alias can then be retrieved using `type_aliases_decl` in this struct
+    /// 
+    /// This is useful to determine what type alias a type is referring to,
+    /// especially when multiple type aliases in different scopes have the same name
+    pub type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
+
+    /// List of all type aliases declaration, by scope
+    /// 
+    /// Associates a scope's code range to a mapping between the type aliases' name and location.
+    /// The aliases can then be retrieved using `type_alias_decl` in this struct
+    pub type_aliases_decl_by_scope: HashMap<CodeRange, HashMap<String, CodeRange>>,
+
+    /// Signature of all functions and closures
+    /// 
+    /// Maps the signature's location to its content
+    pub fn_signatures: HashMap<CodeRange, SharingType<Eaten<FnSignature>>>,
+
+    /// Body of all functions and closures
+    /// 
+    /// Maps the body's location to its content
+    pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<FunctionBody>>>,
+
+    /// List of command aliases
+    /// 
+    /// Maps the command alias' content token location to its content
+    pub cmd_aliases: HashMap<CodeRange, SharingType<Eaten<SingleCmdCall>>>,
+
+    /// List of command calls
+    ///
+    /// Used to speed up runtime by collecting informations on command calls
+    /// ahead of time
+    /// 
+    /// Maps the single command's token location to the expanded call
+    pub cmd_calls: HashMap<CodeRange, SharingType<DevelopedSingleCmdCall>>,
+
+    /// List of command calls as values
+    /// 
+    /// Used to avoid cloning Eaten<CmdCall> every time a value is used
+    pub cmd_call_values: HashMap<CodeRange, SharingType<Eaten<CmdCall>>>
+}
+
+impl CheckerOutput {
+    pub fn empty() -> Self {
+        Self {
+            deps: HashMap::new(),
+            type_aliases_decl: HashMap::new(),
+            type_aliases_usages: HashMap::new(),
+            type_aliases_decl_by_scope: HashMap::new(),
+            fn_signatures: HashMap::new(),
+            fn_bodies: HashMap::new(),
+            cmd_aliases: HashMap::new(),
+            cmd_calls: HashMap::new(),
+            cmd_call_values: HashMap::new()
+        }
+    }
+
+    pub fn merge(&mut self, other: CheckerOutput) {
+        #[deny(unused_variables)]
+        let CheckerOutput {
+            deps,
+            type_aliases_decl,
+            type_aliases_usages,
+            type_aliases_decl_by_scope,
+            fn_signatures,
+            fn_bodies,
+            cmd_aliases,
+            cmd_calls,
+            cmd_call_values
+        } = other;
+
+        self.deps.extend(deps);
+        self.type_aliases_decl.extend(type_aliases_decl);
+        self.type_aliases_usages.extend(type_aliases_usages);
+        self.type_aliases_decl_by_scope
+            .extend(type_aliases_decl_by_scope);
+        self.cmd_calls.extend(cmd_calls);
+        self.fn_signatures.extend(fn_signatures);
+        self.fn_bodies.extend(fn_bodies);
+        self.cmd_aliases.extend(cmd_aliases);
+        self.cmd_call_values.extend(cmd_call_values);
+    }
+
+    // TODO: find a way to avoid a massive cloning
+    pub fn reuse_in_checker(&self) -> Self {
+        Self {
+            deps: self.deps.clone(),
+            type_aliases_decl: self.type_aliases_decl.clone(),
+            type_aliases_usages: self.type_aliases_usages.clone(),
+            type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
+            fn_signatures: self.fn_signatures.clone(),
+            fn_bodies: self.fn_bodies.clone(),
+            cmd_aliases: self.cmd_aliases.clone(),
+            cmd_calls: self.cmd_calls.clone(),
+            cmd_call_values: self.cmd_call_values.clone(),
+        }
+    }
+}
+
+/// Developed command call
+#[derive(Debug, Clone)]
+pub struct DevelopedSingleCmdCall {
+    /// Location that can be found in the related [`Eaten::<SingleCmdCall>::at`]
+    pub at: CodeRange,
+
+    /// Is the target a function?
+    pub is_function: bool,
+
+    /// Developed aliases
+    pub developed_aliases: Vec<DevelopedCmdAliasCall>,
+}
+
+/// Developed command alias call
+#[derive(Debug, Clone)]
+pub struct DevelopedCmdAliasCall {
+    /// Alias content's location ([`Eaten::<SingleCmdCall>::at`])
+    pub content_at: CodeRange,
+
+    /// Alias name
+    pub called_alias_name: Eaten<String>
 }
 
 /// Scope in the checker

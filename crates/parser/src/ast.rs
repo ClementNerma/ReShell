@@ -216,7 +216,7 @@ pub enum Value {
     Variable(Eaten<String>),
     FnCall(Eaten<FnCall>),
     CmdOutput(Eaten<CmdCall>),
-    CmdSuccess(Eaten<CmdCall>),
+    CmdCall(Eaten<CmdCall>),
     FnAsValue(Eaten<String>),
     Closure(Function),
 }
@@ -243,6 +243,7 @@ pub enum SingleValueType {
     TypedStruct(Vec<RuntimeEaten<StructTypeMember>>),
     Function(RuntimeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
+    CmdCall,
     ArgSpread,
 }
 

@@ -89,6 +89,7 @@ pub enum RuntimeValue {
     String(String),
     Range { from: i64, to: i64 },
     Error(Box<ErrorValueContent>),
+    CmdCall { content_at: CodeRange },
 
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
@@ -107,6 +108,7 @@ impl RuntimeValue {
             RuntimeValue::Int(_) => SingleValueType::Int,
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
+            RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
             RuntimeValue::List(_) => SingleValueType::List,
             RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
             RuntimeValue::Map(_) => SingleValueType::Map,
@@ -139,7 +141,7 @@ impl RuntimeValue {
         }
     }
 
-    pub fn is_primitive(&self) -> bool {
+    pub fn is_container(&self) -> bool {
         match self {
             RuntimeValue::Null
             | RuntimeValue::Bool(_)
@@ -147,13 +149,12 @@ impl RuntimeValue {
             | RuntimeValue::Float(_)
             | RuntimeValue::String(_)
             | RuntimeValue::Range { from: _, to: _ }
-            | RuntimeValue::Error(_) => true,
+            | RuntimeValue::Error(_)
+            | RuntimeValue::CmdCall { content_at: _ }
+            | RuntimeValue::ArgSpread(_)
+            | RuntimeValue::Function(_) => false,
 
-            RuntimeValue::List(_)
-            | RuntimeValue::Map(_)
-            | RuntimeValue::Struct(_)
-            | RuntimeValue::Function(_)
-            | RuntimeValue::ArgSpread(_) => false,
+            RuntimeValue::List(_) | RuntimeValue::Map(_) | RuntimeValue::Struct(_) => true,
         }
     }
 }
@@ -186,6 +187,11 @@ pub fn are_values_equal(
 
         (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Err(NotComparableTypes {
             reason: "cannot compare errors",
+        }),
+
+        (RuntimeValue::CmdCall { content_at: _ }, _)
+        | (_, RuntimeValue::CmdCall { content_at: _ }) => Err(NotComparableTypes {
+            reason: "cannot compare command calls",
         }),
 
         (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => {

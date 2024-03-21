@@ -419,22 +419,9 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
 
         Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap())),
 
-        Value::CmdSuccess(call) => match run_cmd(call, ctx, false) {
-            Ok(_) => Ok(RuntimeValue::Bool(true)),
-            Err(err) => match err.nature {
-                ExecErrorNature::Custom(_)
-                | ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::Exit { code: _ }
-                | ExecErrorNature::Thrown { value: _ } => Err(err),
-
-                ExecErrorNature::CtrlC
-                | ExecErrorNature::CommandFailedToStart { message: _ }
-                | ExecErrorNature::CommandFailed {
-                    message: _,
-                    exit_status: _,
-                } => Ok(RuntimeValue::Bool(false)),
-            },
-        },
+        Value::CmdCall(call) => Ok(RuntimeValue::CmdCall {
+            content_at: call.at,
+        }),
 
         Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(
             GcReadOnlyCell::new(RuntimeFnValue {

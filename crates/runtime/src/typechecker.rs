@@ -93,6 +93,9 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::String, SingleValueType::String) => true,
         (SingleValueType::String, _) | (_, SingleValueType::String) => false,
 
+        (SingleValueType::CmdCall, SingleValueType::CmdCall) => true,
+        (SingleValueType::CmdCall, _) | (_, SingleValueType::CmdCall) => false,
+
         (SingleValueType::List, SingleValueType::List) => true,
         (SingleValueType::List, _) | (_, SingleValueType::List) => false,
 

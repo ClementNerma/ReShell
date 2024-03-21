@@ -92,6 +92,9 @@ pub fn program(
             just("error")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::Error),
+            just("cmdcall")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::CmdCall),
             just("fn")
                 .ignore_then(fn_signature.clone())
                 .spanned()
@@ -436,7 +439,7 @@ pub fn program(
             // Variables
             var_name.spanned().map(Value::Variable),
             // Commands
-            just("@(")
+            just("@{")
                 .ignore_then(msnl)
                 .ignore_then(
                     cmd_call
@@ -445,8 +448,8 @@ pub fn program(
                         .critical("expected a command call"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char(')').critical("unclosed command (expected '}')"))
-                .map(Value::CmdSuccess),
+                .then_ignore(char('}').critical_expectation())
+                .map(Value::CmdCall),
             // Function as value
             char('@')
                 .ignore_then(ident.critical("expected a function name"))
@@ -605,11 +608,6 @@ pub fn program(
                         catch_var,
                         catch_expr,
                     }),
-                // Function as value
-                char('@')
-                    .ignore_then(ident.critical("expected a function name"))
-                    .spanned()
-                    .map(ExprInnerContent::FnAsValue),
                 // Simple values
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))
