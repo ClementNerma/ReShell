@@ -1,38 +1,13 @@
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-static UNTREATED_CTRL_C: Mutex<UntreatedCtrlCStatus> =
-    Mutex::new(UntreatedCtrlCStatus::HandlerNotSetup);
-
-#[derive(PartialEq, Eq)]
-enum UntreatedCtrlCStatus {
-    HandlerNotSetup,
-    NoUntreated,
-    PendingUntreated,
-}
+static UNTREATED_CTRL_C: AtomicBool = AtomicBool::new(false);
 
 pub fn setup_ctrl_c_handler() -> Result<(), ctrlc::Error> {
-    let mut status = UNTREATED_CTRL_C.lock().unwrap();
-
-    if *status != UntreatedCtrlCStatus::HandlerNotSetup {
-        return Ok(());
-    }
-
-    *status = UntreatedCtrlCStatus::NoUntreated;
-
     ctrlc::try_set_handler(|| {
-        *UNTREATED_CTRL_C.lock().unwrap() = UntreatedCtrlCStatus::PendingUntreated
+        UNTREATED_CTRL_C.store(true, Ordering::Relaxed);
     })
 }
 
 pub fn take_pending_ctrl_c_request() -> bool {
-    let mut untreated = UNTREATED_CTRL_C.lock().unwrap();
-
-    match &*untreated {
-        UntreatedCtrlCStatus::HandlerNotSetup => panic!("Ctrl+C handler was not set up yet!"),
-        UntreatedCtrlCStatus::NoUntreated => false,
-        UntreatedCtrlCStatus::PendingUntreated => {
-            *untreated = UntreatedCtrlCStatus::NoUntreated;
-            true
-        }
-    }
+    UNTREATED_CTRL_C.swap(false, Ordering::Relaxed)
 }
