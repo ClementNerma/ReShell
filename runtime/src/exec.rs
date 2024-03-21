@@ -149,7 +149,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     left = eval_prop_access_nature(
                         left,
                         acc,
-                        PropAccessPolicy::TrailingAcessMayNotExist,
+                        PropAccessPolicy::TrailingAccessMayNotExist,
                         ctx,
                     )?;
                 }
