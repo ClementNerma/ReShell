@@ -24,8 +24,6 @@ pub enum Instruction {
         content: Eaten<String>,
     },
 
-    Include(Eaten<Expr>),
-
     DeclareVar {
         name: Eaten<String>,
         mutable: Option<Eaten<()>>,

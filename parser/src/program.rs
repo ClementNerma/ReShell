@@ -439,11 +439,12 @@ pub fn program() -> impl Parser<Program> {
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let cmd_raw =
-            filter(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '/' || c == '.' || c == '~')
-                .repeated()
-                .at_least(1)
-                .collect_string();
+        let cmd_raw = filter(|c| {
+            c.is_alphanumeric() || c == '_' || c == '-' || c == '/' || c == '.' || c == '~'
+        })
+        .repeated()
+        .at_least(1)
+        .collect_string();
 
         let cmd_path = choice::<_, CmdPath>((
             // Raw
@@ -577,12 +578,6 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(ms)
                 .ignore_then(filter(|c| c != '\n').repeated().collect_string().spanned())
                 .map(|content| Instruction::Comment { content }),
-            // Include directive
-            //
-            just("include")
-                .ignore_then(s)
-                .ignore_then(expr.clone().spanned().critical("expected an expression"))
-                .map(Instruction::Include),
             //
             // Variables declaration
             //
