@@ -598,14 +598,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 
             let var_value = var.value.read(var_name.at);
 
-            let value = var_value.as_ref().ok_or_else(|| {
-                ctx.error(
-                    var_name.at,
-                    "trying to use variable before it is assigned a value",
-                )
-            })?;
-
-            match &value.value {
+            match &var_value.value {
                 RuntimeValue::List(items) => {
                     let spreaded = items
                         .read_promise_no_write()
@@ -614,13 +607,13 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                             value_to_str(
                                 item,
                                 "spreaded arguments to external commands must be stringifyable",
-                                value.from,
+                                var_value.from,
                                 ctx,
                             )
                             .map(|str| {
                                 CmdSingleArgResult::Basic(LocatedValue::new(
                                     RuntimeValue::String(str),
-                                    value.from,
+                                    var_value.from,
                                 ))
                             })
                         })
@@ -633,7 +626,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                     var_name.at,
                     format!(
                         "expected a spread value, found a {}",
-                        value
+                        var_value
                             .value
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline())
@@ -662,13 +655,6 @@ pub fn eval_cmd_value_making_arg(
                 .unwrap_or_else(|| ctx.panic(name.at, "variable was not found (= bug in checker)"))
                 .value
                 .read(name.at)
-                .as_ref()
-                .ok_or_else(|| {
-                    ctx.error(
-                        name.at,
-                        "trying to use variable before it is assigned a value",
-                    )
-                })?
                 .value
                 .clone(),
         ),

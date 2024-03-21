@@ -20,7 +20,6 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
         .clone();
 
     let on_dir_jump_fn = on_dir_jump.value.read(on_dir_jump.name_at);
-    let on_dir_jump_fn = on_dir_jump_fn.as_ref().unwrap();
 
     if matches!(on_dir_jump_fn.value, RuntimeValue::Null) {
         return Ok(());
@@ -32,7 +31,7 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
     );
 
     call_fn_checked(
-        on_dir_jump_fn,
+        &on_dir_jump_fn,
         &expected_signature,
         vec![RuntimeValue::String(
             // TODO: lossy?

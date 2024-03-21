@@ -36,14 +36,7 @@ pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: Option<FnCallType>, ct
 
         let var_value = var.value.read(call.data.name.at);
 
-        let loc_val = var_value.as_ref().ok_or_else(|| {
-            ctx.error(
-                call.data.name.at,
-                "calling variable before it is assigned a value",
-            )
-        })?;
-
-        match &loc_val.value {
+        match &var_value.value {
             RuntimeValue::Function(func) => func.clone(),
             value => {
                 return Err(ctx.error(
@@ -101,7 +94,7 @@ pub fn call_fn_value(
                     ScopeVar {
                         name_at: decl_name_at,
                         is_mut: false,
-                        value: GcCell::new(Some(LocatedValue::new(value, arg_value_at))),
+                        value: GcCell::new(LocatedValue::new(value, arg_value_at)),
                     },
                 );
             }

@@ -164,13 +164,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             //     "duplicate variable declaration (this is a bug in the checker)"
             // );
 
-            let init_value = init_expr
-                .as_ref()
-                .map(|expr| {
-                    eval_expr(&expr.data, ctx)
-                        .map(|value| LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at)))
-                })
-                .transpose()?;
+            let init_value = eval_expr(&init_expr.data, ctx)
+                .map(|value| LocatedValue::new(value, RuntimeCodeRange::Parsed(init_expr.at)))?;
 
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
@@ -195,69 +190,55 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
-            if var.value.read(name.at).is_none() {
-                if let Some(first) = prop_acc.first() {
-                    return Err(ctx.error(
-                        first.at,
-                        "cannot access this property as this variable wasn't assigned a value yet",
-                    ));
-                }
-
-                *var.value.write(name.at, ctx)? = Some(LocatedValue::new(
-                    assign_value,
-                    RuntimeCodeRange::Parsed(expr.at),
-                ));
-            } else {
-                eval_props_access(
-                    &mut var.value.write(name.at, ctx)?.as_mut().unwrap().value,
-                    prop_acc.iter(),
-                    PropAccessPolicy::Write(match list_push {
-                        Some(_) => PropAccessTailPolicy::ExistingOnly,
-                        None => PropAccessTailPolicy::TailMayNotExist,
-                    }),
-                    ctx,
-                    |left, ctx| match list_push {
-                        None => {
-                            match left {
-                                PropAssignment::ReadExisting(_) => unreachable!(),
-                                PropAssignment::WriteExisting(existing) => *existing = assign_value,
-                                PropAssignment::Create(entry) => {
-                                    entry.insert(assign_value);
-                                }
+            eval_props_access(
+                &mut var.value.write(name.at, ctx)?.value,
+                prop_acc.iter(),
+                PropAccessPolicy::Write(match list_push {
+                    Some(_) => PropAccessTailPolicy::ExistingOnly,
+                    None => PropAccessTailPolicy::TailMayNotExist,
+                }),
+                ctx,
+                |left, ctx| match list_push {
+                    None => {
+                        match left {
+                            PropAssignment::ReadExisting(_) => unreachable!(),
+                            PropAssignment::WriteExisting(existing) => *existing = assign_value,
+                            PropAssignment::Create(entry) => {
+                                entry.insert(assign_value);
                             }
-
-                            Ok(())
                         }
 
-                        Some(list_push) => match left {
-                            PropAssignment::ReadExisting(_) => unreachable!(),
+                        Ok(())
+                    }
 
-                            PropAssignment::WriteExisting(existing) => match existing {
-                                RuntimeValue::List(list) => {
-                                    list.write(list_push.at, ctx)?.push(assign_value);
-                                    Ok(())
-                                }
+                    Some(list_push) => match left {
+                        PropAssignment::ReadExisting(_) => unreachable!(),
 
-                                _ => {
-                                    let left_type = existing
-                                        .get_type()
-                                        .render_colored(ctx, PrettyPrintOptions::inline());
+                        PropAssignment::WriteExisting(existing) => match existing {
+                            RuntimeValue::List(list) => {
+                                list.write(list_push.at, ctx)?.push(assign_value);
+                                Ok(())
+                            }
 
-                                    Err(ctx.error(
-                                        list_push.at,
-                                        format!(
-                                            "cannot push a value as this is not a list but a {}",
-                                            left_type
-                                        ),
-                                    ))
-                                }
-                            },
+                            _ => {
+                                let left_type = existing
+                                    .get_type()
+                                    .render_colored(ctx, PrettyPrintOptions::inline());
 
-                            PropAssignment::Create(_) => unreachable!(),
+                                Err(ctx.error(
+                                    list_push.at,
+                                    format!(
+                                        "cannot push a value as this is not a list but a {}",
+                                        left_type
+                                    ),
+                                ))
+                            }
                         },
+
+                        PropAssignment::Create(_) => unreachable!(),
                     },
-                )??;
-            };
+                },
+            )??;
         }
 
         Instruction::IfCond {
@@ -323,10 +304,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         ScopeVar {
                             name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
-                            value: GcCell::new(Some(LocatedValue::new(
+                            value: GcCell::new(LocatedValue::new(
                                 item.clone(),
                                 RuntimeCodeRange::Parsed(iter_var.at),
-                            ))),
+                            )),
                         },
                     );
 
@@ -351,10 +332,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         ScopeVar {
                             name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
-                            value: GcCell::new(Some(LocatedValue::new(
+                            value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::Int(i),
                                 RuntimeCodeRange::Parsed(iter_var.at),
-                            ))),
+                            )),
                         },
                     );
 
@@ -412,10 +393,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     ScopeVar {
                         name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         is_mut: false,
-                        value: GcCell::new(Some(LocatedValue::new(
+                        value: GcCell::new(LocatedValue::new(
                             RuntimeValue::String(key.clone()),
                             RuntimeCodeRange::Parsed(key_iter_var.at),
-                        ))),
+                        )),
                     },
                 );
 
@@ -424,10 +405,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     ScopeVar {
                         name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         is_mut: false,
-                        value: GcCell::new(Some(LocatedValue::new(
+                        value: GcCell::new(LocatedValue::new(
                             value.clone(),
                             RuntimeCodeRange::Parsed(value_iter_var.at),
-                        ))),
+                        )),
                     },
                 );
 
@@ -568,10 +549,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             ScopeVar {
                                 name_at: RuntimeCodeRange::Parsed(catch_var.at),
                                 is_mut: false,
-                                value: GcCell::new(Some(LocatedValue::new(
+                                value: GcCell::new(LocatedValue::new(
                                     RuntimeValue::String(message),
                                     at,
-                                ))),
+                                )),
                             },
                         );
 

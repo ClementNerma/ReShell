@@ -184,9 +184,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             //     return Err(CheckerError::new(name.at, "duplicate variable declaration"));
             // }
 
-            if let Some(init_expr) = init_expr {
-                check_expr(&init_expr.data, state)?;
-            }
+            check_expr(&init_expr.data, state)?;
 
             state.curr_scope_mut().vars.insert(
                 name.data.clone(),

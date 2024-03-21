@@ -80,10 +80,10 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     ScopeVar {
                         name_at: RuntimeCodeRange::Internal,
                         is_mut,
-                        value: GcCell::new(Some(LocatedValue::new(
+                        value: GcCell::new(LocatedValue::new(
                             init_value,
                             RuntimeCodeRange::Internal,
-                        ))),
+                        )),
                     },
                 )
             })
