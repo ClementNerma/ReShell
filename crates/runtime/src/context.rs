@@ -465,12 +465,12 @@ impl Context {
 
     /// Push an already-created scope above the current one
     pub fn push_scope(&mut self, scope: Scope) {
-        // if let Some(file_id) = scope.source_file_id() {
-        //     assert!(
-        //         self.files_map.get(file_id),
-        //         "Provided scope is associated to an unregistered file"
-        //     );
-        // }
+        if let Some(file_id) = scope.source_file_id() {
+            assert!(
+                self.files_map.get_file(file_id).is_some(),
+                "Provided scope is associated to an unregistered file"
+            );
+        }
 
         if scope.call_stack.history.len() > self.conf.call_stack_limit {
             panic!(

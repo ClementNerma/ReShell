@@ -139,6 +139,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Escaped characters
                 simple("(\\\\.)", [Cyan]),
 
+                // Variables
+                simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
+
                 // Any other character
                 simple("(.)", [Green]),
             ]),
