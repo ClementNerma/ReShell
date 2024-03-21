@@ -9,16 +9,16 @@ crate::define_internal_fn!(
 
     (
         string: RequiredArg<StringType> = Arg::positional("string"),
-        sep: RequiredArg<StringType> = Arg::positional("sep")
+        separator: RequiredArg<StringType> = Arg::positional("separator")
     )
 
     -> Some(DetachedListType::<StringType>::direct_underlying_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { string, sep }, _, _| {
+    Runner::new(|_, Args { string, separator }, _, _| {
         let split = string
-            .split(&sep)
+            .split(&separator)
             .map(|piece| RuntimeValue::String(piece.to_owned()))
             .collect();
 
