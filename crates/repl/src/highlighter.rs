@@ -124,6 +124,9 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Strings
                 include_group("strings"),
 
+                // Flags
+                simple("(-[a-zA-Z0-9_-]+)", [LightYellow]),
+
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
             ]),
