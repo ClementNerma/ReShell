@@ -235,7 +235,7 @@ fn parse_fn_call_args(
                 for arg in fn_args {
                     match arg {
                         FnArg::PresenceFlag { names } => {
-                            let Some(var_name) = get_matching_var_name(&name.data, names) else {
+                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
                                 continue;
                             };
 
@@ -278,7 +278,7 @@ fn parse_fn_call_args(
                             is_optional,
                             typ,
                         } => {
-                            let Some(var_name) = get_matching_var_name(&name.data, names) else {
+                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
                                 continue;
                             };
 
@@ -387,9 +387,9 @@ fn parse_fn_call_args(
     };
 
     for arg in fn_args {
-        let arg_name = fn_arg_var_name(arg);
+        let arg_var_name = fn_arg_var_name(arg, ctx);
 
-        if out.contains_key(&arg_name) {
+        if out.contains_key(&arg_var_name) {
             continue;
         }
 
@@ -407,7 +407,7 @@ fn parse_fn_call_args(
                 if *is_optional {
                     if !is_native_fn {
                         out.insert(
-                            arg_name,
+                            arg_var_name,
                             ValidatedFnCallArg {
                                 decl_name_at: fn_arg_var_at(arg),
                                 arg_value_at: RuntimeCodeRange::Internal,
@@ -417,14 +417,14 @@ fn parse_fn_call_args(
                     }
                 } else {
                     return Err(
-                        ctx.error(call_at, format!("missing value for argument '{arg_name}'"))
+                        ctx.error(call_at, format!("missing value for argument: {}", fn_arg_human_name(arg)))
                     );
                 }
             }
 
             FnArg::PresenceFlag { names: _ } => {
                 out.insert(
-                    arg_name,
+                    arg_var_name,
                     ValidatedFnCallArg {
                         decl_name_at: fn_arg_var_at(arg),
                         arg_value_at: RuntimeCodeRange::Internal,
@@ -435,7 +435,7 @@ fn parse_fn_call_args(
 
             FnArg::Rest { name: _ } => {
                 out.insert(
-                    arg_name,
+                    arg_var_name,
                     ValidatedFnCallArg {
                         decl_name_at: fn_arg_var_at(arg),
                         arg_value_at: call_at,
@@ -548,7 +548,25 @@ fn flatten_fn_call_args(
     Ok(out)
 }
 
-fn fn_arg_var_name(arg: &FnArg) -> String {
+fn fn_arg_human_name(arg: &FnArg) -> String {
+    match &arg {
+        FnArg::Positional {
+            name,
+            is_optional: _,
+            typ: _,
+        } => name.data().clone(),
+
+        FnArg::PresenceFlag { names } | FnArg::NormalFlag { names, is_optional: _, typ: _ } => match names {
+            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data()),
+            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data()),
+            FnFlagArgNames::LongAndShortFlag { long, short } => format!("--{} (-{})", long.data(), short.data()),
+        },
+
+        FnArg::Rest { name } => name.data().clone(),
+    }
+}
+
+fn fn_arg_var_name(arg: &FnArg, ctx: &mut Context) -> String {
     match &arg {
         FnArg::Positional {
             name,
@@ -558,8 +576,8 @@ fn fn_arg_var_name(arg: &FnArg) -> String {
 
         FnArg::PresenceFlag { names } => match names {
             FnFlagArgNames::ShortFlag(short) => short.data().to_string(),
-            FnFlagArgNames::LongFlag(long) => long.data().clone(),
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.data().clone(),
+            FnFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
+            FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
         },
 
         FnArg::NormalFlag {
@@ -568,8 +586,8 @@ fn fn_arg_var_name(arg: &FnArg) -> String {
             typ: _,
         } => match names {
             FnFlagArgNames::ShortFlag(short) => short.data().to_string(),
-            FnFlagArgNames::LongFlag(long) => long.data().clone(),
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.data().clone(),
+            FnFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
+            FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
         },
 
         FnArg::Rest { name } => name.data().clone(),
@@ -604,7 +622,7 @@ fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
     }
 }
 
-fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option<String> {
+fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames, ctx: &mut Context) -> Option<String> {
     match name {
         CmdFlagNameArg::Short(name) => {
             match into {
@@ -620,7 +638,7 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
 
                 FnFlagArgNames::LongAndShortFlag { long, short } => {
                     if name == short.data() {
-                        Some(long.data().clone())
+                        Some(ctx.get_long_flag_var_name(long))
                     } else {
                         None
                     }
@@ -633,7 +651,7 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
 
             FnFlagArgNames::LongFlag(long) | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 if name == long.data() {
-                    Some(long.data().clone())
+                    Some(ctx.get_long_flag_var_name(long))
                 } else {
                     None
                 }
@@ -641,7 +659,6 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
         },
     }
 }
-
 pub enum FnPossibleCallArgs<'a> {
     Parsed { call_type: Option<FnCallType>, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
     ParsedCmdArgs { call_type: Option<FnCallType>, args: Vec<(CmdArgResult, CodeRange)> },

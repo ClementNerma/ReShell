@@ -3,11 +3,14 @@ use std::{collections::HashMap, path::PathBuf, rc::Rc};
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, SourceFileID};
 use reshell_checker::{
-    CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
-    DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+    long_flag_var_name, CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar,
+    Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
 };
 use reshell_parser::{
-    ast::{FnSignature, FunctionBody, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
+    ast::{
+        FnSignature, FunctionBody, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+        ValueType,
+    },
     files::FilesMap,
 };
 
@@ -76,6 +79,11 @@ pub struct Context {
     /// Reset at each new instruction, set by the last function or command call,
     /// retrieved and erased with [`Context::take_wandering_value`]
     wandering_value: Option<RuntimeValue>,
+
+    /// Converted long flag names
+    ///
+    /// Used to avoid having to compute camel case version of each long flag at runtime
+    long_flags_var_name: HashMap<String, String>,
 }
 
 impl Context {
@@ -124,6 +132,7 @@ impl Context {
             home_dir: conf.initial_home_dir.clone(),
             collected: CheckerOutput::empty(),
             wandering_value: None,
+            long_flags_var_name: HashMap::new(),
             take_ctrl_c_indicator,
             conf,
         }
@@ -579,6 +588,14 @@ impl Context {
         }
     }
 
+    /// Get (ideally cached) variable name for the given long flag
+    pub fn get_long_flag_var_name(&mut self, from: &RuntimeEaten<String>) -> String {
+        self.long_flags_var_name
+            .entry(from.data().clone())
+            .or_insert_with(|| long_flag_var_name(from.data()))
+            .clone()
+    }
+
     /// (Crate-private)
     ///
     /// Capture all dependencies for an item used at a point in time
@@ -877,6 +894,7 @@ impl ComputableSize for Context {
             files_map,
             home_dir,
             collected,
+            long_flags_var_name,
             wandering_value,
         } = self;
 
@@ -890,6 +908,7 @@ impl ComputableSize for Context {
             + files_map.compute_heap_size()
             + home_dir.compute_heap_size()
             + collected.compute_heap_size()
+            + long_flags_var_name.compute_heap_size()
             + wandering_value.compute_heap_size()
     }
 }
