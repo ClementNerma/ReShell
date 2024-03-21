@@ -19,12 +19,13 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType,
-    CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr,
-    ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg,
-    FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
-    PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
-    SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+    Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
+    CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
+    ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
+    ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
+    FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+    RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
+    SwitchCase, Value, ValueType,
 };
 
 use self::state::UsedItem;
@@ -810,62 +811,15 @@ fn check_single_cmd_call(
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
         CmdPath::Expr(_) => CmdPathTargetType::Function,
         CmdPath::ComputedString(_) => CmdPathTargetType::ExternalCommand,
-        CmdPath::RawString(name) => {
-            enum Target {
-                CmdAlias(DeclaredCmdAlias),
-                Function,
-            }
+        CmdPath::CmdComputedString(name) => match name.data.only_literal() {
+            Some(lit) => find_if_cmd_or_fn(
+                &name.forge_here(lit.to_owned()),
+                &mut developed_aliases,
+                state,
+            )?,
 
-            let target = state.scopes().find_map(|scope| {
-                scope
-                    .cmd_aliases
-                    .get(&name.data)
-                    .map(|cmd_alias| Target::CmdAlias(*cmd_alias))
-                    .or_else(|| scope.fns.get(&name.data).map(|_| Target::Function))
-            });
-
-            match target {
-                Some(target) => match target {
-                    Target::CmdAlias(cmd_alias) => {
-                        let DeclaredCmdAlias {
-                            name_at: _,
-                            content_at,
-                            is_ready,
-                        } = cmd_alias;
-
-                        if !is_ready {
-                            return Err(CheckerError::new(
-                                name.at,
-                                "cannot reference a command alias before its declaration",
-                            ));
-                        }
-
-                        developed_aliases.push(DevelopedCmdAliasCall {
-                            content_at,
-                            called_alias_name: name.clone(),
-                        });
-
-                        state.register_usage(name, DependencyType::CmdAlias)?;
-
-                        let alias_inner_call = state.get_developed_cmd_call_at(content_at);
-                        let alias_inner_call = alias_inner_call.as_ref().unwrap();
-
-                        developed_aliases
-                            .extend(alias_inner_call.developed_aliases.iter().cloned());
-
-                        if alias_inner_call.is_function {
-                            CmdPathTargetType::Function
-                        } else {
-                            CmdPathTargetType::ExternalCommand
-                        }
-                    }
-
-                    Target::Function => CmdPathTargetType::Function,
-                },
-
-                None => CmdPathTargetType::ExternalCommand,
-            }
-        }
+            None => CmdPathTargetType::ExternalCommand,
+        },
     };
 
     for arg in &args.data {
@@ -885,6 +839,66 @@ fn check_single_cmd_call(
     );
 
     Ok(target_type)
+}
+
+fn find_if_cmd_or_fn(
+    name: &Eaten<String>,
+    developed_aliases: &mut Vec<DevelopedCmdAliasCall>,
+    state: &mut State,
+) -> CheckerResult<CmdPathTargetType> {
+    enum Target {
+        CmdAlias(DeclaredCmdAlias),
+        Function,
+    }
+
+    let target = state.scopes().find_map(|scope| {
+        scope
+            .cmd_aliases
+            .get(&name.data)
+            .map(|cmd_alias| Target::CmdAlias(*cmd_alias))
+            .or_else(|| scope.fns.get(&name.data).map(|_| Target::Function))
+    });
+
+    match target {
+        Some(target) => match target {
+            Target::CmdAlias(cmd_alias) => {
+                let DeclaredCmdAlias {
+                    name_at: _,
+                    content_at,
+                    is_ready,
+                } = cmd_alias;
+
+                if !is_ready {
+                    return Err(CheckerError::new(
+                        name.at,
+                        "cannot reference a command alias before its declaration",
+                    ));
+                }
+
+                developed_aliases.push(DevelopedCmdAliasCall {
+                    content_at,
+                    called_alias_name: name.clone(),
+                });
+
+                state.register_usage(name, DependencyType::CmdAlias)?;
+
+                let alias_inner_call = state.get_developed_cmd_call_at(content_at);
+                let alias_inner_call = alias_inner_call.as_ref().unwrap();
+
+                developed_aliases.extend(alias_inner_call.developed_aliases.iter().cloned());
+
+                Ok(if alias_inner_call.is_function {
+                    CmdPathTargetType::Function
+                } else {
+                    CmdPathTargetType::ExternalCommand
+                })
+            }
+
+            Target::Function => Ok(CmdPathTargetType::Function),
+        },
+
+        None => Ok(CmdPathTargetType::ExternalCommand),
+    }
 }
 
 fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> CheckerResult {
@@ -929,13 +943,26 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
 
-        CmdValueMakingArg::VarName(var) => {
-            state.register_usage(var, DependencyType::Variable)?;
-            Ok(())
+        CmdValueMakingArg::CmdComputedString(cc_str) => {
+            check_cmd_computed_string(&cc_str.data, state)
         }
-
-        CmdValueMakingArg::Raw(_) => Ok(()),
     }
+}
+
+fn check_cmd_computed_string(cc_str: &CmdComputedString, state: &mut State) -> CheckerResult {
+    let CmdComputedString { pieces } = cc_str;
+
+    for piece in pieces {
+        match &piece.data {
+            CmdComputedStringPiece::Literal(_) => {}
+            CmdComputedStringPiece::Escaped(_) => {}
+            CmdComputedStringPiece::Variable(var) => {
+                state.register_usage(var, DependencyType::Variable)?;
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn check_function(func: &Function, state: &mut State) -> CheckerResult {

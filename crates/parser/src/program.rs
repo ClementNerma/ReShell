@@ -4,20 +4,20 @@ use std::{
 };
 
 use parsy::{
-    atoms::{alphanumeric, digits},
+    atoms::{alphanumeric, any_char, digits},
     char, choice, end, filter, just, late, lookahead, newline, not, recursive, silent_choice,
     whitespaces, FileId, Parser,
 };
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath,
-        CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp,
-        ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
-        ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature,
-        Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase,
-        Value, ValueType,
+        Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
+        CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
+        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
+        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
+        FnCallArg, FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue,
+        Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp,
+        SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::SourceFile,
 };
@@ -695,20 +695,38 @@ pub fn program(
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let cmd_raw = not(just("->")).ignore_then(
-            filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
-                .repeated()
-                .at_least(1)
-                .collect_string(),
+        let cmd_computed_string = not(just("->")).ignore_then(
+            choice::<_, CmdComputedStringPiece>((
+                // Escaped
+                char('\\')
+                    .ignore_then(any_char())
+                    .map(CmdComputedStringPiece::Escaped),
+                // Expressions
+                var_name.spanned().map(CmdComputedStringPiece::Variable),
+                // Literal character suites
+                filter(|c| c != '\\' && !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+                    .repeated()
+                    .at_least(1)
+                    .collect_string()
+                    .map(CmdComputedStringPiece::Literal),
+            ))
+            .spanned()
+            .repeated_vec()
+            .at_least(1)
+            .map(|pieces| CmdComputedString { pieces }),
         );
 
         let cmd_path = choice::<_, CmdPath>((
             // Direct
             just("@direct")
                 .ignore_then(ms)
-                .ignore_then(cmd_raw.critical("expected a command name").spanned())
+                .ignore_then(
+                    cmd_computed_string
+                        .critical("expected a command name")
+                        .spanned(),
+                )
                 .map(CmdPath::Direct),
-            // Call variable
+            // Expression that evealuates to a function
             char('(')
                 .ignore_then(
                     expr.clone()
@@ -726,8 +744,10 @@ pub fn program(
                 .clone()
                 .spanned()
                 .map(CmdPath::ComputedString),
-            // Raw string
-            cmd_raw.spanned().map(CmdPath::RawString),
+            // Command computable string
+            cmd_computed_string
+                .spanned()
+                .map(CmdPath::CmdComputedString),
         ));
 
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
@@ -761,10 +781,10 @@ pub fn program(
                 )
                 .then_ignore(char(')').critical("unclosed expression"))
                 .map(CmdValueMakingArg::ParenExpr),
-            // Variables
-            var_name.spanned().map(CmdValueMakingArg::VarName),
             // Raw argument (but not flags, which aren't value making arguments)
-            cmd_raw.spanned().map(CmdValueMakingArg::Raw),
+            cmd_computed_string
+                .spanned()
+                .map(CmdValueMakingArg::CmdComputedString),
         ));
 
         let cmd_env_var = ident
