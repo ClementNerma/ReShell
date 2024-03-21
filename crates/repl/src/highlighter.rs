@@ -101,10 +101,6 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Command names
                 simple("(?:^|[\\n\\{\\|]|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
-                //
-                // This is the "less polished" part of the highlighter
-                //
-
                 // Variables
                 simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
 
