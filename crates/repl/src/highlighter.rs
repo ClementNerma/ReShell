@@ -10,40 +10,6 @@ use crate::syntax::{
     ValidatedRuleSet,
 };
 
-macro_rules! rule {
-    (_simple $matches: expr => [$($style: ident),+]) => {{
-        SimpleRule {
-            matches: Regex::new($matches).unwrap(),
-            style: vec![$(Style::new().fg(Color::$style)),+],
-        }
-    }};
-
-    (@simple $matches: expr => [$($style: ident),+]) => {{
-        Rule::Simple(rule!(_simple $matches => [$($style),+]))
-    }};
-
-    (@frac $matches: expr => [$($style: ident),+], $($fol_matches: expr => [$($fol_style: ident),+]),+) => {{
-        Rule::Progressive(
-            rule!(_simple $matches => [$($style),+]),
-            vec![
-                $( rule!(_simple $fol_matches => [$($fol_style),+]) ),+
-            ]
-        )
-    }};
-
-    (@nested $begin: expr => $beginStyle: ident, $end: expr => $endStyle: ident, $innerRules: expr) => {
-        Rule::Nested(NestingRule {
-            begin: rule!(_simple $begin => [$beginStyle]),
-            end: rule!(_simple $end => [$endStyle]),
-            inner_rules: $innerRules
-        })
-    };
-
-    (@group $name: expr) => {
-        Rule::Group($name.to_owned())
-    }
-}
-
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
 }
@@ -57,127 +23,167 @@ impl RlHighlighter for Highlighter {
 }
 
 static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
+    fn simple_rule(regex: &'static str, colors: impl AsRef<[Color]>) -> SimpleRule {
+        SimpleRule { matches: Regex::new(regex).unwrap(), style: colors.as_ref().iter().map(|color| Style::new().fg(*color)).collect() }
+    }
+
+    fn simple(regex: &'static str, colors: impl AsRef<[Color]>) -> Rule {
+        Rule::Simple(simple_rule(regex, colors))
+    }
+
+    fn progressive<C: AsRef<[Color]>>(parts: impl AsRef<[(&'static str, C)]>) -> Rule {
+        let mut parts = parts.as_ref().iter().map(|(regex, colors)| simple_rule(regex, colors)).collect::<Vec<_>>();
+        Rule::Progressive(parts.remove(0), parts)
+    }
+
+    fn include_group(name: &'static str) -> Rule {
+        Rule::Group(name.to_owned())
+    }
+
+    fn nested(begin: SimpleRule, end: SimpleRule, inner_rules: Vec<Rule>) -> Rule {
+        Rule::Nested(NestingRule { begin, end, inner_rules })
+    }
+    
+    use Color::*;
+
     let rule_set = RuleSet {
         groups: [
             ("instructions", vec![
                 // Comments
-                rule!(@simple "(#.*)$" => [DarkGray]),
+                simple("(#.*)$", [DarkGray]),
                 
                 // Variable declaration
-                rule!(@frac "\\b(let)\\b" => [Magenta],
-                            "(\\s+mut\\b|)" => [Magenta],
-                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
-                            "\\s*(=)\\s*" => [LightYellow]
-                ),
+                progressive([
+                    ("\\b(let)\\b", [Magenta]),
+                    ("(\\s+mut\\b|)", [Magenta]),
+                    ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                    ("\\s*(=)\\s*", [LightYellow])
+                ]),
                 
                 // For loop
-                rule!(@frac "\\b(for)\\b" => [Magenta],
-                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
-                            "\\s+(in)\\b" => [Magenta]
-                ),
+                progressive([
+                    ("\\b(for)\\b", [Magenta]),
+                    ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                    ("\\s+(in)\\b", [Magenta])
+                ]),
                 
                 // Function declaration
-                rule!(@frac "\\b(fn)\\b" => [Magenta],
-                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Blue],
-                            "\\s*(\\()" => [LightYellow]
-                ),
+                progressive([
+                    ("\\b(fn)\\b", [Magenta]),
+                    ("\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Blue]),
+                    ("\\s*(\\()", [LightYellow])
+                ]),
 
                 // Command aliases
-                rule!(@frac "\\b(alias)\\b" => [Magenta],
-                            "\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b" => [Blue],
-                            "\\s*(=)" => [LightYellow]
-                ),
+                progressive([
+                    ("\\b(alias)\\b", [Magenta]),
+                    ("\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Blue]),
+                    ("\\s*(=)", [LightYellow])
+                ]),
                 
                 // Keywords
-                rule!(@simple "\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b" => [Magenta]),
+                simple("\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
 
                 // Argument names and structure keys
-                rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]" => [Red, LightYellow]),
+                simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]", [Red, LightYellow]),
                 
                 // Commands
-                rule!(@group "commands")
+                include_group("commands")
             ]),
             ("commands", vec![
                 // Command names
-                rule!(@simple "(?:^|[\\n\\{\\|]|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)" => [Blue]),
+                simple("(?:^|[\\n\\{\\|]|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
                 //
                 // This is the "less polished" part of the highlighter
                 //
 
                 // Variables
-                rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
+                simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
 
                 // Single variable marker
-                rule!(@simple "(\\$)" => [Red]),
+                simple("(\\$)", [Red]),
 
                 // Number
-                rule!(@simple "(?:\\s*)(\\d+(?:\\.\\d+)?)(?:[^\\d]|$)" => [LightYellow]),
+                simple("(?:\\s*)(\\d+(?:\\.\\d+)?)(?:[^\\d]|$)", [LightYellow]),
 
                 // Expressions
-                rule!(@nested "(\\()" => White, "(\\))" => White, vec![
-                    rule!(@group "in-expressions")
-                ]),
+                nested(
+                    simple_rule("(\\()", [LightYellow]),
+                    simple_rule("(\\))", [LightYellow]),
+                    vec![include_group("in-expressions")]
+                ),
 
                 // Strings
-                rule!(@group "strings"),
+                include_group("strings"),
 
                 // Raw arguments
-                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)" => [Green]),
+                simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
             ]),
             ("strings", vec![
                 // Strings
-                rule!(@nested "(\")" => Green, "(\")" => Green, vec![
-                    // Commands
-                    rule!(@nested "(?:^|[^\\\\])(\\$\\()" => Blue, "(\\))" => Blue, vec![
-                        rule!(@group "commands")
-                    ]),
+                nested(
+                    simple_rule("(\")", [Green]),
+                    simple_rule("(\")", [Green]),
+                    vec![
+                        // Commands
+                        nested(
+                            simple_rule("(?:^|[^\\\\])(\\$\\()", [Blue]),
+                            simple_rule("(\\))", [Blue]),
+                            vec![ include_group("commands") ]
+                        ),
 
-                    // Commands
-                    rule!(@nested "(?:^|[^\\\\])(\\$\\{)" => Blue, "(\\})" => Blue, vec![
-                        rule!(@group "in-expressions")
-                    ]),
+                        // Commands
+                        nested(
+                            simple_rule("(?:^|[^\\\\])(\\$\\{)", [Blue]),
+                            simple_rule("(\\})", [Blue]),
+                            vec![ include_group("in-expressions") ]
+                        ),
 
-                    // Escaped characters
-                    rule!(@simple "(\\\\.)" => [Cyan]),
+                        // Escaped characters
+                        simple("(\\\\.)", [Cyan]),
 
-                    // Any other character
-                    rule!(@simple "(.)" => [Green]),
-                ]),
+                        // Any other character
+                        simple("(.)", [Green]),
+                    ]
+                )
             ]),
             ("in-expressions", vec![
-                rule!(@group "strings"),
+                include_group("strings"),
 
                 // Function calls
-                rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => [Blue]),
+                simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(", [Blue]),
 
                 // Types
-                rule!(@simple "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => [Magenta]),
+                simple("\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b", [Magenta]),
 
                 // Booleans
-                rule!(@simple "\\b(true|false)\\b" => [LightYellow]),
+                simple("\\b(true|false)\\b", [LightYellow]),
 
                 // The null value
-                rule!(@simple "\\b(null)\\b" => [LightYellow]),
+                simple("\\b(null)\\b", [LightYellow]),
 
                 // Flags
-                rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
+                simple("\\s(\\-[\\-a-zA-Z0-9_]*)", [LightYellow]),
 
                 // Variables
-                rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
+                simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
 
                 // Single variable marker
-                rule!(@simple "(\\$)" => [Red]),
+                simple("(\\$)", [Red]),
 
                 // Number
-                rule!(@simple "(\\d+(?:\\.\\d+)?)" => [LightYellow]),
+                simple("(\\d+(?:\\.\\d+)?)", [LightYellow]),
 
                 // Symbols and operators
-                rule!(@simple "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => [LightYellow]),
+                simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)", [LightYellow]),
             ],
-        )]
+        )
+        ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
-        rules: vec![rule!(@group "instructions")],
+        rules: vec![
+            include_group("instructions")
+        ],
     };
 
     Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
