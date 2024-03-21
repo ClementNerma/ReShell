@@ -21,7 +21,6 @@ mod prompt;
 mod repl;
 mod reports;
 mod state;
-mod validator;
 
 fn main() {
     let args = cmd::Args::parse();
