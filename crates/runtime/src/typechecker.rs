@@ -26,7 +26,7 @@ pub fn check_if_single_type_fits_type(
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_single(value_type, typ.data(), ctx)),
+            .any(|typ| check_if_single_type_fits_single(value_type, typ.data(), ctx)),
     }
 }
 
