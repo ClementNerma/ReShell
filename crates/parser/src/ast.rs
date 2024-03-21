@@ -151,16 +151,7 @@ pub struct SwitchCase {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub signature: Eaten<FnSignature>,
-    pub body: Eaten<FunctionBody>,
-}
-
-#[derive(Debug, Clone)]
-pub enum FunctionBody {
-    Expr {
-        content: Eaten<Box<Expr>>,
-        scope_id: AstScopeId,
-    },
-    Block(Eaten<Block>),
+    pub body: Eaten<Block>,
 }
 
 #[derive(Debug, Clone)]

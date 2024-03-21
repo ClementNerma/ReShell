@@ -3,9 +3,7 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{Eaten, FileId};
 use reshell_checker::output::CheckerOutput;
-use reshell_parser::ast::{
-    Block, ElsIf, FunctionBody, Instruction, Program, RuntimeCodeRange, SwitchCase,
-};
+use reshell_parser::ast::{Block, ElsIf, Instruction, Program, RuntimeCodeRange, SwitchCase};
 
 use crate::{
     cmd::{run_cmd, CmdExecParams},
@@ -164,39 +162,26 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 }
 
 pub(crate) fn run_body_with_deps(
-    body: &Eaten<FunctionBody>,
+    body: &Eaten<Block>,
     captured_deps: CapturedDependencies,
     ctx: &mut Context,
     scope_content: Option<ScopeContent>,
     parent_scopes: IndexSet<u64>,
     call_stack_entry: Option<CallStackEntry>,
 ) -> ExecResult<Option<InstrRet>> {
-    let body_scope_id = body.data.ast_scope_id();
-
     ctx.create_and_push_scope_with_deps(
-        body_scope_id,
+        body.data.scope_id,
         DepsScopeCreationData::CapturedDeps(captured_deps),
         scope_content,
         parent_scopes,
         call_stack_entry,
     );
 
-    let result = match &body.data {
-        FunctionBody::Block(block) => run_block_in_current_scope(&block.data, ctx),
-        FunctionBody::Expr {
-            content,
-            scope_id: _,
-        } => eval_expr(&content.data, ctx).map(|value| {
-            Some(InstrRet::FnReturn(Some(LocatedValue::new(
-                value,
-                RuntimeCodeRange::Parsed(body.at),
-            ))))
-        }),
-    };
+    let result = run_block_in_current_scope(&body.data, ctx)?;
 
     ctx.pop_scope();
 
-    result
+    Ok(result)
 }
 
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
@@ -538,7 +523,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::FnDecl { name, content } => {
-            let captured_deps = ctx.capture_deps(content.body.at, content.body.data.ast_scope_id());
+            let captured_deps = ctx.capture_deps(content.body.at, content.body.data.scope_id);
 
             ctx.current_scope_content_mut()
                 .fns
@@ -555,7 +540,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             on_type,
             content,
         } => {
-            let captured_deps = ctx.capture_deps(content.body.at, content.body.data.ast_scope_id());
+            let captured_deps = ctx.capture_deps(content.body.at, content.body.data.scope_id);
 
             ctx.current_scope_content_mut()
                 .methods

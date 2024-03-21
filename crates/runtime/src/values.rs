@@ -7,7 +7,7 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::Dependency;
 use reshell_parser::ast::{
-    FnSignature, FunctionBody, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
+    Block, FnSignature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
     StructTypeMember, ValueType,
 };
 use reshell_parser::scope::AstScopeId;
@@ -65,7 +65,7 @@ pub struct CapturedDependencies {
 }
 
 pub enum RuntimeFnBody {
-    Block(Rc<Eaten<FunctionBody>>),
+    Block(Rc<Eaten<Block>>),
     Internal(InternalFnBody),
 }
 

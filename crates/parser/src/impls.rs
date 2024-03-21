@@ -1,11 +1,8 @@
 use parsy::{CodeRange, Eaten};
 
-use crate::{
-    ast::{
-        CmdComputedString, CmdComputedStringPiece, CmdFlagNameArg, EscapableChar, FnFlagArgNames,
-        FunctionBody, MethodApplyableType, RuntimeCodeRange, RuntimeEaten, SingleValueType,
-    },
-    scope::AstScopeId,
+use crate::ast::{
+    CmdComputedString, CmdComputedStringPiece, CmdFlagNameArg, EscapableChar, FnFlagArgNames,
+    MethodApplyableType, RuntimeCodeRange, RuntimeEaten, SingleValueType,
 };
 
 impl FnFlagArgNames {
@@ -105,19 +102,6 @@ impl CmdComputedString {
         match &only_piece.data {
             CmdComputedStringPiece::Literal(lit) => Some(lit),
             CmdComputedStringPiece::Escaped(_) | CmdComputedStringPiece::Variable(_) => None,
-        }
-    }
-}
-
-impl FunctionBody {
-    pub fn ast_scope_id(&self) -> AstScopeId {
-        match self {
-            FunctionBody::Expr {
-                content: _,
-                scope_id,
-            } => *scope_id,
-
-            FunctionBody::Block(block) => block.data.scope_id,
         }
     }
 }

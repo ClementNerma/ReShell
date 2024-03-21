@@ -109,7 +109,7 @@ pub fn call_fn_value(
                 scope_content.vars.insert(
                     name,
                     ScopeVar {
-                        decl_scope_id: body.data.ast_scope_id(),
+                        decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(value, arg_value_at)),
                     },

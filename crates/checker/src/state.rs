@@ -2,9 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
-    ast::{
-        Block, CmdCall, FnSignature, FunctionBody, MethodApplyableType, SingleCmdCall, ValueType,
-    },
+    ast::{Block, CmdCall, FnSignature, MethodApplyableType, SingleCmdCall, ValueType},
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
 
@@ -301,7 +299,7 @@ impl State {
     }
 
     /// Register a function's body
-    pub fn register_function_body(&mut self, body: Eaten<FunctionBody>) {
+    pub fn register_function_body(&mut self, body: Eaten<Block>) {
         let dup = self.collected.fn_bodies.insert(body.at, shared(body));
 
         assert!(dup.is_none());
