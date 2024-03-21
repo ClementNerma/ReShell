@@ -227,7 +227,7 @@ impl Context {
             code_range: *range,
 
             deps: false,
-            typ: None,
+            scope_type: None,
 
             cmd_aliases: cmd_aliases
                 .iter()

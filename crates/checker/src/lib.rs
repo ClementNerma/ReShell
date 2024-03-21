@@ -61,8 +61,8 @@ fn check_block_with(
 
     let mut scope = CheckerScope {
         code_range: RuntimeCodeRange::Parsed(*code_range),
-        deps: false, // can be changed later on with "fill_scope"
-        typ: None,   // can be changed later on with "fill_scope"
+        deps: false,      // can be changed later on with "fill_scope"
+        scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
         cmd_aliases: HashMap::new(),
@@ -199,7 +199,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         } => {
             check_expr(&iter_on.data, state)?;
             check_block_with(body, state, |scope| {
-                scope.typ = Some(ScopeType::Loop);
+                scope.scope_type = Some(ScopeType::Loop);
 
                 scope.vars.insert(
                     iter_var.data.clone(),
@@ -220,7 +220,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             check_expr(&iter_on.data, state)?;
 
             check_block_with(body, state, |scope| {
-                scope.typ = Some(ScopeType::Loop);
+                scope.scope_type = Some(ScopeType::Loop);
 
                 scope.vars.insert(
                     key_iter_var.data.clone(),
@@ -243,7 +243,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::WhileLoop { cond, body } => {
             check_expr(&cond.data, state)?;
             check_block_with(body, state, |scope| {
-                scope.typ = Some(ScopeType::Loop);
+                scope.scope_type = Some(ScopeType::Loop);
             })?;
         }
 
@@ -360,7 +360,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.push_scope(CheckerScope {
                 code_range: RuntimeCodeRange::Parsed(content.at),
                 deps: true,
-                typ: None,
+                scope_type: None,
                 vars: HashMap::new(),
                 fns: HashMap::new(),
                 cmd_aliases: HashMap::new(),
@@ -396,8 +396,8 @@ fn check_expr_with(
 ) -> CheckerResult {
     let mut scope = CheckerScope {
         code_range: RuntimeCodeRange::Parsed(expr.at),
-        deps: false, // can be changed later on with "fill_scope"
-        typ: None,   // can be changed later on with "fill_scope"
+        deps: false,      // can be changed later on with "fill_scope"
+        scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
         cmd_aliases: HashMap::new(),
@@ -821,7 +821,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     check_block_with(body, state, |scope| {
         scope.deps = true;
-        scope.typ = Some(ScopeType::Function { args_at: args.at });
+        scope.scope_type = Some(ScopeType::Function { args_at: args.at });
 
         for (name, var) in vars {
             scope.vars.insert(name, var);

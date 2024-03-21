@@ -38,7 +38,7 @@ impl State {
     }
 
     pub fn push_scope(&mut self, scope: CheckerScope) {
-        assert!(scope.deps || !matches!(scope.typ, Some(ScopeType::Function { args_at: _ })));
+        assert!(scope.deps || !matches!(scope.scope_type, Some(ScopeType::Function { args_at: _ })));
 
         self.scopes.push(scope);
     }
@@ -56,7 +56,7 @@ impl State {
     }
 
     pub fn curr_scope_type(&self) -> Option<ScopeType> {
-        self.scopes.iter().rev().find_map(|scope| scope.typ)
+        self.scopes.iter().rev().find_map(|scope| scope.scope_type)
     }
 
     fn current_deps_scope(&self) -> Option<&CheckerScope> {
@@ -133,7 +133,7 @@ impl State {
             return Ok(dep);
         }
 
-        if let Some(ScopeType::Function { args_at }) = deps_scope.typ {
+        if let Some(ScopeType::Function { args_at }) = deps_scope.scope_type {
             let var_declared_in_fn_args = 
                 args_at.contains(declared_at).map_err(|err| {
                 CheckerError::new(
@@ -217,7 +217,7 @@ impl State {
 pub struct CheckerScope {
     pub deps: bool,
     pub code_range: RuntimeCodeRange,
-    pub typ: Option<ScopeType>,
+    pub scope_type: Option<ScopeType>,
     pub vars: HashMap<String, DeclaredVar>,
     pub fns: HashMap<String, RuntimeCodeRange>,
     pub cmd_aliases: HashMap<String, CodeRange>,
@@ -226,6 +226,7 @@ pub struct CheckerScope {
 
 #[derive(Clone, Copy)]
 pub enum ScopeType {
+    Normal,
     Function { args_at: CodeRange },
     Loop,
 }
