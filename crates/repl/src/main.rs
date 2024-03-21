@@ -56,6 +56,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         eval,
         skip_init_script,
         timings,
+        exec_args,
     } = Args::parse();
 
     // Set up Ctrl+C handler
@@ -154,6 +155,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             &content,
             SourceFileLocation::RealFile(file_path),
             &parser,
+            exec_args,
             &mut ctx,
         ) {
             Ok(()) => Ok(ExitCode::SUCCESS),
@@ -169,6 +171,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             &input,
             SourceFileLocation::CustomName("eval".to_owned()),
             &parser,
+            exec_args,
             &mut ctx,
         ) {
             Ok(()) => Ok(ExitCode::SUCCESS),
@@ -204,6 +207,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                                 &source,
                                 SourceFileLocation::RealFile(init_file.clone()),
                                 &parser,
+                                exec_args,
                                 &mut ctx,
                             );
 
@@ -231,7 +235,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         before_repl: Instant::now(),
     };
 
-    repl::start(&mut ctx, timings, show_timings)
+    repl::start(&mut ctx, exec_args, timings, show_timings)
         .map(|code| code.unwrap_or(ExitCode::SUCCESS))
         .map_err(|err| format!("REPL crashed: {err:?}"))
 }

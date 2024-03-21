@@ -24,4 +24,19 @@ pub struct Args {
 
     #[clap(short, long, help = "Display timings")]
     pub timings: bool,
+
+    #[clap(flatten)]
+    pub exec_args: ExecArgs,
+}
+
+#[derive(clap::Args, Clone, Copy)]
+pub struct ExecArgs {
+    #[clap(long, help = "Print the AST")]
+    pub print_ast: bool,
+
+    #[clap(long, help = "Print the checker's output")]
+    pub print_checker_output: bool,
+
+    #[clap(long, help = "Don't actually execute the program")]
+    pub only_check: bool,
 }
