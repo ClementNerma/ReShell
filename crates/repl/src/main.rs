@@ -103,6 +103,9 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             }
         };
 
+        let canon = std::fs::canonicalize(&path)
+            .map_err(|err| format!("failed to include file at path '{}': {err}", path.display()))?;
+
         let content =
             std::fs::read_to_string(&path).map_err(|err| match std::env::current_dir() {
                 Err(_) => format!("failed to include file at path: '{}'", path.display()),
@@ -115,7 +118,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                 }
             })?;
 
-        Ok((SourceFileLocation::RealFile(path), content))
+        Ok((SourceFileLocation::RealFile(canon), content))
     }));
 
     match &*HOME_DIR {
