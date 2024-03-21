@@ -32,7 +32,7 @@ impl Context {
         self.home_dir = Some(home_dir);
     }
 
-    pub fn error<S: Into<ExecErrorContent>>(&self, at: CodeRange, content: S) -> ExecError {
+    pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
         ExecError {
             at,
             file: self.current_file().clone(),
