@@ -1,4 +1,4 @@
-use std::{sync::Arc, collections::HashMap};
+use std::{sync::Arc, collections::{HashMap, HashSet}};
 
 use nu_ansi_term::{Color, Style};
 use once_cell::sync::Lazy;
@@ -25,12 +25,19 @@ impl RlHighlighter for Highlighter {
 static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
     /// Create a simple rule's inner content
     fn simple_rule(regex: &'static str, colors: impl AsRef<[Color]>) -> SimpleRule {
-        SimpleRule { matches: Regex::new(regex).unwrap(), style: colors.as_ref().iter().map(|color| Style::new().fg(*color)).collect() }
+        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, followed_by: None, style: colors.as_ref().iter().map(|color| Style::new().fg(*color)).collect() }
     }
 
     /// Create a simple rule
     fn simple(regex: &'static str, colors: impl AsRef<[Color]>) -> Rule {
         Rule::Simple(simple_rule(regex, colors))
+    }
+
+    /// Create a simple rule that must be followed by a specific nesting type
+    fn simple_followed_by(regex: &'static str, colors: impl AsRef<[Color]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
+        let mut rule = simple_rule(regex, colors);
+        rule.followed_by = Some(followed_by.into());
+        Rule::Simple(rule)
     }
 
     /// Create a progressive rule
@@ -94,7 +101,10 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
             ]),
             ("commands", vec![
                 // Command names
-                simple("(?:^|\\$\\(|[\\n\\{\\|])\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
+                simple("(?:^|[\\|\\n])\\s*([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
+
+                // Function names
+                simple_followed_by("\\b([a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
 
                 // Variables
                 simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
@@ -143,7 +153,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 simple("\\s(\\-[\\-a-zA-Z0-9_]*)", [LightYellow]),
 
                 // Variables
-                simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
 
                 // Single variable marker
                 simple("(\\$)", [Red]),

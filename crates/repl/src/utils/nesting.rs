@@ -192,7 +192,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
     output
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct NestingAction {
     pub offset: usize,
     pub len: usize,
