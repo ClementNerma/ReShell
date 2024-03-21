@@ -96,7 +96,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         ) {
             Ok(exit_status) => match exit_status {
                 ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
-                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code)),
+                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code.unwrap_or(0))),
             },
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
@@ -114,7 +114,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         ) {
             Ok(exit_status) => match exit_status {
                 ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
-                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code)),
+                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code.unwrap_or(0))),
             },
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
@@ -157,7 +157,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
                                 Ok(instr_ret) => match instr_ret {
                                     ProgramExitStatus::Normal => {}
                                     ProgramExitStatus::ExitRequested { code } => {
-                                        return Ok(ExitCode::from(code))
+                                        return Ok(ExitCode::from(code.unwrap_or(0)))
                                     }
                                 },
                                 Err(err) => reports::print_error(&err, ctx.files_map()),

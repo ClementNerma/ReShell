@@ -14,7 +14,7 @@ use reshell_parser::ast::{
 use crate::{
     conf::RuntimeConf,
     display::dbg_loc,
-    errors::{ExecError, ExecErrorContent, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::{GcCell, GcReadOnlyCell},
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
@@ -278,20 +278,23 @@ impl Context {
 
     /// Generate an error object
     /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
-    /// Given an error will almost always lead to a program's end, the allocation overhead is acceptable
+    /// Given an error is either critical or related to a function throwing a value, the allocation
+    /// overhead is acceptable here
+    ///
+    /// NOTE: consuming an error requires to reset the scope to where the error is handled
+    /// Otherwise the context will stay in the scope the error was created in, which will cause problems
     pub fn error(
         &self,
         at: impl Into<RuntimeCodeRange>,
-        content: impl Into<ExecErrorContent>,
+        nature: impl Into<ExecErrorNature>,
     ) -> Box<ExecError> {
         let current_scope = self.current_scope();
 
         Box::new(ExecError {
-            has_exit_code: None, // may be changed afterwards
             at: at.into(),
             in_file: current_scope.in_file_id(),
             source_file: self.current_source_file().cloned(),
-            content: content.into(),
+            nature: nature.into(),
             call_stack: current_scope.call_stack.clone(),
             scope_range: current_scope.range,
             note: None, // can be changed with .with_note()
@@ -300,9 +303,7 @@ impl Context {
 
     /// Generate an exit value
     pub fn exit(&self, at: impl Into<RuntimeCodeRange>, code: Option<u8>) -> Box<ExecError> {
-        let mut err = self.error(at, "<program requested exit>");
-        err.has_exit_code = Some(code.unwrap_or(0));
-        err
+        self.error(at, ExecErrorNature::Exit { code })
     }
 
     /// Create and push a new scope above the current one

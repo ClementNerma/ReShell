@@ -11,7 +11,7 @@ use crate::{
     cmd::run_cmd,
     context::{Context, ScopeContent, ScopeVar},
     display::value_to_str,
-    errors::{ExecErrorContent, ExecResult},
+    errors::{ExecErrorNature, ExecResult},
     functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -394,11 +394,12 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap())),
         Value::CmdSuccess(call) => match run_cmd(call, ctx, false) {
             Ok(_) => Ok(RuntimeValue::Bool(true)),
-            Err(err) => match err.content {
-                ExecErrorContent::Str(_)
-                | ExecErrorContent::String(_)
-                | ExecErrorContent::ParsingErr(_) => Err(err),
-                ExecErrorContent::CommandFailed {
+            Err(err) => match err.nature {
+                ExecErrorNature::Custom(_)
+                | ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::Exit { code: _ } => Err(err),
+
+                ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status: _,
                 } => Ok(RuntimeValue::Bool(false)),
