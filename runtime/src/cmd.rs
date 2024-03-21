@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    path::PathBuf,
     process::{Child, Command, Stdio},
 };
 
@@ -283,23 +284,8 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             run_cmd(call, ctx, true)?.unwrap(),
         ))),
         CmdArg::Raw(raw) => Ok(CmdArgResult::Single(RuntimeValue::String(
-            if raw.data == "~" {
-                let home_dir = ctx.home_dir().ok_or_else(|| {
-                    ctx.error(raw.at, "home directory was not defined in context")
-                })?;
-
-                // TODO: how to handle invalid UTF-8 paths?
-                home_dir.to_string_lossy().to_string()
-            } else if let Some(rest) = raw.data.strip_prefix("~/") {
-                let home_dir = ctx.home_dir().ok_or_else(|| {
-                    ctx.error(raw.at, "home directory was not defined in context")
-                })?;
-
-                // TODO: how to handle invalid UTF-8 paths?
-                format!("{}{rest}", home_dir.to_string_lossy())
-            } else {
-                raw.data.clone()
-            },
+            pathify_cmd_raw_arg(&raw.data, ctx.home_dir())
+                .ok_or_else(|| ctx.error(raw.at, "home directory was not defined in context"))?,
         ))),
         CmdArg::SpreadVar(var_name) => {
             let value = ctx.get_var_value(var_name)?;
@@ -311,6 +297,20 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             Ok(CmdArgResult::Spreaded(items.clone()))
         }
     }
+}
+
+pub fn pathify_cmd_raw_arg(raw: &str, home_dir: Option<&PathBuf>) -> Option<String> {
+    let out = if raw == "~" {
+        // TODO: how to handle invalid UTF-8 paths?
+        home_dir?.to_string_lossy().to_string()
+    } else if let Some(rest) = raw.strip_prefix("~/") {
+        // TODO: how to handle invalid UTF-8 paths?
+        format!("{}/{rest}", home_dir?.to_string_lossy())
+    } else {
+        raw.to_string()
+    };
+
+    Some(out)
 }
 
 pub enum CmdArgResult {
