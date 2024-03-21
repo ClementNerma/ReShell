@@ -148,7 +148,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                     ]),
 
                     // Any other character
-                    rule!(@simple "(.+)" => [Yellow]), // TODO: green
+                    rule!(@simple "(.+)" => [Green]),
                 ])
             ],
         )]
