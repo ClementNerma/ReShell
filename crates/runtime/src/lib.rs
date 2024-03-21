@@ -2,7 +2,6 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
-pub mod builtins;
 pub mod cmd;
 pub mod conf;
 pub mod context;
