@@ -20,7 +20,7 @@ pub enum ReportableError {
 }
 
 impl ReportableError {
-    pub fn exit_code(&self) -> Option<Option<i32>> {
+    pub fn exit_code(&self) -> Option<i32> {
         match self {
             ReportableError::Parsing(_) | ReportableError::Checking(_) => None,
             ReportableError::Runtime(err) => match err.nature {
@@ -30,8 +30,8 @@ impl ReportableError {
                 ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status,
-                } => Some(exit_status),
-                ExecErrorNature::Exit { code } => Some(code.map(i32::from)),
+                } => Some(exit_status.unwrap_or(1)),
+                ExecErrorNature::Exit { code } => Some(code.map(i32::from).unwrap_or(0)),
             },
         }
     }
@@ -52,7 +52,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ReportableError::Runtime(err) => match &err.nature {
             ExecErrorNature::Exit { code: _ } => {
                 // This error is designed to be consumed, not displayed
-                unreachable!()
+                return;
             }
             ExecErrorNature::Custom(message) => (
                 err.at,

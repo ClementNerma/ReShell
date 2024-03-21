@@ -9,7 +9,7 @@ use reshell_parser::ast::{
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
-    errors::ExecResult,
+    errors::{ExecErrorNature, ExecResult},
     exec::{run_body_with_deps, InstrRet, InstrRetType},
     expr::eval_expr,
     gc::GcCell,
@@ -18,7 +18,7 @@ use crate::{
     values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
-pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResult> {
+pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     let func = if call.data.is_var_name {
         let var = ctx.get_visible_var(&call.data.name).ok_or_else(|| {
             ctx.error(
@@ -67,7 +67,7 @@ pub fn call_fn_value(
     func: &RuntimeFnValue,
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
-) -> ExecResult<FnCallResult> {
+) -> ExecResult<Option<LocatedValue>> {
     let args = parse_fn_call_args(
         call_at,
         func,
@@ -114,7 +114,9 @@ pub fn call_fn_value(
                         return Err(ctx.error(from, "not in a loop"))
                     }
                     InstrRetType::FnReturn(value) => value,
-                    InstrRetType::Thrown(value) => return Ok(FnCallResult::Thrown(value)),
+                    InstrRetType::Thrown(value) => {
+                        return Err(ctx.error(value.from, ExecErrorNature::Thrown { value }))
+                    }
                     InstrRetType::Exit => unreachable!(),
                 },
 
@@ -155,7 +157,7 @@ pub fn call_fn_value(
         }
     }
 
-    Ok(FnCallResult::Success { returned })
+    Ok(returned)
 }
 
 fn parse_fn_call_args(
@@ -466,11 +468,6 @@ pub enum FnPossibleCallArgs<'a> {
 pub enum FnPossibleCallArg<'a> {
     Parsed(&'a FnCallArg),
     Direct(RuntimeValue),
-}
-
-pub enum FnCallResult {
-    Success { returned: Option<LocatedValue> },
-    Thrown(LocatedValue),
 }
 
 pub struct ParsedFnCallArg {

@@ -235,6 +235,12 @@ impl Context {
     /// Prepare the current context to run a new program
     /// Requires the program to have already been checked
     pub fn prepare_for_new_program(&mut self, program: &Program, checker_output: CheckerOutput) {
+        // Ensure current scope is correct
+        assert_eq!(
+            self.current_scope, FIRST_SCOPE_ID,
+            "Failed to prepare for new program: context should be set to the first scope's ID"
+        );
+
         // Update the current scope's range
         self.scopes.get_mut(&self.current_scope).unwrap().range =
             RuntimeCodeRange::CodeRange(program.content.at);
