@@ -7,10 +7,10 @@ use reshell_parser::ast::{
 
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
-    context::{Context, ScopeVar},
+    context::{Context, ScopeContent, ScopeVar},
     display::{readable_type, readable_value_type},
     errors::{ExecResult, StackTraceEntry},
-    exec::{run_block, InstrRet, InstrRetType},
+    exec::{run_block_with_options, InstrRet, InstrRetType},
     expr::eval_expr,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits,
@@ -32,7 +32,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
             }
         }
     } else {
-        ctx.get_fn_value(&call.data.name)?.clone()
+        ctx.get_visible_fn_value(&call.data.name)?.clone()
     };
 
     call_fn_value(
@@ -53,12 +53,10 @@ pub fn call_fn_value(
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
-            let mut fn_scope = ctx.create_scope_with_history_entry(StackTraceEntry {
-                fn_called_at: call_at,
-            });
+            let mut scope_content = ScopeContent::new();
 
             for (name, loc_value) in call_args {
-                fn_scope.vars.insert(
+                scope_content.vars.insert(
                     name,
                     ScopeVar {
                         // TODO: use function argument declaration instead of the value location!
@@ -70,7 +68,14 @@ pub fn call_fn_value(
                 );
             }
 
-            let (_, instr_ret) = run_block(&body.data, ctx, fn_scope)?;
+            let (_, instr_ret) = run_block_with_options(
+                &body.data,
+                ctx,
+                scope_content,
+                Some(StackTraceEntry {
+                    fn_called_at: call_at,
+                }),
+            )?;
 
             match instr_ret {
                 Some(InstrRet { typ, from }) => match typ {

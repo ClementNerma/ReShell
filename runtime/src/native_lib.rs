@@ -10,10 +10,9 @@ use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 use reshell_parser::program;
 
-use crate::context::{Context, Scope, ScopeFn, ScopeVar};
+use crate::context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar};
 use crate::display::{dbg_loc, readable_value_type};
 use crate::errors::ExecResult;
-use crate::exec::run_program;
 use crate::files_map::ScopableFilePath;
 use crate::functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs};
 use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -377,18 +376,18 @@ pub fn generate_native_lib() -> Scope {
                 )
             })?;
 
-            let file_scope = ctx.create_file_scope(
-                ScopableFilePath::RealFile(file_path),
-                source.clone(),
-            );
+            let file_id = ctx.register_file(ScopableFilePath::RealFile(file_path), source.clone());
 
             let parsed = program()
-                .parse_str_as_file(&source, FileId::Id(file_scope.in_file_id))
+                .parse_str_as_file(&source, FileId::Id(file_id))
                 .map_err(|err| ctx.error(at, err))?;
 
-            run_program(&parsed.data, ctx, file_scope)?;
+            // TODO: how to create a scope with an ID that doesn't conflict with existing scopes?
+            todo!();
 
-            Ok(None)
+            // run_program(&parsed.data, ctx, Scope {
+            //     id:
+            // })?;
         }),
         //
         // check if path exists
@@ -475,18 +474,23 @@ pub fn generate_native_lib() -> Scope {
         native_var!(GEN_PROMPT_VAR_NAME => mut: true, RuntimeValue::Null),
     ];
 
-    // TODO: improve this ugly hack
-    let mut scope = Scope::new(0);
+    let mut content = ScopeContent::new();
 
     for (name, func) in native_fns {
-        scope.fns.insert(name, func);
+        content.fns.insert(name, func);
     }
 
     for (name, var) in native_vars {
-        scope.vars.insert(name, var);
+        content.vars.insert(name, var);
     }
 
-    scope
+    Scope {
+        id: 0,
+        visible_scopes: vec![],
+        in_file_id: 0,
+        history_entry: None,
+        content,
+    }
 }
 
 pub fn render_prompt(
@@ -497,6 +501,7 @@ pub fn render_prompt(
         .scopes()
         .get(0)
         .unwrap()
+        .content
         .vars
         .get(GEN_PROMPT_VAR_NAME)
         .unwrap()

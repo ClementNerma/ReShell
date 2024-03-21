@@ -304,7 +304,7 @@ fn check_if_cmd_is_fn(
     } = &call.data;
 
     let (name, is_var) = match &path.data {
-        CmdPath::Raw(raw) => match ctx.get_fn(raw) {
+        CmdPath::Raw(raw) => match ctx.get_visible_fn(raw) {
             Some(_) => (raw, false),
             None => return Ok(None),
         },
@@ -357,7 +357,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         )),
         CmdArg::VarName(name) => Ok(CmdArgResult::Single(ctx.get_var_value(name)?.clone())),
         CmdArg::FnAsValue(name) => Ok(CmdArgResult::Single(RuntimeValue::Function(
-            ctx.get_fn_value(name)?.clone(),
+            ctx.get_visible_fn_value(name)?.clone(),
         ))),
         CmdArg::ParenExpr(expr) => Ok(CmdArgResult::Single(eval_expr(&expr.data, ctx)?)),
         CmdArg::CmdCall(call) => Ok(CmdArgResult::Single(RuntimeValue::String(
