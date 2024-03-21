@@ -15,9 +15,9 @@ impl RlHighlighter for Highlighter {
         let mut h = SyntaxHighlighter::new(line);
 
         macro_rules! highlight {
-            ($(($test: expr) => $regex: expr => $color: ident),+) => {
+            ($(($category: expr) => $regex: expr => $color: ident),+) => {
                 $(
-                    // $test
+                    // $category
                     h.highlight(
                         Regex::new($regex).unwrap(),
                         &[Style::new().fg(Color::$color)],
