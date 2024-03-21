@@ -16,7 +16,6 @@ impl RlEditMode for EditMode {
     fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
         match event.into() {
             Event::FocusGained => ReedlineEvent::None, // TODO: update when reedline gets correct focus support
-
             Event::FocusLost => ReedlineEvent::None, // TODO: update when reedline gets correct focus support
 
             Event::Paste(body) => ReedlineEvent::Edit(vec![EditCommand::InsertString(
