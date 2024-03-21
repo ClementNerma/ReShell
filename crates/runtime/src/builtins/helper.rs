@@ -25,26 +25,26 @@ impl ArgNames {
 }
 
 pub trait ArgSingleTyping {
-    fn arg_single_type() -> SingleValueType;
+    fn arg_single_type(&self) -> SingleValueType;
 
     type Parsed;
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
 pub trait ArgSingleTypingDirectCreation: ArgSingleTyping {
-    fn new_direct() -> Self;
+    fn new_single_direct() -> Self;
 }
 
 pub trait ArgTyping {
-    fn arg_type() -> ValueType;
+    fn arg_type(&self) -> ValueType;
 
     type Parsed;
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
 impl<T: ArgSingleTyping> ArgTyping for T {
-    fn arg_type() -> ValueType {
-        ValueType::Single(MaybeEaten::Raw(Self::arg_single_type()))
+    fn arg_type(&self) -> ValueType {
+        ValueType::Single(MaybeEaten::Raw(self.arg_single_type()))
     }
 
     type Parsed = T::Parsed;
@@ -60,7 +60,7 @@ pub trait ArgTypingDirectCreation: ArgTyping {
 
 impl<T: ArgSingleTypingDirectCreation> ArgTypingDirectCreation for T {
     fn new_direct() -> Self {
-        <T as ArgSingleTypingDirectCreation>::new_direct()
+        <T as ArgSingleTypingDirectCreation>::new_single_direct()
     }
 }
 
@@ -201,7 +201,7 @@ pub(super) fn generate_internal_arg_decl<
         },
         is_optional: arg.is_optional(),
         is_rest: arg.is_rest(),
-        typ: Some(forge_internal_token(A::BaseTyping::arg_type())),
+        typ: Some(forge_internal_token(arg.base_typing().arg_type())),
     }
 }
 

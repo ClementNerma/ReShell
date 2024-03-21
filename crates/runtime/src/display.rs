@@ -75,7 +75,7 @@ impl PrettyPrintable for SingleValueType {
             Self::Error => PrintablePiece::colored_atomic("error", Color::Magenta),
             Self::UntypedStruct => PrintablePiece::colored_atomic("struct", Color::Magenta),
             Self::TypedStruct(members) => PrintablePiece::List {
-                begin: Colored::with_color("struct {", Color::Magenta),
+                begin: Colored::with_color("struct { ", Color::Magenta),
                 items: members
                     .iter()
                     .map(|member| {
@@ -83,13 +83,13 @@ impl PrettyPrintable for SingleValueType {
 
                         PrintablePiece::Join(vec![
                             PrintablePiece::colored_atomic(name.data().clone(), Color::Red),
-                            PrintablePiece::colored_atomic(", ", Color::BrightBlack),
+                            PrintablePiece::colored_atomic(": ", Color::BrightBlack),
                             typ.data().generate_pretty_data(ctx),
                         ])
                     })
                     .collect(),
-                sep: Colored::with_color(", ", Color::BrightBlack),
-                end: Colored::with_color("}", Color::Magenta),
+                sep: Colored::with_color(",", Color::BrightBlack),
+                end: Colored::with_color(" }", Color::Magenta),
                 suffix: None,
             },
             Self::Function(signature) => signature.data().generate_pretty_data(ctx),

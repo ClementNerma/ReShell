@@ -77,6 +77,6 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
         ],
 
-        vars: vec![(GEN_PROMPT_VAR_NAME, false, RuntimeValue::Null)],
+        vars: vec![(GEN_PROMPT_VAR_NAME, true, RuntimeValue::Null)],
     }
 }

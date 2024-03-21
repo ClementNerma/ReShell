@@ -1,10 +1,16 @@
 use std::collections::HashMap;
 
-use parsy::MaybeEaten;
-use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
+use reshell_parser::ast::{FnArg, FnArgNames, FnSignature};
 
 use crate::{
-    builtins::utils::{call_fn_checked, forge_internal_token},
+    builtins::{
+        helper::{ArgTyping, ArgTypingDirectCreation},
+        type_handlers::{
+            BoolType, ExactIntType, IntType, NullType, StringType, TypedStruct1Type,
+            TypedStruct3Type, TypedStruct4Type, Union2Type,
+        },
+        utils::{call_fn_checked, forge_internal_token},
+    },
     context::Context,
     errors::ExecResult,
     gc::GcCell,
@@ -35,21 +41,44 @@ pub fn render_prompt(
         return Ok(None);
     }
 
-    // TODO: take it from the native lib's arguments
     let expected_signature = FnSignature {
         args: forge_internal_token(vec![FnArg {
             names: FnArgNames::Positional(forge_internal_token("prompt_data".to_string())),
             is_optional: false,
             is_rest: false,
-            typ: Some(forge_internal_token(ValueType::Single(
-                // TODO: fully typed struct
-                MaybeEaten::Raw(SingleValueType::UntypedStruct),
-            ))),
+            typ: Some(forge_internal_token(
+                TypedStruct1Type::new((
+                    "last_cmd_status",
+                    TypedStruct3Type::new(
+                        ("success", BoolType),
+                        ("exit_code", Union2Type::<IntType, NullType>::new_direct()),
+                        ("duration_ms", ExactIntType::<i64>::new_direct()),
+                    ),
+                ))
+                .arg_type(),
+            )),
         }]),
-        ret_type: Some(forge_internal_token(Box::new(ValueType::Single(
-            // TODO: fully typed struct
-            MaybeEaten::Raw(SingleValueType::UntypedStruct),
-        )))),
+        ret_type: Some(forge_internal_token(Box::new(
+            TypedStruct4Type::new(
+                (
+                    "prompt_left",
+                    Union2Type::<StringType, NullType>::new_direct(),
+                ),
+                (
+                    "prompt_right",
+                    Union2Type::<StringType, NullType>::new_direct(),
+                ),
+                (
+                    "prompt_indicator",
+                    Union2Type::<StringType, NullType>::new_direct(),
+                ),
+                (
+                    "prompt_multiline_indicator",
+                    Union2Type::<StringType, NullType>::new_direct(),
+                ),
+            )
+            .arg_type(),
+        ))),
     };
 
     let last_cmd_status = match last_cmd_status {
@@ -146,6 +175,7 @@ pub fn render_prompt(
         prompt_multiline_indicator
     )))
 }
+
 #[derive(Debug)]
 pub struct LastCmdStatus {
     pub success: bool,
@@ -159,5 +189,4 @@ pub struct PromptRendering {
     pub prompt_right: Option<String>,
     pub prompt_indicator: Option<String>,
     pub prompt_multiline_indicator: Option<String>,
-    // prompt_history_search_indicator: Option<String>,
 }

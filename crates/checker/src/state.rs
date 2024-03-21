@@ -88,7 +88,7 @@ impl State {
                 DependencyType::Variable => scope
                     .vars
                     .get(&item.data)
-                    .map(|var| FetchedDependency::new(var.name_at, true)),
+                    .map(|var| FetchedDependency::new(var.name_at, var.is_mut)),
                 DependencyType::Function => scope
                     .fns
                     .get(&item.data)
