@@ -143,9 +143,7 @@ pub fn program() -> impl Parser<Program> {
                     .spanned()
                     .critical("expected a flag name (identifier)"),
             )
-            .followed_by(
-                not(possible_ident_char.clone()).critical("expected a single-character identifier"),
-            );
+            .followed_by(not(possible_ident_char.clone()).critical("unexpected symbol"));
 
         let fn_arg_short_flag = char('-')
             .ignore_then(
