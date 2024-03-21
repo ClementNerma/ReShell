@@ -184,7 +184,6 @@ impl RlCompleter for Completer {
                 value = format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
             }
 
-            // TODO: if path contains a space, wrap it with double quotes (and escape double quotes inside it with backslashes!)
             out.push((
                 file_type_enum,
                 Suggestion {
