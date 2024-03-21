@@ -149,11 +149,19 @@
 					"name": "keyword.operator"
 				},
 				{
-					"match": "\\s([\\+\\-\\*\\/%=\\?<>]|&&|\\!=|\\|\\||\\|)(?=\\s|$)",
+					"match": "\\b(\\.\\.\\.)(?=[a-zA-Z_])",
 					"name": "keyword.operator"
 				},
 				{
-					"match": "(?<=[,\\s])\\.\\.\\.(?=\\$)",
+					"match": "(?<=[a-zA-Z0-9_])(\\?:)",
+					"name": "keyword.operator"
+				},
+				{
+					"match": "\\s(==|\\!=|&&|\\|\\||\\||[\\+\\-\\*\\/%=\\?<>])(?=\\s|$)",
+					"name": "keyword.operator"
+				},
+				{
+					"match": "(?<=[,\\s])\\.\\.\\.(?=[a-zA-Z0-9_\\$]|$)",
 					"name": "keyword.operator"
 				},
 				{
