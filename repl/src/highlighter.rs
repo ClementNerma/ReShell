@@ -196,6 +196,13 @@ impl Highlight for Eaten<Instruction> {
                 expr.data.highlight(h);
             }
 
+            Instruction::AliasDecl { name, content } => {
+                h.push_everything_until(&KEYWORD, name.at);
+                h.push(&FN_NAME, name.at);
+                h.push_everything_until(&KEYWORD, content.at);
+                content.data.highlight(h);
+            }
+
             Instruction::CmdCall(call) => {
                 call.data.highlight(h);
             }

@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use parsy::{CodeRange, Eaten};
+use reshell_parser::ast::SingleCmdCall;
 
 use crate::{
     errors::{ExecError, ExecErrorContent, ExecResult},
@@ -56,6 +57,7 @@ impl Context {
         Scope {
             vars: HashMap::new(),
             fns: HashMap::new(),
+            aliases: HashMap::new(),
             in_file_id: self.scopes.last().unwrap().in_file_id,
         }
     }
@@ -83,6 +85,7 @@ impl Context {
         Scope {
             vars: HashMap::new(),
             fns: HashMap::new(),
+            aliases: HashMap::new(),
             in_file_id: self.files_map.register_file(path, content),
         }
     }
@@ -135,6 +138,13 @@ impl Context {
         self.scopes.iter().rev().flat_map(|scope| scope.fns.iter())
     }
 
+    pub fn all_aliases(&self) -> impl Iterator<Item = (&String, &SingleCmdCall)> {
+        self.scopes
+            .iter()
+            .rev()
+            .flat_map(|scope| scope.aliases.iter())
+    }
+
     pub fn get_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
         self.scopes
             .iter()
@@ -182,6 +192,7 @@ impl Context {
 pub struct Scope {
     pub vars: HashMap<String, ScopeVar>,
     pub fns: HashMap<String, ScopeFn>,
+    pub aliases: HashMap<String, SingleCmdCall>,
     pub in_file_id: u64,
 }
 
@@ -190,6 +201,7 @@ impl Scope {
         Self {
             vars: HashMap::new(),
             fns: HashMap::new(),
+            aliases: HashMap::new(),
             in_file_id,
         }
     }

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     process::{Child, Command, Stdio},
 };
@@ -32,6 +33,7 @@ pub fn run_cmd(
                 .iter()
                 .map(|CmdPipe { cmd, pipe_type }| (cmd, Some(*pipe_type))),
         )
+        .map(|(single_cmd_call, pipe_type)| (develop_aliases(single_cmd_call, ctx), pipe_type))
         .collect::<Vec<_>>();
 
     let mut found = None;
@@ -223,6 +225,44 @@ pub fn run_cmd(
     } else {
         None
     })
+}
+
+fn develop_aliases<'a>(
+    call: &'a Eaten<SingleCmdCall>,
+    ctx: &mut Context,
+) -> Cow<'a, Eaten<SingleCmdCall>> {
+    let cmd_path = match &call.data.path.data {
+        CmdPath::Raw(raw) => raw,
+        CmdPath::ComputedString(_) => return Cow::Borrowed(call),
+    };
+
+    for (alias_name, alias_cmd) in ctx.all_aliases() {
+        if &cmd_path.data == alias_name {
+            let mut call = call.clone();
+
+            let SingleCmdCall {
+                env_vars,
+                path,
+                args,
+            } = &alias_cmd;
+
+            call.data.path.change_value(path.data.clone());
+
+            // TODO: optimize insertion as bulk
+            for alias_env_var in env_vars.data.iter().rev() {
+                call.data.env_vars.data.insert(0, alias_env_var.clone());
+            }
+
+            // TODO: optimize insertion as bulk
+            for alias_arg in args.data.iter().rev() {
+                call.data.args.data.insert(0, alias_arg.clone());
+            }
+
+            return Cow::Owned(call);
+        }
+    }
+
+    Cow::Borrowed(call)
 }
 
 fn check_if_cmd_is_fn(

@@ -307,6 +307,16 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             ))));
         }
 
+        Instruction::AliasDecl { name, content } => {
+            let aliases = &mut ctx.current_scope_mut().aliases;
+
+            if aliases.contains_key(&name.data) {
+                return Err(ctx.error(name.at, format!("duplicate alias declaration")));
+            }
+
+            aliases.insert(name.data.clone(), content.data.clone());
+        }
+
         Instruction::CmdCall(call) => {
             run_cmd(call, ctx, false)?;
         }
