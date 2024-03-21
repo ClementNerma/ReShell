@@ -4,7 +4,7 @@ define_internal_fn!(
     "trim",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("self")
+        string: RequiredArg<StringType> = Arg::method_self()
     )
 
     -> Some(StringType::direct_underlying_type())

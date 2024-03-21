@@ -9,7 +9,7 @@ define_internal_fn!(
     "succeeds",
 
     (
-        cmd_call: RequiredArg<CmdCallType> = Arg::positional("self"),
+        cmd_call: RequiredArg<CmdCallType> = Arg::method_self(),
         silent: PresenceFlag = Arg::long_flag("silent")
     )
 

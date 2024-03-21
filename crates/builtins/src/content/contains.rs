@@ -6,7 +6,7 @@ define_internal_fn!(
     "contains",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("self"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         value: RequiredArg<AnyType> = Arg::positional("value")
     )
 
