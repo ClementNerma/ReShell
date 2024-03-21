@@ -4,6 +4,7 @@ use std::{
 };
 
 use indexmap::{IndexMap, IndexSet};
+use once_cell::sync::Lazy;
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
 use reshell_parser::ast::{Block, SingleCmdCall, ValueType};
@@ -15,6 +16,19 @@ use crate::{
     native_lib::generate_native_lib,
     values::{CapturedDependencies, LocatedValue, RuntimeFnValue},
 };
+
+pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
+pub static FIRST_SCOPE_ID: u64 = 1;
+
+static INITIAL_NATIVE_LIB_SCOPE: Lazy<Scope> = Lazy::new(generate_native_lib);
+static INITIAL_FIRST_SCOPE: Lazy<Scope> = Lazy::new(|| Scope {
+    id: FIRST_SCOPE_ID,
+    call_stack: CallStack::empty(),
+    call_stack_entry: None,
+    content: ScopeContent::new(),
+    parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
+    range: ScopeRange::SourceLess,
+});
 
 #[derive(Debug)]
 pub struct Context {
@@ -29,23 +43,21 @@ pub struct Context {
 
 impl Context {
     pub fn new(home_dir: Option<PathBuf>) -> Self {
+        let scopes_to_add = [
+            INITIAL_NATIVE_LIB_SCOPE.clone(),
+            INITIAL_FIRST_SCOPE.clone(),
+        ];
+
+        let mut scopes = HashMap::new();
+
+        for scope in scopes_to_add {
+            scopes.insert(scope.id, scope);
+        }
+
         Self {
-            scopes_id_counter: 1,
-            scopes: HashMap::from([
-                (0, generate_native_lib()),
-                (
-                    1,
-                    Scope {
-                        id: 1,
-                        call_stack: CallStack::empty(),
-                        call_stack_entry: None,
-                        content: ScopeContent::new(),
-                        parent_scopes: IndexSet::from([0]),
-                        range: ScopeRange::SourceLess,
-                    },
-                ),
-            ]),
-            current_scope: 1,
+            scopes_id_counter: FIRST_SCOPE_ID,
+            scopes,
+            current_scope: FIRST_SCOPE_ID,
             files_map: FilesMap::new(),
             home_dir,
             fn_deps: IndexMap::new(),
@@ -77,7 +89,7 @@ impl Context {
     }
 
     pub fn first_scope(&self) -> &Scope {
-        self.scopes.get(&1).unwrap()
+        self.scopes.get(&FIRST_SCOPE_ID).unwrap()
     }
 
     // =============== Non-public functions =============== //
@@ -101,7 +113,7 @@ impl Context {
     }
 
     pub(crate) fn reset_to_first_scope(&mut self) {
-        self.current_scope = 1;
+        self.current_scope = FIRST_SCOPE_ID;
     }
 
     pub(crate) fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
@@ -229,7 +241,7 @@ impl Context {
     }
 
     pub(crate) fn pop_scope(&mut self) {
-        assert!(self.current_scope > 1);
+        assert!(self.current_scope > FIRST_SCOPE_ID);
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 

@@ -11,6 +11,7 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
 
+use crate::context::NATIVE_LIB_SCOPE_ID;
 use crate::values::CapturedDependencies;
 use crate::{
     context::{CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
@@ -551,7 +552,7 @@ pub fn generate_native_lib() -> Scope {
     }
 
     Scope {
-        id: 0,
+        id: NATIVE_LIB_SCOPE_ID,
         range: ScopeRange::SourceLess,
         parent_scopes: IndexSet::new(),
         call_stack: CallStack::empty(),
