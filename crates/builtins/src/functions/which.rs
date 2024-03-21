@@ -1,3 +1,4 @@
+use colored::Colorize;
 use reshell_runtime::{
     context::ScopeContent,
     display::dbg_loc,
@@ -10,20 +11,16 @@ define_internal_fn!(
     "which",
 
     (
-        command: RequiredArg<StringType> = Arg::positional("command")
+        command: RequiredArg<StringType> = Arg::positional("command"),
+        direct: PresenceFlag = Arg::long_and_short_flag("direct", 'd')
     )
 
     -> None
 );
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { command },
-         ArgsAt {
-             command: command_at,
-         },
-         ctx| {
+    Runner::new(|_, Args { command, direct }, _, ctx| {
+        if !direct {
             for scope in ctx.visible_scopes() {
                 let ScopeContent {
                     vars: _,
@@ -49,16 +46,18 @@ fn run() -> Runner {
                     return Ok(None);
                 }
             }
+        }
 
-            match ctx.binaries_resolver().resolve_binary_path(&command) {
-                Ok(path) => {
-                    println!("external command located at: {}", path.display());
-
-                    Ok(None)
-                }
-
-                Err(err) => Err(ctx.throw(command_at, err.to_string())),
+        match ctx.binaries_resolver().resolve_binary_path(&command) {
+            Ok(path) => {
+                println!("External binary: {}", path.display());
             }
-        },
-    )
+
+            Err(err) => {
+                eprintln!("{}", err.bright_red());
+            }
+        }
+
+        Ok(None)
+    })
 }
