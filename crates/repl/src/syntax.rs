@@ -153,9 +153,7 @@ impl<'a> Highlighter<'a> {
                 Rule::Simple(_) | Rule::Progressive(_, _) => continue,
 
                 Rule::Nested(rule) => {
-                    if let Some(captured) = rule.begin.matches.captures_at(text, shift) {
-                        let begin_matched = Match::new(&rule.begin, captured);
-
+                    if let Some(begin_matched) = Match::test(&rule.begin, text, shift) {
                         if min.is_none()
                             || matches!(min, Some(ref nested) if begin_matched.start <  nested.begin.start)
                         {
@@ -200,20 +198,17 @@ impl<'a> Highlighter<'a> {
         }
 
         loop {
-            let captured = closing_pat.matches.captures_at(text, shift)?;
-
-            let start = captured.get(0).unwrap().start();
-            let end = captured.get(0).unwrap().end();
+            let matched = Match::test(closing_pat, text, shift)?;
 
             if let Some(nesting) = self.find_first_nesting(text, rules, shift) {
-                if start >= nesting.begin.start {
-                    shift = end;
+                if matched.start >= nesting.begin.start {
+                    shift = matched.end;
 
                     continue;
                 }
             }
 
-            return Some(Match::new(closing_pat, captured));
+            return Some(matched);
         }
     }
 
@@ -247,7 +242,7 @@ impl<'a> Highlighter<'a> {
             };
 
             for simple in following {
-                match Self::match_simple_rule(simple, text, shift) {
+                match Match::test(simple, text, shift) {
                     None => break,
                     Some(matched) => {
                         if !highlight_matched(&matched, &mut shift) {
@@ -273,12 +268,10 @@ impl<'a> Highlighter<'a> {
 
         for rule in rules {
             let matching = match rule {
-                Rule::Simple(simple) => Self::match_simple_rule(simple, text, shift),
+                Rule::Simple(simple) => Match::test(simple, text, shift),
 
-                Rule::Progressive(simple, following) => {
-                    Self::match_simple_rule(simple, text, shift)
-                        .map(|matched| matched.with_following(following))
-                }
+                Rule::Progressive(simple, following) => Match::test(simple, text, shift)
+                    .map(|matched| matched.with_following(following)),
 
                 Rule::Nested(_) => continue,
 
@@ -300,16 +293,14 @@ impl<'a> Highlighter<'a> {
     }
 
     fn highlight_piece(matched: &Match, out: &mut Vec<HighlightPiece>) {
-        let Match { rule, captured, .. } = matched;
-
-        let SimpleRule { matches: _, style } = rule;
+        let SimpleRule { matches: _, style } = matched.rule;
 
         for (i, style) in style.iter().enumerate() {
-            let Some(captured) = captured.get(i + 1) else {
+            let Some(captured) = matched.get(i + 1) else {
                 continue;
             };
 
-            if captured.is_empty() {
+            if captured.extract.is_empty() {
                 continue;
             }
 
@@ -319,18 +310,6 @@ impl<'a> Highlighter<'a> {
                 style: Some(*style),
             });
         }
-    }
-
-    fn match_simple_rule<'h, 'str>(
-        simple: &'h SimpleRule,
-        text: &'str str,
-        shift: usize,
-    ) -> Option<Match<'h, 'str>> {
-        let SimpleRule { matches, style: _ } = simple;
-
-        matches
-            .captures_at(text, shift)
-            .map(|captured| Match::new(simple, captured))
     }
 }
 
@@ -343,28 +322,75 @@ struct Nesting<'h, 'str> {
 
 #[derive(Debug)]
 struct Match<'h, 'str> {
+    // input: &'str str,
+    offset: usize,
     rule: &'h SimpleRule,
     start: usize,
     end: usize,
-    captured: Captures<'str>,
     following: Option<&'h [SimpleRule]>,
+    _captured: Captures<'str>,
 }
 
 impl<'h, 'str> Match<'h, 'str> {
-    fn new(rule: &'h SimpleRule, captured: Captures<'str>) -> Self {
-        Self {
-            start: captured.get(1).unwrap().start(),
-            end: captured.get(captured.len() - 1).unwrap().end(),
-            rule,
-            captured,
-            following: None,
-        }
+    fn test(rule: &'h SimpleRule, input: &'str str, offset: usize) -> Option<Self> {
+        rule.matches
+            .captures(&input[offset..])
+            .map(|captured| Self {
+                // input,
+                offset,
+                start: captured.get(1).unwrap().start() + offset,
+                end: captured.get(captured.len() - 1).unwrap().end() + offset,
+                rule,
+                _captured: captured,
+                following: None,
+            })
     }
 
     fn with_following(mut self, following: &'h [SimpleRule]) -> Self {
         self.following = Some(following);
         self
     }
+
+    fn get(&self, group: usize) -> Option<CapturedGroup<'str>> {
+        self._captured.get(group).map(|group| {
+            CapturedGroup::new(
+                group.as_str(),
+                group.start() + self.offset,
+                group.len(),
+                // group.end() + self.offset,
+            )
+        })
+    }
+}
+
+struct CapturedGroup<'str> {
+    extract: &'str str,
+    start: usize,
+    len: usize,
+    // end: usize,
+}
+
+impl<'str> CapturedGroup<'str> {
+    pub fn new(extract: &'str str, start: usize, len: usize /*end: usize*/) -> Self {
+        Self {
+            extract,
+            start,
+            len,
+            // end,
+        }
+    }
+
+    pub fn start(&self) -> usize {
+        self.start
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
+    }
+
+    // pub fn end(&self) -> usize {
+    //     self.end
+    // }
 }
 
 pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
