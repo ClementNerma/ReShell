@@ -15,7 +15,7 @@ use crate::display::{dbg_loc, readable_value_type};
 use crate::errors::ExecResult;
 use crate::exec::run_program;
 use crate::files_map::ScopableFilePath;
-use crate::functions::{call_fn_value, FnPossibleCallArgs};
+use crate::functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs};
 use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::typechecker::check_fn_equality;
 use crate::values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue};
@@ -639,7 +639,7 @@ fn call_fn_checked(
         ));
     }
 
-    call_fn_value(
+    let ret = call_fn_value(
         forge_internal_loc(),
         func,
         FnPossibleCallArgs::Direct {
@@ -650,7 +650,9 @@ fn call_fn_checked(
                 .collect(),
         },
         ctx,
-    )
+    )?;
+
+    fail_if_thrown(ret, ctx)
 }
 
 #[derive(Debug)]
