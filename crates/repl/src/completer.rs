@@ -86,21 +86,23 @@ pub fn generate_completions(
         return vec![];
     }
 
+    let next_char = line[word_end..].chars().next();
+
     if let Some(word) = word.strip_prefix('$') {
-        return complete_var_name(word, Some("$"), span, ctx);
+        return complete_var_name(word, next_char, Some("$"), span, ctx);
     }
 
     if let Some(word) = word.strip_prefix('@') {
-        return complete_fn_name(word, Some("@"), span, ctx);
+        return complete_fn_name(word, next_char, Some("@"), span, ctx);
     }
 
     if !after_space && !word.contains(['/', '\\']) {
-        let mut cmd_comp = build_cmd_completions(word, span)
+        let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
             .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(word, None, span, ctx));
+        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
 
         return sort_results(word, cmd_comp);
     }
@@ -110,12 +112,15 @@ pub fn generate_completions(
 
 fn build_fn_completions<'a>(
     word: &str,
+    next_char: Option<char>,
     add_prefix: Option<&str>,
     span: Span,
     ctx: &'a Context,
 ) -> impl Iterator<Item = SortableSuggestion> + 'a {
     let word = word.to_lowercase();
     let add_prefix = add_prefix.map(str::to_owned);
+
+    let append_whitespace = next_char != Some(' ') && next_char != Some('(');
 
     ctx.visible_scopes()
         .flat_map(|scope| scope.fns.iter())
@@ -136,7 +141,7 @@ fn build_fn_completions<'a>(
                     ),
                     extra: None,
                     span,
-                    append_whitespace: true,
+                    append_whitespace,
                 },
             )
         })
@@ -144,18 +149,20 @@ fn build_fn_completions<'a>(
 
 fn complete_fn_name(
     word: &str,
+    next_char: Option<char>,
     add_prefix: Option<&str>,
     span: Span,
     ctx: &Context,
 ) -> Vec<Suggestion> {
     sort_results(
         word,
-        build_fn_completions(word, add_prefix, span, ctx).collect(),
+        build_fn_completions(word, next_char, add_prefix, span, ctx).collect(),
     )
 }
 
 fn build_cmd_completions(
     word: &str,
+    next_char: Option<char>,
     span: Span,
 ) -> Result<Option<Vec<SortableSuggestion>>, Box<dyn Error>> {
     if word.contains('/') || word.contains('\\') {
@@ -182,6 +189,8 @@ fn build_cmd_completions(
         .chain(path.split(path_var_sep).filter(|entry| !entry.is_empty()));
 
     let delimiter_chars = delimiter_chars();
+
+    let append_whitespace = next_char != Some(' ');
 
     let mut results = Vec::<(String, Suggestion)>::new();
 
@@ -254,7 +263,7 @@ fn build_cmd_completions(
                     description: None,
                     extra: None,
                     span,
-                    append_whitespace: true,
+                    append_whitespace,
                 },
             ))
         }
@@ -265,11 +274,14 @@ fn build_cmd_completions(
 
 fn complete_var_name(
     word: &str,
+    next_char: Option<char>,
     add_prefix: Option<&str>,
     span: Span,
     ctx: &Context,
 ) -> Vec<Suggestion> {
     let word = word.to_lowercase();
+
+    let append_whitespace = next_char != Some(' ');
 
     let results = ctx
         .visible_scopes()
@@ -292,7 +304,7 @@ fn complete_var_name(
                     }),
                     extra: None,
                     span,
-                    append_whitespace: true,
+                    append_whitespace,
                 },
             )
         })
