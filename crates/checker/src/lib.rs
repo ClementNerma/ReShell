@@ -478,20 +478,12 @@ fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
 }
 
 fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResult {
-    let ExprInner {
-        content,
-        chainings,
-        pipes,
-    } = &inner.data;
+    let ExprInner { content, chainings } = &inner.data;
 
     check_expr_inner_content(&content.data, state)?;
 
     for chaining in chainings {
         check_expr_inner_chaining(&chaining.data, state)?;
-    }
-
-    for fn_call in pipes {
-        check_fn_call(fn_call, state)?;
     }
 
     Ok(())
