@@ -88,7 +88,7 @@ pub enum RuntimeValue {
     Float(f64),
     String(String),
     Range { from: i64, to: i64 },
-    Error { at: CodeRange, msg: String },
+    Error(Box<ErrorValueContent>),
 
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
@@ -132,7 +132,7 @@ impl RuntimeValue {
                     RuntimeFnSignature::Owned(owned) => RuntimeEaten::Internal(owned.clone()),
                 })
             }
-            RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
+            RuntimeValue::Error(_) => SingleValueType::Error,
             RuntimeValue::ArgSpread(_) => SingleValueType::ArgSpread,
         }
     }
@@ -145,7 +145,7 @@ impl RuntimeValue {
             | RuntimeValue::Float(_)
             | RuntimeValue::String(_)
             | RuntimeValue::Range { from: _, to: _ }
-            | RuntimeValue::Error { at: _, msg: _ } => true,
+            | RuntimeValue::Error(_) => true,
 
             RuntimeValue::List(_)
             | RuntimeValue::Map(_)
@@ -154,6 +154,12 @@ impl RuntimeValue {
             | RuntimeValue::ArgSpread(_) => false,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ErrorValueContent {
+    pub at: CodeRange,
+    pub msg: String,
 }
 
 #[derive(Debug, Clone)]
@@ -176,11 +182,9 @@ pub fn are_values_equal(
         (_, RuntimeValue::Null) => Ok(matches!(left, RuntimeValue::Null)),
         (RuntimeValue::Null, _) => Ok(matches!(right, RuntimeValue::Null)),
 
-        (RuntimeValue::Error { at: _, msg: _ }, _) | (_, RuntimeValue::Error { at: _, msg: _ }) => {
-            Err(NotComparableTypes {
-                reason: "cannot compare errors",
-            })
-        }
+        (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Err(NotComparableTypes {
+            reason: "cannot compare errors",
+        }),
 
         (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => {
             Err(NotComparableTypes {

@@ -13,5 +13,6 @@ pub mod functions;
 pub mod gc;
 pub mod pretty;
 pub mod props;
+pub mod size;
 pub mod typechecker;
 pub mod values;

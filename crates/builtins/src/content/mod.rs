@@ -32,6 +32,7 @@ mod replace;
 mod reverse;
 mod rm;
 mod set_env;
+mod size_of;
 mod slice;
 mod split;
 mod struct_to_map;
@@ -80,6 +81,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::reverse::build_fn(),
             self::rm::build_fn(),
             self::set_env::build_fn(),
+            self::size_of::build_fn(),
             self::slice::build_fn(),
             self::split::build_fn(),
             self::struct_to_map::build_fn(),

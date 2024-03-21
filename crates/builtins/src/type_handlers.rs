@@ -13,7 +13,7 @@ use reshell_parser::ast::{
 
 use reshell_runtime::{
     gc::{GcCell, GcReadOnlyCell},
-    values::{RuntimeFnValue, RuntimeValue},
+    values::{ErrorValueContent, RuntimeFnValue, RuntimeValue},
 };
 
 use crate::helper::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
@@ -89,7 +89,11 @@ declare_basic_types!(
     },
 
     ErrorType (Error) = (CodeRange, String) => value: match value {
-        RuntimeValue::Error { at, msg } => Ok((at, msg)),
+        RuntimeValue::Error(err) => {
+            let ErrorValueContent { at, msg } = *err;
+            Ok((at, msg.clone()))
+        },
+
         _ => Err("expected an error".to_owned())
     },
 

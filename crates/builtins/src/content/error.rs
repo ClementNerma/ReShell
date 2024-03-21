@@ -1,3 +1,5 @@
+use reshell_runtime::values::ErrorValueContent;
+
 crate::define_internal_fn!(
     //
     // Create a range value
@@ -14,7 +16,13 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { content }, _, ctx| match at {
-        RuntimeCodeRange::Parsed(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
+        RuntimeCodeRange::Parsed(at) => {
+            Ok(Some(RuntimeValue::Error(Box::new(ErrorValueContent {
+                at,
+                msg: content,
+            }))))
+        }
+
         RuntimeCodeRange::Internal => {
             Err(ctx.error(at, "cannot generate an error from an internal location"))
         }
