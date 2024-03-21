@@ -998,7 +998,10 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
 
-        CmdValueMakingArg::InlineCmdCall(cmd_call) => check_cmd_call(cmd_call, state),
+        CmdValueMakingArg::InlineCmdCall(cmd_call) => {
+            state.register_cmd_call_value(cmd_call);
+            check_cmd_call(cmd_call, state)
+        }
 
         CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
 
