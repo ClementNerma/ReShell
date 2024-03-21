@@ -266,16 +266,9 @@ pub fn generate_native_lib() -> Scope {
         // slice a list
         //
         native_fn!(slice (list: List, from: Int, to: Int) -> (List) {
-            // TODO: track references
             let items = list.read().iter().skip(from as usize).take(to as usize).cloned().collect();
 
             Ok(Some(RuntimeValue::List(GcCell::new(items))))
-        }),
-        //
-        // get the length of a list
-        //
-        native_fn!(count (list: List) -> (Int) {
-            Ok(Some(RuntimeValue::Int(list.read().len() as i64)))
         }),
         //
         // pop a value from a list
@@ -314,6 +307,18 @@ pub fn generate_native_lib() -> Scope {
             Ok(Some(RuntimeValue::Int(string.len() as i64)))
         }),
         //
+        // get the length of a list
+        //
+        native_fn!(listlen (list: List) -> (Int) {
+            Ok(Some(RuntimeValue::Int(list.read().len() as i64)))
+        }),
+        //
+        // get the length of a map
+        //
+        native_fn!(maplen (map: Map) -> (Int) {
+            Ok(Some(RuntimeValue::Int(map.read().len() as i64)))
+        }),
+        //
         // get a string as an array of characters
         //
         native_fn!(chars (string: String) -> (List) {
@@ -334,11 +339,11 @@ pub fn generate_native_lib() -> Scope {
         //
         // turn a string lowercase
         //
-        native_fn!(uppercase (string: String) -> (String) {
+        native_fn!(lowercase (string: String) -> (String) {
             Ok(Some(RuntimeValue::String(string.to_lowercase())))
         }),
         //
-        // replace a string
+        // replace a pattern in a string
         //
         native_fn!(replace (string: String, pattern: String, with: String) -> (String) {
             Ok(Some(RuntimeValue::String(string.replace(&pattern, &with))))
@@ -396,6 +401,8 @@ pub fn generate_native_lib() -> Scope {
             if let Fork::Child = fork {
                 call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: forge_internal_token(vec![]), ret_type: None }, vec![], ctx)?;
 
+                // TODO: exit don't call destructors,
+                // so return an indicator that the program must be terminated instead
                 std::process::exit(0);
             }
 
@@ -417,7 +424,7 @@ pub fn generate_native_lib() -> Scope {
             }
         }),
         //
-        // Include another script
+        // include another script
         //
         native_fn!(include (path: String [path_at]) [ctx, at] {
             let from_dir = match ctx.current_file_path() {
@@ -475,19 +482,19 @@ pub fn generate_native_lib() -> Scope {
         //
         // check if path exists
         //
-        native_fn!(pathExists (path: String) -> (Bool) {
+        native_fn!(path_exists (path: String) -> (Bool) {
             Ok(Some(RuntimeValue::Bool(Path::new(&path).exists())))
         }),
         //
         // check if file exists
         //
-        native_fn!(fileExists (path: String) -> (Bool) {
+        native_fn!(file_exists (path: String) -> (Bool) {
             Ok(Some(RuntimeValue::Bool(Path::new(&path).is_file())))
         }),
         //
         // check if directory exists
         //
-        native_fn!(dirExists (path: String) -> (Bool) {
+        native_fn!(dir_exists (path: String) -> (Bool) {
             Ok(Some(RuntimeValue::Bool(Path::new(&path).is_dir())))
         }),
         //
@@ -527,6 +534,8 @@ pub fn generate_native_lib() -> Scope {
         // exit the program
         //
         native_fn!(exit (code: Int) {
+            // TODO: exit don't call destructors,
+            // so return an indicator that the program must be terminated instead
             std::process::exit(code as i32);
         }),
         //
