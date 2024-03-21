@@ -5,7 +5,7 @@ use std::{
         mpsc::{channel, TryRecvError},
         Arc, Mutex,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use colored::Colorize;
@@ -25,7 +25,7 @@ use crate::{
     highlighter, hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
-    utils::validator,
+    utils::{threads::yield_for_at_least, validator},
     Timings,
 };
 
@@ -132,6 +132,9 @@ pub fn start(
                     TryRecvError::Disconnected => panic!("Completer's thread disconnected"),
                 },
             };
+
+            // Don't wait too much CPU while idleing
+            yield_for_at_least(Duration::from_millis(10));
         };
 
         // Handle the return signal of the line editor
