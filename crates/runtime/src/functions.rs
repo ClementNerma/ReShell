@@ -672,6 +672,7 @@ pub enum FnCallType {
     Method(LocatedValue)
 }
 
+#[derive(Debug)]
 pub struct ValidatedFnCallArg {
     pub decl_name_at: RuntimeCodeRange,
     pub arg_value_at: RuntimeCodeRange,
