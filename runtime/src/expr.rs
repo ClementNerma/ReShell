@@ -12,7 +12,7 @@ use crate::{
     display::{readable_value_type, value_to_str},
     errors::{ExecErrorContent, ExecResult},
     functions::call_fn,
-    typechecker::check_if_type_fits_single,
+    typechecker::check_if_single_type_fits_single,
     values::{RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -116,8 +116,8 @@ fn eval_double_op(
                     op.at,
                     format!(
                         "cannot apply this operator on a pair of {} and {}",
-                        readable_value_type(&left),
-                        readable_value_type(&right)
+                        readable_value_type(&left, ctx),
+                        readable_value_type(&right, ctx)
                     ),
                 ))
             }
@@ -125,11 +125,11 @@ fn eval_double_op(
 
         DoubleOp::And | DoubleOp::Or => {
             let RuntimeValue::Bool(left) = left else {
-                return Err(ctx.error(op.at, format!("left operand is not a boolean but a {}", readable_value_type(&left))));
+                return Err(ctx.error(op.at, format!("left operand is not a boolean but a {}", readable_value_type(&left, ctx))));
             };
 
             let RuntimeValue::Bool(right) = right else {
-                return Err(ctx.error(op.at, format!("right operand is not a boolean but a {}", readable_value_type(&right))));
+                return Err(ctx.error(op.at, format!("right operand is not a boolean but a {}", readable_value_type(&right, ctx))));
             };
 
             match op.data {
@@ -152,8 +152,8 @@ fn eval_double_op(
                         op.at,
                         format!(
                             "cannot compare {} and {}",
-                            readable_value_type(&left),
-                            readable_value_type(&right)
+                            readable_value_type(&left, ctx),
+                            readable_value_type(&right, ctx)
                         ),
                     ))
                 }
@@ -167,7 +167,7 @@ fn eval_double_op(
             (RuntimeValue::Null, _) => right.clone(),
             (_, RuntimeValue::Null) => left.clone(),
             (_, _) => {
-                if !check_if_type_fits_single(&left.get_type(), &right.get_type()) {
+                if !check_if_single_type_fits_single(&left.get_type(), &right.get_type(), ctx)? {
                     todo!("Incompatible types");
                 }
 
@@ -202,7 +202,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                                 key_expr.at,
                                 format!(
                                     "expected an index (integer), found a {}",
-                                    readable_value_type(&value)
+                                    readable_value_type(&value, ctx)
                                 ),
                             ))
                         }
@@ -225,7 +225,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                                 key_expr.at,
                                 format!(
                                     "expected a key (string), found a {}",
-                                    readable_value_type(&value)
+                                    readable_value_type(&value, ctx)
                                 ),
                             ))
                         }
@@ -245,7 +245,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                         acc.at,
                         format!(
                             "left operand is not a map nor a list, but a {}",
-                            readable_value_type(&left)
+                            readable_value_type(&left, ctx)
                         ),
                     ))
                 }
@@ -273,7 +273,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                         acc.at,
                         format!(
                             "left operand is not a struct, but a {}",
-                            readable_value_type(&left)
+                            readable_value_type(&left, ctx)
                         ),
                     ))
                 }

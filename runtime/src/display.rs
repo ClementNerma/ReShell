@@ -21,22 +21,25 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
         | RuntimeValue::Function(_)
         | RuntimeValue::Error { at: _, msg: _ } => Err(ctx.error(
             at,
-            format!("cannot convert a {} to string", readable_value_type(value)),
+            format!(
+                "cannot convert a {} to string",
+                readable_value_type(value, ctx)
+            ),
         )),
     }
 }
 
-pub fn readable_value_type(value: &RuntimeValue) -> Cow<'static, str> {
-    readable_single_type(&value.get_type())
+pub fn readable_value_type(value: &RuntimeValue, ctx: &Context) -> Cow<'static, str> {
+    readable_single_type(&value.get_type(), ctx)
 }
 
-pub fn readable_type(value_type: &ValueType) -> Cow<'_, str> {
+pub fn readable_type(value_type: &ValueType, ctx: &Context) -> Cow<'static, str> {
     match value_type {
-        ValueType::Single(single) => readable_single_type(&single.data).into(),
+        ValueType::Single(single) => readable_single_type(&single.data, ctx).into(),
         ValueType::Union(types) => {
             let types = types
                 .iter()
-                .map(|typ| readable_single_type(&typ.data))
+                .map(|typ| readable_single_type(&typ.data, ctx))
                 .collect::<Vec<_>>()
                 .join(" | ");
 
@@ -45,7 +48,7 @@ pub fn readable_type(value_type: &ValueType) -> Cow<'_, str> {
     }
 }
 
-pub fn readable_single_type(value_type: &SingleValueType) -> Cow<'static, str> {
+pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<'static, str> {
     match value_type {
         SingleValueType::Any => "any".into(),
         SingleValueType::Null => "null value".into(),
@@ -57,8 +60,23 @@ pub fn readable_single_type(value_type: &SingleValueType) -> Cow<'static, str> {
         SingleValueType::Range => "range".into(),
         SingleValueType::Map => "map".into(),
         SingleValueType::Struct => "struct".into(),
-        SingleValueType::Function(signature) => dbg_fn_signature(&signature).into(),
+        SingleValueType::Function(signature) => dbg_fn_signature(&signature, ctx).into(),
         SingleValueType::Error => "error".into(),
+        SingleValueType::TypeAlias(name) => format!(
+            "{} {}",
+            name.data,
+            match ctx
+                .all_type_aliases()
+                .find_map(|(alias_name, typ)| if alias_name == &name.data {
+                    Some(typ)
+                } else {
+                    None
+                }) {
+                Some(typ) => format!("(= {})", readable_type(typ, ctx)),
+                None => format!("(unknown type alias)"),
+            }
+        )
+        .into(),
     }
 }
 
@@ -94,12 +112,12 @@ pub fn dbg_value(value: &RuntimeValue, ctx: &Context) -> String {
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
-        RuntimeValue::Function(func) => dbg_fn_signature(&func.signature),
+        RuntimeValue::Function(func) => dbg_fn_signature(&func.signature, ctx),
         RuntimeValue::Error { at: _, msg } => format!("error(\"{msg}\")"),
     }
 }
 
-pub fn dbg_fn_signature(signature: &FnSignature) -> String {
+pub fn dbg_fn_signature(signature: &FnSignature, ctx: &Context) -> String {
     let FnSignature { args, ret_type } = signature;
 
     format!(
@@ -120,7 +138,7 @@ pub fn dbg_fn_signature(signature: &FnSignature) -> String {
                     names,
                     if arg.is_optional { "?" } else { "" },
                     match &arg.typ {
-                        Some(typ) => format!(": {}", readable_type(&typ.data)),
+                        Some(typ) => format!(": {}", readable_type(&typ.data, ctx)),
                         None => String::new(),
                     }
                 )
@@ -129,7 +147,7 @@ pub fn dbg_fn_signature(signature: &FnSignature) -> String {
             .join(", "),
         match ret_type {
             None => String::new(),
-            Some(ret_type) => format!(" -> {}", readable_type(&ret_type.data)),
+            Some(ret_type) => format!(" -> {}", readable_type(&ret_type.data, ctx)),
         }
     )
 }

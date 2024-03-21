@@ -73,14 +73,19 @@ pub enum Instruction {
 
     Throw(Eaten<Expr>),
 
-    AliasDecl {
+    CmdAliasDecl {
         name: Eaten<String>,
         content: Eaten<SingleCmdCall>,
     },
 
-    CmdCall(Eaten<CmdCall>),
+    TypeAliasDecl {
+        name: Eaten<String>,
+        content: Eaten<ValueType>,
+    },
 
     BaseBlock(Eaten<Block>),
+
+    CmdCall(Eaten<CmdCall>),
 }
 
 #[derive(Debug, Clone)]
@@ -174,6 +179,7 @@ pub enum SingleValueType {
     Struct,
     Function(FnSignature),
     Error,
+    TypeAlias(Eaten<String>),
 }
 
 #[derive(Debug, Clone)]

@@ -134,7 +134,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value)
+                            readable_value_type(&value, ctx)
                         ),
                     ))
                 }
@@ -150,7 +150,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                     let cond_val = eval_expr(&cond.data, ctx)?;
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val))));
+                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val, ctx))));
                     };
 
                     if cond_val {
@@ -230,7 +230,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         iter_on.at,
                         format!(
                             "expected a list or range to iterate on, found a {} instead",
-                            readable_value_type(&value)
+                            readable_value_type(&value, ctx)
                         ),
                     ))
                 }
@@ -245,7 +245,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value)
+                            readable_value_type(&value, ctx)
                         ),
                     ))
                 }
@@ -307,11 +307,21 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             ))));
         }
 
-        Instruction::AliasDecl { name, content } => {
+        Instruction::CmdAliasDecl { name, content } => {
             let aliases = &mut ctx.current_scope_mut().aliases;
 
             if aliases.contains_key(&name.data) {
                 return Err(ctx.error(name.at, format!("duplicate alias declaration")));
+            }
+
+            aliases.insert(name.data.clone(), content.data.clone());
+        }
+
+        Instruction::TypeAliasDecl { name, content } => {
+            let aliases = &mut ctx.current_scope_mut().types;
+
+            if aliases.contains_key(&name.data) {
+                return Err(ctx.error(name.at, format!("duplicate type alias declaration")));
             }
 
             aliases.insert(name.data.clone(), content.data.clone());

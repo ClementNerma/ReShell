@@ -25,7 +25,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<Loc
                     call.data.name.at,
                     format!(
                         "expected a function, found a {} instead",
-                        readable_value_type(&value)
+                        readable_value_type(&value, ctx)
                     ),
                 ))
             }
@@ -83,18 +83,18 @@ pub fn call_fn_value(
                 call_at,
                 format!(
                     "function call did not return any value, was expected to return a {}",
-                    readable_type(&ret_type.data)
+                    readable_type(&ret_type.data, ctx)
                 ),
             ));
         };
 
-        if !check_if_single_type_fits(&ret_val.value.get_type(), &ret_type.data) {
+        if !check_if_single_type_fits(&ret_val.value.get_type(), &ret_type.data, ctx)? {
             return Err(ctx.error(
                 call_at,
                 format!(
                     "function call returned a {}, was expected to return a {}",
-                    readable_value_type(&ret_val.value),
-                    readable_type(&ret_type.data)
+                    readable_value_type(&ret_val.value, ctx),
+                    readable_type(&ret_type.data, ctx)
                 ),
             ));
         }
@@ -271,14 +271,14 @@ fn parse_fn_call_args(
         };
 
         if let Some(expected_type) = &fn_arg.typ {
-            if !check_if_single_type_fits(&arg_value.get_type(), &expected_type.data) {
+            if !check_if_single_type_fits(&arg_value.get_type(), &expected_type.data, ctx)? {
                 return Err(ctx.error(
                     call_arg_at,
                     format!(
                         "type mismatch for argument '{}': expected a {}, found a {}",
                         fn_arg_var_name(&fn_arg),
-                        readable_type(&expected_type.data),
-                        readable_value_type(&arg_value)
+                        readable_type(&expected_type.data, ctx),
+                        readable_value_type(&arg_value, ctx)
                     ),
                 ));
             }

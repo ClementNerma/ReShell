@@ -78,6 +78,7 @@ pub fn program() -> impl Parser<Program> {
                 .not_followed_by(possible_ident_char.clone())
                 .to(SingleValueType::Error),
             fn_signature.clone().map(SingleValueType::Function),
+            ident.clone().spanned().map(SingleValueType::TypeAlias),
         ));
 
         let value_type = choice::<_, ValueType>((
@@ -778,11 +779,28 @@ pub fn program() -> impl Parser<Program> {
                         .spanned()
                         .critical("expected a command call to alias"),
                 )
-                .map(|(name, content)| Instruction::AliasDecl { name, content }),
+                .map(|(name, content)| Instruction::CmdAliasDecl { name, content }),
             //
-            // Command calls
+            // Type aliases
             //
-            cmd_call.spanned().map(Instruction::CmdCall),
+            just("type")
+                .ignore_then(s)
+                .ignore_then(
+                    ident
+                        .clone()
+                        .spanned()
+                        .critical("expected a type name (identifier)"),
+                )
+                .then_ignore(ms)
+                .then_ignore(char('=').critical("expected an assignment operator (=)"))
+                .then_ignore(ms)
+                .then(
+                    value_type
+                        .clone()
+                        .spanned()
+                        .critical("expected a type to alias"),
+                )
+                .map(|(name, content)| Instruction::TypeAliasDecl { name, content }),
             //
             // Base blocks
             //
@@ -790,6 +808,10 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(ms)
                 .ignore_then(block.spanned())
                 .map(Instruction::BaseBlock),
+            //
+            // Command calls
+            //
+            cmd_call.spanned().map(Instruction::CmdCall),
         ))
         .then_ignore(ms)
         .then_ignore(
