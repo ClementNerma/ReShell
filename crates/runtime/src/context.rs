@@ -15,7 +15,7 @@ use crate::{
     conf::RuntimeConf,
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
-    files_map::{FilesMap, ScopableFilePath, SourceFile},
+    files_map::{FilesMap, ScopableFilePath},
     gc::{GcCell, GcReadOnlyCell},
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
