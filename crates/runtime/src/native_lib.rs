@@ -87,7 +87,6 @@ macro_rules! native_fn {
                     captured_deps: CapturedDependencies {
                         vars: HashMap::new(),
                         fns: HashMap::new(),
-                        type_aliases: HashMap::new(),
                         cmd_aliases: HashMap::new()
                     }
                 }),

@@ -7,26 +7,22 @@ mod state;
 
 use std::collections::HashMap;
 
-use indexmap::{IndexMap, IndexSet};
-use parsy::{CodeRange, Eaten};
+use indexmap::IndexSet;
+use parsy::Eaten;
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
     ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp,
     FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, Instruction, LiteralValue,
-    Program, PropAccess, PropAccessNature, SingleCmdCall, SingleOp, SwitchCase, Value,
+    Program, PropAccess, PropAccessNature, SingleCmdCall, SingleOp, SingleValueType,
+    StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub use self::{
     errors::CheckerError,
-    state::{CheckerScope, DeclaredVar, Dependency, DependencyType},
+    state::{CheckerOutput, CheckerScope, DeclaredVar, Dependency, DependencyType},
 };
 
 use self::{errors::CheckerResult, state::State};
-
-#[derive(Debug)]
-pub struct CheckerOutput {
-    pub deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-}
 
 pub fn check(
     program: &Program,
@@ -43,7 +39,7 @@ pub fn check(
 
     check_block_without_push(content, &mut state)?;
 
-    Ok(CheckerOutput { deps: state.deps })
+    Ok(state.collected)
 }
 
 fn check_block(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
@@ -66,8 +62,8 @@ fn check_block_with(
         fn_args_at: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
-        type_aliases: HashMap::new(),
         cmd_aliases: HashMap::new(),
+        type_aliases: HashMap::new(),
     };
 
     fill_scope(&mut scope);
@@ -84,6 +80,34 @@ fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerR
     } = &block.data;
 
     assert!(state.curr_scope().code_range == *code_range);
+
+    for instr in instructions {
+        if let Instruction::TypeAliasDecl { name, content } = &instr.data {
+            if state
+                .curr_scope_mut()
+                .type_aliases
+                .insert(name.data.clone(), name.at)
+                .is_some()
+            {
+                return Err(CheckerError::new(
+                    name.at,
+                    "duplicate type alias declaration",
+                ));
+            }
+
+            state
+                .collected
+                .type_aliases
+                .insert(name.at, content.clone());
+
+            state
+                .collected
+                .type_aliases_decl
+                .entry(*code_range)
+                .or_default()
+                .insert(name.data.clone(), name.at);
+        }
+    }
 
     for instr in instructions {
         check_instr(instr, state)?;
@@ -274,7 +298,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 .cmd_aliases
                 .insert(name.data.clone(), name.at);
 
-            state.deps.insert(content.at, IndexSet::new());
+            state.collected.deps.insert(content.at, IndexSet::new());
 
             state.push_scope(CheckerScope {
                 code_range: content.at,
@@ -282,10 +306,10 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 fn_args_at: None,
                 vars: HashMap::new(),
                 fns: HashMap::new(),
-                type_aliases: HashMap::new(),
-                // TODO: inject the this cmd alias into the created scope (allows inner usage) - first check if it doesn't create an infinite loop
+                // TODO: inject this cmd alias into the created scope (allows inner usage) - first check if it doesn't create an infinite loop
                 // and test this throroughtly!
                 cmd_aliases: HashMap::new(),
+                type_aliases: HashMap::new(),
             });
 
             check_single_cmd_call(content, state)?;
@@ -293,7 +317,12 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.pop_scope();
         }
 
-        Instruction::TypeAliasDecl { name, content } => todo!(),
+        Instruction::TypeAliasDecl {
+            name: _,
+            content: _,
+        } => {
+            // Already treated in first pass
+        }
 
         Instruction::BaseBlock(block) => check_block(block, state)?,
 
@@ -592,6 +621,8 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
 fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     let Function { signature, body } = func;
 
+    check_fn_signature(signature, state)?;
+
     let FnSignature { args, ret_type: _ } = signature;
 
     let mut vars = HashMap::new();
@@ -624,7 +655,10 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
     }
 
-    state.deps.insert(body.data.code_range, IndexSet::new());
+    state
+        .collected
+        .deps
+        .insert(body.data.code_range, IndexSet::new());
 
     check_block_with(body, state, |scope| {
         scope.deps = true;
@@ -634,4 +668,71 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
             scope.vars.insert(name, var);
         }
     })
+}
+
+fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult {
+    match value_type {
+        ValueType::Single(typ) => check_single_value_type(typ.data(), state)?,
+        ValueType::Union(types) => {
+            for typ in types {
+                check_single_value_type(typ.data(), state)?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> CheckerResult {
+    match value_type {
+        SingleValueType::Any
+        | SingleValueType::Null
+        | SingleValueType::Bool
+        | SingleValueType::Int
+        | SingleValueType::Float
+        | SingleValueType::String
+        | SingleValueType::List
+        | SingleValueType::Range
+        | SingleValueType::Map
+        | SingleValueType::Error
+        | SingleValueType::UntypedStruct => Ok(()),
+
+        SingleValueType::TypedStruct(members) => {
+            for member in members {
+                // TODO: ensure no duplicate member
+                let StructTypeMember { name: _, typ } = member.data();
+
+                check_value_type(typ.data(), state)?;
+            }
+
+            Ok(())
+        }
+
+        SingleValueType::Function(signature) => check_fn_signature(signature, state),
+
+        SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
+    }
+}
+
+fn check_fn_signature(signature: &FnSignature, state: &mut State) -> CheckerResult {
+    let FnSignature { args, ret_type } = signature;
+
+    for arg in &args.data {
+        let FnArg {
+            names: _,
+            is_optional: _,
+            is_rest: _,
+            typ,
+        } = arg;
+
+        if let Some(typ) = typ {
+            check_value_type(&typ.data, state)?;
+        }
+    }
+
+    if let Some(ret_type) = ret_type {
+        check_value_type(&ret_type.data, state)?;
+    }
+
+    Ok(())
 }

@@ -1,7 +1,7 @@
 // TODO: if exec returns an error, reset the current scope's ID to the one just after the native lib's one
 // TODO: if exec returns an error instead of a popped scope, get the current scope from the ID mentioned above
 
-use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
@@ -11,8 +11,7 @@ use reshell_runtime::{
 
 use crate::{reports::ReportableError, state::RUNTIME_CONTEXT};
 
-static NATIVE_LIB_FOR_CHECKER: Lazy<CheckerScope> =
-    Lazy::new(|| generate_native_lib().to_checker_scope());
+static NATIVE_LIB_FOR_CHECKER: OnceCell<CheckerScope> = OnceCell::new();
 
 pub fn code_check_script(
     input: &str,
@@ -27,10 +26,13 @@ pub fn code_check_script(
         .parse_str_as_file(input, FileId::SourceFile(file_id))
         .map_err(ReportableError::Parsing)?;
 
+    let native_lib_for_checker =
+        NATIVE_LIB_FOR_CHECKER.get_or_init(|| generate_native_lib().to_checker_scope(ctx));
+
     reshell_checker::check(
         &parsed.data,
-        NATIVE_LIB_FOR_CHECKER.clone(),
-        ctx.first_scope().to_checker_scope(),
+        native_lib_for_checker.clone(),
+        ctx.first_scope().to_checker_scope(ctx),
     )
     .map(|checker_out| (parsed, checker_out))
     .map_err(ReportableError::Checking)

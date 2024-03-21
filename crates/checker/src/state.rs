@@ -2,24 +2,33 @@ use std::collections::HashMap;
 
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId, Location};
+use reshell_parser::ast::ValueType;
 
 use crate::{errors::CheckerResult, CheckerError};
 
 pub struct State {
     scopes: Vec<CheckerScope>,
+    pub collected: CheckerOutput,
+}
 
+#[derive(Debug)]
+pub struct CheckerOutput {
     pub deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-    pub type_alias_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-    pub cmd_alias_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
+    pub type_aliases: IndexMap<CodeRange, Eaten<ValueType>>,
+    pub type_aliases_usages: IndexMap<Eaten<String>, CodeRange>,
+    pub type_aliases_decl: IndexMap<CodeRange, HashMap<String, CodeRange>>,
 }
 
 impl State {
     pub fn new() -> Self {
         Self {
             scopes: vec![],
-            deps: IndexMap::new(),
-            type_alias_deps: IndexMap::new(),
-            cmd_alias_deps: IndexMap::new(),
+            collected: CheckerOutput {
+                deps: IndexMap::new(),
+                type_aliases: IndexMap::new(),
+                type_aliases_usages: IndexMap::new(),
+                type_aliases_decl: IndexMap::new(),
+            },
         }
     }
 
@@ -80,7 +89,6 @@ impl State {
                 DependencyType::Variable => scope.vars.get(&item.data).map(|var| var.name_at),
                 DependencyType::Function => scope.fns.get(&item.data).copied(),
                 DependencyType::CmdAlias => scope.cmd_aliases.get(&item.data).copied(),
-                DependencyType::TypeAlias => scope.type_aliases.get(&item.data).copied(),
             })
             .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))?;
 
@@ -120,12 +128,41 @@ impl State {
 
             let code_range = deps_scope.code_range;
 
-            self.deps.get_mut(&code_range).unwrap().insert(Dependency {
-                name: item.data.clone(),
-                declared_at,
-                dep_type,
-            });
+            self.collected
+                .deps
+                .get_mut(&code_range)
+                .unwrap()
+                .insert(Dependency {
+                    name: item.data.clone(),
+                    declared_at,
+                    dep_type,
+                });
         }
+
+        Ok(())
+    }
+
+    pub fn register_type_alias_usage(&mut self, name: &Eaten<String>) -> CheckerResult {
+        let decl_scope = self
+            .scopes
+            .iter()
+            .rev()
+            .find(|scope| scope.type_aliases.contains_key(&name.data))
+            .ok_or_else(|| {
+                CheckerError::new(name.at, format!("type alias {} was not found", name.data))
+            })?;
+
+        let type_alias = self
+            .collected
+            .type_aliases_decl
+            .get(&decl_scope.code_range)
+            .unwrap()
+            .get(&name.data)
+            .unwrap();
+
+        self.collected
+            .type_aliases_usages
+            .insert(name.clone(), *type_alias);
 
         Ok(())
     }
@@ -134,10 +171,10 @@ impl State {
 #[derive(Clone)]
 pub struct CheckerScope {
     pub deps: bool,
-    pub code_range: CodeRange,         /* for fns, body range */
-    pub fn_args_at: Option<CodeRange>, /* fns only */
+    pub code_range: CodeRange,
+    pub fn_args_at: Option<CodeRange>,
     pub vars: HashMap<String, DeclaredVar>,
-    pub fns: HashMap<String, CodeRange /* fn name at */>,
+    pub fns: HashMap<String, CodeRange>,
     pub cmd_aliases: HashMap<String, CodeRange>,
     pub type_aliases: HashMap<String, CodeRange>,
 }
@@ -160,7 +197,6 @@ pub enum DependencyType {
     Variable,
     Function,
     CmdAlias,
-    TypeAlias,
 }
 
 impl std::fmt::Display for DependencyType {
@@ -169,7 +205,6 @@ impl std::fmt::Display for DependencyType {
             DependencyType::Variable => write!(f, "variable"),
             DependencyType::Function => write!(f, "function"),
             DependencyType::CmdAlias => write!(f, "command alias"),
-            DependencyType::TypeAlias => write!(f, "type alias"),
         }
     }
 }

@@ -43,7 +43,6 @@ pub struct CapturedDependencies {
     pub vars: HashMap<Dependency, ScopeVar>,
     pub fns: HashMap<Dependency, ScopeFn>,
     pub cmd_aliases: HashMap<Dependency, RuntimeCmdAlias>,
-    pub type_aliases: HashMap<Dependency, RuntimeTypeAlias>,
 }
 
 #[derive(Clone)]
