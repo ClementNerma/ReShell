@@ -1,7 +1,10 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Deref};
 
 use nu_ansi_term::Style;
 use regex::{Captures, Regex};
+
+#[derive(Debug)]
+pub struct ValidatedRuleSet(RuleSet);
 
 #[derive(Debug)]
 pub struct RuleSet {
@@ -32,11 +35,11 @@ pub struct NestingRule {
 
 #[derive(Debug)]
 pub struct Highlighter {
-    rule_set: RuleSet,
+    rule_set: ValidatedRuleSet,
 }
 
 impl Highlighter {
-    pub fn new(rule_set: RuleSet) -> Self {
+    pub fn new(rule_set: ValidatedRuleSet) -> Self {
         Self { rule_set }
     }
 
@@ -381,9 +384,94 @@ impl<'h, 'str> Match<'h, 'str> {
     }
 }
 
+pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
+    let RuleSet { groups, rules } = rule_set;
+
+    fn _validate_simple_rule(rule: &SimpleRule) -> Result<(), String> {
+        let SimpleRule { matches, style } = rule;
+
+        match matches.static_captures_len() {
+            None => Err(format!(
+                "Regex '{matches}' does not contain a constant number of capture groups"
+            )),
+
+            Some(mut static_len) => {
+                // Account the zeroth group (full match)
+                static_len -= 1;
+
+                if static_len == 0 {
+                    Err(format!("Regex '{matches}' does not have any capture group"))
+                } else if style.len() != static_len {
+                    Err(format!("Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it", style.len()))
+                } else {
+                    Ok(())
+                }
+            }
+        }
+    }
+
+    fn _validate_rules(rules: &[Rule], groups: &HashMap<String, Vec<Rule>>) -> Result<(), String> {
+        for rule in rules {
+            match rule {
+                Rule::Simple(rule) => _validate_simple_rule(rule)?,
+
+                Rule::Progressive(rule, following) => {
+                    _validate_simple_rule(rule)?;
+
+                    for rule in following {
+                        _validate_simple_rule(rule)?;
+                    }
+                }
+
+                Rule::Nested(NestingRule {
+                    begin,
+                    end,
+                    inner_rules,
+                }) => {
+                    _validate_simple_rule(begin)?;
+                    _validate_simple_rule(end)?;
+
+                    _validate_rules(inner_rules, groups)?;
+                }
+
+                Rule::Group(group) => {
+                    if !groups.contains_key(group.as_str()) {
+                        return Err(format!("Unknown group '{group}'"));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    _validate_rules(rules, groups)?;
+
+    for group in groups.values() {
+        _validate_rules(group, groups)?;
+    }
+
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct HighlightPiece {
     pub start: usize,
     pub len: usize,
     pub style: Option<Style>,
+}
+
+impl ValidatedRuleSet {
+    pub fn validate(rule_set: RuleSet) -> Result<Self, String> {
+        validate_rule_set(&rule_set).map(|()| Self(rule_set))
+    }
+}
+
+impl Deref for ValidatedRuleSet {
+    type Target = RuleSet;
+
+    fn deref(&self) -> &Self::Target {
+        let Self(rule_set) = &self;
+        rule_set
+    }
 }
