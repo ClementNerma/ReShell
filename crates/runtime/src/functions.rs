@@ -199,9 +199,9 @@ fn parse_fn_call_args(
     let mut positional_fn_args = fn_args.iter().filter_map(|fn_arg| match fn_arg {
         FnArg::Positional {
             name,
-            is_optional: _,
+            is_optional,
             typ,
-        } => Some((name, typ)),
+        } => Some((name, is_optional, typ)),
 
         FnArg::PresenceFlag { names: _ }
         | FnArg::NormalFlag {
@@ -302,11 +302,16 @@ fn parse_fn_call_args(
                                     value_sep: _,
                                 }) => {
                                     if let Some(typ) = typ {
-                                        if !check_if_single_type_fits_type(
-                                            &value.value.get_type(),
-                                            typ.data(),
-                                            ctx,
-                                        ) {
+                                        let is_null_for_optional = *is_optional
+                                            && matches!(value.value, RuntimeValue::Null);
+
+                                        if !is_null_for_optional
+                                            && !check_if_single_type_fits_type(
+                                                &value.value.get_type(),
+                                                typ.data(),
+                                                ctx,
+                                            )
+                                        {
                                             return Err(
                                                 ctx.error(
                                                     value.from,
@@ -360,7 +365,7 @@ fn parse_fn_call_args(
             }
 
             CmdSingleArgResult::Basic(loc_val) => {
-                let Some((name, typ)) = positional_fn_args.next() else {
+                let Some((name, is_optional, typ)) = positional_fn_args.next() else {
                     if has_rest_argument {
                         rest_args.push(CmdSingleArgResult::Basic(loc_val));
                         continue;
@@ -380,7 +385,16 @@ fn parse_fn_call_args(
                 };
 
                 if let Some(typ) = typ {
-                    if !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx) {
+                    let is_null_for_optional =
+                        *is_optional && matches!(loc_val.value, RuntimeValue::Null);
+
+                    if !is_null_for_optional
+                        && !check_if_single_type_fits_type(
+                            &loc_val.value.get_type(),
+                            typ.data(),
+                            ctx,
+                        )
+                    {
                         let is_method_self_arg = func.is_method && name.data() == "self";
 
                         return Err(ctx.error(
