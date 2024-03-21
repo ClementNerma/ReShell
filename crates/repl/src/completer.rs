@@ -497,31 +497,32 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
     sort_results(&search, results)
 }
 
-fn sort_results(input: &str, mut values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
+fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
     let input = input.replace(['*', '?'], "");
 
-    // Auto-select single value if only one is matching beginning
-    //
-    // let input_lc = input.to_lowercase();
-    //
-    //
-    // let matching_start = values
-    //     .iter()
-    //     .filter(|(value, _)| value.to_lowercase().starts_with(&input_lc))
-    //     .cloned()
-    //     .collect::<Vec<_>>();
-    //
-    // if matching_start.len() == 1 {
-    //     values = matching_start;
-    // }
+    let input_lc = input.to_lowercase();
 
-    values.sort_by(|(a, _), (b, _)| {
+    let (mut matching_start, mut non_matching_start): (Vec<_>, Vec<_>) = values
+        .into_iter()
+        .partition(|(value, _)| value.to_lowercase().starts_with(&input_lc));
+
+    matching_start.sort_by(|(a, _), (b, _)| {
         jaro_winkler_distance(&input, a)
             .partial_cmp(&jaro_winkler_distance(&input, b))
             .unwrap()
     });
 
-    values.into_iter().map(|(_, value)| value).collect()
+    non_matching_start.sort_by(|(a, _), (b, _)| {
+        jaro_winkler_distance(&input, a)
+            .partial_cmp(&jaro_winkler_distance(&input, b))
+            .unwrap()
+    });
+
+    matching_start
+        .into_iter()
+        .chain(non_matching_start)
+        .map(|(_, value)| value)
+        .collect()
 }
 
 fn escape_raw(str: &str) -> Cow<str> {

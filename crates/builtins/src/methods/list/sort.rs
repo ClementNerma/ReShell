@@ -61,7 +61,7 @@ fn run() -> Runner {
 }
 
 fn try_sort_type<T>(
-    list: &Vec<RuntimeValue>,
+    list: &[RuntimeValue],
     extract: impl Fn(&RuntimeValue) -> Option<T>,
     remap: fn(T) -> RuntimeValue,
     sort_by: impl Fn(&T, &T) -> Ordering,

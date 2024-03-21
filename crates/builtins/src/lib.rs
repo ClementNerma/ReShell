@@ -9,6 +9,7 @@
 
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
+#![feature(trait_upcasting)]
 
 mod content;
 mod errors;

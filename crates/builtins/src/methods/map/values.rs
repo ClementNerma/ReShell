@@ -16,11 +16,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { map }, ArgsAt { map: map_at }, _| {
-        let values = map
-            .read(map_at)
-            .values()
-            .map(|value| value.clone())
-            .collect();
+        let values = map.read(map_at).values().cloned().collect();
 
         Ok(Some(RuntimeValue::List(GcCell::new(values))))
     })
