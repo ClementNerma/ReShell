@@ -11,12 +11,12 @@ pub fn check_if_type_fits(
         ValueType::Single(single_type) => check_if_single_type_fits(&single_type.data, into, ctx),
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits(&typ.data, into, ctx)? == false {
-                    return Ok(false);
+                if check_if_single_type_fits(&typ.data, into, ctx)? == true {
+                    return Ok(true);
                 }
             }
 
-            Ok(true)
+            Ok(false)
         }
     }
 }
@@ -30,14 +30,15 @@ pub fn check_if_single_type_fits(
         ValueType::Single(single) => {
             check_if_single_type_fits_single(value_type, &single.data, ctx)
         }
+
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits_single(value_type, &typ.data, ctx)? == false {
-                    return Ok(false);
+                if check_if_single_type_fits_single(value_type, &typ.data, ctx)? == true {
+                    return Ok(true);
                 }
             }
 
-            Ok(true)
+            Ok(false)
         }
     }
 }
@@ -54,13 +55,14 @@ pub fn check_if_single_type_fits_single(
         (_, SingleValueType::TypeAlias(name)) => {
             let (_, typ) = ctx
                 .all_type_aliases()
-                .find(|(c_name, _)| &&name.data == c_name)
+                .find(|(c_name, _)| c_name == &&name.data)
                 .ok_or_else(|| {
                     ctx.error(name.at, format!("type alias {} was not found", name.data))
                 })?;
 
             check_if_single_type_fits(value_type, typ, ctx)
         }
+
         (SingleValueType::TypeAlias(_), _) => {
             // let (_, typ) = ctx
             //     .all_type_aliases()
