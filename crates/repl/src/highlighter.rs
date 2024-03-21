@@ -111,21 +111,8 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Single variable marker
                 simple("(\\$)", [Red]),
 
-                // Number
-                simple("(?:\\s*)(\\d+(?:\\.\\d+)?)(?:[^\\d]|$)", [LightYellow]),
-
                 // Expressions
-                nested(
-                    simple_rule("(\\()", [LightYellow]),
-                    simple_rule("(\\))", [LightYellow]),
-                    vec![include_group("in-expressions")]
-                ),
-
-                // Strings
-                include_group("strings"),
-
-                // Flags
-                simple("(?:[\\(,\\s])(-[a-zA-Z0-9_-]*)(?:$|[,\\s\\)])", [LightYellow]),
+                include_group("expressions"),
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
@@ -147,7 +134,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                         nested(
                             simple_rule("(?:^|[^\\\\])(\\$\\{)", [Blue]),
                             simple_rule("(\\})", [Blue]),
-                            vec![ include_group("in-expressions") ]
+                            vec![ include_group("expressions") ]
                         ),
 
                         // Escaped characters
@@ -158,7 +145,8 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                     ]
                 )
             ]),
-            ("in-expressions", vec![
+            ("expressions", vec![
+                // Strings
                 include_group("strings"),
 
                 // Function calls
@@ -182,15 +170,18 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Single variable marker
                 simple("(\\$)", [Red]),
 
-                // Number
+                // Numbers
                 simple("(\\d+(?:\\.\\d+)?)", [LightYellow]),
 
                 // Symbols and operators
-                simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)", [LightYellow]),
-            ],
-        )
+                simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]]+)", [LightYellow]),
+
+                // Flags
+                simple("(?:[\\(,\\s])(-[a-zA-Z0-9_-]*)(?:$|[,\\s\\)])", [LightYellow]),
+            ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
+
         rules: vec![
             include_group("instructions")
         ],

@@ -129,7 +129,7 @@ pub fn start(
 
                 Err(err) => match err {
                     TryRecvError::Empty => {}
-                    TryRecvError::Disconnected => panic!(),
+                    TryRecvError::Disconnected => panic!("Completer's thread disconnected"),
                 },
             };
         };
