@@ -895,13 +895,15 @@ pub fn program(
                         .spanned()
                         .or_not(),
                 )
-                .then(ident.spanned())
+                .then(ident.spanned().critical("expected a variable name"))
                 .then(
-                    ms.ignore_then(char('=')).ignore_then(msnl).ignore_then(
-                        expr.clone()
-                            .spanned()
-                            .critical("expected an expression to assign"),
-                    ),
+                    ms.ignore_then(char('=').critical_expectation())
+                        .ignore_then(msnl)
+                        .ignore_then(
+                            expr.clone()
+                                .spanned()
+                                .critical("expected an expression to assign"),
+                        ),
                 )
                 .map(|((mutable, name), init_expr)| Instruction::DeclareVar {
                     mutable: mutable.map(|tok| tok.replace(())),
