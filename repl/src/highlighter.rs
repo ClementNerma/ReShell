@@ -81,24 +81,34 @@ impl Highlight for Program {
     }
 }
 
-impl Highlight for Block {
+impl Highlight for Eaten<Block> {
     fn highlight(&self, h: &mut HighlightList) {
-        let Self { instructions } = self;
+        let Block { instructions } = &self.data;
+
+        if instructions.is_empty() {
+            h.push(&KEYWORD, self.at);
+            return;
+        }
+
+        h.push_until(&KEYWORD, self.at, instructions.first().unwrap().at);
 
         for instr in instructions {
-            instr.data.highlight(h);
+            instr.highlight(h);
         }
+
+        h.push_remaining(&KEYWORD, self.at);
     }
 }
 
-impl Highlight for Instruction {
+impl Highlight for Eaten<Instruction> {
     fn highlight(&self, h: &mut HighlightList) {
-        match self {
+        match &self.data {
             Instruction::Comment { content } => {
                 h.push(&COMMENT, content.at);
             }
 
             Instruction::Include(path) => {
+                h.push_until(&KEYWORD, self.at, path.at);
                 path.data.highlight(h);
             }
 
@@ -107,6 +117,8 @@ impl Highlight for Instruction {
                 mutable: _,
                 init_expr,
             } => {
+                h.push_until(&KEYWORD, self.at, name.at);
+
                 h.push(&VAR_NAME, name.at);
 
                 if let Some(init_expr) = init_expr {
@@ -125,15 +137,18 @@ impl Highlight for Instruction {
                 elsif,
                 els,
             } => {
+                h.push_until(&KEYWORD, self.at, cond.at);
+
                 cond.data.highlight(h);
-                body.data.highlight(h);
+                body.highlight(h);
 
                 for branch in elsif {
-                    branch.data.highlight(h);
+                    branch.highlight(h);
                 }
 
                 if let Some(els) = els {
-                    els.data.highlight(h);
+                    h.push_everything_until(&KEYWORD, els.at);
+                    els.highlight(h);
                 }
             }
 
@@ -145,12 +160,12 @@ impl Highlight for Instruction {
                 h.push(&VAR_NAME, iter_var.at);
 
                 iter_on.data.highlight(h);
-                body.data.highlight(h);
+                body.highlight(h);
             }
 
             Instruction::WhileLoop { cond, body } => {
                 cond.data.highlight(h);
-                body.data.highlight(h);
+                body.highlight(h);
             }
 
             Instruction::LoopContinue => {}
@@ -171,7 +186,7 @@ impl Highlight for Instruction {
                 h.push(&FN_NAME, name.at);
 
                 signature.highlight(h);
-                body.data.highlight(h);
+                body.highlight(h);
             }
 
             Instruction::FnReturn { expr } => {
@@ -189,18 +204,20 @@ impl Highlight for Instruction {
             }
 
             Instruction::BaseBlock(block) => {
-                block.data.highlight(h);
+                block.highlight(h);
             }
         }
     }
 }
 
-impl Highlight for ElsIf {
+impl Highlight for Eaten<ElsIf> {
     fn highlight(&self, h: &mut HighlightList) {
-        let Self { cond, body } = self;
+        let ElsIf { cond, body } = &self.data;
+
+        h.push_until(&KEYWORD, self.at, cond.at);
 
         cond.data.highlight(h);
-        body.data.highlight(h);
+        body.highlight(h);
     }
 }
 
@@ -375,9 +392,18 @@ impl Highlight for Eaten<ComputedString> {
     fn highlight(&self, h: &mut HighlightList) {
         let ComputedString { pieces } = &self.data;
 
+        if pieces.is_empty() {
+            h.push(&STRING, self.at);
+            return;
+        }
+
+        h.push_until(&STRING, self.at, pieces.first().unwrap().at);
+
         for piece in pieces {
             piece.data.highlight(h);
         }
+
+        h.push_remaining(&STRING, self.at);
     }
 }
 
@@ -479,7 +505,7 @@ impl Highlight for Eaten<Value> {
             Value::FnAsValue(name) => h.push(&FN_NAME, name.at),
             Value::Closure { signature, body } => {
                 signature.highlight(h);
-                body.data.highlight(h);
+                body.highlight(h);
             }
         }
     }

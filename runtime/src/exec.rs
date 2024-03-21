@@ -41,14 +41,14 @@ fn run_program(
     ctx: &mut Context,
     init_scope: Scope,
 ) -> ExecResult<(Scope, Option<InstrRet>)> {
-    run_block(&program.content, ctx, init_scope)
+    run_block(&program.content.data, ctx, init_scope)
 }
 
 fn run_program_in_current_scope(
     program: &Program,
     ctx: &mut Context,
 ) -> ExecResult<Option<InstrRet>> {
-    run_block_in_current_scope(&program.content, ctx)
+    run_block_in_current_scope(&program.content.data, ctx)
 }
 
 pub fn run_block(
