@@ -96,7 +96,11 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                     &input[prev_offset..prev_offset + 2],
                 ),
 
-                _ => open(&mut output, &mut opened, offset, char_as_str),
+                _ => {
+                    if inside_string!() {
+                        open(&mut output, &mut opened, offset, char_as_str)
+                    }
+                }
             },
 
             '[' | '{' => {

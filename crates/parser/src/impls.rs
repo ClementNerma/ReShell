@@ -1,7 +1,8 @@
 use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 
 use crate::ast::{
-    EscapableChar, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten,
+    CmdFlagNameArg, EscapableChar, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange,
+    RuntimeEaten,
 };
 
 impl FnFlagArgNames {
@@ -18,6 +19,15 @@ impl FnFlagArgNames {
             FnFlagArgNames::ShortFlag(_) => None,
             FnFlagArgNames::LongFlag(flag) => Some(flag),
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => Some(long),
+        }
+    }
+}
+
+impl CmdFlagNameArg {
+    pub fn back_to_string(&self) -> String {
+        match self {
+            CmdFlagNameArg::Short(short) => format!("-{short}"),
+            CmdFlagNameArg::Long(long) | CmdFlagNameArg::LongNoConvert(long) => format!("--{long}"),
         }
     }
 }

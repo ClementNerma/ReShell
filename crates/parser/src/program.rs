@@ -823,12 +823,6 @@ pub fn program(
         let cmd_arg = choice::<_, CmdArg>((
             // Flag arguments
             cmd_flag_arg.map(CmdArg::Flag),
-            // Rest separator
-            just("--")
-                .to(())
-                .spanned()
-                .not_followed_by(cmd_raw)
-                .map(CmdArg::RestSeparator),
             // Spread
             just("...$")
                 .ignore_then(ident.spanned().critical("expected a variable to spread"))

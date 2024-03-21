@@ -350,7 +350,6 @@ pub enum CmdArg {
     ValueMaking(CmdValueMakingArg),
     Flag(CmdFlagArg),
     SpreadVar(Eaten<String>),
-    RestSeparator(Eaten<()>),
 }
 
 #[derive(Debug, Clone)]
