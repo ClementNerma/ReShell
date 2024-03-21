@@ -1,14 +1,13 @@
 use std::{sync::Arc, collections::{HashMap, HashSet}};
 
 use nu_ansi_term::{Color, Style};
-use once_cell::sync::Lazy;
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
 use crate::utils::{syntax::{
     HighlightPiece, Rule, RuleSet, SimpleRule,
     ValidatedRuleSet, compute_highlight_pieces, NestedContentRules,
-}, nesting::NestingOpeningType};
+}, nesting::NestingOpeningType, lazy_cell::LazyCell};
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
@@ -22,7 +21,7 @@ impl RlHighlighter for Highlighter {
     }
 }
 
-static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
+static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     /// Create a simple rule's inner content
     fn simple_rule(regex: &'static str, colors: impl AsRef<[Color]>) -> SimpleRule {
         SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, followed_by: None, style: colors.as_ref().iter().map(|color| Style::new().fg(*color)).collect() }

@@ -1,12 +1,12 @@
-use once_cell::sync::OnceCell;
 use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::{ast::Program, files::SourceFileLocation};
 use reshell_runtime::{context::Context, exec::run_program};
+use std::sync::OnceLock;
 
 use crate::reports::ReportableError;
 
-static NATIVE_LIB_FOR_CHECKER: OnceCell<CheckerScope> = OnceCell::new();
+static NATIVE_LIB_FOR_CHECKER: OnceLock<CheckerScope> = OnceLock::new();
 
 pub fn code_check_script(
     input: &str,
