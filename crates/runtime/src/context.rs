@@ -522,7 +522,7 @@ impl Context {
         name: &Eaten<String>,
     ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
         let Some(func) = self.get_visible_fn(name) else {
-            return Err(self.error(name.at, "function not found"));
+            self.panic(name.at, "function not found (= bug in checker)");
         };
 
         Ok(&func.value)
