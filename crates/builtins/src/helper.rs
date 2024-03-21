@@ -333,12 +333,6 @@ macro_rules! define_internal_fn {
                 .map(|value| value.map(|value| LocatedValue::new(value, RuntimeCodeRange::Internal)))
         }
 
-        // fn _runner<F: Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>>>(
-        //     closure: F
-        // ) -> F {
-        //     closure
-        // }
-
         struct Runner(Box<dyn Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>>>);
 
         impl Runner {

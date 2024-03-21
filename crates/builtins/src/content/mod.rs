@@ -40,6 +40,7 @@ mod size_of;
 mod slice;
 mod split;
 mod struct_to_map;
+mod substr;
 mod take;
 mod term_cols;
 mod term_rows;
@@ -93,6 +94,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::slice::build_fn(),
             self::split::build_fn(),
             self::struct_to_map::build_fn(),
+            self::substr::build_fn(),
             self::take::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
