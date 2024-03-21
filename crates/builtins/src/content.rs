@@ -37,8 +37,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         DetachedListType<Tuple2Type<StringType, AnyType>>
                     >> =>
                         Arg::positional("entries")
-                ) ->
-                    Some(MapType::new_direct().underlying_type()),
+                )
+
+                -> Some(MapType::new_direct().underlying_type()),
 
                 |_, Args { entries }, _, _| {
                     let map = match entries {
@@ -61,7 +62,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 Args [ArgsAt] (
                     code: OptionalArg<IntType> => Arg::positional("code")
-                ) -> None,
+                )
+
+                -> None,
 
                 |at, Args { code }, ArgsAt { code: code_at }, ctx| {
                     let code = code
@@ -83,7 +86,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 Args [ArgsAt] (
                     message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
-                ) -> None,
+                )
+
+                -> None,
 
                 |_, Args { message }, _, _| {
                     println!("{}", match message {
