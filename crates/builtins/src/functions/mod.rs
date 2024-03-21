@@ -48,7 +48,7 @@ mod whereis;
 mod which;
 mod write_file;
 
-pub(crate) use self::{progress_bar::ProgressBarValue, regex::RegexValue};
+pub(crate) use self::{datetime::DateTimeValue, progress_bar::ProgressBarValue, regex::RegexValue};
 
 use crate::helper::InternalFunction;
 

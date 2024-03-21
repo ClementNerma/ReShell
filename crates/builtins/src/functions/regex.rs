@@ -65,7 +65,7 @@ fn run() -> Runner {
             };
 
             Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                RegexValue::new(regex),
+                RegexValue { inner: regex },
             )))))
         },
     )
@@ -77,10 +77,6 @@ pub struct RegexValue {
 }
 
 impl RegexValue {
-    fn new(inner: Regex) -> Self {
-        Self { inner }
-    }
-
     pub fn inner(&self) -> &Regex {
         &self.inner
     }
