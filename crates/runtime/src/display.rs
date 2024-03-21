@@ -447,6 +447,7 @@ impl PrettyPrintable for CmdFlagNameArg {
         let name = match self {
             CmdFlagNameArg::Short(name) => format!("-{name}"),
             CmdFlagNameArg::Long(name) => format!("--{name}"),
+            CmdFlagNameArg::LongNoConvert(name) => format!("--{name}"),
         };
 
         PrettyPrintablePiece::colored_atomic(name, Color::BrightYellow)
