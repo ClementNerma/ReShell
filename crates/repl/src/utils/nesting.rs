@@ -33,13 +33,17 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         output.push(NestingAction::new(
             offset,
             opening_str.len(),
-            NestingActionType::Opening(NestingOpeningType::try_from_str(opening_str).unwrap()),
+            NestingActionType::Opening {
+                typ: NestingOpeningType::try_from_str(opening_str).unwrap(),
+                matching_close: false,
+            },
         ));
     };
 
     let mut opened: Vec<(&str, usize)> = vec![];
     let mut opened_strings: Vec<(&str, usize)> = vec![];
     let mut output: Vec<NestingAction> = vec![];
+    let mut closed = vec![];
     let mut escaping = false;
     let mut commenting = false;
 
@@ -123,8 +127,12 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                             &mut output,
                             offset,
                             1,
-                            NestingActionType::Closing { opening_offset },
+                            NestingActionType::Closing {
+                                matching_opening: true,
+                            },
                         );
+
+                        closed.push(opening_offset);
 
                         opened.pop();
 
@@ -136,7 +144,9 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                     &mut output,
                     offset,
                     1,
-                    NestingActionType::ClosingWithoutOpening,
+                    NestingActionType::Closing {
+                        matching_opening: false,
+                    },
                 );
             }
 
@@ -148,8 +158,12 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                                 &mut output,
                                 offset,
                                 1,
-                                NestingActionType::Closing { opening_offset },
+                                NestingActionType::Closing {
+                                    matching_opening: true,
+                                },
                             );
+
+                            closed.push(opening_offset);
 
                             opened.pop();
                             opened_strings.pop();
@@ -172,9 +186,11 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                         offset,
                         1,
                         NestingActionType::Closing {
-                            opening_offset: *opening_offset,
+                            matching_opening: true,
                         },
                     );
+
+                    closed.push(*opening_offset);
 
                     opened.pop();
                 }
@@ -186,53 +202,26 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         }
     }
 
-    for (_, offset) in opened {
-        let unclosed = output
-            .iter_mut()
-            .find(|piece| piece.offset == offset)
-            .unwrap();
-
-        assert!(matches!(
-            unclosed.action_type,
-            NestingActionType::Opening(_)
-        ));
-
-        match unclosed.action_type {
-            NestingActionType::Opening(typ) => {
-                unclosed.action_type = NestingActionType::Unclosed(typ);
-            }
-
-            _ => unreachable!(),
-        }
-    }
-
     register_content(&mut output, input.len());
 
-    // Validate results
-    let mut openings = 0;
+    let mut prev = None;
 
-    for (i, piece) in output.iter().enumerate() {
-        match piece.action_type {
-            NestingActionType::Opening(_) => {
-                openings += 1;
-            }
-            NestingActionType::Closing { opening_offset: _ } => {
-                openings -= 1;
-            }
-            NestingActionType::Unclosed(_) => {}
-            NestingActionType::ClosingWithoutOpening => {}
-            NestingActionType::Content => {}
-        };
+    for piece in output.iter_mut() {
+        if let NestingActionType::Opening {
+            typ: _,
+            matching_close,
+        } = &mut piece.action_type
+        {
+            assert!(!*matching_close);
 
-        if i == 0 {
-            assert!(piece.offset == 0);
-        } else {
-            let prev = output.get(i - 1).unwrap();
-            assert!(piece.offset == prev.offset + prev.len);
+            if closed.contains(&piece.offset) {
+                *matching_close = true;
+            }
         }
-    }
 
-    assert!(openings == 0);
+        assert!(piece.offset == prev.unwrap_or(0));
+        prev = Some(piece.offset + piece.len);
+    }
 
     output
 }
@@ -256,10 +245,13 @@ impl NestingAction {
 
 #[derive(Debug, Clone, Copy)]
 pub enum NestingActionType {
-    Opening(NestingOpeningType),
-    Unclosed(NestingOpeningType),
-    Closing { opening_offset: usize },
-    ClosingWithoutOpening,
+    Opening {
+        typ: NestingOpeningType,
+        matching_close: bool,
+    },
+    Closing {
+        matching_opening: bool,
+    },
     Content,
 }
 

@@ -79,47 +79,37 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
         } = action;
 
         match action_type {
-            NestingActionType::Opening(typ) => {
+            NestingActionType::Opening {
+                typ,
+                matching_close,
+            } => {
                 opened.push((action, typ));
 
                 output.push(HighlightPiece {
                     start: offset,
                     len,
-                    style: Some(nested_content_rules.get(&typ).unwrap().opening_style),
+                    style: Some(if matching_close {
+                        nested_content_rules.get(&typ).unwrap().opening_style
+                    } else {
+                        *unclosed_style
+                    }),
                 });
             }
 
-            NestingActionType::Closing { opening_offset } => {
-                let (closing, opening_type) = opened.pop().unwrap();
-                assert!(closing.offset == opening_offset);
+            NestingActionType::Closing { matching_opening } => {
+                let (_, opening_type) = opened.pop().unwrap();
 
                 output.push(HighlightPiece {
                     start: offset,
                     len,
-                    style: Some(
+                    style: Some(if matching_opening {
                         nested_content_rules
                             .get(&opening_type)
                             .unwrap()
-                            .closing_style,
-                    ),
-                });
-            }
-
-            NestingActionType::Unclosed(typ) => {
-                opened.push((action, typ));
-
-                output.push(HighlightPiece {
-                    start: offset,
-                    len,
-                    style: Some(*unclosed_style),
-                });
-            }
-
-            NestingActionType::ClosingWithoutOpening => {
-                output.push(HighlightPiece {
-                    start: offset,
-                    len,
-                    style: Some(*closing_without_opening_style),
+                            .closing_style
+                    } else {
+                        *closing_without_opening_style
+                    }),
                 });
             }
 
@@ -140,11 +130,14 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                     nesting
                         .get(i + 1)
                         .and_then(|nesting| match nesting.action_type {
-                            NestingActionType::Opening(typ) | NestingActionType::Unclosed(typ) => {
-                                Some(typ)
+                            NestingActionType::Opening {
+                                typ,
+                                matching_close: _,
+                            } => Some(typ),
+
+                            NestingActionType::Closing {
+                                matching_opening: _,
                             }
-                            NestingActionType::Closing { opening_offset: _ }
-                            | NestingActionType::ClosingWithoutOpening
                             | NestingActionType::Content => None,
                         });
 
