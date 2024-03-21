@@ -9,6 +9,7 @@ pub type ExecResult<T> = Result<T, ExecError>;
 
 #[derive(Debug)]
 pub struct ExecError {
+    pub has_exit_code: Option<u8>,
     pub at: CodeRange,
     pub in_file: Option<FileId>,
     pub source_file: Option<SourceFile>,

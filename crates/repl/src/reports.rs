@@ -9,6 +9,7 @@ use reshell_runtime::{
     files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
+#[derive(Debug)]
 pub enum ReportableError {
     Parsing(ParsingError),
     Checking(CheckerError),

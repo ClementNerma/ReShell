@@ -22,11 +22,18 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone, Copy)]
+#[must_use]
+pub enum ProgramExitStatus {
+    Normal,
+    ExitRequested { code: u8 },
+}
+
 pub fn run_program(
     program: &Program,
     checker_output: CheckerOutput,
     ctx: &mut Context,
-) -> ExecResult<()> {
+) -> ExecResult<ProgramExitStatus> {
     let Program { content } = program;
 
     match program.content.at.start.file_id {
@@ -45,7 +52,7 @@ pub fn run_program(
 
     match run_block_in_current_scope(&content.data, ctx) {
         Ok(instr_ret) => match instr_ret {
-            None => Ok(()),
+            None => Ok(ProgramExitStatus::Normal),
             Some(instr_ret) => {
                 Err(ctx.error(instr_ret.from, "this instruction can't be used here"))
             }
@@ -53,7 +60,11 @@ pub fn run_program(
 
         Err(err) => {
             ctx.reset_to_first_scope();
-            Err(err)
+
+            match err.has_exit_code {
+                None => Ok(ProgramExitStatus::Normal),
+                Some(code) => Ok(ProgramExitStatus::ExitRequested { code }),
+            }
         }
     }
 }
@@ -526,4 +537,5 @@ pub enum InstrRetType {
     BreakLoop,
     FnReturn(Option<LocatedValue>),
     Thrown(LocatedValue),
+    Exit,
 }

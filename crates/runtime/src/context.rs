@@ -146,6 +146,7 @@ impl Context {
         let current_scope = self.current_scope();
 
         ExecError {
+            has_exit_code: None, // may be changed afterwards
             at,
             in_file: current_scope.in_file_id(),
             source_file: self.current_source_file().cloned(),
@@ -154,6 +155,12 @@ impl Context {
             scope_range: current_scope.range,
             note: None // can be changed with .with_note()
         }
+    }
+
+    pub fn exit(&self, at: CodeRange, code: Option<u8>) -> ExecError {
+        let mut err = self.error(at, "<program requested exit>");
+        err.has_exit_code = Some(code.unwrap_or(0));
+        err
     }
 
     pub fn scopes(&self) -> &HashMap<u64, Scope> {
