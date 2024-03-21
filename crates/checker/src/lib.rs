@@ -801,9 +801,9 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     for arg in &args.data {
         let FnArg {
             names,
-            is_optional: _,
-            is_rest: _,
-            typ: _,
+            is_optional,
+            is_rest,
+            typ,
         } = arg;
 
         let var_name = match names {
@@ -811,6 +811,11 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
             FnArgNames::ShortFlag(name) => name.map(|c| c.to_string()),
             FnArgNames::LongFlag(name) => name.clone(),
             FnArgNames::LongAndShortFlag { long, short: _ } => long.clone(),
+        };
+
+        let var_name_at = match var_name.at() {
+            RuntimeCodeRange::Parsed(var_name_at) => var_name_at,
+            RuntimeCodeRange::Internal => unreachable!(),
         };
 
         let dup = vars.insert(
@@ -822,13 +827,14 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         );
 
         if dup.is_some() {
-            match var_name.at() {
-                RuntimeCodeRange::Parsed(var_name_at) => {
-                    return Err(CheckerError::new(var_name_at, "Duplicate argument name"))
-                }
+            return Err(CheckerError::new(var_name_at, "Duplicate argument name"));
+        }
 
-                RuntimeCodeRange::Internal => panic!("Duplicate argument name in native function"),
-            }
+        if names.is_flag() && typ.is_none() && *is_optional {
+            return Err(CheckerError::new(
+                var_name_at,
+                "Typeless flags are presence flags and can't be marked as optional",
+            ));
         }
 
         // TODO: flags can't be rest
