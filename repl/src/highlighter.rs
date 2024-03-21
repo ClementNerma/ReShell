@@ -40,12 +40,13 @@ fn highlight(input: &str) -> StyledText {
         ("booleans") => "\\b(true|false)\\b" => LightYellow,
         ("null value") => "\\b(null)\\b" => LightYellow,
         ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("loop iterator") => "(?:^|\\n|\\s)(?:for|let|mut)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+        ("variables declaration") => "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+        ("loop iterator") => "(?:^|\\n|\\s)for\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
         ("function parameters and struct fields") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:" => Red,
         ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
         ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
         ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
-        ("raw arguments") => "([^\\s\\(\\)\\[\\]\\{\\}]+)" => Green,
+        ("raw arguments") => "([^\\s\\(\\)\\[\\]\\{\\};=!<>]+)" => Green,
         ("symbols and operators") => "([\\(\\)\\{\\}\\[\\],;=!<>\\+\\-])" => DarkGray
     );
 

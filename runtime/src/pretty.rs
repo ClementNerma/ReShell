@@ -40,6 +40,10 @@ impl Colored {
         Self(content, None)
     }
 
+    pub fn empty() -> Self {
+        Self(String::new(), None)
+    }
+
     fn len_chars(&self) -> usize {
         self.0.chars().count()
     }

@@ -202,8 +202,8 @@ impl PrettyPrintable for RuntimeValue {
                             items: vec![
                                 value.generate_pretty_data()
                             ],
-                            sep: Colored::colorless(String::new()),
-                            end: Colored::colorless(String::new()),
+                            sep: Colored::empty(),
+                            end: Colored::empty(),
                             suffix: None
                         })
                     .collect(),
@@ -225,8 +225,8 @@ impl PrettyPrintable for RuntimeValue {
                             items: vec![
                                 value.generate_pretty_data()
                             ],
-                            sep: Colored::colorless(String::new()),
-                            end: Colored::colorless(String::new()),
+                            sep: Colored::empty(),
+                            end: Colored::empty(),
                             suffix: None
                         })
                     .collect(),
@@ -239,7 +239,24 @@ impl PrettyPrintable for RuntimeValue {
             {
                 func.signature.generate_pretty_data()
             }
-            RuntimeValue::Error { at, msg } => todo!(),
+            RuntimeValue::Error { at: _, msg } => PrintablePiece::List {
+                begin: Colored::with_color("error(".to_string(), Color::Red),
+                items: vec![
+                    PrintablePiece::Atomic(Colored::with_color(
+                        format!(
+                            "\"{}\"",
+                            msg.replace('\\', "\\\\")
+                                .replace('\"', "\\\"")
+                                .replace('\n', "\\n")
+                        ),
+                        Color::Green,
+                    )),
+                    // TODO: printing "at" requires access to context in order to find the filename
+                ],
+                sep: Colored::empty(),
+                end: Colored::with_color(")".to_string(), Color::Red),
+                suffix: None,
+            },
         }
     }
 }

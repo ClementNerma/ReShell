@@ -539,7 +539,7 @@ pub fn program() -> impl Parser<Program> {
 
         let cmd_raw = filter(|c|
             // The first part of the condition is to accelerate computation
-            !c.is_whitespace() && c != '(' && c != ')' && c != '[' && c != ']' && c != '{' && c != '}'
+            !c.is_whitespace() && c != '(' && c != ')' && c != '[' && c != ']' && c != '{' && c != '}' && c != '<' && c != '>' && c != '=' && c != ';' && c != '!'
         )
         .repeated()
         .at_least(1)
