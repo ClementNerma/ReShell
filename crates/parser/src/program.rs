@@ -255,7 +255,7 @@ pub fn program(
                 )
                 .then_ignore(msnl)
                 .then_ignore(char(')').critical_expectation())
-                .then_ignore(ms)
+                .then_ignore(msnl)
                 .then(
                     just("->")
                         .ignore_then(ms)
@@ -864,7 +864,7 @@ pub fn program(
                 .clone()
                 .spanned()
                 .then(
-                    ms.ignore_then(
+                    msnl.ignore_then(
                         choice::<_, CmdPipeType>((
                             just("->").to(CmdPipeType::Value),
                             just("!|").to(CmdPipeType::Stderr),
