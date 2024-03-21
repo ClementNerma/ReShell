@@ -67,19 +67,6 @@ impl State {
         self.scopes.iter().rev()
     }
 
-    pub fn mark_fn_ready(&mut self, name: &Eaten<String>) {
-        let func = self.scopes
-            .iter_mut()
-            .rev()
-            .find_map(|scope| {
-                scope.fns.get_mut(&name.data)
-            }).expect("internal error: function to mark as ready was not found");
-
-        // assert!(func.name_at == name.at);
-
-        func.is_ready = true;
-    }
-
     pub fn mark_cmd_alias_ready(&mut self, name: &Eaten<String>) {
         let cmd_alias = self.scopes
             .iter_mut()
@@ -111,11 +98,7 @@ impl State {
                     DependencyType::Function => scope
                     .fns
                     .get(&item.data)
-                    .map(|DeclaredFn { name_at, is_ready }| if *is_ready {
-                        Ok(FetchedDependency::new(*name_at, false))
-                    } else {
-                        Err(CheckerError::new(item.at, "cannot use a function before its declaration"))
-                    }),
+                    .map(|func| Ok(FetchedDependency::new(func.name_at, false))),
 
                     DependencyType::CmdAlias => scope
                     .cmd_aliases
@@ -264,12 +247,11 @@ pub struct DeclaredVar {
 #[derive(Clone, Copy)]
 pub struct DeclaredFn {
     pub name_at: RuntimeCodeRange,
-    pub(crate) is_ready: bool
 }
 
 impl DeclaredFn {
-    pub fn ready(name_at: RuntimeCodeRange) -> Self {
-        Self {name_at, is_ready: true}
+    pub fn new(name_at: RuntimeCodeRange) -> Self {
+        Self { name_at }
     }
 }
 

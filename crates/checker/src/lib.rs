@@ -149,7 +149,6 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                     name.data.clone(),
                     DeclaredFn {
                         name_at: RuntimeCodeRange::Parsed(name.at),
-                        is_ready: false,
                     },
                 );
             }
@@ -344,12 +343,10 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             }
         }
 
-        Instruction::FnDecl { name, content } => {
+        Instruction::FnDecl { name: _, content } => {
             // NOTE: function was already registered during init.
 
             check_function(content, state)?;
-
-            state.mark_fn_ready(name);
         }
 
         Instruction::FnReturn { expr } => {
@@ -751,32 +748,22 @@ fn check_single_cmd_call(
 
     match &path.data {
         CmdPath::RawString(name) => {
-            if let Some((is_ready, found)) = state.scopes().find_map(|scope| {
-                scope
-                    .fns
-                    .get(&name.data)
-                    .map(|func| (func.is_ready, SingleCmdCallTargetType::Function))
-                    .or_else(|| {
-                        scope
-                            .cmd_aliases
-                            .get(&name.data)
-                            .map(|cmd_alias| (cmd_alias.is_ready, SingleCmdCallTargetType::Command))
-                    })
-            }) {
-                if !is_ready {
-                    return Err(CheckerError::new(
-                        name.at,
-                        format!(
-                            "cannot use a {} before its declaration",
-                            match found {
-                                SingleCmdCallTargetType::Command => "command alias",
-                                SingleCmdCallTargetType::Function => "function",
-                            }
-                        ),
-                    ));
+            for scope in state.scopes() {
+                if scope.fns.contains_key(&name.data) {
+                    target_type = SingleCmdCallTargetType::Function;
+                    break;
                 }
 
-                target_type = found;
+                if let Some(cmd_alias) = scope.cmd_aliases.get(&name.data) {
+                    if !cmd_alias.is_ready {
+                        return Err(CheckerError::new(
+                            name.at,
+                            "cannot use a command alias before its declaration",
+                        ));
+                    }
+
+                    target_type = SingleCmdCallTargetType::Command;
+                }
             }
         }
         CmdPath::Direct(_) => {}
