@@ -219,7 +219,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let extract = format!("{} ", &source[extract_start_offset..extract_end]);
 
     // Same thing for the error range source
-    let range_chars_len = if offset + len.max(1) == source.len() {
+    let range_chars_len = if offset + len.max(1) == source.len() + 1 {
         1
     } else {
         source[offset..offset + len.max(1)].chars().count()
