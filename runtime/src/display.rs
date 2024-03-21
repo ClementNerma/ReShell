@@ -144,15 +144,19 @@ impl PrettyPrintable for RuntimeValue {
             RuntimeValue::Null => {
                 PrintablePiece::colored_atomic("null".to_string(), Color::BrightYellow)
             }
+
             RuntimeValue::Bool(bool) => {
                 PrintablePiece::colored_atomic(bool.to_string(), Color::BrightYellow)
             }
+
             RuntimeValue::Int(int) => {
                 PrintablePiece::colored_atomic(int.to_string(), Color::BrightYellow)
             }
+
             RuntimeValue::Float(float) => {
                 PrintablePiece::colored_atomic(float.to_string(), Color::BrightYellow)
             }
+
             RuntimeValue::String(string) => PrintablePiece::colored_atomic(
                 format!(
                     "\"{}\"",
@@ -163,6 +167,7 @@ impl PrettyPrintable for RuntimeValue {
                 ),
                 Color::BrightGreen,
             ),
+
             RuntimeValue::List(list) => PrintablePiece::List {
                 begin: Colored::with_color("[".to_string(), Color::Blue),
                 items: list
@@ -173,22 +178,15 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color("]".to_string(), Color::Blue),
                 suffix: None,
             },
-            RuntimeValue::Range { from, to } => PrintablePiece::List {
-                begin: Colored::with_color("range(".to_string(), Color::Blue),
-                items: vec![
-                    PrintablePiece::Atomic(Colored::with_color(
-                        from.to_string(),
-                        Color::BrightYellow,
-                    )),
-                    PrintablePiece::Atomic(Colored::with_color(
-                        to.to_string(),
-                        Color::BrightYellow,
-                    )),
-                ],
-                sep: Colored::with_color(",".to_string(), Color::Blue),
-                end: Colored::with_color(")".to_string(), Color::Blue),
-                suffix: None,
-            },
+
+            RuntimeValue::Range { from, to } => PrintablePiece::Join(vec![
+                PrintablePiece::colored_atomic("range(".to_string(), Color::Blue),
+                PrintablePiece::colored_atomic(from.to_string(), Color::BrightYellow),
+                PrintablePiece::colored_atomic(",".to_string(), Color::Blue),
+                PrintablePiece::colored_atomic(to.to_string(), Color::BrightYellow),
+                PrintablePiece::colored_atomic(")".to_string(), Color::Blue),
+            ]),
+
             RuntimeValue::Map(map) => PrintablePiece::List {
                 begin: Colored::with_color("map({".to_string(), Color::Blue),
                 items: map
@@ -218,6 +216,7 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color("})".to_string(), Color::Blue),
                 suffix: None,
             },
+
             RuntimeValue::Struct(obj) => PrintablePiece::List {
                 begin: Colored::with_color("{".to_string(), Color::Blue),
                 items: obj
@@ -241,31 +240,26 @@ impl PrettyPrintable for RuntimeValue {
                 end: Colored::with_color("}".to_string(), Color::Blue),
                 suffix: None,
             },
+
             RuntimeValue::Function(func) => PrintablePiece::Join(vec![
                 func.signature.generate_pretty_data(),
-                PrintablePiece::Atomic(Colored::with_color(
-                    " { ... }".to_string(),
-                    Color::BrightBlack,
-                )),
+                PrintablePiece::colored_atomic(" { ... }".to_string(), Color::BrightBlack),
             ]),
-            RuntimeValue::Error { at: _, msg } => PrintablePiece::List {
-                begin: Colored::with_color("error(".to_string(), Color::Red),
-                items: vec![
-                    PrintablePiece::Atomic(Colored::with_color(
-                        format!(
-                            "\"{}\"",
-                            msg.replace('\\', "\\\\")
-                                .replace('\"', "\\\"")
-                                .replace('\n', "\\n")
-                        ),
-                        Color::Green,
-                    )),
-                    // TODO: printing "at" requires access to context in order to find the filename
-                ],
-                sep: Colored::empty(),
-                end: Colored::with_color(")".to_string(), Color::Red),
-                suffix: None,
-            },
+
+            RuntimeValue::Error { at: _, msg } => PrintablePiece::Join(vec![
+                PrintablePiece::colored_atomic("error(".to_string(), Color::Red),
+                PrintablePiece::colored_atomic(
+                    format!(
+                        "\"{}\"",
+                        msg.replace('\\', "\\\\")
+                            .replace('\"', "\\\"")
+                            .replace('\n', "\\n")
+                    ),
+                    Color::Green,
+                ),
+                // TODO: printing "at" requires access to context in order to find the filename
+                PrintablePiece::colored_atomic(")".to_string(), Color::Red),
+            ]),
         }
     }
 }
