@@ -36,15 +36,12 @@ pub fn readable_value_type(value: &RuntimeValue, ctx: &Context) -> Cow<'static, 
 pub fn readable_type(value_type: &ValueType, ctx: &Context) -> Cow<'static, str> {
     match value_type {
         ValueType::Single(single) => readable_single_type(&single.data, ctx).into(),
-        ValueType::Union(types) => {
-            let types = types
-                .iter()
-                .map(|typ| readable_single_type(&typ.data, ctx))
-                .collect::<Vec<_>>()
-                .join(" | ");
-
-            format!("({types})").into()
-        }
+        ValueType::Union(types) => types
+            .iter()
+            .map(|typ| readable_single_type(&typ.data, ctx))
+            .collect::<Vec<_>>()
+            .join(" | ")
+            .into(),
     }
 }
 
@@ -72,7 +69,7 @@ pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<
                 } else {
                     None
                 }) {
-                Some(typ) => format!("(= {})", readable_type(typ, ctx)),
+                Some(typ) => format!("({})", readable_type(typ, ctx)),
                 None => format!("(unknown type alias)"),
             }
         )
