@@ -662,8 +662,10 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames, ctx: &mut
             FnFlagArgNames::ShortFlag(_) => None,
 
             FnFlagArgNames::LongFlag(long) | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
-                if name == long.data() {
-                    Some(long.data().clone())
+                let var_name = ctx.get_long_flag_var_name(long);
+
+                if name == &var_name {
+                    Some(var_name.clone())
                 } else {
                     None
                 }
