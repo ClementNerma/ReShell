@@ -945,12 +945,9 @@ impl ComputableSize for HistoryConf {
         let Self {
             enabled,
             custom_location,
-            capacity,
         } = self;
 
-        enabled.compute_heap_size()
-            + custom_location.compute_heap_size()
-            + capacity.compute_heap_size()
+        enabled.compute_heap_size() + custom_location.compute_heap_size()
     }
 }
 
