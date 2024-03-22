@@ -914,6 +914,9 @@ pub struct ScopeFn {
     /// Declaration scope ID
     pub decl_scope_id: AstScopeId,
 
+    /// Name declaration location
+    pub name_declared_at: RuntimeCodeRange,
+
     /// Value of the function
     /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,

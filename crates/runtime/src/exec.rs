@@ -106,6 +106,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                     name.data.clone(),
                     ScopeFn {
                         decl_scope_id: block.scope_id,
+                        name_declared_at: RuntimeCodeRange::Parsed(name.at),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
@@ -669,6 +670,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     decl_scope_id,
                     name_at: name.at,
                     value: GcReadOnlyCell::new(RuntimeCmdAlias {
+                        name: name.data.clone(),
                         name_declared_at: name.at,
                         content: alias_content,
                         content_scope_id: *content_scope_id,

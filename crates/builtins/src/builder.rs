@@ -60,6 +60,9 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     name.to_owned(),
                     ScopeFn {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
+                        name_declared_at: RuntimeCodeRange::Internal(
+                            "native library's type generator",
+                        ),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             is_method: false,
 
