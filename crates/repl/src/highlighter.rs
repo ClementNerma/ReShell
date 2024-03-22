@@ -211,7 +211,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 Rule::Simple(SimpleRule {
                     matches: Regex::new("([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
