@@ -27,8 +27,7 @@ use crate::{
     hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
-    utils::validator,
-    Timings,
+    validator, Timings,
 };
 
 pub fn start(

@@ -48,6 +48,7 @@ mod prompt;
 mod repl;
 mod reports;
 mod utils;
+mod validator;
 
 fn main() -> ExitCode {
     let now = Instant::now();
