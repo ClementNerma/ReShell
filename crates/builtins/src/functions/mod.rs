@@ -25,6 +25,7 @@ mod map;
 mod mkdir;
 mod parent_dir;
 mod parse_json;
+mod parse_toml;
 mod path_exists;
 mod range;
 mod read_dir;
@@ -77,6 +78,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::mkdir::build_fn(),
         self::parent_dir::build_fn(),
         self::parse_json::build_fn(),
+        self::parse_toml::build_fn(),
         self::path_exists::build_fn(),
         self::range::build_fn(),
         self::read_dir::build_fn(),
