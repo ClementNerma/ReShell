@@ -57,7 +57,11 @@ fn run() -> Runner {
                 fs::create_dir(path)
             };
 
-            result.context("failed to create directory", at, ctx)?;
+            result.with_context(
+                || format!("failed to create directory at path '{}'", path.display()),
+                at,
+                ctx,
+            )?;
 
             Ok(None)
         },

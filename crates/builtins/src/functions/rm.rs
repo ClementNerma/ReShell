@@ -39,7 +39,11 @@ fn run() -> Runner {
                 fs::remove_file(path)
             };
 
-            result.context("failed to remove item", at, ctx)?;
+            result.with_context(
+                || format!("failed to remove item at path '{}'", path.display()),
+                at,
+                ctx,
+            )?;
 
             Ok(None)
         },
