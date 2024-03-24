@@ -14,6 +14,7 @@ pub struct GlobPathOut {
 
 #[derive(Debug)]
 pub enum GlobPathStartsWith {
+    CurrentDir,
     HomeDirTilde(String),
     Variable { name: String, value: String },
 }
@@ -42,6 +43,10 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
                         starts_with = Some(GlobPathStartsWith::HomeDirTilde(home_dir.to_owned()));
 
                         return Ok(format!("{home_dir}{MAIN_SEPARATOR}{}", globify(stripped)));
+                    }
+
+                    if input.starts_with("./") || input.starts_with(".\\") {
+                        starts_with = Some(GlobPathStartsWith::CurrentDir);
                     }
                 }
 
