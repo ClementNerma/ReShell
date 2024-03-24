@@ -1,26 +1,23 @@
-use std::{
-    borrow::Cow,
-    collections::HashSet,
-    error::Error,
-    fs,
-    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
-    sync::LazyLock,
-};
+use std::{borrow::Cow, collections::HashSet, error::Error, fs, path::MAIN_SEPARATOR};
 
 use glob::{glob_with, MatchOptions};
 use reedline::{
     ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
 };
-use regex::{Captures, Regex};
 use reshell_parser::DELIMITER_CHARS;
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     context::Context,
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    values::RuntimeValue,
 };
 
-use crate::{repl::SHARED_CONTEXT, utils::jaro_winkler::jaro_winkler_distance};
+use crate::{
+    repl::SHARED_CONTEXT,
+    utils::{
+        jaro_winkler::jaro_winkler_distance,
+        path_globifier::{globify_path, GlobPathOut, GlobPathStartsWith},
+    },
+};
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
@@ -327,95 +324,30 @@ fn complete_var_name(
 }
 
 fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
-    let mut failed = false;
-    let mut start_var = None;
-
-    let word = VAR_IN_PATH_REGEX.replace_all(word, |cap: &Captures<'_>| {
-        let var_name = cap.get(1).unwrap().as_str();
-
-        for scope in ctx.visible_scopes_content() {
-            if let Some(var) = scope.vars.get(var_name) {
-                let value = var.value.read_promise_no_write();
-
-                let value = match &value.value {
-                    RuntimeValue::Int(int) => int.to_string(),
-                    RuntimeValue::Float(float) => float.to_string(),
-                    RuntimeValue::String(string) => string.clone(),
-
-                    _ => break,
-                };
-
-                if cap.get(0).unwrap().start() == 0 {
-                    start_var = Some((cap.get(1).unwrap().as_str().to_owned(), value.clone()));
-                }
-
-                return value;
-            }
-        }
-
-        failed = true;
-        String::new()
-    });
-
-    if failed {
+    let Ok(globified) = globify_path(word, ctx) else {
+        // TODO: error handling
         return vec![];
-    }
-
-    let mut search = word
-        .split(['/', '\\'])
-        .filter(|segment| !segment.is_empty() && *segment != ".")
-        .map(|segment| {
-            if segment != ".." && !segment.ends_with(':') {
-                format!("*{segment}*")
-            } else {
-                segment.to_owned()
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let starts_with_home_dir = if word.starts_with("~/") || word.starts_with("~\\") {
-        let Some(home_dir) = ctx.home_dir() else {
-            return vec![];
-        };
-
-        search[0] = home_dir
-            .to_string_lossy()
-            .trim_end_matches(['/', '\\'])
-            .to_string();
-
-        Some(home_dir)
-    } else {
-        None
     };
 
-    if word.starts_with(['/', '\\']) {
-        search.insert(0, String::new());
-    }
+    let GlobPathOut {
+        glob_pattern,
+        starts_with,
+    } = globified;
 
-    let mut search = search.join(MAIN_SEPARATOR_STR);
-
-    if search.is_empty() {
-        search.push('*');
-    } else if word.ends_with(['/', '\\']) {
-        search.push(MAIN_SEPARATOR);
-        search.push('*');
-    }
-
-    let glob_options = MatchOptions {
-        case_sensitive: false,
-        require_literal_leading_dot: true,
-        require_literal_separator: true,
-    };
-
-    let Ok(entries) = glob_with(&search, glob_options) else {
+    let Ok(entries) = glob_with(
+        &glob_pattern,
+        MatchOptions {
+            case_sensitive: false,
+            require_literal_leading_dot: true,
+            require_literal_separator: true,
+        },
+    ) else {
         return vec![];
     };
 
     let Ok(paths) = entries.collect::<Result<Vec<_>, _>>() else {
         return vec![];
     };
-
-    let starts_with_dot_slash = word.starts_with("./") || word.starts_with(".\\");
 
     let mut results = vec![];
 
@@ -433,35 +365,33 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
             path_str.push(MAIN_SEPARATOR);
         }
 
-        if let Some(home_dir) = starts_with_home_dir {
-            path_str = format!(
-                "~{MAIN_SEPARATOR}{}",
-                path_str
-                    .strip_prefix(&format!("{}{MAIN_SEPARATOR}", home_dir.display()))
-                    .unwrap()
-            )
-        }
+        let value = match &starts_with {
+            Some(GlobPathStartsWith::Variable { name, value }) => {
+                match path_str.strip_prefix(value.as_str()) {
+                    Some(stripped_path) => {
+                        let mut escaped = escape_raw(stripped_path).into_owned();
 
-        let path = if starts_with_dot_slash {
-            format!(".{MAIN_SEPARATOR}{path_str}")
-        } else {
-            path_str.clone()
-        };
+                        let insertion_point = if escaped.starts_with('"') { 1 } else { 0 };
 
-        let value = match &start_var {
-            Some((var_name, var_value)) => {
-                let stripped_path = path_str.strip_prefix(var_value.as_str()).unwrap();
-                let mut escaped = escape_raw(stripped_path).into_owned();
+                        escaped.insert(insertion_point, '$');
+                        escaped.insert_str(insertion_point + 1, name);
 
-                let insertion_point = if escaped.starts_with('"') { 1 } else { 0 };
+                        escaped
+                    }
 
-                escaped.insert(insertion_point, '$');
-                escaped.insert_str(insertion_point + 1, var_name);
-
-                escaped
+                    None => escape_raw(&path_str).into_owned(),
+                }
             }
 
-            None => escape_raw(&path).into_owned(),
+            Some(GlobPathStartsWith::HomeDirTilde(home_dir)) => escape_raw(&format!(
+                "~{MAIN_SEPARATOR}{}",
+                path_str
+                    .strip_prefix(&format!("{home_dir}{MAIN_SEPARATOR}"))
+                    .unwrap()
+            ))
+            .into_owned(),
+
+            None => escape_raw(&path_str).into_owned(),
         };
 
         results.push((
@@ -477,11 +407,11 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
         ));
     }
 
-    sort_results(&search, results)
+    sort_results(&glob_pattern, results)
 }
 
 fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
-    let input = input.replace(['*', '?'], "");
+    let input = input.replace(['*', '?', '[', ']'], "");
 
     let input_lc = input.to_lowercase();
 
@@ -538,6 +468,3 @@ fn escape_raw(str: &str) -> Cow<str> {
         Cow::Borrowed(str)
     }
 }
-
-static VAR_IN_PATH_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("\\$([[:alpha:]_][[:alnum:]_]*)").unwrap());
