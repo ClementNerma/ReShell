@@ -39,6 +39,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::reverse::build_fn(),
         self::list::slice::build_fn(),
         self::list::sort::build_fn(),
+        self::map::has::build_fn(),
         self::map::is_empty::build_fn(),
         self::map::keys::build_fn(),
         self::map::len::build_fn(),
