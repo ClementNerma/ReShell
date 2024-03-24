@@ -1,4 +1,10 @@
-use std::{borrow::Cow, collections::HashSet, error::Error, fs, path::MAIN_SEPARATOR};
+use std::{
+    borrow::Cow,
+    collections::HashSet,
+    error::Error,
+    fs,
+    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+};
 
 use glob::{glob_with, MatchOptions};
 use reedline::{
@@ -367,7 +373,9 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
 
         let value = match &starts_with {
             Some(GlobPathStartsWith::Variable { name, value }) => {
-                match path_str.strip_prefix(value.as_str()) {
+                let corrected_value = value.as_str().replace(['/', '\\'], MAIN_SEPARATOR_STR);
+
+                match path_str.strip_prefix(&corrected_value) {
                     Some(stripped_path) => {
                         let mut escaped = escape_raw(stripped_path).into_owned();
 
