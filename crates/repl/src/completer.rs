@@ -351,15 +351,17 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
         return vec![];
     };
 
-    let Ok(paths) = entries.collect::<Result<Vec<_>, _>>() else {
-        return vec![];
-    };
+    let paths = entries.collect::<Vec<_>>();
 
     let mut results = vec![];
 
     for path in paths {
+        let Ok(path) = path else {
+            continue;
+        };
+
         let Ok(metadata) = path.metadata() else {
-            return vec![];
+            continue;
         };
 
         let file_type = metadata.file_type();
