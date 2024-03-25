@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
 use indexmap::IndexSet;
-use parsy::{Eaten, FileId};
-use reshell_parser::ast::{Block, ElsIf, Instruction, Program, RuntimeCodeRange, SwitchCase};
+use parsy::{CodeRange, Eaten, FileId};
+use reshell_parser::ast::{
+    Block, ElsIf, Instruction, MapDestructBinding, Program, RuntimeCodeRange, SingleVarDecl,
+    SwitchCase, VarDeclType,
+};
 
 use crate::{
     cmd::{run_cmd, CmdExecParams},
@@ -198,31 +201,13 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
     ctx.clear_wandering_value();
 
     match &instr.data {
-        Instruction::DeclareVar {
-            name,
-            mutable,
-            init_expr,
-        } => {
+        Instruction::DeclareVar { names, init_expr } => {
             // assert!(
             //     !ctx.current_scope().content.vars.contains_key(&name.data),
             //     "duplicate variable declaration (this is a bug in the checker)"
             // );
 
-            let init_value = eval_expr(&init_expr.data, ctx)?;
-
-            let decl_scope_id = ctx.current_scope().ast_scope_id;
-
-            ctx.current_scope_content_mut().vars.insert(
-                name.data.clone(),
-                ScopeVar {
-                    decl_scope_id,
-                    is_mut: mutable.is_some(),
-                    value: GcCell::new(LocatedValue::new(
-                        init_value,
-                        RuntimeCodeRange::Parsed(init_expr.at),
-                    )),
-                },
-            );
+            declare_vars(names, eval_expr(&init_expr.data, ctx)?, init_expr.at, ctx)?;
         }
 
         Instruction::AssignVar {
@@ -710,6 +695,130 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
     }
 
     Ok(None)
+}
+
+fn declare_vars(
+    names: &Eaten<VarDeclType>,
+    value: RuntimeValue,
+    value_at: CodeRange,
+    ctx: &mut Context,
+) -> ExecResult<()> {
+    match &names.data {
+        VarDeclType::Single(single) => declare_var(single, value, value_at, ctx),
+
+        VarDeclType::Tuple(members) => {
+            let list = match value {
+                RuntimeValue::List(list) => list,
+
+                _ => {
+                    return Err(ctx.error(
+                        names.at,
+                        format!(
+                            "tried to spread a list but found a: {}",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
+            };
+
+            let list = list.read_promise_no_write();
+
+            if members.len() > list.len() {
+                return Err(ctx.error(
+                    names.at,
+                    format!(
+                        "tried to spread {} elements, but provided list contains {}",
+                        members.len(),
+                        list.len()
+                    ),
+                ));
+            }
+
+            for (names, value) in members.iter().zip(list.iter().cloned()) {
+                declare_vars(names, value, value_at, ctx)?;
+            }
+        }
+
+        VarDeclType::MapOrStruct(members) => {
+            let map = match value {
+                RuntimeValue::Map(map) => map,
+
+                RuntimeValue::Struct(members) => members,
+
+                _ => {
+                    return Err(ctx.error(
+                        names.at,
+                        format!(
+                            "tried to spread a map or struct but found a: {}",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
+            };
+
+            let map = map.read_promise_no_write();
+
+            for (decl, binding) in members {
+                match binding {
+                    None => {
+                        let value = map.get(&decl.data.name.data).ok_or_else(|| {
+                            ctx.error(
+                                decl.data.name.at,
+                                "this property was not found in provided value",
+                            )
+                        })?;
+
+                        declare_var(&decl.data, value.clone(), value_at, ctx);
+                    }
+
+                    Some(MapDestructBinding::BindTo(alias)) => {
+                        let value = map.get(&alias.data).ok_or_else(|| {
+                            ctx.error(alias.at, "this property was not found in provided value")
+                        })?;
+
+                        declare_var(&decl.data, value.clone(), value_at, ctx);
+                    }
+
+                    Some(MapDestructBinding::Destruct(destruct)) => {
+                        let value = map.get(&decl.data.name.data).ok_or_else(|| {
+                            ctx.error(
+                                decl.data.name.at,
+                                "this property was not found in provided value",
+                            )
+                        })?;
+
+                        declare_vars(destruct, value.clone(), value_at, ctx)?;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn declare_var(
+    single: &SingleVarDecl,
+    value: RuntimeValue,
+    value_at: CodeRange,
+    ctx: &mut Context,
+) {
+    let SingleVarDecl { name, is_mut } = single;
+
+    let decl_scope_id = ctx.current_scope().ast_scope_id;
+
+    ctx.current_scope_content_mut().vars.insert(
+        name.data.clone(),
+        ScopeVar {
+            decl_scope_id,
+            is_mut: is_mut.is_some(),
+            value: GcCell::new(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at))),
+        },
+    );
 }
 
 #[derive(Debug, Clone)]

@@ -21,11 +21,8 @@ pub struct Block {
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
-        name: Eaten<String>,
+        names: Eaten<VarDeclType>,
         init_expr: Eaten<Expr>,
-
-        /// Location of this item points to the "mut" keyword
-        mutable: Option<Eaten<()>>,
     },
 
     /// Variable assignment
@@ -125,6 +122,27 @@ pub enum Instruction {
 
     /// Program inclusion
     Include(Eaten<Program>),
+}
+
+#[derive(Debug, Clone)]
+pub enum VarDeclType {
+    Single(SingleVarDecl),
+    Tuple(Vec<Eaten<VarDeclType>>),
+    MapOrStruct(Vec<(Eaten<SingleVarDecl>, Option<MapDestructBinding>)>),
+}
+
+#[derive(Debug, Clone)]
+pub enum MapDestructBinding {
+    BindTo(Eaten<String>),
+    Destruct(Box<Eaten<VarDeclType>>),
+}
+
+#[derive(Debug, Clone)]
+pub struct SingleVarDecl {
+    pub name: Eaten<String>,
+
+    /// Location of this item points to the "mut" keyword
+    pub is_mut: Option<Eaten<()>>,
 }
 
 #[derive(Debug, Clone)]
