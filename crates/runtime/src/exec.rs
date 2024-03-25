@@ -776,11 +776,19 @@ fn declare_vars(
                     }
 
                     Some(MapDestructBinding::BindTo(alias)) => {
-                        let value = map.get(&alias.data).ok_or_else(|| {
+                        let value = map.get(&decl.data.name.data).ok_or_else(|| {
                             ctx.error(alias.at, "this property was not found in provided value")
                         })?;
 
-                        declare_var(&decl.data, value.clone(), value_at, ctx);
+                        declare_var(
+                            &SingleVarDecl {
+                                name: alias.clone(),
+                                is_mut: decl.data.is_mut,
+                            },
+                            value.clone(),
+                            value_at,
+                            ctx,
+                        );
                     }
 
                     Some(MapDestructBinding::Destruct(destruct)) => {
