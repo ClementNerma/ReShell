@@ -24,7 +24,7 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
 
     let mut starts_with = None;
 
-    let glob_pattern = segments
+    let mut glob_pattern = segments
         .iter()
         .enumerate()
         .map(|(i, segment)| match segment {
@@ -83,6 +83,12 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
         })
         .collect::<Result<Vec<String>, String>>()?;
 
+    if let Some(Segment::Raw(str)) = segments.last() {
+        if str.ends_with('/') {
+            glob_pattern.push(String::new());
+        }
+    }
+
     let glob_pattern = match glob_pattern.last() {
         Some(last) => {
             if last.is_empty() {
@@ -101,6 +107,7 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
     })
 }
 
+#[derive(Debug)]
 enum Segment<'a> {
     Raw(&'a str),
     VarName(&'a str),
