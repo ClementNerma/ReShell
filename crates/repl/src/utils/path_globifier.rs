@@ -84,7 +84,7 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
         .collect::<Result<Vec<String>, String>>()?;
 
     if let Some(Segment::Raw(str)) = segments.last() {
-        if str.ends_with('/') {
+        if str.ends_with(['/', '\\']) {
             glob_pattern.push(String::new());
         }
     }
