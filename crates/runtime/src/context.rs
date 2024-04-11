@@ -216,9 +216,8 @@ impl Context {
     pub fn generate_checker_scopes(&self) -> Vec<CheckerScope> {
         self.generate_parent_scopes_list()
             .iter()
-            .map(|scope_id| {
-                let scope = self.scopes.get(scope_id).unwrap();
-
+            .filter_map(|scope_id| self.scopes.get(scope_id))
+            .map(|scope| {
                 let Scope {
                     content,
                     ast_scope_id,
