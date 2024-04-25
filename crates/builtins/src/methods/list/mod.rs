@@ -1,9 +1,9 @@
 pub mod append;
 pub mod at;
 pub mod contains;
+pub mod each;
 pub mod filter;
 pub mod fold;
-pub mod for_each;
 pub mod get;
 pub mod is_empty;
 pub mod join;
