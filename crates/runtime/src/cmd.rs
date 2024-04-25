@@ -8,8 +8,9 @@ use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
-    CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
-    FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange, SingleCmdCall,
+    CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdSpreadArg,
+    CmdValueMakingArg, FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange,
+    SingleCmdCall,
 };
 
 use crate::{
@@ -636,11 +637,17 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             }))
         }
 
-        CmdArg::SpreadVar(var_name) => {
-            let var = ctx.get_visible_var(var_name);
-            let var_value = var.value.read(var_name.at);
+        CmdArg::Spread(spread) => {
+            let spread_value = match &spread.data {
+                CmdSpreadArg::Variable(var_name) => {
+                    let var = ctx.get_visible_var(var_name);
+                    var.value.read(var_name.at).value.clone()
+                }
 
-            match &var_value.value {
+                CmdSpreadArg::Expr(expr) => eval_expr(expr, ctx)?,
+            };
+
+            match spread_value {
                 RuntimeValue::List(items) => {
                     let spreaded = items
                         .read_promise_no_write()
@@ -649,13 +656,13 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                             value_to_str(
                                 item,
                                 "spreaded arguments to external commands must be stringifyable",
-                                var_value.from,
+                                spread.at,
                                 ctx,
                             )
                             .map(|str| {
                                 CmdSingleArgResult::Basic(LocatedValue::new(
                                     RuntimeValue::String(str),
-                                    RuntimeCodeRange::Parsed(var_name.at),
+                                    RuntimeCodeRange::Parsed(spread.at),
                                 ))
                             })
                         })
@@ -664,13 +671,13 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                     Ok(CmdArgResult::Spreaded(spreaded))
                 }
 
-                RuntimeValue::ArgSpread(spread) => Ok(CmdArgResult::Spreaded(Vec::clone(spread))),
+                RuntimeValue::ArgSpread(spread) => Ok(CmdArgResult::Spreaded(Vec::clone(&spread))),
+
                 _ => Err(ctx.error(
-                    var_name.at,
+                    spread.at,
                     format!(
                         "expected a spread value, found a {}",
-                        var_value
-                            .value
+                        spread_value
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
@@ -680,7 +687,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
     }
 }
 
-pub fn eval_cmd_value_making_arg(
+fn eval_cmd_value_making_arg(
     arg: &CmdValueMakingArg,
     ctx: &mut Context,
 ) -> ExecResult<LocatedValue> {

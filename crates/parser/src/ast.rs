@@ -423,7 +423,13 @@ pub enum CmdComputedStringPiece {
 pub enum CmdArg {
     ValueMaking(CmdValueMakingArg),
     Flag(CmdFlagArg),
-    SpreadVar(Eaten<String>),
+    Spread(Eaten<CmdSpreadArg>),
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdSpreadArg {
+    Variable(Eaten<String>),
+    Expr(Expr),
 }
 
 #[derive(Debug, Clone)]
