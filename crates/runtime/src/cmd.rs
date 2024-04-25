@@ -7,10 +7,9 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
-    CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdSpreadArg,
-    CmdValueMakingArg, FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange,
-    SingleCmdCall,
+    CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath,
+    CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
+    FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
@@ -421,10 +420,10 @@ fn evaluate_cmd_target(
         let func = match &cmd_path.data {
             CmdPath::Method(name) => EvaluatedCmdTarget::Method(name.clone()),
 
-            CmdPath::CmdComputedString(cc_str) => {
+            CmdPath::CmdRawString(cc_str) => {
                 assert!(cc_str.data.only_literal().is_some());
 
-                let string = eval_cmd_computed_string(cc_str, ctx)?;
+                let string = eval_cmd_raw_string(cc_str, ctx)?;
 
                 EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
                     ctx.get_visible_fn_value(&cc_str.forge_here(string))?,
@@ -440,12 +439,10 @@ fn evaluate_cmd_target(
     }
 
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
-        CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_computed_string(cc_str, ctx)?),
+        CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_raw_string(cc_str, ctx)?),
         CmdPath::Method(_) => unreachable!(),
         CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
-        CmdPath::CmdComputedString(cc_str) => {
-            cc_str.forge_here(eval_cmd_computed_string(cc_str, ctx)?)
-        }
+        CmdPath::CmdRawString(cc_str) => cc_str.forge_here(eval_cmd_raw_string(cc_str, ctx)?),
     }))
 }
 
@@ -704,9 +701,9 @@ fn eval_cmd_value_making_arg(
             RuntimeValue::String(eval_computed_string(computed_str, ctx)?),
         ),
 
-        CmdValueMakingArg::CmdComputedString(computed_str) => (
+        CmdValueMakingArg::CmdRawString(computed_str) => (
             computed_str.at,
-            RuntimeValue::String(eval_cmd_computed_string(computed_str, ctx)?),
+            RuntimeValue::String(eval_cmd_raw_string(computed_str, ctx)?),
         ),
 
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
@@ -739,34 +736,31 @@ fn eval_cmd_value_making_arg(
     Ok(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at)))
 }
 
-pub fn eval_cmd_computed_string(
-    value: &Eaten<CmdComputedString>,
-    ctx: &mut Context,
-) -> ExecResult<String> {
+pub fn eval_cmd_raw_string(value: &Eaten<CmdRawString>, ctx: &mut Context) -> ExecResult<String> {
     value
         .data
         .pieces
         .iter()
         .enumerate()
-        .map(|(i, piece)| eval_cmd_computed_string_piece(piece, i == 0, ctx))
+        .map(|(i, piece)| eval_cmd_raw_string_piece(piece, i == 0, ctx))
         .collect::<Result<String, _>>()
 }
 
-fn eval_cmd_computed_string_piece(
-    piece: &Eaten<CmdComputedStringPiece>,
+fn eval_cmd_raw_string_piece(
+    piece: &Eaten<CmdRawStringPiece>,
     transmute_tilde: bool,
     ctx: &mut Context,
 ) -> ExecResult<String> {
     match &piece.data {
-        CmdComputedStringPiece::Literal(str) => {
+        CmdRawStringPiece::Literal(str) => {
             if transmute_tilde {
                 try_replace_home_dir_tilde(str, ctx).map_err(|err| ctx.error(piece.at, err))
             } else {
                 Ok(str.clone())
             }
         }
-        CmdComputedStringPiece::Escaped(char) => Ok(char.to_string()),
-        CmdComputedStringPiece::Variable(var_name) => Ok(value_to_str(
+        CmdRawStringPiece::Escaped(char) => Ok(char.to_string()),
+        CmdRawStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             "only stringifyable variables can be used inside computable strings",
             var_name.at,
