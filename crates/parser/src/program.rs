@@ -780,8 +780,15 @@ pub fn program(
             choice::<_, CmdRawStringPiece>((
                 // Expressions
                 var_name.spanned().map(CmdRawStringPiece::Variable),
+                // Escaped character
+                char('\\')
+                    .ignore_then(
+                        filter(|c| c != '\n' && c != '\r')
+                            .critical("expected a character to escape"),
+                    )
+                    .map(CmdRawStringPiece::Escaped),
                 // Literal character suites
-                filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+                filter(|c| !c.is_whitespace() && c != '\\' && !DELIMITER_CHARS.contains(&c))
                     .repeated()
                     .at_least(1)
                     .collect_string()
