@@ -5,9 +5,7 @@
 #![feature(lazy_cell)]
 #![feature(let_chains)]
 
-use std::path::PathBuf;
-use std::process::ExitCode;
-use std::{fs, time::Instant};
+use std::{fs, path::PathBuf, process::ExitCode, time::Instant};
 
 use clap::Parser as _;
 use colored::Colorize;
