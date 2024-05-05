@@ -6,7 +6,7 @@ crate::define_internal_fn!(
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(NullableType::<StringType>::direct_underlying_type())
 );
 
 fn run() -> Runner {
@@ -18,10 +18,9 @@ fn run() -> Runner {
              ..
          },
          ctx| {
-            let path = ctx
-                .binaries_resolver()
-                .resolve_binary_path(&command)
-                .map_err(|err| ctx.error(command_at, err))?;
+            let Ok(path) = ctx.binaries_resolver().resolve_binary_path(&command) else {
+                return Ok(Some(RuntimeValue::Null));
+            };
 
             let path = if lossy {
                 path.to_string_lossy().into_owned()
