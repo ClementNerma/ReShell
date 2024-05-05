@@ -12,7 +12,7 @@ reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
 reshell-runtime = { path = "../runtime" }
 reshell-builtins = { path = "../builtins" }
-parsy = "0.5.6"
+parsy = "0.6.3"
 clap = { version = "4.5.3", features = ["derive"] }
 reedline = { git = "https://github.com/ClementNerma/reedline.git" }
 nu-ansi-term = "0.50.0"
