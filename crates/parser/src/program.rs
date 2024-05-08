@@ -927,7 +927,7 @@ pub fn program(
                             // would have '-b' considered as the value for '-a'
                             .not_followed_by(char('-'))
                             // Same thing goes for rest arguments
-                            .not_followed_by(just("...$"))
+                            .not_followed_by(just("...").then(char('$').or(char('('))))
                             .to(FlagValueSeparator::Space),
                         char('=').to(FlagValueSeparator::Equal),
                     ))
