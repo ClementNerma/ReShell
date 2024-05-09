@@ -24,7 +24,7 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
 
     let mut starts_with = None;
 
-    let mut glob_pattern = segments
+    let glob_pattern = segments
         .iter()
         .enumerate()
         .map(|(i, segment)| match segment {
@@ -45,7 +45,7 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
                         return Ok(format!("{home_dir}{MAIN_SEPARATOR}{}", globify(stripped)));
                     }
 
-                    if input.starts_with("./") || input.starts_with(".\\") {
+                    if input.starts_with("./") || input.starts_with(".\\\\") {
                         starts_with = Some(GlobPathStartsWith::CurrentDir);
                     }
                 }
@@ -83,26 +83,8 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
         })
         .collect::<Result<Vec<String>, String>>()?;
 
-    if let Some(Segment::Raw(str)) = segments.last() {
-        if str.ends_with(['/', '\\']) {
-            glob_pattern.push(String::new());
-        }
-    }
-
-    let glob_pattern = match glob_pattern.last() {
-        Some(last) => {
-            if last.is_empty() {
-                format!("{}*", glob_pattern.join(MAIN_SEPARATOR_STR))
-            } else {
-                glob_pattern.join(MAIN_SEPARATOR_STR)
-            }
-        }
-
-        None => "*".to_owned(),
-    };
-
     Ok(GlobPathOut {
-        glob_pattern,
+        glob_pattern: glob_pattern.join(MAIN_SEPARATOR_STR),
         starts_with,
     })
 }
@@ -120,7 +102,13 @@ fn segmentize(input: &str) -> Vec<Segment> {
     for one_match in VAR_IN_PATH_REGEX.captures_iter(input) {
         let extract = one_match.get(0).unwrap();
 
-        if extract.start() > last_offset {
+        let escape = input[..extract.start()]
+            .chars()
+            .rev()
+            .filter(|c| *c == '\\')
+            .count();
+
+        if extract.start() > last_offset || escape % 2 != 0 {
             out.push(Segment::Raw(&input[last_offset..extract.start()]));
         }
 
@@ -136,34 +124,50 @@ fn segmentize(input: &str) -> Vec<Segment> {
 }
 
 fn globify(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
+    let mut globified_segments: Vec<String> = vec![];
+    let mut curr_segment = String::new();
+    let mut escaping = false;
 
-    for (i, segment) in input.split(['/', '\\']).enumerate() {
-        if segment.is_empty() {
+    // TODO: last "." segment (not followed by a separator) should be globifyable (e.g. .gitignore, .env, etc.)
+    let mut push_segment = |old_curr_segment: &mut String, is_last: bool| {
+        let curr_segment = old_curr_segment.clone(); // TODO: no .clone()
+        old_curr_segment.clear();
+
+        // TODO: deal better with empty segments!
+        if curr_segment.is_empty() {
+            if globified_segments.is_empty() {
+                globified_segments.push(String::new());
+            } else if is_last {
+                globified_segments.push(String::from('*'))
+            }
+        } else if curr_segment == "." || curr_segment == ".." {
+            globified_segments.push(curr_segment);
+        } else {
+            // TODO: don't add stars if there is already one at the beginning or the end
+            globified_segments.push(format!("*{curr_segment}*"));
+        }
+    };
+
+    for c in input.chars() {
+        if (escaping && c == '\\') || (!escaping && c == '/') {
+            escaping = false;
+            push_segment(&mut curr_segment, false);
             continue;
         }
 
-        if i > 0 && !out.ends_with(MAIN_SEPARATOR) {
-            out.push(MAIN_SEPARATOR);
-        }
-
-        if segment == "." || segment == ".." {
-            out.push_str(segment);
-            continue;
-        }
-
-        if !segment.starts_with('*') {
-            out.push('*');
-        }
-
-        out.push_str(segment);
-
-        if !segment.ends_with('*') {
-            out.push('*');
+        if escaping {
+            escaping = false;
+            curr_segment.push(c);
+        } else if c == '\\' {
+            escaping = true;
+        } else {
+            curr_segment.push(c);
         }
     }
 
-    out
+    push_segment(&mut curr_segment, true);
+
+    globified_segments.join(MAIN_SEPARATOR_STR)
 }
 
 static VAR_IN_PATH_REGEX: LazyLock<Regex> =

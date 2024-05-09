@@ -47,17 +47,21 @@ impl RlCompleter for Completer {
 type SortableSuggestion = (String, Suggestion);
 
 pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Suggestion> {
-    let split = |c: char| c.is_whitespace() && !DELIMITER_CHARS.contains(&c);
+    // TODO: optimize by writing a custom "find_breakpoint_backward" algorithm
+    let mut word_start = 0;
 
-    let word_start = match line[..pos].rfind(split) {
-        Some(index) => index + 1,
-        None => 0,
-    };
+    loop {
+        let next_breakpoint = word_start + find_breakpoint(&line[word_start..]);
 
-    let word_end = match line[word_start..pos].find(split) {
-        Some(index) => index,
-        None => pos,
-    };
+        if next_breakpoint >= pos || next_breakpoint <= word_start {
+            break;
+        }
+
+        word_start = next_breakpoint;
+    }
+    // TODO END
+
+    let word_end = word_start + find_breakpoint(&line[word_start..]);
 
     let after_space = word_start > 0
         && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
@@ -82,44 +86,48 @@ pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Sugges
         return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
             complete_path(word, span, ctx)
         } else {
-            complete_var_name(s_word, Some("$"), span, ctx)
+            complete_var_name(&unescape(s_word), Some("$"), span, ctx)
         };
     }
 
     if let Some(s_word) = word.strip_prefix('@') {
         return sort_results(
-            word,
-            build_fn_completions(s_word, next_char, Some("@"), span, ctx).collect(),
+            &unescape(word),
+            build_fn_completions(&unescape(s_word), next_char, Some("@"), span, ctx).collect(),
         );
     }
 
     if after_pipe {
+        let word = unescape(word);
+
         if let Some(s_word) = word.strip_prefix('.') {
             return sort_results(
-                word,
-                build_method_completions(s_word, Some("."), span, ctx).collect(),
+                &word,
+                build_method_completions(&unescape(s_word), Some("."), span, ctx).collect(),
             );
         }
 
-        let mut cmd_comp = build_cmd_completions(word, next_char, span)
+        let mut cmd_comp = build_cmd_completions(&word, next_char, span)
             .ok()
             .flatten()
             .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
+        cmd_comp.extend(build_fn_completions(&word, next_char, None, span, ctx));
 
-        return sort_results(word, cmd_comp);
+        return sort_results(&word, cmd_comp);
     }
 
     if !after_space && !word.contains(['/', '\\']) {
-        let mut cmd_comp = build_cmd_completions(word, next_char, span)
+        let word = unescape(word);
+
+        let mut cmd_comp = build_cmd_completions(&word, next_char, span)
             .ok()
             .flatten()
             .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
+        cmd_comp.extend(build_fn_completions(&word, next_char, None, span, ctx));
 
-        return sort_results(word, cmd_comp);
+        return sort_results(&word, cmd_comp);
     }
 
     complete_path(word, span, ctx)
@@ -459,26 +467,64 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .collect()
 }
 
-fn escape_raw(str: &str) -> Cow<str> {
-    if str
-        .chars()
-        .any(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c))
-    {
-        let mut out = String::with_capacity(str.len() + 2);
-        out.push('"');
+fn find_breakpoint(str: &str) -> usize {
+    let mut escaping = false;
+    let mut offset = 0;
 
-        for c in str.chars() {
-            if c == '"' || c == '$' || c == '\\' {
-                out.push('\\');
-            }
-
-            out.push(c);
+    for c in str.chars() {
+        if c == '\r' || c == '\n' {
+            break;
         }
 
-        out.push('"');
+        offset += c.len_utf8();
 
-        Cow::Owned(out)
+        if escaping {
+            escaping = false;
+        } else if c == '\\' {
+            escaping = true;
+        } else if needs_escaping(c) && c != '$' {
+            break;
+        }
+    }
+
+    offset
+}
+
+fn unescape(str: &str) -> String {
+    let mut unescaped = String::new();
+    let mut escaping = false;
+
+    for c in str.chars() {
+        if escaping {
+            escaping = false;
+        } else if c == '\\' {
+            escaping = true;
+        } else {
+            unescaped.push(c);
+        }
+    }
+
+    unescaped
+}
+
+fn escape_raw(str: &str) -> Cow<str> {
+    if str.chars().any(needs_escaping) {
+        let mut escaped = String::with_capacity(str.len());
+
+        for c in str.chars() {
+            if needs_escaping(c) {
+                escaped.push('\\');
+            }
+
+            escaped.push(c);
+        }
+
+        Cow::Owned(escaped)
     } else {
         Cow::Borrowed(str)
     }
+}
+
+fn needs_escaping(c: char) -> bool {
+    c.is_whitespace() || DELIMITER_CHARS.contains(&c)
 }
