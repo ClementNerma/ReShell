@@ -162,6 +162,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 include_group("commands"),
             ]),
             ("commands", vec![
+                // Escaped characters
+                simple("(\\\\.)", [LightCyan]),
+
                 // Pipes
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
