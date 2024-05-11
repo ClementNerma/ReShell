@@ -47,7 +47,7 @@ impl RlCompleter for Completer {
 type SortableSuggestion = (String, Suggestion);
 
 pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Suggestion> {
-    let word_start = find_breakpoint_backward(&line[..pos]);
+    let word_start = pos - find_breakpoint_backward(&line[..pos]);
     let word_end = word_start + find_breakpoint_forward(&line[word_start..]);
 
     let word = &line[word_start..word_end];
@@ -487,16 +487,24 @@ fn find_breakpoint_backward(str: &str) -> usize {
             continue;
         }
 
-        let prev_backslashes = chars[..i].iter().filter(|c| **c == '\\').fuse().count();
+        let mut prev_backslashes = 0;
+
+        for c in chars[i..].iter().skip(1) {
+            if *c == '\\' {
+                prev_backslashes += 1;
+            } else {
+                break;
+            }
+        }
 
         if prev_backslashes % 2 != 0 {
             escaping = true;
         } else if c.is_whitespace() || (DELIMITER_CHARS.contains(c) && *c != '$') {
-            return str.len() - i;
+            return i;
         }
     }
 
-    0
+    str.len()
 }
 
 fn unescape(str: &str) -> String {
