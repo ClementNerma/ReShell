@@ -9,7 +9,8 @@ use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath,
     CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
-    FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange, SingleCmdCall,
+    FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange, RuntimeEaten,
+    SingleCmdCall,
 };
 
 use crate::{
@@ -569,7 +570,7 @@ fn append_cmd_arg_as_string(
             )?),
 
             CmdSingleArgResult::Flag { name, value } => {
-                let name = name.data.back_to_string();
+                let name = name.data().back_to_string();
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
@@ -619,7 +620,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 
         CmdArg::Flag(CmdFlagArg { name, value }) => {
             Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
-                name: name.clone(),
+                name: RuntimeEaten::Parsed(name.clone()),
                 value: value
                     .as_ref()
                     .map(|CmdFlagValueArg { value, value_sep }| {
@@ -798,7 +799,7 @@ pub enum CmdArgResult {
 pub enum CmdSingleArgResult {
     Basic(LocatedValue),
     Flag {
-        name: Eaten<CmdFlagNameArg>,
+        name: RuntimeEaten<CmdFlagNameArg>,
         value: Option<FlagArgValueResult>,
     },
 }

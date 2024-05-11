@@ -376,7 +376,7 @@ impl PrettyPrintable for CmdSingleArgResult {
             CmdSingleArgResult::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
 
             CmdSingleArgResult::Flag { name, value } => {
-                let mut join = vec![name.data.generate_pretty_data(ctx)];
+                let mut join = vec![name.data().generate_pretty_data(ctx)];
 
                 if let Some(FlagArgValueResult { value, value_sep }) = value {
                     let value_sep = match value_sep {
