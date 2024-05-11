@@ -83,8 +83,14 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
         })
         .collect::<Result<Vec<String>, String>>()?;
 
+    let glob_pattern = glob_pattern.join(MAIN_SEPARATOR_STR);
+
     Ok(GlobPathOut {
-        glob_pattern: glob_pattern.join(MAIN_SEPARATOR_STR),
+        glob_pattern: if glob_pattern.is_empty() {
+            "*".to_owned()
+        } else {
+            glob_pattern
+        },
         starts_with,
     })
 }
@@ -144,7 +150,19 @@ fn globify(input: &str) -> String {
             globified_segments.push(curr_segment);
         } else {
             // TODO: don't add stars if there is already one at the beginning or the end
-            globified_segments.push(format!("*{curr_segment}*"));
+            let mut segment = String::with_capacity(curr_segment.len());
+
+            if !curr_segment.starts_with('*') {
+                segment.push('*');
+            }
+
+            segment.push_str(&curr_segment);
+
+            if !curr_segment.ends_with('*') {
+                segment.push('*');
+            }
+
+            globified_segments.push(segment);
         }
     };
 

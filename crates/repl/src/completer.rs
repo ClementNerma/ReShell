@@ -47,24 +47,8 @@ impl RlCompleter for Completer {
 type SortableSuggestion = (String, Suggestion);
 
 pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Suggestion> {
-    // TODO: optimize by writing a custom "find_breakpoint_backward" algorithm
-    let mut word_start = 0;
-
-    loop {
-        let next_breakpoint = word_start + find_breakpoint(&line[word_start..]);
-
-        if next_breakpoint >= pos || next_breakpoint <= word_start {
-            break;
-        }
-
-        word_start = next_breakpoint;
-    }
-    // TODO END
-
-    let word_end = word_start + find_breakpoint(&line[word_start..]);
-
-    let after_space = word_start > 0
-        && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
+    let word_start = find_breakpoint_backward(&line[..pos]);
+    let word_end = word_start + find_breakpoint_forward(&line[word_start..]);
 
     let word = &line[word_start..word_end];
 
@@ -72,6 +56,9 @@ pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Sugges
         start: word_start,
         end: word_end,
     };
+
+    let after_space = word_start > 0
+        && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
 
     if word == "~" {
         return vec![];
@@ -467,7 +454,7 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .collect()
 }
 
-fn find_breakpoint(str: &str) -> usize {
+fn find_breakpoint_forward(str: &str) -> usize {
     let mut escaping = false;
     let mut offset = 0;
 
@@ -488,6 +475,28 @@ fn find_breakpoint(str: &str) -> usize {
     }
 
     offset
+}
+
+fn find_breakpoint_backward(str: &str) -> usize {
+    let chars = str.chars().rev().collect::<Vec<_>>();
+    let mut escaping = false;
+
+    for (i, c) in chars.iter().enumerate() {
+        if escaping {
+            escaping = false;
+            continue;
+        }
+
+        let prev_backslashes = chars[..i].iter().filter(|c| **c == '\\').fuse().count();
+
+        if prev_backslashes % 2 != 0 {
+            escaping = true;
+        } else if c.is_whitespace() || (DELIMITER_CHARS.contains(c) && *c != '$') {
+            return str.len() - i;
+        }
+    }
+
+    0
 }
 
 fn unescape(str: &str) -> String {
