@@ -118,7 +118,7 @@ impl MethodApplyableType {
             SingleValueType::Map => Some(Self::Map),
             SingleValueType::Error => Some(Self::Error),
             SingleValueType::CmdCall => Some(Self::CmdCall),
-            SingleValueType::ArgSpread => Some(Self::ArgSpread),
+            SingleValueType::CmdArg => Some(Self::ArgSpread),
             SingleValueType::Custom(name) => Some(Self::Custom(name)),
 
             SingleValueType::Any

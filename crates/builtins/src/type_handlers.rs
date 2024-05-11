@@ -107,9 +107,9 @@ declare_basic_type_handlers!(
         _ => Err("expected a struct".to_owned())
     },
 
-    SpreadType (ArgSpread) = GcReadOnlyCell<Vec<CmdSingleArgResult>> => value: match value {
-        RuntimeValue::ArgSpread(spread) => Ok(spread),
-        _ => Err("expected an arg spread".to_owned())
+    CmdArgType (CmdArg) = Box<CmdSingleArgResult> => value: match value {
+        RuntimeValue::CmdArg(arg) => Ok(arg),
+        _ => Err("expected a command argument value".to_owned())
     }
 );
 

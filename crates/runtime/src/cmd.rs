@@ -649,8 +649,10 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                     let spreaded = items
                         .read_promise_no_write()
                         .iter()
-                        .map(|item| {
-                            value_to_str(
+                        .map(|item| match item {
+                            RuntimeValue::CmdArg(arg) => Ok(CmdSingleArgResult::clone(arg)),
+
+                            _ => value_to_str(
                                 item,
                                 "spreaded arguments to external commands must be stringifyable",
                                 spread.at,
@@ -661,14 +663,12 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                                     RuntimeValue::String(str),
                                     RuntimeCodeRange::Parsed(spread.at),
                                 ))
-                            })
+                            }),
                         })
                         .collect::<Result<Vec<_>, _>>()?;
 
                     Ok(CmdArgResult::Spreaded(spreaded))
                 }
-
-                RuntimeValue::ArgSpread(spread) => Ok(CmdArgResult::Spreaded(Vec::clone(&spread))),
 
                 _ => Err(ctx.error(
                     spread.at,

@@ -1,4 +1,7 @@
-use reshell_runtime::{cmd::CmdArgResult, functions::FnPossibleCallArgs};
+use reshell_runtime::{
+    cmd::{CmdArgResult, CmdSingleArgResult},
+    functions::FnPossibleCallArgs,
+};
 
 use crate::utils::{call_fn_checked_with_parsed_args, forge_basic_fn_signature};
 
@@ -7,7 +10,7 @@ crate::define_internal_fn!(
 
     (
         func: RequiredArg<TypedFunctionType> = exec_fn_type(),
-        args: RequiredArg<SpreadType> = Arg::rest("args")
+        args: RequiredArg<DetachedListType<CmdArgType>> = Arg::rest("args")
     )
 
     -> None
@@ -25,7 +28,11 @@ fn run() -> Runner {
         let loc_val = call_fn_checked_with_parsed_args(
             &LocatedValue::new(RuntimeValue::Function(func), args_at.func),
             exec_fn_type().base_typing().signature(),
-            FnPossibleCallArgs::Internal(vec![CmdArgResult::Spreaded(Vec::clone(&args))]),
+            FnPossibleCallArgs::Internal(vec![CmdArgResult::Spreaded(
+                args.iter()
+                    .map(|arg| CmdSingleArgResult::clone(arg))
+                    .collect(),
+            )]),
             ctx,
         )?;
 

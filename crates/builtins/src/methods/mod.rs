@@ -6,7 +6,6 @@ mod list;
 mod map;
 mod progress_bar;
 mod regex;
-mod spread;
 mod string;
 
 use crate::helper::InternalFunction;
@@ -48,7 +47,6 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::progress_bar::inc::build_fn(),
         self::regex::captures::build_fn(),
         self::regex::matches::build_fn(),
-        self::spread::is_empty::build_fn(),
         self::string::chars::build_fn(),
         self::string::contains::build_fn(),
         self::string::ends_with::build_fn(),

@@ -1282,7 +1282,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Map
         | SingleValueType::Error
         | SingleValueType::UntypedStruct
-        | SingleValueType::ArgSpread
+        | SingleValueType::CmdArg
         | SingleValueType::CmdCall => Ok(()),
 
         SingleValueType::TypedStruct(members) => {
