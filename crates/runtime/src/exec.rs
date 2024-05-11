@@ -4,7 +4,7 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::ast::{
     Block, ElsIf, Instruction, MapDestructBinding, Program, RuntimeCodeRange, SingleVarDecl,
-    SwitchCase, VarDeclType,
+    SwitchCase, VarDeconstruction,
 };
 
 use crate::{
@@ -698,15 +698,15 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 }
 
 fn declare_vars(
-    names: &Eaten<VarDeclType>,
+    names: &Eaten<VarDeconstruction>,
     value: RuntimeValue,
     value_at: CodeRange,
     ctx: &mut Context,
 ) -> ExecResult<()> {
     match &names.data {
-        VarDeclType::Single(single) => declare_var(single, value, value_at, ctx),
+        VarDeconstruction::Single(single) => declare_var(single, value, value_at, ctx),
 
-        VarDeclType::Tuple(members) => {
+        VarDeconstruction::Tuple(members) => {
             let list = match value {
                 RuntimeValue::List(list) => list,
 
@@ -741,7 +741,7 @@ fn declare_vars(
             }
         }
 
-        VarDeclType::MapOrStruct(members) => {
+        VarDeconstruction::MapOrStruct(members) => {
             let map = match value {
                 RuntimeValue::Map(map) => map,
 

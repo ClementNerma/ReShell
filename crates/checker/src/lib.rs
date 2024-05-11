@@ -27,7 +27,7 @@ use reshell_parser::{
         FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding,
         Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
         SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
-        Value, ValueType, VarDeclType,
+        Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -259,22 +259,22 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             }
 
             fn insert_vars(
-                names: &VarDeclType,
+                names: &VarDeconstruction,
                 idents: &mut HashSet<String>,
                 state: &mut State,
             ) -> CheckerResult {
                 match names {
-                    VarDeclType::Single(single) => {
+                    VarDeconstruction::Single(single) => {
                         insert_var(single, idents, state)?;
                     }
 
-                    VarDeclType::Tuple(vars) => {
+                    VarDeconstruction::Tuple(vars) => {
                         for vars in vars {
                             insert_vars(&vars.data, idents, state)?;
                         }
                     }
 
-                    VarDeclType::MapOrStruct(vars) => {
+                    VarDeconstruction::MapOrStruct(vars) => {
                         for (name, from) in vars {
                             match from {
                                 Some(MapDestructBinding::BindTo(alias)) => {

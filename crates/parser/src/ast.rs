@@ -21,7 +21,7 @@ pub struct Block {
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
-        names: Eaten<VarDeclType>,
+        names: Eaten<VarDeconstruction>,
         init_expr: Eaten<Expr>,
     },
 
@@ -125,16 +125,16 @@ pub enum Instruction {
 }
 
 #[derive(Debug, Clone)]
-pub enum VarDeclType {
+pub enum VarDeconstruction {
     Single(SingleVarDecl),
-    Tuple(Vec<Eaten<VarDeclType>>),
+    Tuple(Vec<Eaten<VarDeconstruction>>),
     MapOrStruct(Vec<(Eaten<SingleVarDecl>, Option<MapDestructBinding>)>),
 }
 
 #[derive(Debug, Clone)]
 pub enum MapDestructBinding {
     BindTo(Eaten<String>),
-    Destruct(Box<Eaten<VarDeclType>>),
+    Destruct(Box<Eaten<VarDeconstruction>>),
 }
 
 #[derive(Debug, Clone)]
