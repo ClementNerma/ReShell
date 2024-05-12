@@ -162,14 +162,14 @@ pub fn check_fn_signature_equality(
         presence_flags,
         normal_flags,
         rest_arg,
-    } = FnCategorizedArgs::categorize_from(signature);
+    } = FnCategorizedArgs::categorize_from(into);
 
     let FnCategorizedArgs {
         positionals: cmp_positionals,
         presence_flags: cmp_presence_flags,
         normal_flags: cmp_normal_flags,
         rest_arg: cmp_rest_arg,
-    } = FnCategorizedArgs::categorize_from(into);
+    } = FnCategorizedArgs::categorize_from(signature);
 
     if rest_arg.is_some() && cmp_rest_arg.is_none() {
         return false;
@@ -244,9 +244,7 @@ pub fn check_fn_signature_equality(
     }
 
     for cmp_presence_flag in cmp_presence_flags {
-        if mark_used_name(&cmp_presence_flag.names, &mut use_cmp_flag_names) {
-            return false;
-        }
+        mark_used_name(&cmp_presence_flag.names, &mut use_cmp_flag_names);
     }
 
     for normal_flag in normal_flags {
@@ -284,12 +282,14 @@ pub fn check_fn_signature_equality(
     }
 
     for cmp_normal_flag in cmp_normal_flags {
-        if mark_used_name(&cmp_normal_flag.names, &mut use_cmp_flag_names) {
+        if mark_used_name(&cmp_normal_flag.names, &mut use_cmp_flag_names)
+            && !cmp_normal_flag.is_optional
+        {
             return false;
         }
     }
 
-    todo!()
+    true
 }
 
 /// Check if a set of flag names is compatible with another
