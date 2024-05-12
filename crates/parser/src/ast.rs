@@ -494,7 +494,7 @@ pub enum FnArg {
 pub struct FnPositionalArg {
     pub name: RuntimeEaten<String>,
     pub is_optional: bool,
-    pub typ: Option<RuntimeEaten<ValueType>>,
+    pub typ: RuntimeEaten<ValueType>,
 }
 
 #[derive(Debug, Clone)]
@@ -506,7 +506,7 @@ pub struct FnPresenceFlagArg {
 pub struct FnNormalFlagArg {
     pub names: FnFlagArgNames,
     pub is_optional: bool,
-    pub typ: Option<RuntimeEaten<ValueType>>,
+    pub typ: RuntimeEaten<ValueType>,
 }
 
 #[derive(Debug, Clone)]

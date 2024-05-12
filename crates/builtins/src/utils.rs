@@ -29,10 +29,7 @@ pub fn forge_basic_fn_signature(
                             "native library's type generator",
                         ),
                         is_optional: false,
-                        typ: Some(RuntimeEaten::Internal(
-                            typ,
-                            "native library's type generator",
-                        )),
+                        typ: RuntimeEaten::Internal(typ, "native library's type generator"),
                     })
                 })
                 .collect(),

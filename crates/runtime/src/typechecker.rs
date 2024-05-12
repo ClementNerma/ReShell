@@ -182,10 +182,8 @@ pub fn check_fn_signature_equality(
             Some(cmp_positional) => {
                 if positional.is_optional && !cmp_positional.is_optional && cmp_rest_arg.is_none() {
                     false
-                } else if let (Some(typ), Some(cmp_typ)) = (&positional.typ, &cmp_positional.typ) {
-                    check_if_type_fits_type(typ.data(), cmp_typ.data(), ctx)
                 } else {
-                    true
+                    check_if_type_fits_type(cmp_positional.typ.data(), positional.typ.data(), ctx)
                 }
             }
 
@@ -269,10 +267,9 @@ pub fn check_fn_signature_equality(
                     return false;
                 }
 
-                if let (Some(typ), Some(cmp_typ)) = (&normal_flag.typ, &cmp_normal_flag.typ) {
-                    if !check_if_type_fits_type(typ.data(), cmp_typ.data(), ctx) {
-                        return false;
-                    }
+                if !check_if_type_fits_type(cmp_normal_flag.typ.data(), normal_flag.typ.data(), ctx)
+                {
+                    return false;
                 }
             }
 
