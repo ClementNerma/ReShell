@@ -5,7 +5,7 @@ use reshell_parser::ast::{
     FnSignature, SingleValueType, StructTypeMember, ValueType,
 };
 
-use crate::{context::Context, display::dbg_loc};
+use crate::context::Context;
 
 #[must_use]
 pub fn check_if_type_fits_type(value_type: &ValueType, into: &ValueType, ctx: &Context) -> bool {
@@ -62,25 +62,29 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Any, _) | (_, SingleValueType::Any) => true,
 
         (SingleValueType::TypeAlias(name), _) => {
-            let typ = ctx
-                .get_type_alias(name)
-                .unwrap_or_else(|| panic!(
-                    "type alias was not found (this is a bug in the checker)\nDetails:\n> {} (used at {})",
-                    name.data,
-                    dbg_loc(name.at, ctx.files_map()
-                )));
+            let typ = ctx.get_type_alias(name).unwrap_or_else(|| {
+                ctx.panic(
+                    name.at,
+                    format!(
+                        "type alias '{}' was not found (this is a bug in the checker)",
+                        name.data
+                    ),
+                )
+            });
 
             check_if_type_fits_single(&typ.data, into, ctx)
         }
 
         (_, SingleValueType::TypeAlias(name)) => {
-            let typ = ctx
-                .get_type_alias(name)
-                .unwrap_or_else(|| panic!(
-                    "type alias was not found (this is a bug in the checker)\nDetails:\n> {} (used at {})",
-                    name.data,
-                    dbg_loc(name.at, ctx.files_map()
-                )));
+            let typ = ctx.get_type_alias(name).unwrap_or_else(|| {
+                ctx.panic(
+                    name.at,
+                    format!(
+                        "type alias '{}' was not found (this is a bug in the checker)",
+                        name.data
+                    ),
+                )
+            });
 
             check_if_single_type_fits_type(value_type, &typ.data, ctx)
         }
