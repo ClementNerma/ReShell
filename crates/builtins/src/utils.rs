@@ -8,7 +8,7 @@ use reshell_runtime::{
     errors::ExecResult,
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    typechecker::check_fn_signature_equality,
+    typechecker::check_if_fn_signature_fits_another,
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
@@ -99,7 +99,7 @@ pub fn call_fn_checked_with_parsed_args(
         RuntimeFnSignature::Owned(owned) => owned,
     };
 
-    if !check_fn_signature_equality(signature, expected_signature, ctx) {
+    if !check_if_fn_signature_fits_another(signature, expected_signature, ctx) {
         return Err(ctx.error(
             loc_val.from,
             format!(
