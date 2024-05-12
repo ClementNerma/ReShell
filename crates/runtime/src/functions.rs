@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-    MethodApplyableType, RuntimeCodeRange, RuntimeEaten,
+    FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, MethodApplyableType,
+    RuntimeCodeRange, RuntimeEaten,
 };
 
 use crate::{
@@ -197,26 +198,18 @@ fn parse_fn_call_args(
     let mut rest_args = Vec::<CmdSingleArgResult>::new();
 
     let mut positional_fn_args = fn_args.iter().filter_map(|fn_arg| match fn_arg {
-        FnArg::Positional {
+        FnArg::Positional(FnPositionalArg {
             name,
             is_optional,
             typ,
-        } => Some((name, is_optional, typ)),
+        }) => Some((name, is_optional, typ)),
 
-        FnArg::PresenceFlag { names: _ }
-        | FnArg::NormalFlag {
-            names: _,
-            is_optional: _,
-            typ: _,
-        }
-        | FnArg::Rest { name: _ } => None,
+        FnArg::PresenceFlag(_) | FnArg::NormalFlag(_) | FnArg::Rest(_) => None,
     });
 
     let mut value_on_hold = None::<CmdSingleArgResult>;
 
-    let has_rest_argument = fn_args
-        .iter()
-        .any(|arg| matches!(arg, FnArg::Rest { name: _ }));
+    let has_rest_argument = fn_args.iter().any(|arg| matches!(arg, FnArg::Rest(_)));
 
     'iter: while let Some(arg_result) = value_on_hold.take().or_else(|| call_args.pop()) {
         if !rest_args.is_empty() {
@@ -228,7 +221,7 @@ fn parse_fn_call_args(
             CmdSingleArgResult::Flag { name, value } => {
                 for arg in fn_args {
                     match arg {
-                        FnArg::PresenceFlag { names } => {
+                        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => {
                             let Some(var_name) = get_matching_var_name(name.data(), names, ctx)
                             else {
                                 continue;
@@ -268,11 +261,11 @@ fn parse_fn_call_args(
                             continue 'iter;
                         }
 
-                        FnArg::NormalFlag {
+                        FnArg::NormalFlag(FnNormalFlagArg {
                             names,
                             is_optional,
                             typ,
-                        } => {
+                        }) => {
                             let Some(var_name) = get_matching_var_name(name.data(), names, ctx)
                             else {
                                 continue;
@@ -339,12 +332,7 @@ fn parse_fn_call_args(
                             continue 'iter;
                         }
 
-                        FnArg::Positional {
-                            name: _,
-                            is_optional: _,
-                            typ: _,
-                        }
-                        | FnArg::Rest { name: _ } => continue,
+                        FnArg::Positional(_) | FnArg::Rest(_) => continue,
                     }
                 }
 
@@ -441,16 +429,16 @@ fn parse_fn_call_args(
         }
 
         match arg {
-            FnArg::Positional {
+            FnArg::Positional(FnPositionalArg {
                 name: _,
                 is_optional,
                 typ: _,
-            }
-            | FnArg::NormalFlag {
+            })
+            | FnArg::NormalFlag(FnNormalFlagArg {
                 names: _,
                 is_optional,
                 typ: _,
-            } => {
+            }) => {
                 if *is_optional {
                     if !is_native_fn {
                         out.insert(
@@ -480,7 +468,7 @@ fn parse_fn_call_args(
                 }
             }
 
-            FnArg::PresenceFlag { names: _ } => {
+            FnArg::PresenceFlag(_) => {
                 out.insert(
                     arg_var_name,
                     ValidatedFnCallArg {
@@ -491,7 +479,7 @@ fn parse_fn_call_args(
                 );
             }
 
-            FnArg::Rest { name: _ } => {
+            FnArg::Rest(_) => {
                 out.insert(
                     arg_var_name,
                     ValidatedFnCallArg {
@@ -615,18 +603,18 @@ fn flatten_fn_call_args(
 
 fn fn_arg_human_name(arg: &FnArg) -> String {
     match &arg {
-        FnArg::Positional {
+        FnArg::Positional(FnPositionalArg {
             name,
             is_optional: _,
             typ: _,
-        } => name.data().clone(),
+        }) => name.data().clone(),
 
-        FnArg::PresenceFlag { names }
-        | FnArg::NormalFlag {
+        FnArg::PresenceFlag(FnPresenceFlagArg { names })
+        | FnArg::NormalFlag(FnNormalFlagArg {
             names,
             is_optional: _,
             typ: _,
-        } => match names {
+        }) => match names {
             FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data()),
             FnFlagArgNames::LongFlag(long) => format!("--{}", long.data()),
             FnFlagArgNames::LongAndShortFlag { long, short } => {
@@ -634,63 +622,63 @@ fn fn_arg_human_name(arg: &FnArg) -> String {
             }
         },
 
-        FnArg::Rest { name } => name.data().clone(),
+        FnArg::Rest(FnRestArg { name }) => name.data().clone(),
     }
 }
 
 fn fn_arg_var_name(arg: &FnArg, ctx: &mut Context) -> String {
     match &arg {
-        FnArg::Positional {
+        FnArg::Positional(FnPositionalArg {
             name,
             is_optional: _,
             typ: _,
-        } => name.data().clone(),
+        }) => name.data().clone(),
 
-        FnArg::PresenceFlag { names } => match names {
+        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
             FnFlagArgNames::ShortFlag(short) => short.data().to_string(),
             FnFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
         },
 
-        FnArg::NormalFlag {
+        FnArg::NormalFlag(FnNormalFlagArg {
             names,
             is_optional: _,
             typ: _,
-        } => match names {
+        }) => match names {
             FnFlagArgNames::ShortFlag(short) => short.data().to_string(),
             FnFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
         },
 
-        FnArg::Rest { name } => name.data().clone(),
+        FnArg::Rest(FnRestArg { name }) => name.data().clone(),
     }
 }
 
 fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
     match &arg {
-        FnArg::Positional {
+        FnArg::Positional(FnPositionalArg {
             name,
             is_optional: _,
             typ: _,
-        } => name.at(),
+        }) => name.at(),
 
-        FnArg::PresenceFlag { names } => match names {
+        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
             FnFlagArgNames::ShortFlag(short) => short.at(),
             FnFlagArgNames::LongFlag(long) => long.at(),
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.at(),
         },
 
-        FnArg::NormalFlag {
+        FnArg::NormalFlag(FnNormalFlagArg {
             names,
             is_optional: _,
             typ: _,
-        } => match names {
+        }) => match names {
             FnFlagArgNames::ShortFlag(short) => short.at(),
             FnFlagArgNames::LongFlag(long) => long.at(),
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.at(),
         },
 
-        FnArg::Rest { name } => name.at(),
+        FnArg::Rest(FnRestArg { name }) => name.at(),
     }
 }
 

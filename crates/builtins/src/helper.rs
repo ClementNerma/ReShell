@@ -1,5 +1,6 @@
 use reshell_parser::ast::{
-    FnArg, FnFlagArgNames, MethodApplyableType, RuntimeEaten, SingleValueType, ValueType,
+    FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
+    MethodApplyableType, RuntimeEaten, SingleValueType, ValueType,
 };
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
@@ -243,7 +244,7 @@ pub(super) fn generate_internal_arg_decl<
     match arg.names() {
         ArgNames::Positional(name) => {
             if !arg.is_rest() {
-                FnArg::Positional {
+                FnArg::Positional(FnPositionalArg {
                     name: RuntimeEaten::Internal(
                         (*name).to_owned(),
                         "native library's arguments declaration",
@@ -253,14 +254,14 @@ pub(super) fn generate_internal_arg_decl<
                         arg.base_typing().underlying_type(),
                         "native library's arguments declaration",
                     )),
-                }
+                })
             } else {
-                FnArg::Rest {
+                FnArg::Rest(FnRestArg {
                     name: RuntimeEaten::Internal(
                         (*name).to_owned(),
                         "native library's arguments declaration",
                     ),
-                }
+                })
             }
         }
 
@@ -286,17 +287,17 @@ pub(super) fn generate_internal_arg_decl<
 
             match arg.base_typing().underlying_type() {
                 ValueType::Single(eaten) if matches!(eaten.data(), SingleValueType::Bool) => {
-                    FnArg::PresenceFlag { names }
+                    FnArg::PresenceFlag(FnPresenceFlagArg { names })
                 }
 
-                typ => FnArg::NormalFlag {
+                typ => FnArg::NormalFlag(FnNormalFlagArg {
                     names,
                     is_optional: arg.is_optional(),
                     typ: Some(RuntimeEaten::Internal(
                         typ,
                         "native library's arguments declaration",
                     )),
-                },
+                }),
             }
         }
     }
@@ -341,7 +342,7 @@ macro_rules! define_internal_fn {
     ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
         use std::collections::HashMap;
 
-        use reshell_parser::ast::{FnArg, MethodApplyableType, RuntimeCodeRange, RuntimeEaten, ValueType};
+        use reshell_parser::ast::{FnArg, FnPositionalArg, MethodApplyableType, RuntimeCodeRange, RuntimeEaten, ValueType};
 
         use reshell_runtime::{
             context::Context,
@@ -431,11 +432,11 @@ macro_rules! define_internal_fn {
             ];
 
             let method_on_type = args.first().and_then(|first_arg| match first_arg {
-                FnArg::Positional {
+                FnArg::Positional(FnPositionalArg {
                     name: RuntimeEaten::Internal(name, _),
                     is_optional: false,
                     typ
-                } if name == "self" => {
+                }) if name == "self" => {
                     match typ {
                         Some(RuntimeEaten::Internal(ValueType::Single(typ), _)) => {
                             Some(MethodApplyableType::from_single_value_type(typ.data().clone()).unwrap_or_else(|| {
