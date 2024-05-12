@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     FnSignature, SingleValueType, StructTypeMember, ValueType,
@@ -5,6 +7,7 @@ use reshell_parser::ast::{
 
 use crate::{context::Context, display::dbg_loc};
 
+#[must_use]
 pub fn check_if_type_fits_type(value_type: &ValueType, into: &ValueType, ctx: &Context) -> bool {
     match value_type {
         ValueType::Single(single_type) => {
@@ -17,6 +20,7 @@ pub fn check_if_type_fits_type(value_type: &ValueType, into: &ValueType, ctx: &C
     }
 }
 
+#[must_use]
 pub fn check_if_single_type_fits_type(
     value_type: &SingleValueType,
     into: &ValueType,
@@ -33,6 +37,7 @@ pub fn check_if_single_type_fits_type(
     }
 }
 
+#[must_use]
 pub fn check_if_type_fits_single(
     value_type: &ValueType,
     into: &SingleValueType,
@@ -47,6 +52,7 @@ pub fn check_if_type_fits_single(
     }
 }
 
+#[must_use]
 pub fn check_if_single_type_fits_single(
     value_type: &SingleValueType,
     into: &SingleValueType,
@@ -139,100 +145,154 @@ pub fn check_if_single_type_fits_single(
     }
 }
 
+#[must_use]
 pub fn check_fn_signature_equality(
     signature: &FnSignature,
     into: &FnSignature,
     ctx: &Context,
 ) -> bool {
-    if signature.args.data().len() != into.args.data().len() {
-        return false;
-    }
-
-    for (arg, cmp_arg) in signature.args.data().iter().zip(into.args.data().iter()) {
-        match (arg, cmp_arg) {
-            (
-                FnArg::Positional(FnPositionalArg {
-                    name: _,
-                    is_optional: a_is_optional,
-                    typ: a_typ,
-                }),
-                FnArg::Positional(FnPositionalArg {
-                    name: _,
-                    is_optional: b_is_optional,
-                    typ: b_typ,
-                }),
-            ) => {
-                // NOTE: We don't compare names as they only matter for the function body's scope
-
-                if a_is_optional != b_is_optional {
-                    return false;
-                }
-
-                if let (Some(a_type), Some(b_type)) = (a_typ, b_typ) {
-                    if !check_if_type_fits_type(a_type.data(), b_type.data(), ctx) {
-                        return false;
-                    }
-                }
-            }
-
-            (FnArg::Positional(_), _) | (_, FnArg::Positional(_)) => return false,
-
-            (
-                FnArg::PresenceFlag(FnPresenceFlagArg { names: a_names }),
-                FnArg::PresenceFlag(FnPresenceFlagArg { names: b_names }),
-            ) => {
-                if !check_fn_flag_args_name_compat(a_names, b_names) {
-                    return false;
-                }
-            }
-
-            (FnArg::PresenceFlag(_), _) | (_, FnArg::PresenceFlag(_)) => return false,
-
-            (
-                FnArg::NormalFlag(FnNormalFlagArg {
-                    names: a_names,
-                    is_optional: a_is_optional,
-                    typ: a_typ,
-                }),
-                FnArg::NormalFlag(FnNormalFlagArg {
-                    names: b_names,
-                    is_optional: b_is_optional,
-                    typ: b_typ,
-                }),
-            ) => {
-                if !check_fn_flag_args_name_compat(a_names, b_names) {
-                    return false;
-                }
-
-                if a_is_optional != b_is_optional {
-                    return false;
-                }
-
-                if let (Some(a_type), Some(b_type)) = (a_typ, b_typ) {
-                    if !check_if_type_fits_type(a_type.data(), b_type.data(), ctx) {
-                        return false;
-                    }
-                }
-            }
-
-            (FnArg::NormalFlag(_), _) | (_, FnArg::NormalFlag(_)) => return false,
-
-            (FnArg::Rest(FnRestArg { name: a_name }), FnArg::Rest(FnRestArg { name: b_name })) => {
-                if a_name.data() != b_name.data() {
-                    return false;
-                }
-            } //
-              // (FnArg::Rest { name: _ }, _) | (_, FnArg::Rest { name: _ }) => return false,
-        }
-    }
-
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
         if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), ctx) {
             return false;
         }
     }
 
-    true
+    let FnCategorizedArgs {
+        positionals,
+        presence_flags,
+        normal_flags,
+        rest_arg,
+    } = FnCategorizedArgs::categorize_from(signature);
+
+    let FnCategorizedArgs {
+        positionals: cmp_positionals,
+        presence_flags: cmp_presence_flags,
+        normal_flags: cmp_normal_flags,
+        rest_arg: cmp_rest_arg,
+    } = FnCategorizedArgs::categorize_from(into);
+
+    if rest_arg.is_some() && cmp_rest_arg.is_none() {
+        return false;
+    }
+
+    let mut cmp_positionals = cmp_positionals.iter();
+
+    for positional in positionals {
+        let compat = match cmp_positionals.next() {
+            Some(cmp_positional) => {
+                if positional.is_optional && !cmp_positional.is_optional && cmp_rest_arg.is_none() {
+                    false
+                } else if let (Some(typ), Some(cmp_typ)) = (&positional.typ, &cmp_positional.typ) {
+                    check_if_type_fits_type(typ.data(), cmp_typ.data(), ctx)
+                } else {
+                    true
+                }
+            }
+
+            None => positional.is_optional,
+        };
+
+        if !compat {
+            return false;
+        }
+    }
+
+    for cmp_positional in cmp_positionals {
+        if !cmp_positional.is_optional {
+            return false;
+        }
+    }
+
+    // Need to be present in "cmp_presence_flag" UNLESS it has a rest argument
+    // Same in the other way
+
+    let mut used_flag_names = HashSet::new();
+    let mut use_cmp_flag_names = HashSet::new();
+
+    let mark_used_name = |flag_names: &FnFlagArgNames, used_names: &mut HashSet<String>| -> bool {
+        match flag_names {
+            FnFlagArgNames::ShortFlag(name) => used_names.insert(name.data().to_string()),
+            FnFlagArgNames::LongFlag(name) => used_names.insert(name.data().clone()),
+            FnFlagArgNames::LongAndShortFlag { long, short } => {
+                used_names.insert(long.data().clone())
+                    && used_names.insert(short.data().to_string())
+            }
+        }
+    };
+
+    for presence_flag in presence_flags {
+        match cmp_presence_flags
+            .iter()
+            .find(|c| check_fn_flag_args_name_compat(&presence_flag.names, &c.names))
+        {
+            Some(cmp_presence_flag) => {
+                if !mark_used_name(&presence_flag.names, &mut used_flag_names) {
+                    return false;
+                }
+
+                if !mark_used_name(&cmp_presence_flag.names, &mut use_cmp_flag_names) {
+                    return false;
+                }
+            }
+
+            None => {
+                assert!(mark_used_name(&presence_flag.names, &mut used_flag_names));
+
+                if cmp_rest_arg.is_none() {
+                    return false;
+                }
+            }
+        }
+    }
+
+    for cmp_presence_flag in cmp_presence_flags {
+        if mark_used_name(&cmp_presence_flag.names, &mut use_cmp_flag_names) {
+            return false;
+        }
+    }
+
+    for normal_flag in normal_flags {
+        match cmp_normal_flags
+            .iter()
+            .find(|c| check_fn_flag_args_name_compat(&normal_flag.names, &c.names))
+        {
+            Some(cmp_normal_flag) => {
+                if !mark_used_name(&normal_flag.names, &mut used_flag_names) {
+                    return false;
+                }
+
+                if !mark_used_name(&cmp_normal_flag.names, &mut use_cmp_flag_names) {
+                    return false;
+                }
+
+                if normal_flag.is_optional && !cmp_normal_flag.is_optional {
+                    return false;
+                }
+
+                if let (Some(typ), Some(cmp_typ)) = (&normal_flag.typ, &cmp_normal_flag.typ) {
+                    if !check_if_type_fits_type(typ.data(), cmp_typ.data(), ctx) {
+                        return false;
+                    }
+                }
+            }
+
+            None => {
+                assert!(mark_used_name(&normal_flag.names, &mut used_flag_names));
+
+                if cmp_rest_arg.is_none() {
+                    return false;
+                }
+            }
+        }
+    }
+
+    for cmp_normal_flag in cmp_normal_flags {
+        if mark_used_name(&cmp_normal_flag.names, &mut use_cmp_flag_names) {
+            return false;
+        }
+    }
+
+    todo!()
 }
 
 /// Check if a set of flag names is compatible with another
@@ -241,6 +301,7 @@ pub fn check_fn_signature_equality(
 /// the source must have both those parameters as it could otherwise produce
 /// a case where a call to it would result in an error due to it missing
 /// either the short and long flag
+#[must_use]
 fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) -> bool {
     match into {
         FnFlagArgNames::ShortFlag(b) => match curr {
@@ -262,5 +323,39 @@ fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) 
                 short: a_short,
             } => a_long.data() == long.data() && a_short.data() == short.data(),
         },
+    }
+}
+
+/// Data structure for comparing functions' arguments
+struct FnCategorizedArgs<'a> {
+    positionals: Vec<&'a FnPositionalArg>,
+    presence_flags: Vec<&'a FnPresenceFlagArg>,
+    normal_flags: Vec<&'a FnNormalFlagArg>,
+    rest_arg: Option<&'a FnRestArg>,
+}
+
+impl<'a> FnCategorizedArgs<'a> {
+    #[must_use]
+    pub fn categorize_from(fn_signature: &'a FnSignature) -> Self {
+        let mut positionals = vec![];
+        let mut presence_flags = vec![];
+        let mut normal_flags = vec![];
+        let mut rest_arg = None;
+
+        for arg in fn_signature.args.data() {
+            match arg {
+                FnArg::Positional(arg) => positionals.push(arg),
+                FnArg::PresenceFlag(arg) => presence_flags.push(arg),
+                FnArg::NormalFlag(arg) => normal_flags.push(arg),
+                FnArg::Rest(rest) => rest_arg = Some(rest),
+            }
+        }
+
+        Self {
+            positionals,
+            presence_flags,
+            normal_flags,
+            rest_arg,
+        }
     }
 }
