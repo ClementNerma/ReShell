@@ -117,6 +117,7 @@ pub fn check_if_single_type_fits_single(
 
         (SingleValueType::UntypedStruct, SingleValueType::UntypedStruct) => true,
         (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => true,
+        (SingleValueType::UntypedStruct, SingleValueType::TypedStruct(_)) => true,
 
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
             b.iter().all(|b_member| {
