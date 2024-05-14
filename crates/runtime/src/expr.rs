@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, Function, LiteralValue,
-    PropAccess, RuntimeCodeRange, SingleOp, SwitchExprCase, Value,
+    Block, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr,
+    ExprInner, ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg,
+    FnPositionalArg, FnSignature, Function, LiteralValue, PropAccess, RuntimeCodeRange,
+    RuntimeEaten, SingleOp, SwitchExprCase, Value,
 };
 
 use crate::{
@@ -557,6 +558,8 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         },
 
         Value::Lambda(func) => lambda_to_value(func, ctx),
+
+        Value::SingleParamLambda(body) => single_param_lambda_to_value(body, ctx),
     };
 
     Ok(value)
@@ -636,6 +639,32 @@ pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
             ctx.get_fn_signature(signature)
                 .unwrap_or_else(|| ctx.panic(signature.at, "unregistered function signature")),
         ),
+
+        body: RuntimeFnBody::Block(
+            ctx.get_fn_body(body)
+                .unwrap_or_else(|| ctx.panic(body.at, "unregistered function body")),
+        ),
+
+        parent_scopes: ctx.generate_parent_scopes_list(),
+        captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
+    }))
+}
+
+pub fn single_param_lambda_to_value(body: &Eaten<Block>, ctx: &mut Context) -> RuntimeValue {
+    RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
+        is_method: false,
+
+        signature: RuntimeFnSignature::Owned(FnSignature {
+            args: RuntimeEaten::Parsed(Eaten::ate(
+                body.at,
+                vec![FnArg::Positional(FnPositionalArg {
+                    name: RuntimeEaten::Internal("it".to_owned(), "single-parameter lambda"),
+                    is_optional: false,
+                    typ: None,
+                })],
+            )),
+            ret_type: None,
+        }),
 
         body: RuntimeFnBody::Block(
             ctx.get_fn_body(body)
