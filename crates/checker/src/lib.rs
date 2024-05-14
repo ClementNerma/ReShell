@@ -767,8 +767,11 @@ fn check_prop_access_nature(nature: &Eaten<PropAccessNature>, state: &mut State)
 fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
     match &value.data {
         Value::Null => Ok(()),
+
         Value::Literal(lit) => check_literal_value(lit, state),
+
         Value::ComputedString(computed_string) => check_computed_string(computed_string, state),
+
         Value::List(list) => {
             for item in list {
                 check_expr(&item.data, state)?;
@@ -776,6 +779,7 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
 
             Ok(())
         }
+
         Value::Struct(members) => {
             for item in members.values() {
                 check_expr(&item.data, state)?;
@@ -783,20 +787,26 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
 
             Ok(())
         }
+
         Value::Variable(var) => {
             state.register_usage(var, DependencyType::Variable)?;
             Ok(())
         }
+
         Value::FnCall(fn_call) => check_fn_call(fn_call, state),
+
         Value::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
+
         Value::CmdCall(cmd_call) => {
             state.register_cmd_call_value(cmd_call);
             check_cmd_call(cmd_call, state)
         }
+
         Value::FnAsValue(func_name) => {
             state.register_usage(func_name, DependencyType::Function)?;
             Ok(())
         }
+
         Value::Lambda(func) => check_function(func, state),
     }
 }
