@@ -190,7 +190,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Escaped arguments
                 simple_preceded_by("(\\\\\\n)\\s+$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Green]),
 
-                // Function closures
+                // Lambdas
                 simple_nested_and_followed_by(NestingOpeningType::Block, "([a-zA-Z0-9_,\\s]+)", [Red], "->"),
 
                 // Method names

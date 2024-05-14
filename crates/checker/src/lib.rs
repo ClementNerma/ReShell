@@ -797,7 +797,7 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
             state.register_usage(func_name, DependencyType::Function)?;
             Ok(())
         }
-        Value::Closure(func) => check_function(func, state),
+        Value::Lambda(func) => check_function(func, state),
     }
 }
 
@@ -1090,7 +1090,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::CmdRawString(cc_str) => check_cmd_raw_string(&cc_str.data, state),
 
-        CmdValueMakingArg::Closure(func) => check_function(&func.data, state),
+        CmdValueMakingArg::Lambda(func) => check_function(&func.data, state),
     }
 }
 

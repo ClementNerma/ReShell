@@ -556,7 +556,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             content_at: call.at,
         },
 
-        Value::Closure(func) => closure_to_value(func, ctx),
+        Value::Lambda(func) => lambda_to_value(func, ctx),
     };
 
     Ok(value)
@@ -626,8 +626,8 @@ fn eval_computed_string_piece(
     }
 }
 
-pub fn closure_to_value(closure: &Function, ctx: &mut Context) -> RuntimeValue {
-    let Function { signature, body } = &closure;
+pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
+    let Function { signature, body } = &lambda;
 
     RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
         is_method: false,

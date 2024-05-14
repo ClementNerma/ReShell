@@ -457,7 +457,7 @@ pub fn program(
             .then_ignore(char('"').critical_with_no_message())
             .map(|pieces| ComputedString { pieces });
 
-        let closure = char('{')
+        let lambda = char('{')
             .ignore_then(ms)
             .ignore_then(
                 (not(just("->")) // to avoid parsing short flag with '>' name
@@ -477,7 +477,7 @@ pub fn program(
             .then(
                 raw_block
                     .clone()
-                    .critical("expected a body for the closure")
+                    .critical("expected a body for the lambda")
                     .spanned(),
             )
             .then_ignore(ms)
@@ -549,8 +549,8 @@ pub fn program(
                 .ignore_then(ident.critical("expected a function name"))
                 .spanned()
                 .map(Value::FnAsValue),
-            // Closures
-            closure.clone().map(Value::Closure),
+            // Lambdas
+            lambda.clone().map(Value::Lambda),
         ));
 
         let single_op = choice::<_, SingleOp>((char('!').to(SingleOp::Neg),));
@@ -890,8 +890,8 @@ pub fn program(
                 .map(CmdValueMakingArg::ParenExpr),
             // Inline command call
             inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
-            // Closures
-            closure.clone().spanned().map(CmdValueMakingArg::Closure),
+            // Lambdas
+            lambda.clone().spanned().map(CmdValueMakingArg::Lambda),
             // Raw argument (but not flags, which aren't value making arguments)
             cmd_raw_string
                 .spanned()

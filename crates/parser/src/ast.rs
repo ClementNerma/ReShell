@@ -259,7 +259,7 @@ pub enum Value {
     CmdOutput(Eaten<CmdCall>),
     CmdCall(Eaten<CmdCall>),
     FnAsValue(Eaten<String>),
-    Closure(Function),
+    Lambda(Function),
 }
 
 #[derive(Debug, Clone)]
@@ -441,7 +441,7 @@ pub enum CmdValueMakingArg {
     ParenExpr(Eaten<Expr>),
     CmdRawString(Eaten<CmdRawString>),
     Variable(Eaten<String>),
-    Closure(Eaten<Function>),
+    Lambda(Eaten<Function>),
 }
 
 #[derive(Debug, Clone)]
