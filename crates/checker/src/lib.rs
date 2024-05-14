@@ -1157,7 +1157,9 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             is_optional: _,
             typ,
         }) => {
-            check_value_type(typ.data(), state)?;
+            if let Some(typ) = typ {
+                check_value_type(typ.data(), state)?;
+            }
 
             (name.data().clone(), name.at(), None, false)
         }

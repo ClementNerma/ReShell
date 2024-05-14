@@ -196,8 +196,12 @@ pub fn check_if_fn_signature_fits_another(
             Some(cmp_positional) => {
                 if positional.is_optional && !cmp_positional.is_optional && cmp_rest_arg.is_none() {
                     false
+                } else if let (Some(cmp_positional_typ), Some(positional_typ)) =
+                    (&cmp_positional.typ, &positional.typ)
+                {
+                    check_if_type_fits_type(cmp_positional_typ.data(), positional_typ.data(), ctx)
                 } else {
-                    check_if_type_fits_type(cmp_positional.typ.data(), positional.typ.data(), ctx)
+                    true
                 }
             }
 
