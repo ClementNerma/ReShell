@@ -457,6 +457,18 @@ pub fn program(
             .then_ignore(char('"').critical_with_no_message())
             .map(|pieces| ComputedString { pieces });
 
+        // Single-parameter lambdas
+        let single_param_lambda = just("{{")
+            .ignore_then(msnl)
+            .ignore_then(
+                raw_block
+                    .clone()
+                    .critical("expected a body for the lambda")
+                    .spanned(),
+            )
+            .then_ignore(msnl)
+            .then_ignore(just("}}"));
+
         let lambda = char('{')
             .ignore_then(ms)
             .ignore_then(
@@ -549,6 +561,8 @@ pub fn program(
                 .ignore_then(ident.critical("expected a function name"))
                 .spanned()
                 .map(Value::FnAsValue),
+            // Single-parameter lambdas
+            single_param_lambda.clone().map(Value::SingleParamLambda),
             // Lambdas
             lambda.clone().map(Value::Lambda),
         ));
@@ -891,16 +905,8 @@ pub fn program(
             // Inline command call
             inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
             // Single-parameter lambdas
-            just("{{")
-                .ignore_then(msnl)
-                .ignore_then(
-                    raw_block
-                        .clone()
-                        .critical("expected a body for the lambda")
-                        .spanned(),
-                )
-                .then_ignore(msnl)
-                .then_ignore(just("}}"))
+            single_param_lambda
+                .clone()
                 .map(CmdValueMakingArg::SingleParamLambda),
             // Lambdas
             lambda.clone().spanned().map(CmdValueMakingArg::Lambda),
