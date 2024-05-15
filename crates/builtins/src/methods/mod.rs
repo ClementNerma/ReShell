@@ -25,6 +25,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::contains::build_fn(),
         self::list::each::build_fn(),
         self::list::filter::build_fn(),
+        self::list::filter_map::build_fn(),
         self::list::fold::build_fn(),
         self::list::get::build_fn(),
         self::list::is_empty::build_fn(),
