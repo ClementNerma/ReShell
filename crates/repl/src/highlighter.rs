@@ -163,9 +163,6 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 include_group("commands"),
             ]),
             ("commands", vec![
-                // Escaped characters
-                simple("(\\\\.)", [LightCyan]),
-
                 // Pipes
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
