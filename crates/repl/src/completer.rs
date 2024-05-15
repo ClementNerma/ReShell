@@ -145,7 +145,30 @@ pub fn generate_completions(
         return sort_results(word, cmd_comp);
     }
 
-    if after_space {
+    if after_space
+        && !matches!(
+            cmd_pieces.first(),
+            Some(CmdPiece {
+                start: _,
+                // TODO: add completion for each individual keyword instead
+                content: "for"
+                    | "if"
+                    | "while"
+                    | "do"
+                    | "try"
+                    | "continue"
+                    | "break"
+                    | "switch"
+                    | "fn"
+                    | "return"
+                    | "throw"
+                    | "alias"
+                    | "type"
+                    | "include"
+                    | "let"
+            })
+        )
+    {
         if let Some(external_completer) = external_completer {
             // let cmd_start = cmd_pieces.first().map_or(0, |piece| piece.start);
             // let cmd = &line[cmd_start..pos];
