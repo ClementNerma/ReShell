@@ -300,8 +300,8 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Symbols and operators
                 simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]|&&|\\|\\|)", [LightYellow]),
 
-                // Invalid characters
-                simple("([^\\s])", [Style::new().fg(White).on(Red)])
+                // Other characters
+                simple("(.)", [Green])
             ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
