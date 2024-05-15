@@ -49,6 +49,7 @@ pub fn create_history_menu() -> ReedlineMenu {
     ReedlineMenu::HistoryMenu(Box::new(menu))
 }
 
+/// Custom history implementation for [`reedline`] using an API proposal (currently unmerged)
 pub struct History {
     rng: SmallRng,
     entries: IndexMap<HistoryItemId, String>,

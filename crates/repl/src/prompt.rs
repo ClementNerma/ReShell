@@ -5,6 +5,9 @@ use reedline::{
 };
 use reshell_builtins::repl_fns::prompt::PromptRendering;
 
+/// Custom prompt implementation for [`reedline`].
+///
+/// Can be customized programatically using the builtin `$generatePrompt` shell variable.
 pub struct Prompt {
     rendering: PromptRendering,
 }

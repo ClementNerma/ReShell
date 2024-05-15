@@ -1,9 +1,12 @@
-///
-/// Syntax highlighting for ReShell's scripting language
-///
-/// Regular expressions work as usual, except for the `^` and `$` symbol which are delimited differently
-/// `^` refers to the nearest nested rule opening, or to the beginning of input if nesting level is zero
-///
+//!
+//! Syntax highlighting module.
+//!
+//! Enables highlighting of a source code using a run-time compiled rule set based on regular expressions.
+//!
+//! Regular expressions work as usual, except for the `^` and `$` symbol which are delimited differently
+//! `^` refers to the nearest nested rule opening, or to the beginning of input if nesting level is zero
+//!
+
 use std::{
     collections::{HashMap, HashSet},
     ops::Deref,

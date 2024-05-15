@@ -1,3 +1,11 @@
+//!
+//! Completion module.
+//!
+//! Provides various functions for generating completions for a given input.
+//!
+//! Can complete command names, arguments content, variables, and paths.
+//!
+
 use std::{
     borrow::Cow,
     collections::HashSet,

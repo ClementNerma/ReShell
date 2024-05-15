@@ -1,3 +1,7 @@
+//!
+//! Set of utilities used for the REPL.
+//!
+
 pub mod cmd_pieces;
 pub mod covering;
 pub mod ctrl_c;

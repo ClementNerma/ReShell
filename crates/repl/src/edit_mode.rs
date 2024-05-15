@@ -10,6 +10,7 @@ pub fn create_edit_mode() -> Box<dyn RlEditMode> {
     Box::new(EditMode)
 }
 
+/// Implementation of a custom edit mode for [`reedline`].
 pub struct EditMode;
 
 impl RlEditMode for EditMode {

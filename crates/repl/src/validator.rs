@@ -6,6 +6,10 @@ pub fn create_validator() -> Box<dyn RlValidator> {
     Box::new(Validator)
 }
 
+/// Custom line validator implementation for [`reedline`].
+///
+/// Check if e.g. a string or parenthesis-wrapped expression is left unclosed, in which case
+/// a multi-line editor will be provided.
 pub struct Validator;
 
 impl RlValidator for Validator {

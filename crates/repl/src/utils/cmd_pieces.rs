@@ -1,3 +1,17 @@
+//!
+//! Command pieces computing.
+//!
+//! Cuts an input string (prompt) into a list of command pieces ([`CmdPiece`]).
+//! Each piece refers to either the command name or one of its arguments, in order.
+//! Only the last command in the input is preserved, and only at the current nesting level.
+//! It handles strings, escaping, nested commands etc.
+//!
+//! For instance, `cmd1 $(cmd2 arg` would produce a piece for `cmd2` and `arg`
+//! While `cmd1 $(cmd2 arg)` would produce a piece for `cmd1` and `$(cmd2 arg)`
+//!
+//! This module is used to extract informations for command completions.
+//!
+
 use super::nesting::{detect_nesting_actions, NestingActionType, NestingDetectionResult};
 
 #[derive(Debug, Clone, Copy)]

@@ -1,3 +1,12 @@
+//!
+//! Reports display module.
+//!
+//! Provides utility functoins to display errors properly.
+//!
+//! Will display an extract of where the error happened (if applicable) in the nicest
+//! human-readable way.
+//!
+
 use std::borrow::Cow;
 
 use annotate_snippets::{Level, Renderer, Snippet};
