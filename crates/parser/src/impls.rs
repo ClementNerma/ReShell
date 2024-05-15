@@ -102,7 +102,7 @@ impl CmdRawString {
 
         match &only_piece.data {
             CmdRawStringPiece::Literal(lit) => Some(lit),
-            CmdRawStringPiece::Escaped(_) | CmdRawStringPiece::Variable(_) => None,
+            CmdRawStringPiece::Variable(_) => None,
         }
     }
 }

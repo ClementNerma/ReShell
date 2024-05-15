@@ -824,13 +824,6 @@ pub fn program(
 
         let cmd_raw_string = not(just("->")).ignore_then(
             choice::<_, CmdRawStringPiece>((
-                // Escaped character
-                char('\\')
-                    .ignore_then(
-                        filter(|c| c != '\n' && c != '\r')
-                            .critical("expected a character to escape"),
-                    )
-                    .map(CmdRawStringPiece::Escaped),
                 // Variables
                 var_name.spanned().map(CmdRawStringPiece::Variable),
                 // Literal character suites
