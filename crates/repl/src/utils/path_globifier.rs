@@ -1,10 +1,8 @@
-use std::{
-    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
-    sync::LazyLock,
-};
+use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
-use regex::Regex;
 use reshell_runtime::{context::Context, values::RuntimeValue};
+
+use crate::completer::UnescapedSegment;
 
 #[derive(Debug)]
 pub struct GlobPathOut {
@@ -19,16 +17,14 @@ pub enum GlobPathStartsWith {
     Variable { name: String, value: String },
 }
 
-pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
-    let segments = segmentize(input);
-
+pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<GlobPathOut, String> {
     let mut starts_with = None;
 
     let glob_pattern = segments
         .iter()
         .enumerate()
-        .map(|(i, segment)| match segment {
-            Segment::Raw(input) => {
+        .map(|(i, segment)| match &segment {
+            UnescapedSegment::String(input) => {
                 if i == 0 {
                     if let Some(stripped) = input
                         .strip_prefix("~/")
@@ -53,10 +49,10 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
                 Ok(globify(input))
             }
 
-            Segment::VarName(var_name) => {
+            &UnescapedSegment::VariableName(var_name) => {
                 let var = ctx
                     .visible_scopes_content()
-                    .find_map(|scope| scope.vars.get(*var_name))
+                    .find_map(|scope| scope.vars.get(var_name))
                     .ok_or_else(|| format!("Variable '{var_name}' was not found"))?;
 
                 let str = match &var.value.read_promise_no_write().value {
@@ -93,45 +89,6 @@ pub fn globify_path(input: &str, ctx: &Context) -> Result<GlobPathOut, String> {
         },
         starts_with,
     })
-}
-
-#[derive(Debug)]
-enum Segment<'a> {
-    Raw(&'a str),
-    VarName(&'a str),
-}
-
-fn segmentize(input: &str) -> Vec<Segment> {
-    let mut out = vec![];
-    let mut last_offset = 0;
-
-    for one_match in VAR_IN_PATH_REGEX.captures_iter(input) {
-        let extract = one_match.get(0).unwrap();
-
-        let mut backslashes = 0;
-
-        for c in input[..extract.start()].chars().rev() {
-            if c == '\\' {
-                backslashes += 1;
-            } else {
-                break;
-            }
-        }
-
-        out.push(if extract.start() > last_offset || backslashes % 2 != 0 {
-            Segment::Raw(&input[last_offset..extract.end()])
-        } else {
-            Segment::VarName(one_match.get(1).unwrap().as_str())
-        });
-
-        last_offset = extract.end();
-    }
-
-    if last_offset < input.len() {
-        out.push(Segment::Raw(&input[last_offset..]));
-    }
-
-    out
 }
 
 fn globify(input: &str) -> String {
@@ -192,6 +149,3 @@ fn globify(input: &str) -> String {
 
     globified_segments.join(MAIN_SEPARATOR_STR)
 }
-
-static VAR_IN_PATH_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new("\\$([[:alpha:]_][[:alnum:]_]*)").unwrap());

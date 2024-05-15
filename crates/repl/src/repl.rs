@@ -9,7 +9,7 @@ use colored::Colorize;
 use parsy::Parser;
 use reedline::{Reedline, Signal};
 use reshell_builtins::repl_fns::{
-    completer::generate_completions,
+    completer::{generate_completions, CompletionStringSegment},
     prompt::{render_prompt, LastCmdStatus, PromptRendering},
 };
 use reshell_parser::{
@@ -24,7 +24,7 @@ use reshell_runtime::{
 
 use crate::{
     args::ExecArgs,
-    completer::{self, ExternalCompleter, ExternalCompletion},
+    completer::{self, ExternalCompletion, UnescapedSegment},
     edit_mode,
     exec::run_script,
     highlighter::{self, COMMANDS_CHECKER},
@@ -41,25 +41,6 @@ pub fn start(
     timings: Timings,
     show_timings: bool,
 ) -> Result<Option<ExitCode>, Box<dyn Error>> {
-    // Prepare completions generator
-    let comp_gen: ExternalCompleter =
-        Box::new(move |pieces, ctx| match generate_completions(pieces, ctx) {
-            Ok(None) => vec![],
-
-            Ok(Some(completions)) => completions
-                .into_iter()
-                .map(|(raw_string, description)| ExternalCompletion {
-                    raw_string,
-                    description,
-                })
-                .collect(),
-
-            Err(_) => {
-                // TODO: find a way to display error
-                vec![]
-            }
-        });
-
     // Create a line editor
     let mut line_editor = Reedline::create()
         .with_history(history::create_history(ctx.runtime_conf()))
@@ -68,7 +49,7 @@ pub fn start(
         .with_hinter(hinter::create_hinter())
         .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
-        .with_completer(completer::create_completer(Some(comp_gen)))
+        .with_completer(completer::create_completer(Some(Box::new(comp_gen))))
         .with_edit_mode(edit_mode::create_edit_mode())
         .with_quick_completions(true)
         .with_partial_completions(true);
@@ -247,6 +228,42 @@ fn display_timings(timings: Timings, now: Instant) {
         now - before_repl,
         now - started,
     );
+}
+
+fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<ExternalCompletion> {
+    let pieces = pieces
+        .iter()
+        .map(|segments| {
+            segments
+                .iter()
+                .map(|segment| match segment {
+                    UnescapedSegment::VariableName(name) => {
+                        CompletionStringSegment::VariableName(name.clone())
+                    }
+                    UnescapedSegment::String(string) => {
+                        CompletionStringSegment::String(string.clone())
+                    }
+                })
+                .collect()
+        })
+        .collect::<Vec<_>>();
+
+    match generate_completions(&pieces, ctx) {
+        Ok(None) => vec![],
+
+        Ok(Some(completions)) => completions
+            .into_iter()
+            .map(|(raw_string, description)| ExternalCompletion {
+                raw_string,
+                description,
+            })
+            .collect(),
+
+        Err(_) => {
+            // TODO: find a way to display error
+            vec![]
+        }
+    }
 }
 
 pub static SHARED_CONTEXT: LazyLock<Arc<Mutex<Option<Context>>>> =
