@@ -33,6 +33,7 @@ pub struct RuleSet {
     pub nested_content_rules: HashMap<NestingOpeningType, NestedContentRules>,
     pub closing_without_opening_style: Style,
     pub unclosed_style: Style,
+    pub command_separator_style: Style,
 }
 
 #[derive(Debug)]
@@ -84,6 +85,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
         nested_content_rules,
         closing_without_opening_style,
         unclosed_style,
+        command_separator_style,
     } = rule_set;
 
     let mut output = Vec::<HighlightPiece>::new();
@@ -132,6 +134,12 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                 });
             }
 
+            NestingActionType::CommandSeparator => output.push(HighlightPiece {
+                start: offset,
+                len,
+                style: Some(*command_separator_style),
+            }),
+
             NestingActionType::Content => {
                 let rules = match opened.last() {
                     Some((_, opening_type)) => {
@@ -157,6 +165,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                             NestingActionType::Closing {
                                 matching_opening: _,
                             }
+                            | NestingActionType::CommandSeparator
                             | NestingActionType::Content => None,
                         });
 
@@ -383,6 +392,7 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         nested_content_rules,
         closing_without_opening_style: _,
         unclosed_style: _,
+        command_separator_style: _,
     } = rule_set;
 
     fn _validate_simple_rule(rule: &SimpleRule) -> Result<(), String> {

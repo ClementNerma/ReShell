@@ -134,7 +134,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             // We are not in a single- or double-quoted strnig
             // But we may be in a back-quoted string
             _ => match char {
-                // This case is handled here as every single other character will be matched exactly
+                // This case is handled here as almost every single other character will be matched exactly
                 // like in a non-quoted part
                 '`' => {
                     if let Some(("`", opening_offset)) = opened.last() {
@@ -151,6 +151,10 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
                         opened.pop();
                     }
+                }
+
+                ';' if !matches!(opened.last(), Some(("`", _))) => {
+                    push(&mut output, offset, 1, NestingActionType::CommandSeparator);
                 }
 
                 '#' => commenting = true,
@@ -257,6 +261,7 @@ pub enum NestingActionType {
     Closing {
         matching_opening: bool,
     },
+    CommandSeparator,
     Content,
 }
 
