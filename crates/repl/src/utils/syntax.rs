@@ -140,6 +140,10 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                 style: Some(*command_separator_style),
             }),
 
+            NestingActionType::ArgumentSeparator => {
+                // No styling (these are spaces)
+            }
+
             NestingActionType::Content => {
                 let rules = match opened.last() {
                     Some((_, opening_type)) => {
@@ -166,6 +170,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                                 matching_opening: _,
                             }
                             | NestingActionType::CommandSeparator
+                            | NestingActionType::ArgumentSeparator
                             | NestingActionType::Content => None,
                         });
 

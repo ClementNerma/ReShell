@@ -206,6 +206,12 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                     );
                 }
 
+                ' ' => {
+                    if matches!(opened.last(), None | Some(("$(", _))) {
+                        push(&mut output, offset, 1, NestingActionType::ArgumentSeparator);
+                    }
+                }
+
                 _ => {}
             },
         }
@@ -262,6 +268,7 @@ pub enum NestingActionType {
         matching_opening: bool,
     },
     CommandSeparator,
+    ArgumentSeparator,
     Content,
 }
 
