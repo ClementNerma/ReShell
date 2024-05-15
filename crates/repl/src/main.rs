@@ -12,7 +12,7 @@ use colored::Colorize;
 use parsy::FileId;
 use reshell_builtins::{
     builder::{build_native_lib_content, NativeLibParams},
-    on_dir_jump::trigger_directory_jump_event,
+    repl_fns::on_dir_jump::trigger_directory_jump_event,
 };
 use reshell_parser::{
     ast::RuntimeCodeRange,
