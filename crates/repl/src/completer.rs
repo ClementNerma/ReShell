@@ -651,6 +651,10 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
             allow_vars: true,
         }),
 
+        // TODO: complete like usual but with "direct" stripped
+        //       => and ignore aliases / functions
+        "direct" => InstructionCompletion::Undefined(CompletionMode::default()),
+
         // Not a special instruction
         _ => InstructionCompletion::Undefined(CompletionMode::default()),
     }
