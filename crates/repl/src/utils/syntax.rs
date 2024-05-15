@@ -20,7 +20,7 @@ use crate::{
 
 use super::{
     covering::{InputCovering, InputRange},
-    nesting::{detect_nesting_actions, NestingOpeningType},
+    nesting::{detect_nesting_actions, NestingDetectionResult, NestingOpeningType},
 };
 
 #[derive(Debug)]
@@ -90,7 +90,10 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
 
     let mut output = Vec::<HighlightPiece>::new();
 
-    let nesting = detect_nesting_actions(input);
+    let NestingDetectionResult {
+        actions: nesting,
+        final_nesting_level: _,
+    } = detect_nesting_actions(input);
 
     let mut opened = Vec::<(NestingAction, NestingOpeningType)>::new();
 
@@ -99,6 +102,9 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
             offset,
             len,
             action_type,
+
+            // TODO: highlight parenthesis depending on their nesting level
+            nesting_level: _,
         } = action;
 
         match action_type {
@@ -141,7 +147,12 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
             }),
 
             NestingActionType::ArgumentSeparator => {
-                // No styling (these are spaces)
+                output.push(HighlightPiece {
+                    start: offset,
+                    len,
+                    // No styling (these are spaces)
+                    style: None,
+                })
             }
 
             NestingActionType::Content => {

@@ -1,3 +1,4 @@
+pub mod cmd_pieces;
 pub mod covering;
 pub mod ctrl_c;
 pub mod jaro_winkler;
