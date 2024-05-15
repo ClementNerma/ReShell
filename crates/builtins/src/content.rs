@@ -9,7 +9,10 @@ use crate::{
     builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
     functions::native_functions,
     methods::native_methods,
-    repl_fns::{on_dir_jump::ON_DIR_JUMP_VAR_NAME, prompt::GEN_PROMPT_VAR_NAME},
+    repl_fns::{
+        completer::GEN_COMPLETIONS_VAR_NAME, on_dir_jump::ON_DIR_JUMP_VAR_NAME,
+        prompt::GEN_PROMPT_VAR_NAME,
+    },
 };
 
 /// Generate definitions of the native library
@@ -22,9 +25,15 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
         methods: native_methods(),
 
         vars: vec![
-            // Prompt generation variable
+            // Prompt generation function
             BuiltinVar {
                 name: GEN_PROMPT_VAR_NAME,
+                is_mut: true,
+                init_value: RuntimeValue::Null,
+            },
+            // Completion generation function
+            BuiltinVar {
+                name: GEN_COMPLETIONS_VAR_NAME,
                 is_mut: true,
                 init_value: RuntimeValue::Null,
             },

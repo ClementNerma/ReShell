@@ -27,8 +27,8 @@ use crate::{
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
-pub fn create_completer() -> Box<dyn RlCompleter> {
-    Box::new(Completer)
+pub fn create_completer(external_completer: Option<ExternalCompleter>) -> Box<dyn RlCompleter> {
+    Box::new(Completer { external_completer })
 }
 
 pub fn create_completion_menu() -> ReedlineMenu {
@@ -36,17 +36,38 @@ pub fn create_completion_menu() -> ReedlineMenu {
     ReedlineMenu::EngineCompleter(Box::new(menu))
 }
 
-pub struct Completer;
+pub type ExternalCompleter =
+    Box<dyn Fn(&str, &mut Context) -> Vec<ExternalCompletion> + Send + Sync>;
+
+#[derive(Debug)]
+pub struct ExternalCompletion {
+    pub raw_string: String,
+    pub description: String,
+}
+
+pub struct Completer {
+    external_completer: Option<ExternalCompleter>,
+}
 
 impl RlCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        generate_completions(line, pos, SHARED_CONTEXT.lock().unwrap().as_ref().unwrap())
+        generate_completions(
+            line,
+            pos,
+            SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
+            self.external_completer.as_ref(),
+        )
     }
 }
 
 type SortableSuggestion = (String, Suggestion);
 
-pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Suggestion> {
+pub fn generate_completions(
+    line: &str,
+    pos: usize,
+    ctx: &mut Context,
+    external_completer: Option<&ExternalCompleter>,
+) -> Vec<Suggestion> {
     let word_start = pos - find_breakpoint_backward(&line[..pos]);
     let word_end = word_start + find_breakpoint_forward(&line[word_start..]);
 
@@ -64,7 +85,7 @@ pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Sugges
         return vec![];
     }
 
-    let after_pipe = line[..word_start].trim_end().ends_with('|')
+    let after_cmd_separator = line[..word_start].trim_end().ends_with(['|', ';'])
         && !line[..word_start].trim_end().ends_with("||");
 
     let next_char = line[word_end..].chars().next();
@@ -77,6 +98,7 @@ pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Sugges
         };
     }
 
+    // TODO: only complete if inside expression
     if let Some(s_word) = word.strip_prefix('@') {
         return sort_results(
             &unescape(word),
@@ -84,7 +106,7 @@ pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Sugges
         );
     }
 
-    if after_pipe {
+    if after_cmd_separator {
         let word = unescape(word);
 
         if let Some(s_word) = word.strip_prefix('.') {
@@ -115,6 +137,33 @@ pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Sugges
         cmd_comp.extend(build_fn_completions(&word, next_char, None, span, ctx));
 
         return sort_results(&word, cmd_comp);
+    }
+
+    if after_space {
+        if let Some(external_completer) = external_completer {
+            let completions = external_completer(line, ctx);
+
+            if !completions.is_empty() {
+                return completions
+                    .into_iter()
+                    .map(|comp| {
+                        let ExternalCompletion {
+                            raw_string,
+                            description,
+                        } = comp;
+
+                        Suggestion {
+                            value: raw_string,
+                            description: Some(description),
+                            style: None,
+                            extra: None,
+                            span,
+                            append_whitespace: true,
+                        }
+                    })
+                    .collect();
+            }
+        }
     }
 
     complete_path(word, span, ctx)

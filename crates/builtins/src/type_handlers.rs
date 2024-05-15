@@ -523,6 +523,7 @@ macro_rules! declare_typed_struct_handler {
 
 declare_typed_struct_handler!(
     TypedStruct1Type { a: A },
+    TypedStruct2Type { a: A, b: B },
     TypedStruct3Type { a: A, b: B, c: C },
     TypedStruct4Type {
         a: A,
