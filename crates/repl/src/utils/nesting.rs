@@ -79,81 +79,75 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             continue;
         }
 
-        match char {
-            '#' => {
-                if !inside_string!() {
-                    commenting = true;
-                }
-            }
-
-            '\\' => {
-                if inside_string!() {
+        match opened_strings.last().copied() {
+            Some(("'", opening_offset)) => match char {
+                '\\' => {
                     escaping = true;
                 }
-            }
 
-            '(' => match prev_char {
-                Some(("$", prev_offset)) => open(
-                    &mut output,
-                    &mut opened,
-                    prev_offset,
-                    &input[prev_offset..prev_offset + 2],
-                ),
+                '\'' => {
+                    push(
+                        &mut output,
+                        offset,
+                        1,
+                        NestingActionType::Closing {
+                            matching_opening: true,
+                        },
+                    );
 
-                _ => {
-                    if !inside_string!() {
-                        open(&mut output, &mut opened, offset, char_as_str)
-                    }
+                    closed.push(opening_offset);
+
+                    opened.pop();
+                    opened_strings.pop();
                 }
+
+                _ => {}
             },
 
-            '[' | '{' => {
-                if !inside_string!() {
-                    open(&mut output, &mut opened, offset, char_as_str);
-                }
-            }
-
-            ')' | ']' | '}' => {
-                if inside_string!() {
-                    continue;
-                }
-
-                if let Some((opening_str, opening_offset)) = opened.last().copied() {
-                    if matches!(
-                        (opening_str, char),
-                        ("(" | "$(", ')') | ("[", ']') | ("{", '}')
-                    ) {
-                        push(
-                            &mut output,
-                            offset,
-                            1,
-                            NestingActionType::Closing {
-                                matching_opening: true,
-                            },
-                        );
-
-                        closed.push(opening_offset);
-
-                        opened.pop();
-
-                        continue;
+            _ => match char {
+                '#' => {
+                    if !inside_string!() {
+                        commenting = true;
                     }
                 }
 
-                push(
-                    &mut output,
-                    offset,
-                    1,
-                    NestingActionType::Closing {
-                        matching_opening: false,
-                    },
-                );
-            }
+                '\\' => {
+                    if inside_string!() {
+                        escaping = true;
+                    }
+                }
 
-            '"' | '\'' => {
-                if let Some((opening_str, opening_offset)) = opened_strings.last().copied() {
-                    if opened.last().copied() == Some((opening_str, opening_offset)) {
-                        if opening_str == char_as_str {
+                '(' => match prev_char {
+                    Some(("$", prev_offset)) => open(
+                        &mut output,
+                        &mut opened,
+                        prev_offset,
+                        &input[prev_offset..prev_offset + 2],
+                    ),
+
+                    _ => {
+                        if !inside_string!() {
+                            open(&mut output, &mut opened, offset, char_as_str)
+                        }
+                    }
+                },
+
+                '[' | '{' => {
+                    if !inside_string!() {
+                        open(&mut output, &mut opened, offset, char_as_str);
+                    }
+                }
+
+                ')' | ']' | '}' => {
+                    if inside_string!() {
+                        continue;
+                    }
+
+                    if let Some((opening_str, opening_offset)) = opened.last().copied() {
+                        if matches!(
+                            (opening_str, char),
+                            ("(" | "$(", ')') | ("[", ']') | ("{", '}')
+                        ) {
                             push(
                                 &mut output,
                                 offset,
@@ -166,39 +160,76 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                             closed.push(opening_offset);
 
                             opened.pop();
-                            opened_strings.pop();
+
+                            continue;
                         }
-
-                        continue;
                     }
-                }
 
-                open(&mut output, &mut opened, offset, char_as_str);
-                opened_strings.push((char_as_str, offset));
-            }
-
-            '`' => match opened.last() {
-                Some(("\"", _)) => open(&mut output, &mut opened, offset, char_as_str),
-
-                Some(("`", opening_offset)) => {
                     push(
                         &mut output,
                         offset,
                         1,
                         NestingActionType::Closing {
-                            matching_opening: true,
+                            matching_opening: false,
                         },
                     );
-
-                    closed.push(*opening_offset);
-
-                    opened.pop();
                 }
+
+                '\'' => {
+                    open(&mut output, &mut opened, offset, char_as_str);
+                    opened_strings.push((char_as_str, offset));
+                }
+
+                '"' => {
+                    if let Some((opening_str, opening_offset)) = opened_strings.last().copied() {
+                        if opened.last().copied() == Some((opening_str, opening_offset)) {
+                            if opening_str == char_as_str {
+                                push(
+                                    &mut output,
+                                    offset,
+                                    1,
+                                    NestingActionType::Closing {
+                                        matching_opening: true,
+                                    },
+                                );
+
+                                closed.push(opening_offset);
+
+                                opened.pop();
+                                opened_strings.pop();
+                            }
+
+                            continue;
+                        }
+                    }
+
+                    open(&mut output, &mut opened, offset, char_as_str);
+                    opened_strings.push((char_as_str, offset));
+                }
+
+                '`' => match opened.last() {
+                    Some(("\"", _)) => open(&mut output, &mut opened, offset, char_as_str),
+
+                    Some(("`", opening_offset)) => {
+                        push(
+                            &mut output,
+                            offset,
+                            1,
+                            NestingActionType::Closing {
+                                matching_opening: true,
+                            },
+                        );
+
+                        closed.push(*opening_offset);
+
+                        opened.pop();
+                    }
+
+                    _ => {}
+                },
 
                 _ => {}
             },
-
-            _ => {}
         }
     }
 
