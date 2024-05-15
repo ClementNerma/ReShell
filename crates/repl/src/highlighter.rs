@@ -8,7 +8,6 @@ use regex::Regex;
 use reshell_runtime::{bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context};
 
 use crate::{repl::SHARED_CONTEXT, utils::{
-    lazy_cell::LazyCell,
     nesting::NestingOpeningType,
     syntax::{
         compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule,
@@ -34,7 +33,7 @@ impl RlHighlighter for Highlighter {
     }
 }
 
-static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
+static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
     /// Create a simple rule's inner content
     fn simple_rule<S: Into<Style> + Copy>(
         regex: &'static str,
