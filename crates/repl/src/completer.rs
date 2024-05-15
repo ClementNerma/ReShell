@@ -711,7 +711,10 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
 }
 
 fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> {
-    if !str.chars().any(needs_escaping) {
+    if !str
+        .chars()
+        .any(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c))
+    {
         match untouched_prefix {
             Some(prefix) => Cow::Owned(format!("{prefix}{str}")),
             None => Cow::Borrowed(str),
@@ -760,8 +763,4 @@ fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> 
 
         Cow::Owned(escaped)
     }
-}
-
-fn needs_escaping(c: char) -> bool {
-    c.is_whitespace() || DELIMITER_CHARS.contains(&c)
 }
