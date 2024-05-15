@@ -598,6 +598,7 @@ fn eval_computed_string_piece(
         ComputedStringPiece::Escaped(char) => Ok(match char {
             EscapableChar::Newline => '\n',
             EscapableChar::CarriageReturn => '\r',
+            EscapableChar::Tab => '\t',
             EscapableChar::DoubleQuote => '"',
             EscapableChar::Backslash => '\\',
             EscapableChar::DollarSign => '$',

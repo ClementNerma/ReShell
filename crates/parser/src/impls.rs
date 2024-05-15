@@ -82,6 +82,7 @@ impl EscapableChar {
         match self {
             EscapableChar::Newline => '\n',
             EscapableChar::CarriageReturn => '\r',
+            EscapableChar::Tab => '\t',
             EscapableChar::DoubleQuote => '"',
             EscapableChar::BackQuote => '`',
             EscapableChar::SingleQuote => '\'',

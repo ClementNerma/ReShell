@@ -344,6 +344,7 @@ pub fn program(
             choice((
                 char('n').to(EscapableChar::Newline),
                 char('r').to(EscapableChar::CarriageReturn),
+                char('t').to(EscapableChar::Tab),
                 char('"').to(EscapableChar::DoubleQuote),
                 char('\'').to(EscapableChar::BackQuote),
                 char('`').to(EscapableChar::BackQuote),
