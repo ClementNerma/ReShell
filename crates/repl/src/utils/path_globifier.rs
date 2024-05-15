@@ -49,7 +49,7 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
                         return Ok(format!("{home_dir}{MAIN_SEPARATOR}{}", globify(stripped)));
                     }
 
-                    if input.starts_with("./") || input.starts_with(".\\\\") {
+                    if input.starts_with("./") || input.starts_with(".\\") {
                         starts_with = Some(GlobPathStartsWith::CurrentDir);
                     }
                 }
