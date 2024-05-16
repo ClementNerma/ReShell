@@ -23,68 +23,64 @@ pub struct NestingDetectionResult {
     pub final_nesting_level: usize,
 }
 
-pub fn detect_nesting_actions<'s>(
-    input: &'s str,
-    insert_args_separator: bool,
-) -> NestingDetectionResult {
-    let register_content =
-        |output: &mut Vec<NestingAction>, offset: usize, opened: &[(&str, usize)]| {
+pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> NestingDetectionResult {
+    let mut opened: Vec<(&str, usize)> = vec![];
+    let mut output: Vec<NestingAction> = vec![];
+
+    macro_rules! register_content_until {
+        ($offset: expr) => {{
             let from = output
                 .last()
                 .map(|action| action.offset + action.len)
                 .unwrap_or(0);
 
-            if from == offset {
-                return;
+            if from != $offset {
+                output.push(NestingAction {
+                    action_type: NestingActionType::Content,
+                    offset: from,
+                    len: $offset - from,
+                    nesting_level: opened.len(),
+                });
             }
+        }};
+    }
+
+    macro_rules! push {
+        ($offset: expr, $len: expr, $action_type: expr) => {{
+            if !matches!($action_type, NestingActionType::ArgumentSeparator)
+                || insert_args_separator
+            {
+                register_content_until!($offset);
+
+                output.push(NestingAction {
+                    offset: $offset,
+                    len: $len,
+                    action_type: $action_type,
+                    nesting_level: opened.len(),
+                });
+            }
+        }};
+    }
+
+    macro_rules! open {
+        ($offset: expr, $opening_str: expr) => {{
+            register_content_until!($offset);
+
+            opened.push(($opening_str, $offset));
 
             output.push(NestingAction {
-                action_type: NestingActionType::Content,
-                offset: from,
-                len: offset - from,
-                nesting_level: opened.len(),
+                offset: $offset,
+                len: $opening_str.len(),
+                action_type: NestingActionType::Opening {
+                    typ: NestingOpeningType::try_from_str($opening_str).unwrap(),
+                    matching_close: false,
+                },
+                nesting_level: opened.len() + 1,
             });
-        };
+        }};
+    }
 
-    let push = |output: &mut Vec<NestingAction>,
-                opened: &[(&str, usize)],
-                offset: usize,
-                len: usize,
-                action_type: NestingActionType| {
-        if matches!(action_type, NestingActionType::ArgumentSeparator) && !insert_args_separator {
-            return;
-        }
-
-        register_content(output, offset, opened);
-
-        output.push(NestingAction {
-            offset,
-            len,
-            action_type,
-            nesting_level: opened.len(),
-        });
-    };
-
-    let open = |output: &mut Vec<NestingAction>,
-                opened: &mut Vec<(&'s str, usize)>,
-                offset: usize,
-                opening_str: &'s str| {
-        register_content(output, offset, opened);
-        opened.push((opening_str, offset));
-        output.push(NestingAction {
-            offset,
-            len: opening_str.len(),
-            action_type: NestingActionType::Opening {
-                typ: NestingOpeningType::try_from_str(opening_str).unwrap(),
-                matching_close: false,
-            },
-            nesting_level: opened.len() + 1,
-        });
-    };
-
-    let mut opened: Vec<(&str, usize)> = vec![];
     let mut opened_strings: Vec<(&str, usize)> = vec![];
-    let mut output: Vec<NestingAction> = vec![];
     let mut closed = vec![];
     let mut escaping = false;
     let mut commenting = false;
@@ -121,14 +117,12 @@ pub fn detect_nesting_actions<'s>(
                 if char == '\\' {
                     escaping = true;
                 } else if char == '\'' {
-                    push(
-                        &mut output,
-                        &opened,
+                    push!(
                         offset,
                         1,
                         NestingActionType::Closing {
                             matching_opening: true,
-                        },
+                        }
                     );
 
                     closed.push(*opening_offset);
@@ -144,26 +138,19 @@ pub fn detect_nesting_actions<'s>(
 
                 '(' => {
                     if let Some(("$", prev_offset)) = prev_char {
-                        open(
-                            &mut output,
-                            &mut opened,
-                            prev_offset,
-                            &input[prev_offset..prev_offset + 2],
-                        )
+                        open!(prev_offset, &input[prev_offset..prev_offset + 2])
                     }
                 }
 
-                '`' => open(&mut output, &mut opened, offset, char_as_str),
+                '`' => open!(offset, char_as_str),
 
                 '"' => {
-                    push(
-                        &mut output,
-                        &opened,
+                    push!(
                         offset,
                         1,
                         NestingActionType::Closing {
                             matching_opening: true,
-                        },
+                        }
                     );
 
                     closed.push(*opening_offset);
@@ -182,14 +169,12 @@ pub fn detect_nesting_actions<'s>(
                 // like in a non-quoted part
                 '`' => {
                     if let Some(("`", opening_offset)) = opened.last() {
-                        push(
-                            &mut output,
-                            &opened,
+                        push!(
                             offset,
                             1,
                             NestingActionType::Closing {
                                 matching_opening: true,
-                            },
+                            }
                         );
 
                         closed.push(*opening_offset);
@@ -199,30 +184,24 @@ pub fn detect_nesting_actions<'s>(
                 }
 
                 ';' | '|' if !matches!(opened.last(), Some(("`", _))) => {
-                    push(
-                        &mut output,
-                        &opened,
-                        offset,
-                        1,
-                        NestingActionType::CommandSeparator,
-                    );
+                    push!(offset, 1, NestingActionType::CommandSeparator);
                 }
 
                 '#' => commenting = true,
 
                 '\'' => {
-                    open(&mut output, &mut opened, offset, char_as_str);
+                    open!(offset, char_as_str);
                     opened_strings.push((char_as_str, offset));
                 }
 
                 '"' => {
-                    open(&mut output, &mut opened, offset, char_as_str);
+                    open!(offset, char_as_str);
                     opened_strings.push((char_as_str, offset));
                 }
 
-                '(' => open(&mut output, &mut opened, offset, char_as_str),
+                '(' => open!(offset, char_as_str),
 
-                '[' | '{' => open(&mut output, &mut opened, offset, char_as_str),
+                '[' | '{' => open!(offset, char_as_str),
 
                 ')' | ']' | '}' => {
                     if let Some((opening_str, opening_offset)) = opened.last().copied() {
@@ -230,14 +209,12 @@ pub fn detect_nesting_actions<'s>(
                             (opening_str, char),
                             ("(" | "$(", ')') | ("[", ']') | ("{", '}')
                         ) {
-                            push(
-                                &mut output,
-                                &opened,
+                            push!(
                                 offset,
                                 1,
                                 NestingActionType::Closing {
                                     matching_opening: true,
-                                },
+                                }
                             );
 
                             closed.push(opening_offset);
@@ -248,26 +225,18 @@ pub fn detect_nesting_actions<'s>(
                         }
                     }
 
-                    push(
-                        &mut output,
-                        &opened,
+                    push!(
                         offset,
                         1,
                         NestingActionType::Closing {
                             matching_opening: false,
-                        },
+                        }
                     );
                 }
 
                 ' ' => {
                     if matches!(opened.last(), None | Some(("$(", _))) {
-                        push(
-                            &mut output,
-                            &opened,
-                            offset,
-                            1,
-                            NestingActionType::ArgumentSeparator,
-                        );
+                        push!(offset, 1, NestingActionType::ArgumentSeparator);
                     }
                 }
 
@@ -276,7 +245,7 @@ pub fn detect_nesting_actions<'s>(
         }
     }
 
-    register_content(&mut output, input.len(), &opened);
+    register_content_until!(input.len());
 
     let mut prev = None;
 
