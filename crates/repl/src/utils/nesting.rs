@@ -8,6 +8,8 @@
 //! An action can for instance be the opening or closing of a string, the opening of a parenthesis,
 //! the presence of a command separation marker, etc. These can be found in the [`NestingActionType`] enum.
 //!
+//! This could technically be considered as a lexer, as it parses the code into meaningful chunks.
+//!
 //! These informations are then used for checking if a line is complete or not
 //!     (cf. [`super::super::validator`])
 //! They are also used to extract informations from a command prompt
