@@ -367,7 +367,9 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
 
         unclosed_style: Style::new().fg(White).on(Red),
 
-        command_separator_style: Style::new().fg(DarkGray)
+        command_separator_style: Style::new().fg(DarkGray),
+
+        use_arguments_separator: false
     };
 
     Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
