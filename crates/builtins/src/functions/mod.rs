@@ -2,6 +2,7 @@
 //! This module contains all native functions and variables
 //!
 //! Each function has its own dedicated module.
+//!
 
 mod approx_int_div;
 mod ask;

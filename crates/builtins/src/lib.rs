@@ -6,7 +6,6 @@
 
 // TODO: Restore this forbid() once time has a sound way to get local offset
 // #![forbid(unsafe_code)]
-
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 #![feature(trait_upcasting)]

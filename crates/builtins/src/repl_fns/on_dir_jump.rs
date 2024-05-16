@@ -1,3 +1,7 @@
+//!
+//! Function to trigger when the current directory changes
+//!
+
 use std::path::Path;
 
 use reshell_parser::ast::RuntimeCodeRange;

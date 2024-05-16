@@ -1,3 +1,7 @@
+//!
+//! Function to call to generate the REPL's prompt
+//!
+
 use std::collections::HashMap;
 
 use reshell_parser::ast::RuntimeCodeRange;

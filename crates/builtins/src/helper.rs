@@ -326,14 +326,25 @@ pub fn long_flag_var_name(name: &str) -> String {
     var_name
 }
 
+/// Description of an internal function
 pub struct InternalFunction {
+    /// Name of the function
     pub name: &'static str,
+
+    /// If it is a method, type it applies on
     pub method_on_type: Option<MethodApplyableType>,
+
+    /// List of arguments the function takes
     pub args: Vec<FnArg>,
+
+    /// Callback of the function
     pub run: InternalFnBody,
+
+    /// Return type of the function
     pub ret_type: Option<ValueType>,
 }
 
+/// Define an internal function
 #[macro_export]
 macro_rules! define_internal_fn {
     ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
