@@ -53,6 +53,9 @@ fn get_utc_offset() -> UtcOffset {
     offset
 }
 
+/// Date and time value
+///
+/// Backed by an [`OffsetDateTime`]
 #[derive(Debug, Clone)]
 pub struct DateTimeValue {
     pub inner: OffsetDateTime,

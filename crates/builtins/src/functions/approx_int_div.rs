@@ -31,6 +31,11 @@ fn run() -> Runner {
     )
 }
 
+/// Perform an approximate integer division
+///
+/// The last decimal will be rounded to the nearest.
+///
+/// The `precision` parameter is the number of floating-point decimals to keep.
 pub fn approx_int_div(a: u64, b: u64, precision: u8) -> String {
     let max_prec = 10_u128.pow(u32::from(precision));
 
