@@ -1,3 +1,7 @@
+//!
+//! Errors module
+//!
+
 use std::borrow::Cow;
 
 use parsy::ParsingError;

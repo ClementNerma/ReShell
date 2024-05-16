@@ -28,9 +28,11 @@ use crate::{
 
 #[derive(Clone, Copy)]
 pub struct CmdExecParams {
+    /// How the command's output should be captured
     pub capture: Option<CmdPipeCapture>,
 }
 
+/// What pipes to capture from a command's output
 #[derive(Clone, Copy)]
 pub enum CmdPipeCapture {
     Stdout,
@@ -45,8 +47,10 @@ pub fn run_cmd(
 ) -> ExecResult<CmdExecResult> {
     let CmdExecParams { capture } = params;
 
+    // Interrupt before command execution if Ctrl+C was pressed
     ctx.ensure_no_ctrl_c_press(call.at)?;
 
+    // Prepare a uniform command chain for easier processing
     let CmdCall { base, pipes } = &call.data;
 
     let (base, from_value) = match base {
@@ -85,6 +89,8 @@ pub fn run_cmd(
         EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => false,
     });
 
+    // Handle command chains that do not only contain command calls
+    // (e.g. includes expressions or function/method calls)
     if !only_cmd_calls {
         if capture.is_some() {
             return Err(ctx.error(call.at, "only external commands' output can be captured"));
@@ -188,6 +194,9 @@ pub fn run_cmd(
         return Ok(CmdExecResult::Returned(last_return_value));
     }
 
+    // Handle commands-only chains
+    //
+    // Start by preparing a vector to collect commands' child processes
     let mut children: Vec<(Child, CodeRange)> = Vec::with_capacity(chain.len());
 
     for (i, (cmd_data, pipe_type)) in chain.into_iter().enumerate() {
@@ -223,6 +232,7 @@ pub fn run_cmd(
 
     let mut last_output = None;
 
+    // Evaluate each subcommand
     for (i, (child, at)) in children.into_iter().rev().enumerate() {
         let output = child.wait_with_output();
 
@@ -278,6 +288,7 @@ pub fn run_cmd(
     })
 }
 
+/// Result of a command execution
 pub enum CmdExecResult {
     Returned(Option<LocatedValue>),
     Captured(String),
@@ -302,6 +313,7 @@ impl CmdExecResult {
     }
 }
 
+/// Build command execution data
 fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<EvaluatedCmdData> {
     let mut args = EvaluatedCmdArgs {
         env_vars: HashMap::new(),
@@ -309,8 +321,6 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
     };
 
     let developed = ctx.get_developed_cmd_call(call);
-
-    // let mut target = None;
 
     let DevelopedSingleCmdCall {
         at: _,
@@ -378,6 +388,7 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
     })
 }
 
+/// Complete a commands' data with evaluated arguments and environment variables
 fn complete_cmd_data(
     call: &Eaten<SingleCmdCall>,
     out: &mut EvaluatedCmdArgs,

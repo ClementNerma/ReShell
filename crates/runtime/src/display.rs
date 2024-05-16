@@ -1,3 +1,7 @@
+//!
+//! This module implements pretty-printing for several types.
+//!
+
 use std::collections::BTreeSet;
 
 use colored::Color;

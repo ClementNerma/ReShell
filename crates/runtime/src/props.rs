@@ -1,3 +1,8 @@
+//!
+//! Properties handling module.
+//!
+//! Provides utilities to handle properties access from structs and maps
+
 use std::collections::hash_map::{Entry, VacantEntry};
 
 use parsy::Eaten;
@@ -11,24 +16,31 @@ use crate::{
     values::RuntimeValue,
 };
 
-pub enum PropAssignment<'c> {
-    ReadExisting(&'c RuntimeValue),
-    WriteExisting(&'c mut RuntimeValue),
-    Create(VacantEntry<'c, String, RuntimeValue>),
+/// How properties assignment should behave on a given target
+pub enum PropAssignmentMode<'c> {
+    /// Only allow reading existing properties
+    OnlyReadExisting(&'c RuntimeValue),
+
+    /// Only allow writing existing properties
+    OnlyWriteExisting(&'c mut RuntimeValue),
+
+    /// Allow writing to existing properties or creating them if they don't exist
+    WriteExistingOrCreate(VacantEntry<'c, String, RuntimeValue>),
 }
 
+/// Evaluate a chain of properties access
 pub fn eval_props_access<'ast, 'c, T>(
     left: &'c mut RuntimeValue,
     accesses: impl ExactSizeIterator<Item = &'ast Eaten<PropAccessNature>>,
     policy: PropAccessPolicy,
     ctx: &'c mut Context,
-    finalize: impl FnOnce(PropAssignment, &mut Context) -> T,
+    finalize: impl FnOnce(PropAssignmentMode, &mut Context) -> T,
 ) -> ExecResult<T> {
     if accesses.len() == 0 {
         return Ok(finalize(
             match policy {
-                PropAccessPolicy::Read => PropAssignment::ReadExisting(left),
-                PropAccessPolicy::Write(_) => PropAssignment::WriteExisting(left),
+                PropAccessPolicy::Read => PropAssignmentMode::OnlyReadExisting(left),
+                PropAccessPolicy::Write(_) => PropAssignmentMode::OnlyWriteExisting(left),
             },
             ctx,
         ));
@@ -77,14 +89,17 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                             None => match policy {
                                 PropAccessPolicy::Read => {
-                                    return Ok(finalize(PropAssignment::ReadExisting(value), ctx))
+                                    return Ok(finalize(
+                                        PropAssignmentMode::OnlyReadExisting(value),
+                                        ctx,
+                                    ))
                                 }
 
                                 PropAccessPolicy::Write(_) => {
                                     drop(items);
 
                                     return Ok(finalize(
-                                        PropAssignment::WriteExisting(
+                                        PropAssignmentMode::OnlyWriteExisting(
                                             list.write(key_expr.at, ctx)?.get_mut(index).unwrap(),
                                         ),
                                         ctx,
@@ -133,7 +148,10 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         (Some(value), None) => match policy {
                             PropAccessPolicy::Read => {
-                                return Ok(finalize(PropAssignment::ReadExisting(value), ctx))
+                                return Ok(finalize(
+                                    PropAssignmentMode::OnlyReadExisting(value),
+                                    ctx,
+                                ))
                             }
 
                             PropAccessPolicy::Write(_) => {
@@ -142,7 +160,9 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 let mut map = map.write(key_expr.at, ctx)?;
 
                                 return Ok(finalize(
-                                    PropAssignment::WriteExisting(map.get_mut(&key).unwrap()),
+                                    PropAssignmentMode::OnlyWriteExisting(
+                                        map.get_mut(&key).unwrap(),
+                                    ),
                                     ctx,
                                 ));
                             }
@@ -170,7 +190,10 @@ pub fn eval_props_access<'ast, 'c, T>(
                                     Entry::Vacant(vacant) => vacant,
                                 };
 
-                                return Ok(finalize(PropAssignment::Create(entry), ctx));
+                                return Ok(finalize(
+                                    PropAssignmentMode::WriteExistingOrCreate(entry),
+                                    ctx,
+                                ));
                             }
                         },
                     }
@@ -212,7 +235,10 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         None => match policy {
                             PropAccessPolicy::Read => {
-                                return Ok(finalize(PropAssignment::ReadExisting(value), ctx))
+                                return Ok(finalize(
+                                    PropAssignmentMode::OnlyReadExisting(value),
+                                    ctx,
+                                ))
                             }
 
                             PropAccessPolicy::Write(_) => {
@@ -221,7 +247,9 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 let mut obj = obj.write(prop.at, ctx)?;
 
                                 return Ok(finalize(
-                                    PropAssignment::WriteExisting(obj.get_mut(&prop.data).unwrap()),
+                                    PropAssignmentMode::OnlyWriteExisting(
+                                        obj.get_mut(&prop.data).unwrap(),
+                                    ),
                                     ctx,
                                 ));
                             }
