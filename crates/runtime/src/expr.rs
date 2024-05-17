@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     Block, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr,
-    ExprInner, ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg,
-    FnPositionalArg, FnSignature, Function, LiteralValue, PropAccess, RuntimeCodeRange,
-    RuntimeEaten, SingleOp, SwitchExprCase, Value,
+    ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature,
+    Function, LiteralValue, PropAccess, RuntimeCodeRange, RuntimeEaten, SingleOp, SwitchExprCase,
+    Value,
 };
 
 use crate::{
@@ -250,19 +250,8 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     let left_at = RuntimeCodeRange::Parsed(content.at);
 
     for chaining in chainings {
-        let left = LocatedValue::new(left_val, left_at);
-
-        left_val = match &chaining.data {
-            ExprInnerChaining::Direct(chaining) => {
-                eval_expr_inner_direct_chaining(chaining, left, ctx)?
-            }
-
-            ExprInnerChaining::FnCall(fn_call) => {
-                eval_fn_call(fn_call, Some(left), ctx)?
-                    .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))?
-                    .value
-            }
-        };
+        left_val =
+            eval_expr_inner_chaining(&chaining.data, LocatedValue::new(left_val, left_at), ctx)?;
 
         // TODO: update location (left_at)
     }
@@ -270,13 +259,13 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     Ok(left_val)
 }
 
-fn eval_expr_inner_direct_chaining(
-    chaining: &ExprInnerDirectChaining,
+fn eval_expr_inner_chaining(
+    chaining: &ExprInnerChaining,
     mut left: LocatedValue,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
     match &chaining {
-        ExprInnerDirectChaining::PropAccess(acc) => {
+        ExprInnerChaining::PropAccess(acc) => {
             let PropAccess { nature, nullable } = &acc.data;
 
             if *nullable && matches!(left.value, RuntimeValue::Null) {
@@ -299,8 +288,8 @@ fn eval_expr_inner_direct_chaining(
             Ok(resolved)
         }
 
-        ExprInnerDirectChaining::MethodCall(fn_call) => Ok(eval_fn_call(fn_call, Some(left), ctx)?
-            .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))?
+        ExprInnerChaining::MethodCall(fn_call) => Ok(eval_fn_call(fn_call, Some(left), ctx)?
+            .ok_or_else(|| ctx.error(fn_call.at, "method did not return a value"))?
             .value),
     }
 }
@@ -322,7 +311,7 @@ fn eval_expr_inner_content(
             let right_at = RuntimeCodeRange::Parsed(right.at);
 
             for chaining in right_chainings {
-                right_val = eval_expr_inner_direct_chaining(
+                right_val = eval_expr_inner_chaining(
                     &chaining.data,
                     LocatedValue::new(right_val, right_at),
                     ctx,
@@ -437,7 +426,7 @@ fn eval_expr_inner_content(
             catch_expr_scope_id,
         } => match eval_fn_call(fn_call, None, ctx) {
             Ok(returned) => returned
-                .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
+                .ok_or_else(|| ctx.error(fn_call.at, "tried function did not return a value"))
                 .map(|loc_val| loc_val.value),
 
             Err(err) => match err.nature {

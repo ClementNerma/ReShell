@@ -23,12 +23,11 @@ use reshell_parser::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath,
         CmdPipe, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-        ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
-        FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, Program, PropAccess,
-        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
-        VarDeconstruction,
+        ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
+        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
+        Instruction, LiteralValue, MapDestructBinding, Program, PropAccess, PropAccessNature,
+        RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -612,18 +611,8 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
 
 fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) -> CheckerResult {
     match chaining {
-        ExprInnerChaining::Direct(chaining) => check_expr_direct_chaining(chaining, state),
-        ExprInnerChaining::FnCall(fn_call) => check_fn_call(fn_call, state),
-    }
-}
-
-fn check_expr_direct_chaining(
-    chaining: &ExprInnerDirectChaining,
-    state: &mut State,
-) -> CheckerResult {
-    match chaining {
-        ExprInnerDirectChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
-        ExprInnerDirectChaining::MethodCall(method_call) => check_fn_call(method_call, state),
+        ExprInnerChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
+        ExprInnerChaining::MethodCall(method_call) => check_fn_call(method_call, state),
     }
 }
 
@@ -638,7 +627,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             check_expr_inner_content(&right.data, state)?;
 
             for chaining in right_chainings {
-                check_expr_direct_chaining(&chaining.data, state)?;
+                check_expr_inner_chaining(&chaining.data, state)?;
             }
         }
 
