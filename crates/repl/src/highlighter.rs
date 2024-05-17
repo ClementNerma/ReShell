@@ -238,6 +238,10 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Method calls
                 method_call(),
 
+                // TODO remove this HACK
+                // : Don't highlight commas as argument separators
+                simple("(,)", [Green]),
+
                 // Expressions
                 include_group("expressions")
             ]),
@@ -286,14 +290,8 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Numbers
                 simple("\\b(\\d+(?:\\.\\d+)?)\\b", [LightYellow]),
 
-                // // Flags
-                // simple("(?:[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
-
-                // Argument names (by elimination we have reached them)
-                // simple("(?:[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[,:\\?\\|]|$)", [Red]),
-
                 // Symbols and operators
-                simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]|&&|\\|\\|)", [LightYellow]),
+                simple("(,|\\s[&\\|;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]\\s|&&|\\|\\|)", [LightYellow]),
 
                 // Other characters
                 simple("(.)", [Green])
