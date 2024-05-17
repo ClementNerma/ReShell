@@ -701,7 +701,7 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
         if c == '\\' {
             escaping = true;
         } else if c == opening_char {
-            assert!(i + 1 == str.chars().count());
+            assert_eq!(i + 1, str.chars().count());
         } else if c == '$' && opening_char == '"' {
             out.push(UnescapedSegment::String(segment));
             segment = String::new();
