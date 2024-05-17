@@ -284,7 +284,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 simple("(\\@(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Magenta]),
 
                 // Numbers
-                simple("(\\d+(?:\\.\\d+)?)", [LightYellow]),
+                simple("\\b(\\d+(?:\\.\\d+)?)\\b", [LightYellow]),
 
                 // // Flags
                 // simple("(?:[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
