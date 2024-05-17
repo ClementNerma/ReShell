@@ -77,7 +77,7 @@
 					"name": "keyword"
 				},
 				{
-					"match": "\\b(direct|include|expr)\\b",
+					"match": "\\b(direct|include|output)\\b",
 					"name": "keyword"
 				},
 				{
@@ -141,7 +141,7 @@
 					"name": "variable.name"
 				},
 				{
-					"match": "(?<=(&&|;|\\||\\->|direct\\s)\\s*)([a-zA-Z0-9\\._-]+)\\b",
+					"match": "(?<=(&&|;|\\||\\->|direct\\s|output\\s)\\s*)([a-zA-Z0-9\\._-]+)\\b",
 					"name": "entity.name.function"
 				},
 				{

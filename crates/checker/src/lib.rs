@@ -874,48 +874,59 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
     let CmdCall { base, pipes } = &cmd_call.data;
 
     let mut chain_type = match base {
-        CmdCallBase::Expr(expr) => {
-            check_expr(&expr.data, state)?;
-            CmdPathTargetType::Expr
+        CmdCallBase::OutputOf(call) => {
+            let target_type = check_single_cmd_call(call, state)?;
+
+            match target_type {
+                CmdPathTargetType::Function => {
+                    return Err(CheckerError::new(call.at, "cannot use the 'output' keyword on a function ; call the function directly instead"));
+                }
+
+                CmdPathTargetType::ExternalCommand => {}
+            }
+
+            CmdCallTargetType::OutputOfCommand
         }
 
-        CmdCallBase::SingleCmdCall(call) => check_single_cmd_call(call, state)?,
+        CmdCallBase::SingleCmdCall(call) => {
+            CmdCallTargetType::from(check_single_cmd_call(call, state)?)
+        }
     };
 
     for CmdPipe { pipe_type, cmd } in pipes.iter() {
-        let call_type = check_single_cmd_call(cmd, state)?;
+        let call_type = CmdCallTargetType::from(check_single_cmd_call(cmd, state)?);
 
         match (chain_type, call_type) {
-            (CmdPathTargetType::Function, CmdPathTargetType::ExternalCommand) => {
+            (CmdCallTargetType::OutputOfCommand, CmdCallTargetType::ExternalCommand) => {
+                return Err(CheckerError::new(
+                    pipe_type.at,
+                    "cannot pipe a command's output string into an external command ; try to remove the 'output' keyword",
+                ))
+            }
+
+            (CmdCallTargetType::Function, CmdCallTargetType::ExternalCommand) => {
                 return Err(CheckerError::new(
                     pipe_type.at,
                     "cannot pipe a function's output into an external command",
                 ))
             }
 
-            (CmdPathTargetType::ExternalCommand, CmdPathTargetType::Function) => {
+            (CmdCallTargetType::ExternalCommand, CmdCallTargetType::Function) => {
                 return Err(CheckerError::new(
                     pipe_type.at,
                     "cannot pipe an external command's output into a function",
                 ))
             }
 
-            (CmdPathTargetType::Expr, CmdPathTargetType::ExternalCommand) => {
-                return Err(CheckerError::new(
-                    pipe_type.at,
-                    "cannot pipe an expression's output into an external command",
-                ))
-            }
-
-            (
-                CmdPathTargetType::Expr | CmdPathTargetType::Function,
-                CmdPathTargetType::Function,
-            )
-            | (CmdPathTargetType::ExternalCommand, CmdPathTargetType::ExternalCommand) => {
+            (CmdCallTargetType::Function | CmdCallTargetType::OutputOfCommand, CmdCallTargetType::Function)
+            | (CmdCallTargetType::ExternalCommand, CmdCallTargetType::ExternalCommand) => {
                 // OK
             }
 
-            (_, CmdPathTargetType::Expr) => unreachable!(),
+            (_, CmdCallTargetType::OutputOfCommand) => {
+                // Impossible as "OutputOfCommand" is only possible for the FIRST single command call in the chain
+                unreachable!()
+            }
         }
 
         chain_type = call_type;
@@ -923,10 +934,6 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
 
     Ok(())
 }
-
-// fn check_cmd_call_base(base: &CmdCallBase) -> CheckerResult {
-
-// }
 
 fn check_single_cmd_call(
     single_cmd_call: &Eaten<SingleCmdCall>,
@@ -946,6 +953,7 @@ fn check_single_cmd_call(
 
     let target_type = match &path.data {
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
+
         CmdPath::Method(_) => CmdPathTargetType::Function,
 
         CmdPath::Literal(name) => find_if_cmd_or_fn(
@@ -965,7 +973,7 @@ fn check_single_cmd_call(
             at: single_cmd_call.at,
             is_function: match target_type {
                 CmdPathTargetType::Function => true,
-                CmdPathTargetType::ExternalCommand | CmdPathTargetType::Expr => false,
+                CmdPathTargetType::ExternalCommand => false,
             },
             developed_aliases,
         },
@@ -1406,9 +1414,24 @@ fn check_fn_signature(
     Ok(checked_args)
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 enum CmdPathTargetType {
     Function,
     ExternalCommand,
-    Expr,
+}
+
+#[derive(Clone, Copy)]
+enum CmdCallTargetType {
+    Function,
+    ExternalCommand,
+    OutputOfCommand,
+}
+
+impl From<CmdPathTargetType> for CmdCallTargetType {
+    fn from(value: CmdPathTargetType) -> Self {
+        match value {
+            CmdPathTargetType::Function => Self::Function,
+            CmdPathTargetType::ExternalCommand => Self::ExternalCommand,
+        }
+    }
 }
