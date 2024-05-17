@@ -150,11 +150,13 @@ pub fn start(
 
         match &ret {
             // If the program succeeded and has a wandering value, pretty-print it
-            Ok(()) => {
-                if let Some(value) = ctx.take_wandering_value() {
+            Ok(wandering_value) => {
+                if let Some(loc_val) = wandering_value {
                     println!(
                         "{}",
-                        value.render_colored(&ctx, PrettyPrintOptions::multiline())
+                        loc_val
+                            .value
+                            .render_colored(&ctx, PrettyPrintOptions::multiline())
                     )
                 }
             }

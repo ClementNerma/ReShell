@@ -21,9 +21,10 @@ use reshell_parser::{
 };
 use reshell_runtime::{
     bin_resolver::BinariesResolver,
-    context::ContextCreationParams,
+    conf::RuntimeConf,
+    context::{Context, ContextCreationParams},
     errors::{ExecErrorNature, ExecResult},
-    {conf::RuntimeConf, context::Context},
+    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
 use self::{
@@ -186,7 +187,8 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             exec_args,
             &mut ctx,
         ) {
-            Ok(()) => Ok(ExitCode::SUCCESS),
+            Ok(_) => Ok(ExitCode::SUCCESS),
+
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
                 Ok(loose_exit_code(err.exit_code()))
@@ -202,7 +204,19 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             exec_args,
             &mut ctx,
         ) {
-            Ok(()) => Ok(ExitCode::SUCCESS),
+            Ok(wandering_value) => {
+                if let Some(loc_val) = wandering_value {
+                    println!(
+                        "{}",
+                        loc_val
+                            .value
+                            .render_colored(&ctx, PrettyPrintOptions::multiline())
+                    )
+                }
+
+                Ok(ExitCode::SUCCESS)
+            }
+
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
                 Ok(loose_exit_code(err.exit_code()))

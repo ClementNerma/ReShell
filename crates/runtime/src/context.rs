@@ -28,7 +28,7 @@ use crate::{
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
-    values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
+    values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue},
 };
 
 /// Scope ID of the native library
@@ -73,12 +73,6 @@ pub struct Context {
     /// Whenever a new program is run, the new program's data is merged with the existing one
     collected: CheckerOutput,
 
-    /// Value returned by the very last function or command call in a program
-    /// that was not assigned or used as an argument
-    /// Reset at each new instruction, set by the last function or command call,
-    /// retrieved and erased with [`Context::take_wandering_value`]
-    wandering_value: Option<RuntimeValue>,
-
     /// Converted long flag names
     ///
     /// Used to avoid having to compute camel case version of each long flag at runtime
@@ -117,7 +111,6 @@ impl Context {
             current_scope: NATIVE_LIB_SCOPE_ID,
             program_main_scope: None,
             collected: CheckerOutput::empty(),
-            wandering_value: None,
             long_flags_var_name: HashMap::new(),
             conf,
         }
@@ -328,9 +321,6 @@ impl Context {
 
         // Remember the program's main scope
         self.program_main_scope = Some(scope_id);
-
-        // Clear the previous wandering value
-        self.clear_wandering_value();
 
         Ok(())
     }
@@ -795,23 +785,6 @@ impl Context {
     /// Trigger a directory jump event
     pub fn trigger_directory_jump_event(&mut self, at: RuntimeCodeRange) -> ExecResult<()> {
         (self.conf.on_dir_jump)(self, at)
-    }
-
-    /// Set the wandering value
-    pub fn set_wandering_value(&mut self, value: RuntimeValue) {
-        self.wandering_value = Some(value);
-    }
-
-    /// (Crate-private) Clear the wandering value
-    /// Called at each new instruction
-    pub(super) fn clear_wandering_value(&mut self) {
-        self.wandering_value = None;
-    }
-
-    /// Move the wandering value out of the context
-    /// Use cases include e.g. REPL to display the wandering value after execution
-    pub fn take_wandering_value(&mut self) -> Option<RuntimeValue> {
-        self.wandering_value.take()
     }
 }
 
