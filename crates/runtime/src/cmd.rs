@@ -435,17 +435,11 @@ fn evaluate_cmd_target(
         let func = match &cmd_path.data {
             CmdPath::Method(name) => EvaluatedCmdTarget::Method(name.clone()),
 
-            CmdPath::CmdRawString(cc_str) => {
-                assert!(cc_str.data.only_literal().is_some());
+            CmdPath::Literal(name) => EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
+                ctx.get_visible_fn_value(&name.forge_here(name.data.to_owned()))?,
+            )),
 
-                let string = eval_cmd_raw_string(cc_str, ctx)?;
-
-                EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
-                    ctx.get_visible_fn_value(&cc_str.forge_here(string))?,
-                ))
-            }
-
-            CmdPath::Direct(_) | CmdPath::ComputedString(_) => {
+            CmdPath::Direct(_) => {
                 unreachable!()
             }
         };
@@ -456,8 +450,7 @@ fn evaluate_cmd_target(
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
         CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_raw_string(cc_str, ctx)?),
         CmdPath::Method(_) => unreachable!(),
-        CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
-        CmdPath::CmdRawString(cc_str) => cc_str.forge_here(eval_cmd_raw_string(cc_str, ctx)?),
+        CmdPath::Literal(name) => name.forge_here(name.data.to_owned()),
     }))
 }
 

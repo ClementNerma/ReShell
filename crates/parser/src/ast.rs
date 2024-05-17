@@ -120,6 +120,9 @@ pub enum Instruction {
     /// Command call
     CmdCall(Eaten<CmdCall>),
 
+    /// Expression
+    Expr(Eaten<Expr>),
+
     /// Program inclusion
     Include(Eaten<Program>),
 }
@@ -404,8 +407,7 @@ pub struct CmdEnvVar {
 pub enum CmdPath {
     Direct(Eaten<CmdRawString>),
     Method(Eaten<String>),
-    ComputedString(Eaten<ComputedString>),
-    CmdRawString(Eaten<CmdRawString>),
+    Literal(Eaten<String>),
 }
 
 #[derive(Debug, Clone)]
