@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    io::Write,
     path::MAIN_SEPARATOR,
     process::{Child, Command, Stdio},
 };
@@ -30,6 +31,9 @@ use crate::{
 pub struct CmdExecParams {
     /// How the command's output should be captured
     pub capture: Option<CmdPipeCapture>,
+
+    /// Hide output from non-captured pipes
+    pub silent: bool,
 }
 
 /// What pipes to capture from a command's output
@@ -37,7 +41,7 @@ pub struct CmdExecParams {
 pub enum CmdPipeCapture {
     Stdout,
     Stderr,
-    Both,
+    // Both,
 }
 
 pub fn run_cmd(
@@ -45,7 +49,7 @@ pub fn run_cmd(
     ctx: &mut Context,
     params: CmdExecParams,
 ) -> ExecResult<CmdExecResult> {
-    let CmdExecParams { capture } = params;
+    let CmdExecParams { capture, silent: _ } = params;
 
     // Interrupt before command execution if Ctrl+C was pressed
     ctx.ensure_no_ctrl_c_press(call.at)?;
@@ -54,31 +58,13 @@ pub fn run_cmd(
     let CmdCall { base, pipes } = &call.data;
 
     let (base, from_value) = match base {
-        CmdCallBase::OutputOf(cmd_call) => {
-            // TODO: cache this
-            let cmd_call = cmd_call.forge_here(CmdCall {
-                base: CmdCallBase::SingleCmdCall(cmd_call.clone()),
-                pipes: vec![],
-            });
+        CmdCallBase::Expr(expr) => {
+            let value = eval_expr(&expr.data, ctx)?;
 
-            let output = run_cmd(
-                &cmd_call,
-                ctx,
-                CmdExecParams {
-                    capture: Some(CmdPipeCapture::Stdout),
-                },
-            )?;
-
-            match output {
-                CmdExecResult::Returned(_) | CmdExecResult::None => unreachable!(),
-                CmdExecResult::Captured(captured) => (
-                    None,
-                    Some(LocatedValue::new(
-                        RuntimeValue::String(captured),
-                        RuntimeCodeRange::Parsed(cmd_call.at),
-                    )),
-                ),
-            }
+            (
+                None,
+                Some(LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))),
+            )
         }
 
         CmdCallBase::SingleCmdCall(cmd_call) => (Some(cmd_call), None),
@@ -102,121 +88,7 @@ pub fn run_cmd(
         .map(|(_, pipe_type)| *pipe_type)
         .collect::<Vec<_>>();
 
-    // TODO: optimize (this should only be an assertion)
-    let only_cmd_calls = chain.iter().any(|(cmd_data, _)| match cmd_data.target {
-        EvaluatedCmdTarget::ExternalCommand(_) => true,
-        EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => false,
-    });
-
-    // Handle command chains that do not only contain command calls
-    // (e.g. includes expressions or function/method calls)
-    if !only_cmd_calls {
-        if capture.is_some() {
-            return Err(ctx.error(call.at, "only external commands' output can be captured"));
-        }
-
-        let mut last_return_value = from_value;
-
-        let chain_len = chain.len();
-
-        for (i, (cmd_data, pipe_type)) in chain.into_iter().enumerate() {
-            if let Some(pipe_type) = pipe_type {
-                assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
-            }
-
-            let EvaluatedCmdData {
-                target,
-                args: EvaluatedCmdArgs { env_vars, args },
-                call_at,
-            } = cmd_data;
-
-            if !env_vars.is_empty() {
-                return Err(ctx.error(
-                    call_at,
-                    "environment variables are not supported for function calls",
-                ));
-            }
-
-            let func = match target {
-                EvaluatedCmdTarget::ExternalCommand(_) => unreachable!(),
-                EvaluatedCmdTarget::Function(func) => func,
-                EvaluatedCmdTarget::Method(name) => {
-                    let first_arg = match &last_return_value {
-                        Some(value) => value,
-                        None => args
-                            .iter()
-                            .find_map(|(arg, _)| {
-                                let arg = match arg {
-                                    CmdArgResult::Single(single) => single,
-                                    CmdArgResult::Spreaded(spreaded) => spreaded.first()?,
-                                };
-
-                                match arg {
-                                    CmdSingleArgResult::Basic(value) => Some(value),
-                                    CmdSingleArgResult::Flag { name: _, value: _ } => None,
-                                }
-                            })
-                            .ok_or_else(|| {
-                                ctx.error(
-                                    call_at,
-                                    "please provide at least one argument to run the method on",
-                                )
-                            })?,
-                    };
-
-                    let typ = first_arg.value.get_type();
-
-                    let method = MethodApplyableType::from_single_value_type(typ.clone())
-                        .and_then(|typ| ctx.get_visible_method(&name, typ))
-                        .ok_or_else(|| {
-                            ctx.error(
-                                call_at,
-                                format!(
-                                    "no such method for type {}",
-                                    typ.render_colored(ctx, PrettyPrintOptions::inline())
-                                ),
-                            )
-                        })?;
-
-                    method.value.clone()
-                }
-            };
-
-            let return_value = call_fn_value(
-                RuntimeCodeRange::Parsed(call_at),
-                &func,
-                FnCallInfos {
-                    nature: if func.is_method {
-                        FnCallNature::Method
-                    } else {
-                        FnCallNature::NamedFunction
-                    },
-                    args: FnPossibleCallArgs::ParsedCmdArgs(args),
-                    piped: pipe_type.map(|pipe_type| {
-                        assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
-
-                        last_return_value.unwrap()
-                    }),
-                },
-                ctx,
-            )?;
-
-            last_return_value = return_value.map(|loc_value| {
-                LocatedValue::new(loc_value.value, RuntimeCodeRange::Parsed(call_at))
-            });
-
-            if i + 1 < chain_len && last_return_value.is_none() {
-                return Err(ctx.error(call_at, "piped function did not return a value"));
-            }
-        }
-
-        return Ok(CmdExecResult::Returned(last_return_value));
-    }
-
-    // Handle commands-only chains
-    //
-    // Start by preparing a vector to collect commands' child processes
-    let mut children: Vec<(Child, CodeRange)> = Vec::with_capacity(chain.len());
+    let mut state = from_value.map(CmdChainState::Value);
 
     for (i, (cmd_data, pipe_type)) in chain.into_iter().enumerate() {
         let next_pipe_type = pipe_types
@@ -229,93 +101,249 @@ pub fn run_cmd(
             call_at,
         } = cmd_data;
 
-        let cmd_name = match target {
-            EvaluatedCmdTarget::ExternalCommand(name) => name,
-            EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => unreachable!(),
-        };
-
-        let child = exec_cmd(
-            ExecCmdArgs {
-                name: &cmd_name,
-                args,
-                pipe_type,
-                next_pipe_type,
-                params,
-            },
-            &mut children,
-            ctx,
-        )?;
-
-        children.push((child, call_at));
-    }
-
-    let mut last_output = None;
-
-    // Evaluate each subcommand
-    for (i, (child, at)) in children.into_iter().rev().enumerate() {
-        let output = child.wait_with_output();
-
-        ctx.reset_ctrl_c_press_indicator();
-
-        let output = output.map_err(|err| {
-            ctx.error(
-                at,
-                ExecErrorNature::CommandFailed {
-                    message: format!("command failed: {err}"),
-                    exit_status: None,
-                },
-            )
-        })?;
-
-        if !output.status.success() {
-            return Err(ctx.error(
-                at,
-                ExecErrorNature::CommandFailed {
-                    message: format!(
-                        "command failed{}",
-                        match output.status.code() {
-                            Some(code) => format!(" with status code {code}"),
-                            None => String::new(),
+        state = Some(match target {
+            EvaluatedCmdTarget::ExternalCommand(cmd_name) => {
+                // TODO: deduplicate sub routines
+                let (piped_string, children) = match state {
+                    Some(CmdChainState::NoValue(from)) => {
+                        if i > 0 {
+                            return Err(ctx.error(from, "this function returned nothing ; cannot pipe it into a command's input"));
                         }
-                    ),
-                    exit_status: output.status.code(),
-                },
-            ));
-        }
 
-        if i == 0 {
-            last_output = Some(output.stdout);
-        }
+                        (None, None)
+                    }
+
+                    Some(CmdChainState::Value(loc_val)) => {
+                        let input = match loc_val.value {
+                            RuntimeValue::String(string) => string,
+
+                            _ => {
+                                return Err(ctx.error(
+                                    loc_val.from,
+                                    format!(
+                                        "expected a string to pipe into the next command, instead found a: {}",
+                                        loc_val
+                                            .value
+                                            .get_type()
+                                            .render_colored(ctx, PrettyPrintOptions::inline())
+                                    )
+                                ));
+                            }
+                        };
+
+                        (Some(input), None)
+                    }
+
+                    Some(CmdChainState::Commands(children)) => (None, Some(children)),
+
+                    None => {
+                        assert_eq!(i, 0);
+
+                        (None, None)
+                    }
+                };
+
+                let mut children = children.unwrap_or_default();
+
+                let child = exec_cmd(
+                    call_at,
+                    ExecCmdArgs {
+                        name: &cmd_name,
+                        args,
+                        pipe_type,
+                        next_pipe_type,
+                        params,
+                    },
+                    piped_string
+                        .map(CmdInput::String)
+                        .or_else(|| children.last_mut().map(|(child, _)| CmdInput::Child(child))),
+                    ctx,
+                )?;
+
+                children.push((child, call_at));
+
+                CmdChainState::Commands(children)
+            }
+
+            EvaluatedCmdTarget::Function(_) | EvaluatedCmdTarget::Method(_) => {
+                if let Some(pipe_type) = pipe_type {
+                    assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
+                }
+
+                let EvaluatedCmdArgs { env_vars, args } = args;
+
+                assert!(env_vars.is_empty());
+
+                let piped_value = match state {
+                    Some(CmdChainState::NoValue(from)) => {
+                        if i > 0 {
+                            return Err(ctx.error(from, "this function returned nothing ; cannot pipe it into another function"));
+                        }
+
+                        None
+                    }
+
+                    Some(CmdChainState::Commands(children)) => {
+                        let from = children.last().unwrap().1;
+
+                        let captured = wait_for_commands_ending(
+                            children,
+                            Some(match pipe_type.unwrap().data {
+                                CmdPipeType::Stderr => CmdPipeCapture::Stderr,
+                                CmdPipeType::ValueOrStdout => CmdPipeCapture::Stdout,
+                            }),
+                            ctx,
+                        )?
+                        .unwrap();
+
+                        Some(LocatedValue::new(
+                            RuntimeValue::String(captured),
+                            RuntimeCodeRange::Parsed(from),
+                        ))
+                    }
+
+                    Some(CmdChainState::Value(value)) => Some(value),
+
+                    None => None,
+                };
+
+                let func = match target {
+                    EvaluatedCmdTarget::ExternalCommand(_) => unreachable!(),
+                    EvaluatedCmdTarget::Function(func) => func,
+                    EvaluatedCmdTarget::Method(name) => {
+                        let first_arg = match &piped_value {
+                            Some(value) => value,
+                            None => args
+                                .iter()
+                                .find_map(|(arg, _)| {
+                                    let arg = match arg {
+                                        CmdArgResult::Single(single) => single,
+                                        CmdArgResult::Spreaded(spreaded) => spreaded.first()?,
+                                    };
+
+                                    match arg {
+                                        CmdSingleArgResult::Basic(value) => Some(value),
+                                        CmdSingleArgResult::Flag { name: _, value: _ } => None,
+                                    }
+                                })
+                                .ok_or_else(|| {
+                                    ctx.error(
+                                        call_at,
+                                        "please provide at least one argument to run the method on",
+                                    )
+                                })?,
+                        };
+
+                        let typ = first_arg.value.get_type();
+
+                        let method = MethodApplyableType::from_single_value_type(typ.clone())
+                            .and_then(|typ| ctx.get_visible_method(&name, typ))
+                            .ok_or_else(|| {
+                                ctx.error(
+                                    call_at,
+                                    format!(
+                                        "no such method for type {}",
+                                        typ.render_colored(ctx, PrettyPrintOptions::inline())
+                                    ),
+                                )
+                            })?;
+
+                        method.value.clone()
+                    }
+                };
+
+                let return_value = call_fn_value(
+                    RuntimeCodeRange::Parsed(call_at),
+                    &func,
+                    FnCallInfos {
+                        nature: if func.is_method {
+                            FnCallNature::Method
+                        } else {
+                            FnCallNature::NamedFunction
+                        },
+                        args: FnPossibleCallArgs::ParsedCmdArgs(args),
+                        piped: piped_value,
+                    },
+                    ctx,
+                )?;
+
+                match return_value {
+                    Some(value) => CmdChainState::Value(value),
+                    None => CmdChainState::NoValue(call_at),
+                }
+            }
+        });
     }
 
-    let captured = if capture.is_some() {
-        // Invalid UTF-8 output will be handled with "unknown" symbols
-        let mut out = String::from_utf8_lossy(&last_output.unwrap()).into_owned();
+    let state = state.unwrap();
 
-        if out.ends_with('\n') {
-            out.pop();
-        }
+    match capture {
+        Some(capture) => Ok(match state {
+            CmdChainState::NoValue(from) => {
+                return Err(ctx.error(from, "this returned nothing to capture"));
+            }
 
-        Some(out)
-    } else {
-        None
-    };
+            CmdChainState::Value(loc_val) => {
+                let captured = match loc_val.value {
+                    RuntimeValue::String(string) => string,
 
-    Ok(match captured {
-        Some(string) => CmdExecResult::Captured(string),
-        None => CmdExecResult::None,
-    })
+                    _ => {
+                        return Err(ctx.error(
+                            loc_val.from,
+                            format!(
+                                "expected a string to capture, found a: {}",
+                                loc_val
+                                    .value
+                                    .get_type()
+                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                            ),
+                        ));
+                    }
+                };
+
+                // Just a little assertion
+                match capture {
+                    CmdPipeCapture::Stdout => {}
+                    CmdPipeCapture::Stderr /*| CmdPipeCapture::Both*/ => unreachable!(),
+                }
+
+                CmdExecResult::Captured(captured)
+            }
+
+            CmdChainState::Commands(children) => {
+                let captured = wait_for_commands_ending(children, Some(capture), ctx)?;
+
+                CmdExecResult::Captured(captured.unwrap())
+            }
+        }),
+
+        None => Ok(match state {
+            CmdChainState::NoValue(_) => CmdExecResult::None,
+            CmdChainState::Value(loc_val) => CmdExecResult::Returned(loc_val),
+            CmdChainState::Commands(children) => {
+                wait_for_commands_ending(children, None, ctx)?;
+                CmdExecResult::None
+            }
+        }),
+    }
+}
+
+/// Internal representation of command chain state
+enum CmdChainState {
+    NoValue(CodeRange),
+    Value(LocatedValue),
+    Commands(Vec<(Child, CodeRange)>),
 }
 
 /// Result of a command execution
 pub enum CmdExecResult {
-    Returned(Option<LocatedValue>),
+    Returned(LocatedValue),
     Captured(String),
     None,
 }
 
 impl CmdExecResult {
-    pub fn as_returned(self) -> Option<Option<LocatedValue>> {
+    pub fn as_returned(self) -> Option<LocatedValue> {
         match self {
             CmdExecResult::Returned(inner) => Some(inner),
             CmdExecResult::Captured(_) => None,
@@ -499,8 +527,9 @@ struct ExecCmdArgs<'a> {
 }
 
 fn exec_cmd(
+    call_at: CodeRange,
     args: ExecCmdArgs,
-    children: &mut [(Child, CodeRange)],
+    input: Option<CmdInput<'_>>,
     ctx: &mut Context,
 ) -> ExecResult<Child> {
     let ExecCmdArgs {
@@ -511,7 +540,7 @@ fn exec_cmd(
         params,
     } = args;
 
-    let CmdExecParams { capture } = params;
+    let CmdExecParams { capture, silent } = params;
 
     let EvaluatedCmdArgs { env_vars, args } = args;
 
@@ -538,20 +567,39 @@ fn exec_cmd(
             )
         })?;
 
+    // String to write to STDIN
+    let mut write_to_stdin = None;
+
     // Actually run the command
-    let child = Command::new(cmd_path)
+    let mut child = Command::new(cmd_path)
         .envs(env_vars)
         .args(args_str)
-        .stdin(match children.last_mut() {
-            Some((child, _)) => match pipe_type.unwrap().data {
+        .stdin(match input {
+            Some(CmdInput::Child(child)) => match pipe_type.unwrap().data {
                 CmdPipeType::ValueOrStdout => Stdio::from(child.stdout.take().unwrap()),
                 CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
             },
-            None => Stdio::inherit(),
+
+            Some(CmdInput::String(string)) => {
+                write_to_stdin = Some(string);
+                Stdio::piped()
+            }
+
+            None => {
+                if silent {
+                    Stdio::piped()
+                } else {
+                    Stdio::inherit()
+                }
+            }
         })
         .stdout(
             if next_pipe_type == Some(CmdPipeType::ValueOrStdout)
-                || matches!(capture, Some(CmdPipeCapture::Stdout | CmdPipeCapture::Both))
+                || matches!(
+                    capture,
+                    Some(CmdPipeCapture::Stdout /*| CmdPipeCapture::Both*/)
+                )
+                || silent
             {
                 Stdio::piped()
             } else {
@@ -560,7 +608,11 @@ fn exec_cmd(
         )
         .stderr(
             if next_pipe_type == Some(CmdPipeType::Stderr)
-                || matches!(capture, Some(CmdPipeCapture::Stderr | CmdPipeCapture::Both))
+                || matches!(
+                    capture,
+                    Some(CmdPipeCapture::Stderr /*| CmdPipeCapture::Both*/)
+                )
+                || silent
             {
                 Stdio::piped()
             } else {
@@ -577,7 +629,24 @@ fn exec_cmd(
             )
         })?;
 
+    // Write to STDIN if we have a string input to pass on
+    if let Some(string) = write_to_stdin {
+        let mut stdin = child
+            .stdin
+            .take()
+            .expect("Failed to open STDIN from spawned command");
+
+        stdin
+            .write_all(string.as_bytes())
+            .map_err(|err| ctx.error(call_at, format!("failed to write input to STDIN: {err}")))?;
+    }
+
     Ok(child)
+}
+
+enum CmdInput<'a> {
+    Child(&'a mut Child),
+    String(String),
 }
 
 fn append_cmd_arg_as_string(
@@ -754,6 +823,7 @@ fn eval_cmd_value_making_arg(
                 ctx,
                 CmdExecParams {
                     capture: Some(CmdPipeCapture::Stdout),
+                    silent: false,
                 },
             )?;
 
@@ -817,6 +887,70 @@ pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'
     };
 
     Ok(out)
+}
+
+fn wait_for_commands_ending(
+    children: Vec<(Child, CodeRange)>,
+    capture: Option<CmdPipeCapture>,
+    ctx: &Context,
+) -> ExecResult<Option<String>> {
+    assert!(!children.is_empty());
+
+    let mut final_output = None;
+
+    // Evaluate each subcommand
+    for (i, (child, at)) in children.into_iter().rev().enumerate() {
+        let output = child.wait_with_output();
+
+        ctx.reset_ctrl_c_press_indicator();
+
+        let output = output.map_err(|err| {
+            ctx.error(
+                at,
+                ExecErrorNature::CommandFailed {
+                    message: format!("command failed: {err}"),
+                    exit_status: None,
+                },
+            )
+        })?;
+
+        if !output.status.success() {
+            return Err(ctx.error(
+                at,
+                ExecErrorNature::CommandFailed {
+                    message: format!(
+                        "command failed{}",
+                        match output.status.code() {
+                            Some(code) => format!(" with status code {code}"),
+                            None => String::new(),
+                        }
+                    ),
+                    exit_status: output.status.code(),
+                },
+            ));
+        }
+
+        if i == 0 {
+            final_output = capture.map(|capture| match capture {
+                CmdPipeCapture::Stdout => output.stdout,
+                CmdPipeCapture::Stderr => output.stderr,
+                // CmdPipeCapture::Both => {
+                //     todo!()
+                // }
+            });
+        }
+    }
+
+    Ok(final_output.map(|captured| {
+        // Invalid UTF-8 output will be handled with "unknown" symbols
+        let mut out = String::from_utf8_lossy(&captured).into_owned();
+
+        if out.ends_with('\n') {
+            out.pop();
+        }
+
+        out
+    }))
 }
 
 #[derive(Debug, Clone)]

@@ -1,5 +1,5 @@
 use reshell_runtime::{
-    cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
+    cmd::{run_cmd, CmdExecParams},
     errors::ExecErrorNature,
 };
 
@@ -20,18 +20,18 @@ fn run() -> Runner {
     Runner::new(|_, Args { cmd_call, silent }, _, ctx| {
         let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
 
-        match run_cmd(
+        let cmd_result = run_cmd(
             &cmd,
             ctx,
             CmdExecParams {
-                capture: if silent {
-                    Some(CmdPipeCapture::Both)
-                } else {
-                    None
-                },
+                capture: None,
+                silent,
             },
-        ) {
+        );
+
+        match cmd_result {
             Ok(_) => Ok(Some(RuntimeValue::Bool(true))),
+
             Err(err) => match err.nature {
                 ExecErrorNature::CommandFailedToStart { message: _ }
                 | ExecErrorNature::CommandFailed {

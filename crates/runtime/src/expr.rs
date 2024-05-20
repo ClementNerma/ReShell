@@ -536,6 +536,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 ctx,
                 CmdExecParams {
                     capture: Some(CmdPipeCapture::Stdout),
+                    silent: false,
                 },
             )?
             .as_captured()
@@ -612,6 +613,7 @@ fn eval_computed_string_piece(
             ctx,
             CmdExecParams {
                 capture: Some(CmdPipeCapture::Stdout),
+                silent: false,
             },
         )?
         .as_captured()

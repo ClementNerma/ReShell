@@ -1013,14 +1013,13 @@ pub fn program(
             });
 
         let cmd_call_base = choice::<_, CmdCallBase>((
-            just("output")
-                .ignore_then(s)
-                .ignore_then(single_cmd_call.clone().spanned())
-                .map(CmdCallBase::OutputOf),
             single_cmd_call
                 .clone()
                 .spanned()
                 .map(CmdCallBase::SingleCmdCall),
+            //
+            // Expressions
+            expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
         ));
 
         cmd_call.finish(
@@ -1440,9 +1439,6 @@ pub fn program(
             // Command calls
             //
             cmd_call.spanned().map(Instruction::CmdCall),
-            //
-            // Expressions
-            expr.spanned().map(Instruction::Expr),
         ))
         .spanned()
         .then_ignore(ms)

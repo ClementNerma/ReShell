@@ -714,21 +714,16 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::DoBlock(block) => run_block(block, ctx, None)?,
 
         Instruction::CmdCall(call) => {
-            let cmd_result = run_cmd(call, ctx, CmdExecParams { capture: None })?;
+            let cmd_result = run_cmd(
+                call,
+                ctx,
+                CmdExecParams {
+                    capture: None,
+                    silent: false,
+                },
+            )?;
 
-            cmd_result
-                .as_returned()
-                .flatten()
-                .map(InstrRet::WanderingValue)
-        }
-
-        Instruction::Expr(expr) => {
-            let value = eval_expr(&expr.data, ctx)?;
-
-            Some(InstrRet::WanderingValue(LocatedValue::new(
-                value,
-                RuntimeCodeRange::Parsed(expr.at),
-            )))
+            cmd_result.as_returned().map(InstrRet::WanderingValue)
         }
 
         Instruction::Include(program) => {

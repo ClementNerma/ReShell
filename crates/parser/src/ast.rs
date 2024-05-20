@@ -120,9 +120,6 @@ pub enum Instruction {
     /// Command call
     CmdCall(Eaten<CmdCall>),
 
-    /// Expression
-    Expr(Eaten<Expr>),
-
     /// Program inclusion
     Include(Eaten<Program>),
 }
@@ -380,7 +377,7 @@ pub struct CmdCall {
 
 #[derive(Debug, Clone)]
 pub enum CmdCallBase {
-    OutputOf(Eaten<SingleCmdCall>),
+    Expr(Eaten<Box<Expr>>),
     SingleCmdCall(Eaten<SingleCmdCall>),
 }
 
@@ -477,7 +474,6 @@ pub struct CmdPipe {
 pub enum CmdPipeType {
     Stderr,
     ValueOrStdout,
-    // Both,
 }
 
 #[derive(Debug, Clone)]
