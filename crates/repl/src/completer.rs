@@ -96,8 +96,7 @@ pub fn generate_completions(
 
     let word = &line[word_start..word_end];
 
-    let after_space = word_start > 0
-        && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
+    let cmd_beginning = cmd_pieces.len() <= 1;
 
     let after_cmd_separator = line[..word_start].trim_end().ends_with(['|', ';'])
         && !line[..word_start].trim_end().ends_with("||");
@@ -117,21 +116,31 @@ pub fn generate_completions(
             .flatten()
             .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
+        cmd_comp.extend(build_fn_completions(word, next_char, None, None, span, ctx));
 
         return sort_results(word, cmd_comp);
     }
 
-    let CompletionMode {
-        allow_files,
-        allow_vars,
-        allow_cmds,
-    } = match complete_special_instructions(&cmd_pieces, span) {
-        InstructionCompletion::Specific(specific) => return specific,
-        InstructionCompletion::Undefined(mode) => mode,
-    };
+    let mode = complete_special_instructions(&cmd_pieces);
 
-    if allow_vars {
+    match mode {
+        CompletionMode::None => return vec![],
+
+        CompletionMode::Single(single) => {
+            return vec![Suggestion {
+                value: single.to_owned(),
+                description: None,
+                style: None,
+                extra: None,
+                span,
+                append_whitespace: true,
+            }]
+        }
+
+        CompletionMode::Default | CompletionMode::Expr | CompletionMode::CmdName => {}
+    }
+
+    if matches!(mode, CompletionMode::Default | CompletionMode::Expr) {
         if let Some(s_word) = word.strip_prefix('$') {
             return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
                 complete_path(&unescape_str(word), span, ctx)
@@ -140,28 +149,40 @@ pub fn generate_completions(
             };
         }
 
-        // TODO: only complete if inside expression
-
+        // TODO: complete only inside expressions
         if let Some(s_word) = word.strip_prefix('@') {
             return sort_results(
                 word,
-                build_fn_completions(s_word, next_char, Some("@"), span, ctx).collect(),
+                build_fn_completions(s_word, next_char, Some("@"), None, span, ctx).collect(),
             );
         }
     }
 
-    if (allow_cmds == Some(true) || after_space) && !word.contains(['/', '\\', '\'', '"']) {
-        let mut cmd_comp = build_cmd_completions(word, next_char, span)
-            .ok()
-            .flatten()
-            .unwrap_or_default();
+    if !word.contains(['/', '\\', '\'', '"']) {
+        if matches!(mode, CompletionMode::CmdName)
+            || (cmd_beginning && !matches!(mode, CompletionMode::Expr))
+        {
+            let mut cmd_comp = build_cmd_completions(word, next_char, span)
+                .ok()
+                .flatten()
+                .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
+            if !matches!(mode, CompletionMode::CmdName) {
+                cmd_comp.extend(build_fn_completions(word, next_char, None, None, span, ctx));
+            }
 
-        return sort_results(word, cmd_comp);
+            return sort_results(word, cmd_comp);
+        }
+
+        if matches!(mode, CompletionMode::Expr) {
+            let fn_comps =
+                build_fn_completions(word, next_char, None, Some("("), span, ctx).collect();
+
+            return sort_results(word, fn_comps);
+        }
     }
 
-    if after_space {
+    if !cmd_beginning {
         if let Some(external_completer) = external_completer {
             // let cmd_start = cmd_pieces.first().map_or(0, |piece| piece.start);
             // let cmd = &line[cmd_start..pos];
@@ -196,7 +217,7 @@ pub fn generate_completions(
         }
     }
 
-    if allow_files {
+    if matches!(mode, CompletionMode::Default) {
         complete_path(&unescape_str(word), span, ctx)
     } else {
         vec![]
@@ -206,14 +227,15 @@ pub fn generate_completions(
 fn build_fn_completions<'a>(
     word: &str,
     next_char: Option<char>,
-    add_prefix: Option<&str>,
+    add_prefix: Option<&'static str>,
+    add_suffix: Option<&'static str>,
     span: Span,
     ctx: &'a Context,
 ) -> impl Iterator<Item = SortableSuggestion> + 'a {
     let word = word.to_lowercase();
-    let add_prefix = add_prefix.map(str::to_owned);
 
-    let append_whitespace = next_char != Some(' ') && next_char != Some('(');
+    let append_whitespace =
+        add_suffix.is_none() && next_char != Some(' ') && next_char != Some('(');
 
     ctx.visible_scopes_content()
         .flat_map(|scope| scope.fns.iter())
@@ -222,10 +244,11 @@ fn build_fn_completions<'a>(
             (
                 name.clone(),
                 Suggestion {
-                    value: match add_prefix {
-                        Some(ref prefix) => format!("{prefix}{name}"),
-                        None => name.clone(),
-                    },
+                    value: format!(
+                        "{}{name}{}",
+                        add_prefix.unwrap_or_default(),
+                        add_suffix.unwrap_or_default()
+                    ),
                     description: Some(
                         func.value
                             .signature
@@ -528,92 +551,53 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .collect()
 }
 
-struct CompletionMode {
-    allow_files: bool,
-    allow_vars: bool,
-    allow_cmds: Option<bool>,
+#[derive(Debug)]
+enum CompletionMode {
+    Default,
+    Single(&'static str),
+    None,
+    Expr,
+    CmdName,
 }
 
-impl Default for CompletionMode {
-    fn default() -> Self {
-        Self {
-            allow_vars: true,
-            allow_files: true,
-            allow_cmds: None,
-        }
+fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> CompletionMode {
+    if cmd_pieces.len() == 1 {
+        return CompletionMode::Default;
     }
-}
 
-impl CompletionMode {
-    fn full() -> Self {
-        Self {
-            allow_files: true,
-            allow_vars: true,
-            allow_cmds: Some(true),
-        }
-    }
-}
-
-enum InstructionCompletion {
-    Specific(Vec<Suggestion>),
-    Undefined(CompletionMode),
-}
-
-fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> InstructionCompletion {
     let Some(cmd_name) = cmd_pieces.first().map(|piece| piece.content) else {
-        return InstructionCompletion::Undefined(CompletionMode::default());
+        return CompletionMode::Default;
     };
 
     match cmd_name {
         "for" => {
             match cmd_pieces.len() {
                 // for [<...>]
-                1 | 2 => InstructionCompletion::Specific(vec![]),
+                2 => CompletionMode::None,
 
                 // for <...> <in?>
-                3 => InstructionCompletion::Specific(vec![Suggestion {
-                    value: "in".to_owned(),
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span,
-                    append_whitespace: true,
-                }]),
+                3 => CompletionMode::Single("in"),
 
-                _ => InstructionCompletion::Undefined(CompletionMode::default()),
+                // for <...> <in?> <...>
+                _ => CompletionMode::Expr,
             }
         }
 
-        "if" | "while" | "do" | "try" | "throw" | "switch" | "return" => match cmd_pieces.len() {
-            1 | 2 => InstructionCompletion::Undefined(CompletionMode {
-                allow_vars: true,
-                allow_files: false,
-                allow_cmds: Some(true),
-            }),
+        "if" | "while" | "do" | "try" | "throw" | "switch" | "return" => CompletionMode::Expr,
 
-            _ => InstructionCompletion::Undefined(CompletionMode::default()),
-        },
-
-        "continue" | "break" | "fn" => InstructionCompletion::Specific(vec![]),
+        "continue" | "break" | "fn" => CompletionMode::None,
 
         "alias" => {
             match cmd_pieces.len() {
                 // alias [<...>]
-                1 | 2 => InstructionCompletion::Specific(vec![]),
+                2 => CompletionMode::None,
 
                 // alias <...> <=?>
-                3 => InstructionCompletion::Specific(vec![Suggestion {
-                    value: "=".to_owned(),
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span,
-                    append_whitespace: true,
-                }]),
+                3 => CompletionMode::Single("="),
 
                 _ => {
                     // TODO: complete like usual but with "alias <...> =" stripped
-                    InstructionCompletion::Undefined(CompletionMode::default())
+                    CompletionMode::Expr
                 }
             }
         }
@@ -621,72 +605,51 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
         "type" => {
             match cmd_pieces.len() {
                 // alias [<...>]
-                1 | 2 => InstructionCompletion::Specific(vec![]),
+                2 => CompletionMode::None,
 
                 // alias <...> <=?>
-                3 => InstructionCompletion::Specific(vec![Suggestion {
-                    value: "=".to_owned(),
-                    description: None,
-                    style: None,
-                    extra: None,
-                    span,
-                    append_whitespace: true,
-                }]),
+                3 => CompletionMode::Single("="),
 
                 _ => {
                     // TODO: complete like usual but with "type <...> =" stripped
-                    InstructionCompletion::Specific(vec![])
+                    CompletionMode::None
                 }
             }
         }
 
         "include" => match cmd_pieces.len() {
-            // include
-            1 => InstructionCompletion::Specific(vec![]),
-
             // include <...>
             2 => {
                 // TODO: wrap in single quotes
-                InstructionCompletion::Undefined(CompletionMode {
-                    allow_files: true,
-                    allow_vars: false,
-                    allow_cmds: Some(false),
-                })
+                CompletionMode::None
             }
 
             // include <...> ...
-            _ => InstructionCompletion::Specific(vec![]),
+            _ => CompletionMode::None,
         },
 
         // TODO: improve this
         "let" => match cmd_pieces.len() {
-            1 => InstructionCompletion::Specific(vec![]),
+            2 => CompletionMode::None,
 
-            2..=3 => InstructionCompletion::Undefined(CompletionMode {
-                allow_vars: true,
-                allow_files: false,
-                allow_cmds: Some(false),
-            }),
+            // let <...> <=?>
+            3 => CompletionMode::Single("="),
 
-            _ => InstructionCompletion::Undefined(CompletionMode::full()),
+            _ => CompletionMode::Expr,
         },
 
         // TODO: complete like usual but with "direct" stripped
         //       => and ignore aliases / functions
         "direct" => match cmd_pieces.len() {
-            1 => InstructionCompletion::Specific(vec![]),
+            1 => CompletionMode::None,
 
-            2 => InstructionCompletion::Undefined(CompletionMode {
-                allow_files: false,
-                allow_vars: false,
-                allow_cmds: Some(true),
-            }),
+            2 => CompletionMode::CmdName,
 
-            _ => InstructionCompletion::Undefined(CompletionMode::default()),
+            _ => CompletionMode::Default,
         },
 
         // Not a special instruction
-        _ => InstructionCompletion::Undefined(CompletionMode::default()),
+        _ => CompletionMode::Default,
     }
 }
 

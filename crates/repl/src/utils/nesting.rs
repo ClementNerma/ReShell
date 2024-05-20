@@ -28,6 +28,7 @@ pub struct NestingDetectionResult {
 pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> NestingDetectionResult {
     let mut opened: Vec<(&str, usize)> = vec![];
     let mut output: Vec<NestingAction> = vec![];
+    let mut closed = vec![];
 
     macro_rules! register_content_until {
         ($offset: expr) => {{
@@ -77,13 +78,28 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
                     typ: NestingOpeningType::try_from_str($opening_str).unwrap(),
                     matching_close: false,
                 },
-                nesting_level: opened.len() + 1,
+                nesting_level: opened.len(),
             });
         }};
     }
 
+    macro_rules! close {
+        ($offset: expr, $len: expr, $opening_offset: expr) => {
+            let (opening_str, _) = opened.pop().unwrap();
+
+            push!(
+                $offset,
+                $len,
+                NestingActionType::Closing {
+                    matching_opening: Some(NestingOpeningType::try_from_str(opening_str).unwrap()),
+                }
+            );
+
+            closed.push($opening_offset);
+        };
+    }
+
     let mut opened_strings: Vec<(&str, usize)> = vec![];
-    let mut closed = vec![];
     let mut escaping = false;
     let mut commenting = false;
 
@@ -113,23 +129,13 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
             continue;
         }
 
-        match opened.last() {
+        match opened.last().copied() {
             // We are in a single-quoted string
             Some(("'", opening_offset)) => {
                 if char == '\\' {
                     escaping = true;
                 } else if char == '\'' {
-                    push!(
-                        offset,
-                        1,
-                        NestingActionType::Closing {
-                            matching_opening: true,
-                        }
-                    );
-
-                    closed.push(*opening_offset);
-
-                    opened.pop();
+                    close!(offset, 1, opening_offset);
                     opened_strings.pop();
                 }
             }
@@ -147,17 +153,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
                 '`' => open!(offset, char_as_str),
 
                 '"' => {
-                    push!(
-                        offset,
-                        1,
-                        NestingActionType::Closing {
-                            matching_opening: true,
-                        }
-                    );
-
-                    closed.push(*opening_offset);
-
-                    opened.pop();
+                    close!(offset, 1, opening_offset);
                     opened_strings.pop();
                 }
 
@@ -170,18 +166,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
                 // This case is handled here as almost every single other character will be matched exactly
                 // like in a non-quoted part
                 '`' => {
-                    if let Some(("`", opening_offset)) = opened.last() {
-                        push!(
-                            offset,
-                            1,
-                            NestingActionType::Closing {
-                                matching_opening: true,
-                            }
-                        );
-
-                        closed.push(*opening_offset);
-
-                        opened.pop();
+                    if let Some(("`", opening_offset)) = opened.last().copied() {
+                        close!(offset, 1, opening_offset);
                     }
                 }
 
@@ -211,18 +197,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
                             (opening_str, char),
                             ("(" | "$(", ')') | ("[", ']') | ("{", '}')
                         ) {
-                            push!(
-                                offset,
-                                1,
-                                NestingActionType::Closing {
-                                    matching_opening: true,
-                                }
-                            );
-
-                            closed.push(opening_offset);
-
-                            opened.pop();
-
+                            close!(offset, 1, opening_offset);
                             continue;
                         }
                     }
@@ -231,7 +206,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
                         offset,
                         1,
                         NestingActionType::Closing {
-                            matching_opening: false,
+                            matching_opening: None,
                         }
                     );
                 }
@@ -289,7 +264,7 @@ pub enum NestingActionType {
         matching_close: bool,
     },
     Closing {
-        matching_opening: bool,
+        matching_opening: Option<NestingOpeningType>,
     },
     CommandSeparator,
     ArgumentSeparator,

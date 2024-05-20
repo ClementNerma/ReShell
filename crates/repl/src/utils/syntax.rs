@@ -134,7 +134,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                 output.push(HighlightPiece {
                     start: offset,
                     len,
-                    style: Some(if matching_opening {
+                    style: Some(if matching_opening.is_some() {
                         nested_content_rules
                             .get(&opened.pop().unwrap().1)
                             .unwrap()

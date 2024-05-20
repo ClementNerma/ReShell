@@ -21,11 +21,12 @@ pub struct CmdPiece<'a> {
 }
 
 pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
-    let detect_nesting_actions = detect_nesting_actions(input, true);
+    let nesting_actions = detect_nesting_actions(input, true);
+
     let NestingDetectionResult {
         actions,
         final_nesting_level,
-    } = detect_nesting_actions;
+    } = nesting_actions;
 
     let beg = (0..=final_nesting_level).rev().find_map(|level| {
         actions
@@ -50,26 +51,26 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
         None => (0, 0, 0),
     };
 
+    fn make_piece(extract: &str, start: usize) -> CmdPiece {
+        let trimmed = extract.len() - extract.trim().len();
+
+        CmdPiece {
+            start: start + trimmed,
+            content: extract.trim(),
+        }
+    }
+
     for action in &actions[pos..] {
         if action.nesting_level == level
             && matches!(action.action_type, NestingActionType::ArgumentSeparator)
         {
-            let extract = &input[from..action.offset];
-
-            segments.push(CmdPiece {
-                start: from,
-                content: extract,
-            });
-
+            segments.push(make_piece(&input[from..action.offset], from));
             from = action.offset + 1;
         }
     }
 
     if from <= input.len() {
-        segments.push(CmdPiece {
-            start: from,
-            content: &input[from..],
-        });
+        segments.push(make_piece(&input[from..], from));
     }
 
     let segments_len = segments.len();
