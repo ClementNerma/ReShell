@@ -482,11 +482,11 @@ fn evaluate_cmd_target(
         let func = match &cmd_path.data {
             CmdPath::Method(name) => EvaluatedCmdTarget::Method(name.clone()),
 
-            CmdPath::Literal(name) => EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
+            CmdPath::Raw(name) => EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
                 ctx.get_visible_fn_value(&name.forge_here(name.data.to_owned()))?,
             )),
 
-            CmdPath::Direct(_) => {
+            CmdPath::LiteralString(_) | CmdPath::ComputedString(_) | CmdPath::Direct(_) => {
                 unreachable!()
             }
         };
@@ -497,7 +497,8 @@ fn evaluate_cmd_target(
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
         CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_raw_string(cc_str, ctx)?),
         CmdPath::Method(_) => unreachable!(),
-        CmdPath::Literal(name) => name.forge_here(name.data.to_owned()),
+        CmdPath::Raw(name) | CmdPath::LiteralString(name) => name.forge_here(name.data.to_owned()),
+        CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
     }))
 }
 

@@ -398,7 +398,9 @@ pub struct CmdEnvVar {
 pub enum CmdPath {
     Direct(Eaten<CmdRawString>),
     Method(Eaten<String>),
-    Literal(Eaten<String>),
+    LiteralString(Eaten<String>),
+    ComputedString(Eaten<ComputedString>),
+    Raw(Eaten<String>),
 }
 
 #[derive(Debug, Clone)]

@@ -923,7 +923,12 @@ fn check_single_cmd_call(
     let mut developed_aliases = vec![];
 
     let target_type = match &path.data {
-        CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
+        CmdPath::Direct(_) | CmdPath::LiteralString(_) => CmdPathTargetType::ExternalCommand,
+
+        CmdPath::ComputedString(c_str) => {
+            check_computed_string(c_str, state)?;
+            CmdPathTargetType::ExternalCommand
+        }
 
         CmdPath::Method(name) => {
             if !state.scopes().any(|scope| {
@@ -941,7 +946,7 @@ fn check_single_cmd_call(
             CmdPathTargetType::Function
         }
 
-        CmdPath::Literal(name) => find_if_cmd_or_fn(
+        CmdPath::Raw(name) => find_if_cmd_or_fn(
             &name.forge_here(name.data.to_owned()),
             &mut developed_aliases,
             state,
