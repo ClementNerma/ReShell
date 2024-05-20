@@ -567,12 +567,6 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
                     append_whitespace: true,
                 }]),
 
-                // for <...> <in?> <...>
-                4 => InstructionCompletion::Undefined(CompletionMode {
-                    allow_files: false,
-                    allow_vars: true,
-                }),
-
                 _ => InstructionCompletion::Undefined(CompletionMode::default()),
             }
         }
