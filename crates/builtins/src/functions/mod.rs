@@ -39,7 +39,6 @@ mod run_fn;
 mod runtime;
 mod set_env;
 mod struct_to_map;
-mod take;
 mod term_cols;
 mod term_rows;
 mod to_json;
@@ -94,7 +93,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::run::build_fn(),
         self::runtime::build_fn(),
         self::struct_to_map::build_fn(),
-        self::take::build_fn(),
         self::term_cols::build_fn(),
         self::term_rows::build_fn(),
         self::to_json::build_fn(),
