@@ -6,7 +6,7 @@ define_internal_fn!(
     "toJson",
 
     (
-        value: RequiredArg<AnyType> = Arg::positional("value"),
+        value: RequiredArg<AnyType> = Arg::method_self(),
         pretty: PresenceFlag = Arg::long_and_short_flag("pretty", 'p')
     )
 

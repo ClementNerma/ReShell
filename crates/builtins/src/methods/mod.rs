@@ -1,7 +1,8 @@
 //!
 //! List of methods for the builtin types
-//! 
+//!
 
+mod any;
 mod command;
 mod datetime;
 mod duration;
@@ -11,12 +12,19 @@ mod map;
 mod progress_bar;
 mod regex;
 mod string;
+mod stringifyable;
+mod structure;
 
 use crate::helper::InternalFunction;
+
+pub use stringifyable::to_string::{stringify_value, StringifyableType};
 
 /// List all native methods
 pub fn native_methods() -> Vec<InternalFunction> {
     vec![
+        self::any::inspect::build_fn(),
+        self::any::to_json::build_fn(),
+        self::any::transform::build_fn(),
         self::command::succeeds::build_fn(),
         self::datetime::to_string::build_fn(),
         self::duration::seconds::build_fn(),
@@ -69,5 +77,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::string::to_lowercase::build_fn(),
         self::string::to_uppercase::build_fn(),
         self::string::trim::build_fn(),
+        self::stringifyable::to_string::build_fn(),
+        self::structure::to_map::build_fn(),
     ]
 }

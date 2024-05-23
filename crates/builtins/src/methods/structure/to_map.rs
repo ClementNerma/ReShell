@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "structToMap",
 
     (
-        obj: RequiredArg<UntypedStructType> = Arg::positional("obj")
+        obj: RequiredArg<UntypedStructType> = Arg::method_self()
     )
 
     -> Some(UntypedMapType::direct_underlying_type())

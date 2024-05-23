@@ -1,8 +1,6 @@
 use colored::{Color, Colorize};
 
-use crate::functions::to_string::stringify_value;
-
-use super::to_string::StringifyableType;
+use crate::methods::{stringify_value, StringifyableType};
 
 crate::define_internal_fn!(
     //

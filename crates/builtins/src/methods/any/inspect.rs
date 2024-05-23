@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "inspect",
 
     (
-        value: RequiredArg<AnyType> = Arg::positional("value"),
+        value: RequiredArg<AnyType> = Arg::method_self(),
         inspect_fn: RequiredArg<TypedFunctionType> = inspect_fn_type()
     )
 

@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "toString",
 
     (
-        value: RequiredArg<StringifyableType> = Arg::positional("value")
+        value: RequiredArg<StringifyableType> = Arg::method_self()
     )
 
     -> None
