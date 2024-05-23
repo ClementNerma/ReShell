@@ -79,14 +79,10 @@ impl PrettyPrintable for SingleValueType {
             Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Magenta),
                 PrettyPrintablePiece::colored_atomic(" ( ", Color::BrightGreen),
-                ctx
-                    .get_type_alias(name)
-                    .unwrap_or_else(|| ctx.panic(name.at, format!("Type alias '{}' not found while generating pretty data for value type", name.data)))
-                    .data
-                    .generate_pretty_data(ctx),
+                ctx.get_type_alias(name).data.generate_pretty_data(ctx),
                 PrettyPrintablePiece::colored_atomic(" )", Color::BrightGreen),
             ]),
-            Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta)
+            Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta),
         }
     }
 }

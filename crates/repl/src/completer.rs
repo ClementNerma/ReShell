@@ -275,27 +275,32 @@ fn build_method_completions<'a>(
 
     ctx.visible_scopes_content()
         .flat_map(|scope| scope.methods.iter())
-        .filter(move |((name, _), _)| name.to_lowercase().contains(&word))
-        .map(move |((name, _), func)| {
-            (
-                name.clone(),
-                Suggestion {
-                    value: match add_prefix {
-                        Some(ref prefix) => format!("{prefix}{name}"),
-                        None => name.clone(),
+        .filter(move |(name, _)| name.to_lowercase().contains(&word))
+        .flat_map(move |(name, methods)| {
+            let add_prefix = add_prefix.clone();
+
+            methods.iter().map(move |method| {
+                (
+                    name.clone(),
+                    Suggestion {
+                        value: match add_prefix {
+                            Some(ref prefix) => format!("{prefix}{name}"),
+                            None => name.clone(),
+                        },
+                        description: Some(
+                            method
+                                .value
+                                .signature
+                                .inner()
+                                .render_colored(ctx, PrettyPrintOptions::inline()),
+                        ),
+                        style: None,
+                        extra: None,
+                        span,
+                        append_whitespace: false,
                     },
-                    description: Some(
-                        func.value
-                            .signature
-                            .inner()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
-                    ),
-                    style: None,
-                    extra: None,
-                    span,
-                    append_whitespace: false,
-                },
-            )
+                )
+            })
         })
 }
 

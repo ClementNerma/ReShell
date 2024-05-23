@@ -122,6 +122,9 @@ pub struct DevelopedCmdAliasCall {
 /// Description of an item that will require capture at runtime
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Dependency {
+    /// Declaration name of the item
+    pub decl_at: CodeRange,
+
     /// Name of the item
     pub name: String,
 

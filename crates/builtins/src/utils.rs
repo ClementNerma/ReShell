@@ -1,3 +1,4 @@
+use reshell_checker::typechecker::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
     FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
 };
@@ -8,7 +9,6 @@ use reshell_runtime::{
     errors::ExecResult,
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    typechecker::check_if_fn_signature_fits_another,
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
@@ -102,7 +102,9 @@ pub fn call_fn_checked_with_parsed_args(
         RuntimeFnSignature::Owned(owned) => owned,
     };
 
-    if !check_if_fn_signature_fits_another(signature, expected_signature, ctx) {
+    if !check_if_fn_signature_fits_another(signature, expected_signature, &|name| {
+        &ctx.get_type_alias(&name).data
+    }) {
         return Err(ctx.error(
             loc_val.from,
             format!(

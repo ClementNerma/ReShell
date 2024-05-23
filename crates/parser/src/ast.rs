@@ -84,7 +84,7 @@ pub enum Instruction {
     /// Method declaration
     MethodDecl {
         name: Eaten<String>,
-        on_type: MethodApplyableType,
+        on_type: Eaten<ValueType>,
         content: Function,
     },
 
@@ -281,22 +281,6 @@ pub enum SingleValueType {
     TypeAlias(Eaten<String>),
     CmdCall,
     CmdArg,
-    // TODO: parsable?
-    Custom(&'static str),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MethodApplyableType {
-    Bool,
-    Int,
-    Float,
-    String,
-    List,
-    Range,
-    Map,
-    Error,
-    CmdCall,
-    ArgSpread,
     // TODO: parsable?
     Custom(&'static str),
 }
@@ -545,7 +529,7 @@ pub enum FnCallArg {
 }
 
 /// A token that's either eaten from a real input or generated at runtime
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub enum RuntimeEaten<T> {
     Parsed(Eaten<T>),
     Internal(T, &'static str),

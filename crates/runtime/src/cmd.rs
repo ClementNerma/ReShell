@@ -10,8 +10,7 @@ use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath,
     CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
-    FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange, RuntimeEaten,
-    SingleCmdCall,
+    FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
 };
 
 use crate::{
@@ -21,7 +20,7 @@ use crate::{
         eval_computed_string, eval_expr, eval_literal_value, lambda_to_value,
         single_param_lambda_to_value,
     },
-    functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
+    functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{value_to_str, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
@@ -236,17 +235,7 @@ pub fn run_cmd(
 
                         let typ = first_arg.value.get_type();
 
-                        let method = MethodApplyableType::from_single_value_type(typ.clone())
-                            .and_then(|typ| ctx.get_visible_method(&name, typ))
-                            .ok_or_else(|| {
-                                ctx.error(
-                                    call_at,
-                                    format!(
-                                        "no such method for type {}",
-                                        typ.render_colored(ctx, PrettyPrintOptions::inline())
-                                    ),
-                                )
-                            })?;
+                        let method = find_applicable_method(call_at, &name, &typ, ctx)?;
 
                         method.value.clone()
                     }

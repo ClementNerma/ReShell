@@ -196,7 +196,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                     followed_by: Some(Regex::new("\\s|$").unwrap()),
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-                        let method_exists = ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method_name, _)| method_name == &matched[2]));
+                        let method_exists = ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|method_name| method_name == &matched[2]));
 
                         let color = if method_exists {
                             Color::Blue
@@ -417,7 +417,7 @@ impl CommandsChecker {
         }
 
         let exists = match name.strip_prefix('.') {
-            Some(name) if !name.starts_with(['/','\\']) => ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)),
+            Some(name) if !name.starts_with(['/','\\']) => ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|method_name| method_name == name) || scope.content.cmd_aliases.contains_key(name)),
 
             Some(_) | None => {
                 if !name.starts_with(['/', '\\']) && ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.cmd_aliases.contains_key(name)) {
