@@ -723,7 +723,7 @@ fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
     if !str
         .chars()
         .chain(prefix.unwrap_or_default().chars())
-        .any(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c))
+        .any(|c| c.is_whitespace() || (DELIMITER_CHARS.contains(&c) && c != '$'))
     {
         match prefix {
             Some(prefix) => Cow::Owned(format!("{prefix}{str}")),
