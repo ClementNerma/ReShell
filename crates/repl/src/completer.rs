@@ -701,12 +701,19 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
         } else if opening_char == Some(c) {
             assert_eq!(i + 1, str.chars().count());
         } else if c == '$' && matches!(opening_char, Some('"') | None) {
-            out.push(UnescapedSegment::String(segment));
-            segment = String::new();
+            if !segment.is_empty() {
+                out.push(UnescapedSegment::String(segment));
+                segment = String::new();
+            }
+
             reading_var_name = Some(String::new());
         } else {
             segment.push(c);
         }
+    }
+
+    if !segment.is_empty() {
+        out.push(UnescapedSegment::String(segment));
     }
 
     out
@@ -727,7 +734,7 @@ fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
     // Technically, we don't need to do this if the '$' is escaped
     // But for the sake of not developing a backslash-counting algorithm,
     // we don't handle it here (for now).
-    else if str.contains('$') {
+    else if str.contains('$') || prefix.is_some_and(|prefix| prefix.contains('$')) {
         let mut escaped = String::with_capacity(str.len());
 
         escaped.push('"');
