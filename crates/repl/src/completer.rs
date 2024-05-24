@@ -696,11 +696,16 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
             ));
         }
 
-        if c == '\\' {
+        // Handle backslashes in strings
+        if opening_char.is_some() && c == '\\' {
             escaping = true;
-        } else if opening_char == Some(c) {
+        }
+        // Handle string closing
+        else if opening_char == Some(c) {
             assert_eq!(i + 1, str.chars().count());
-        } else if c == '$' && matches!(opening_char, Some('"') | None) {
+        }
+        // Handle dollar symbols in non-single-quoted strings (= double quoted + raw)
+        else if c == '$' && matches!(opening_char, Some('"') | None) {
             if !segment.is_empty() {
                 out.push(UnescapedSegment::String(segment));
                 segment = String::new();
