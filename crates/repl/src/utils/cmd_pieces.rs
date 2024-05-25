@@ -12,7 +12,9 @@
 //! This module is used to extract informations for command completions.
 //!
 
-use super::nesting::{detect_nesting_actions, NestingActionType, NestingDetectionResult};
+use crate::utils::nesting::NestingOpeningType;
+
+use super::nesting::{detect_nesting_actions, NestingActionType};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdPiece<'a> {
@@ -23,13 +25,21 @@ pub struct CmdPiece<'a> {
 pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
     let nesting_actions = detect_nesting_actions(input, true);
 
-    let NestingDetectionResult {
-        actions,
-        final_nesting_level,
-    } = nesting_actions;
+    let cmd_nesting_levels =
+        [0].into_iter().chain(nesting_actions.iter().filter_map(
+            |action| match action.action_type {
+                NestingActionType::Opening {
+                    typ: NestingOpeningType::CmdOutput,
+                    matching_close: _,
+                }
+                | NestingActionType::CommandSeparator => Some(action.nesting_level),
 
-    let beg = (0..=final_nesting_level).rev().find_map(|level| {
-        actions
+                _ => None,
+            },
+        ));
+
+    let beg = cmd_nesting_levels.rev().find_map(|level| {
+        nesting_actions
             .iter()
             .rposition(|action| {
                 matches!(
@@ -48,8 +58,8 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
 
     let (level, pos, mut from) = match beg {
         Some((pos, level)) => {
-            if pos == actions.len() {
-                let start = actions[pos - 1].offset + actions[pos - 1].len;
+            if pos == nesting_actions.len() {
+                let start = nesting_actions[pos - 1].offset + nesting_actions[pos - 1].len;
 
                 return vec![CmdPiece {
                     start,
@@ -57,7 +67,7 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
                 }];
             }
 
-            (level, pos, actions[pos].offset)
+            (level, pos, nesting_actions[pos].offset)
         }
         None => (0, 0, 0),
     };
@@ -71,7 +81,7 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
         }
     }
 
-    for action in &actions[pos..] {
+    for action in &nesting_actions[pos..] {
         if action.nesting_level == level
             && matches!(action.action_type, NestingActionType::ArgumentSeparator)
         {

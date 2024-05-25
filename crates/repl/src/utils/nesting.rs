@@ -16,16 +16,7 @@
 //!     (cf. [`super::cmd_pieces`])
 //!
 
-#[derive(Debug)]
-pub struct NestingDetectionResult {
-    pub actions: Vec<NestingAction>,
-
-    /// Final nesting level (starting at 0)
-    /// e.g. `cmd arg1 $(arg2 $(arg3` would result in a final level of 2
-    pub final_nesting_level: usize,
-}
-
-pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> NestingDetectionResult {
+pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<NestingAction> {
     let mut opened: Vec<(&str, usize)> = vec![];
     let mut output: Vec<NestingAction> = vec![];
     let mut closed = vec![];
@@ -243,10 +234,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Nesti
         prev = Some(piece.offset + piece.len);
     }
 
-    NestingDetectionResult {
-        actions: output,
-        final_nesting_level: opened.len(),
-    }
+    output
 }
 
 #[derive(Debug, Clone, Copy)]

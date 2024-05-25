@@ -23,7 +23,7 @@ use crate::{
 
 use super::{
     covering::{InputCovering, InputRange},
-    nesting::{detect_nesting_actions, NestingDetectionResult, NestingOpeningType},
+    nesting::{detect_nesting_actions, NestingOpeningType},
 };
 
 #[derive(Debug)]
@@ -95,10 +95,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
 
     let mut output = Vec::<HighlightPiece>::new();
 
-    let NestingDetectionResult {
-        actions: nesting,
-        final_nesting_level: _,
-    } = detect_nesting_actions(input, *use_arguments_separator);
+    let nesting = detect_nesting_actions(input, *use_arguments_separator);
 
     let mut opened = Vec::<(NestingAction, NestingOpeningType)>::new();
 
