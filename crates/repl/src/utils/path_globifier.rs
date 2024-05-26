@@ -99,20 +99,21 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
     })
 }
 
-// TODO: last "." segment (not followed by a separator) should be globifyable (e.g. .gitignore, .env, etc.)
 fn globify(input: &str) -> String {
     let mut globified_segments: Vec<String> = vec![];
 
     let segments = input.split(['/', '\\']).collect::<Vec<_>>();
 
     for (i, segment) in segments.iter().copied().enumerate() {
-        // TODO: deal better with empty segments!
         if segment.is_empty() {
             if globified_segments.is_empty() {
                 globified_segments.push(String::new());
             } else if i + 1 == segments.len() {
                 globified_segments.push(String::from('*'))
             }
+        } else if segment == "." && i + 1 == segments.len() {
+            // TODO: remove '.' and '..' in glob's results
+            globified_segments.push(".*".to_owned());
         } else if segment == "." || segment == ".." || segment.contains(':') {
             globified_segments.push(segment.to_owned());
         } else {
