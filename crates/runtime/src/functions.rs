@@ -52,7 +52,7 @@ pub fn eval_fn_call(
                         format!(
                             "expected a function, found a {} instead",
                             value
-                                .get_type()
+                                .compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))
@@ -156,7 +156,7 @@ pub fn call_fn_value(
                     "function call returned a {}, was expected to return a {}",
                     ret_val
                         .value
-                        .get_type()
+                        .compute_type()
                         .render_colored(ctx, PrettyPrintOptions::inline()),
                     ret_type
                         .data()
@@ -294,7 +294,7 @@ fn parse_fn_call_args(
                                                     "expected a value of type '{}' for flag '{}', found '{}'",
                                                     typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
                                                     names.render_colored(&(), PrettyPrintOptions::inline()),
-                                                    value.value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
+                                                    value.value.compute_type().render_colored(ctx, PrettyPrintOptions::inline())
                                                 )
                                             ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
                                     }
@@ -373,7 +373,7 @@ fn parse_fn_call_args(
                                     typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
                                     loc_val
                                         .value
-                                        .get_type()
+                                        .compute_type()
                                         .render_colored(ctx, PrettyPrintOptions::inline())
                                 ),
                             ));
@@ -728,7 +728,7 @@ pub fn find_applicable_method<'s>(
                 format!(
                     "no such method for type {}",
                     for_value
-                        .get_type()
+                        .compute_type()
                         .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             );

@@ -273,7 +273,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                             _ => {
                                 let left_type = existing
-                                    .get_type()
+                                    .compute_type()
                                     .render_colored(ctx, PrettyPrintOptions::inline());
 
                                 Err(ctx.error(
@@ -310,7 +310,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             cond.at,
                             format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
+                            value.compute_type().render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                         ))
                     }
@@ -327,7 +327,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     let cond_val = eval_expr(&cond.data, ctx)?;
 
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.get_type().render_colored(ctx, PrettyPrintOptions::inline()))));
+                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.compute_type().render_colored(ctx, PrettyPrintOptions::inline()))));
                     };
 
                     if cond_val {
@@ -418,7 +418,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         format!(
                             "expected a list or range to iterate on, found a {} instead",
                             value
-                                .get_type()
+                                .compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))
@@ -442,7 +442,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         format!(
                             "expected a map, got a {}",
                             value
-                                .get_type()
+                                .compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))
@@ -500,7 +500,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             cond.at,
                             format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
+                            value.compute_type().render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                         ))
                     }
@@ -540,10 +540,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             format!(
                                 "cannot compare {} and {}: {reason}",
                                 switch_on
-                                    .get_type()
+                                    .compute_type()
                                     .render_colored(ctx, PrettyPrintOptions::inline()),
                                 case_value
-                                    .get_type()
+                                    .compute_type()
                                     .render_colored(ctx, PrettyPrintOptions::inline())
                             ),
                         )
@@ -622,7 +622,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         format!(
                             "expected a string, found a {}",
                             value
-                                .get_type()
+                                .compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))
@@ -764,7 +764,7 @@ fn declare_vars(
                         format!(
                             "tried to spread a list but found a: {}",
                             value
-                                .get_type()
+                                .compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))
@@ -801,7 +801,7 @@ fn declare_vars(
                         format!(
                             "tried to spread a map or struct but found a: {}",
                             value
-                                .get_type()
+                                .compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ))

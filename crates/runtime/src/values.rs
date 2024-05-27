@@ -151,7 +151,7 @@ pub enum RuntimeValue {
 
 impl RuntimeValue {
     /// Compute the type of a runtime value
-    pub fn get_type(&self) -> SingleValueType {
+    pub fn compute_type(&self) -> SingleValueType {
         match self {
             RuntimeValue::Null => SingleValueType::Null,
             RuntimeValue::Bool(_) => SingleValueType::Bool,
@@ -181,7 +181,7 @@ impl RuntimeValue {
                                 name: RuntimeEaten::Internal(name.clone(), "type deducer"),
                                 typ: RuntimeEaten::Internal(
                                     ValueType::Single(RuntimeEaten::Internal(
-                                        value.get_type(),
+                                        value.compute_type(),
                                         "type deducer",
                                     )),
                                     "type deducer",
@@ -235,7 +235,7 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
     let mut types_hash = HashSet::new();
 
     for item in values {
-        let typ = item.get_type();
+        let typ = item.compute_type();
 
         let mut hasher = DefaultHasher::new();
         typ.hash(&mut hasher);
@@ -439,7 +439,7 @@ pub fn value_to_str(
                 format!(
                     "cannot convert {} to a string",
                     value
-                        .get_type()
+                        .compute_type()
                         .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             )
