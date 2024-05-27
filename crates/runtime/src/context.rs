@@ -907,6 +907,9 @@ pub struct ScopeVar {
     /// Is the variable mutable?
     pub is_mut: bool,
 
+    /// Enforced type
+    pub enforced_type: Option<ValueType>,
+
     /// Value of the variable
     /// It is backed by a [`GcCell`] in order to be sharable in captured dependencies
     /// See [`Context::capture_deps`]

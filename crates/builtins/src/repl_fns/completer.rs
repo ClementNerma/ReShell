@@ -2,7 +2,7 @@
 //! Function to call to generate completions
 //!
 
-use reshell_parser::ast::RuntimeCodeRange;
+use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
@@ -16,6 +16,15 @@ pub static GEN_COMPLETIONS_VAR_NAME: &str = "generateCompletions";
 pub enum CompletionStringSegment {
     VariableName(String),
     String(String),
+}
+
+macro_rules! ret_type {
+    () => {
+        DetachedListType::new(TypedStruct2Type::new(
+            ("raw_string", StringType::new_direct()),
+            ("description", StringType::new_direct()),
+        ))
+    };
 }
 
 /// Generate completions (used for the REPL)
@@ -37,19 +46,6 @@ pub fn generate_completions(
     if matches!(completer_var_value.value, RuntimeValue::Null) {
         return Ok(None);
     }
-
-    let ret_type = DetachedListType::new(TypedStruct2Type::new(
-        ("raw_string", StringType::new_direct()),
-        ("description", StringType::new_direct()),
-    ));
-
-    let expected_signature = forge_basic_fn_signature(
-        vec![(
-            "line",
-            DetachedListType::<Union2Type<StringType, NullType>>::direct_underlying_type(),
-        )],
-        Some(ret_type.underlying_type()),
-    );
 
     let vec = vec![RuntimeValue::List(GcCell::new(
         cmd_pieces
@@ -78,7 +74,7 @@ pub fn generate_completions(
 
     let ret_val = call_fn_checked(
         &completer_var_value,
-        &expected_signature,
+        &completer_signature(),
         completion_args,
         ctx,
     )?;
@@ -90,7 +86,7 @@ pub fn generate_completions(
         )
     })?;
 
-    let results = ret_type.parse(ret_val.value).map_err(|err| {
+    let results = ret_type!().parse(ret_val.value).map_err(|err| {
         ctx.error(
             ret_val.from,
             format!("type error in completion function's return value: {err}"),
@@ -98,4 +94,15 @@ pub fn generate_completions(
     })?;
 
     Ok(Some(results))
+}
+
+/// Generate completer function's signature
+pub fn completer_signature() -> FnSignature {
+    forge_basic_fn_signature(
+        vec![(
+            "line",
+            DetachedListType::<Union2Type<StringType, NullType>>::direct_underlying_type(),
+        )],
+        Some(ret_type!().underlying_type()),
+    )
 }

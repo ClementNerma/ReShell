@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use reshell_parser::ast::RuntimeCodeRange;
+use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
@@ -17,6 +17,20 @@ use crate::{
 };
 
 pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
+
+macro_rules! ret_type {
+    () => {
+        TypedStruct4Type::new(
+            ("promptLeft", NullableType::<StringType>::new_direct()),
+            ("promptRight", NullableType::<StringType>::new_direct()),
+            ("promptIndicator", NullableType::<StringType>::new_direct()),
+            (
+                "promptMultilineIndicator",
+                NullableType::<StringType>::new_direct(),
+            ),
+        )
+    };
+}
 
 /// Render the prompt (used for the REPL)
 pub fn render_prompt(
@@ -37,32 +51,6 @@ pub fn render_prompt(
     if matches!(prompt_var_value.value, RuntimeValue::Null) {
         return Ok(None);
     }
-
-    let ret_type = TypedStruct4Type::new(
-        ("prompt_left", NullableType::<StringType>::new_direct()),
-        ("prompt_right", NullableType::<StringType>::new_direct()),
-        ("prompt_indicator", NullableType::<StringType>::new_direct()),
-        (
-            "prompt_multiline_indicator",
-            NullableType::<StringType>::new_direct(),
-        ),
-    );
-
-    let expected_signature = forge_basic_fn_signature(
-        vec![(
-            "prompt_data",
-            TypedStruct1Type::new((
-                "last_cmd_status",
-                TypedStruct3Type::new(
-                    ("success", BoolType),
-                    ("exit_code", NullableType::<IntType>::new_direct()),
-                    ("duration_ms", ExactIntType::<i64>::new_direct()),
-                ),
-            ))
-            .underlying_type(),
-        )],
-        Some(ret_type.underlying_type()),
-    );
 
     let last_cmd_status = match last_cmd_status {
         None => RuntimeValue::Null,
@@ -97,7 +85,7 @@ pub fn render_prompt(
 
     let ret_val = call_fn_checked(
         &prompt_var_value,
-        &expected_signature,
+        &prompt_renderer_signature(),
         vec![prompt_data],
         ctx,
     )?;
@@ -110,7 +98,7 @@ pub fn render_prompt(
     })?;
 
     let (prompt_left, prompt_right, prompt_indicator, prompt_multiline_indicator) =
-        ret_type.parse(ret_val.value).map_err(|err| {
+        ret_type!().parse(ret_val.value).map_err(|err| {
             ctx.error(
                 ret_val.from,
                 format!("type error in prompt function's return value: {err}"),
@@ -123,6 +111,25 @@ pub fn render_prompt(
         prompt_indicator,
         prompt_multiline_indicator,
     }))
+}
+
+/// Generate prompt rendering function's signature
+pub fn prompt_renderer_signature() -> FnSignature {
+    forge_basic_fn_signature(
+        vec![(
+            "prompt_data",
+            TypedStruct1Type::new((
+                "last_cmd_status",
+                TypedStruct3Type::new(
+                    ("success", BoolType),
+                    ("exit_code", NullableType::<IntType>::new_direct()),
+                    ("duration_ms", ExactIntType::<i64>::new_direct()),
+                ),
+            ))
+            .underlying_type(),
+        )],
+        Some(ret_type!().underlying_type()),
+    )
 }
 
 #[derive(Debug)]
