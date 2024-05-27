@@ -752,6 +752,7 @@ fn check_double_op(double_op: &Eaten<DoubleOp>, _: &mut State) -> CheckerResult 
         | DoubleOp::Sub
         | DoubleOp::Mul
         | DoubleOp::Div
+        | DoubleOp::Mod
         | DoubleOp::And
         | DoubleOp::Or
         | DoubleOp::Eq

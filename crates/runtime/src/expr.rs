@@ -83,6 +83,7 @@ fn apply_double_op(
         | DoubleOp::Sub
         | DoubleOp::Mul
         | DoubleOp::Div
+        | DoubleOp::Mod
         | DoubleOp::Lt
         | DoubleOp::Lte
         | DoubleOp::Gt
@@ -95,6 +96,7 @@ fn apply_double_op(
                     DoubleOp::Sub => RuntimeValue::Int(left - right),
                     DoubleOp::Mul => RuntimeValue::Int(left * right),
                     DoubleOp::Div => RuntimeValue::Int(left / right),
+                    DoubleOp::Mod => RuntimeValue::Int(left % right),
                     DoubleOp::Lt => RuntimeValue::Bool(left < right),
                     DoubleOp::Lte => RuntimeValue::Bool(left <= right),
                     DoubleOp::Gt => RuntimeValue::Bool(left > right),
@@ -107,6 +109,7 @@ fn apply_double_op(
                     DoubleOp::Sub => RuntimeValue::Float(left - right),
                     DoubleOp::Mul => RuntimeValue::Float(left * right),
                     DoubleOp::Div => RuntimeValue::Float(left / right),
+                    DoubleOp::Mod => RuntimeValue::Float(left % right),
                     DoubleOp::Lt => RuntimeValue::Bool(left < right),
                     DoubleOp::Lte => RuntimeValue::Bool(left <= right),
                     DoubleOp::Gt => RuntimeValue::Bool(left > right),
@@ -672,7 +675,7 @@ pub fn single_param_lambda_to_value(body: &Eaten<Block>, ctx: &mut Context) -> R
 fn operator_precedence(op: DoubleOp) -> u8 {
     match op {
         DoubleOp::Add | DoubleOp::Sub => 0,
-        DoubleOp::Mul | DoubleOp::Div => 1,
+        DoubleOp::Mul | DoubleOp::Div | DoubleOp::Mod => 1,
         DoubleOp::NullFallback => 2,
         DoubleOp::Eq
         | DoubleOp::Neq
