@@ -91,20 +91,46 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::String, SingleValueType::String) => true,
         (SingleValueType::String, _) | (_, SingleValueType::String) => false,
 
-        (SingleValueType::CmdCall, SingleValueType::CmdCall) => true,
-        (SingleValueType::CmdCall, _) | (_, SingleValueType::CmdCall) => false,
-
-        (SingleValueType::List, SingleValueType::List) => true,
-        (SingleValueType::List, _) | (_, SingleValueType::List) => false,
-
         (SingleValueType::Range, SingleValueType::Range) => true,
         (SingleValueType::Range, _) | (_, SingleValueType::Range) => false,
 
-        (SingleValueType::Map, SingleValueType::Map) => true,
-        (SingleValueType::Map, _) | (_, SingleValueType::Map) => false,
+        (SingleValueType::CmdCall, SingleValueType::CmdCall) => true,
+        (SingleValueType::CmdCall, _) | (_, SingleValueType::CmdCall) => false,
 
         (SingleValueType::CmdArg, SingleValueType::CmdArg) => true,
         (SingleValueType::CmdArg, _) | (_, SingleValueType::CmdArg) => false,
+
+        (SingleValueType::Error, SingleValueType::Error) => true,
+        (SingleValueType::Error, _) | (_, SingleValueType::Error) => false,
+
+        (SingleValueType::Custom(a), SingleValueType::Custom(b)) => a == b,
+        (SingleValueType::Custom(_), _) | (_, SingleValueType::Custom(_)) => false,
+
+        (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
+            check_if_fn_signature_fits_another(signature.data(), into.data(), ctx)
+        }
+
+        (SingleValueType::Function(_), _) | (_, SingleValueType::Function(_)) => false,
+
+        (SingleValueType::UntypedList, SingleValueType::UntypedList)
+        | (SingleValueType::UntypedList, SingleValueType::TypedList(_))
+        | (SingleValueType::TypedList(_), SingleValueType::UntypedList) => true,
+        (SingleValueType::UntypedList, _) | (_, SingleValueType::UntypedList) => false,
+
+        (SingleValueType::TypedList(a), SingleValueType::TypedList(b)) => {
+            check_if_type_fits_type(a, b, ctx)
+        }
+        (SingleValueType::TypedList(_), _) | (_, SingleValueType::TypedList(_)) => false,
+
+        (SingleValueType::UntypedMap, SingleValueType::UntypedMap)
+        | (SingleValueType::UntypedMap, SingleValueType::TypedMap(_))
+        | (SingleValueType::TypedMap(_), SingleValueType::UntypedMap) => true,
+        (SingleValueType::UntypedMap, _) | (_, SingleValueType::UntypedMap) => false,
+
+        (SingleValueType::TypedMap(a), SingleValueType::TypedMap(b)) => {
+            check_if_type_fits_type(a, b, ctx)
+        }
+        (SingleValueType::TypedMap(_), _) | (_, SingleValueType::TypedMap(_)) => false,
 
         (SingleValueType::UntypedStruct, SingleValueType::UntypedStruct) => true,
         (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => true,
@@ -120,20 +146,9 @@ pub fn check_if_single_type_fits_single(
                         check_if_type_fits_type(a_member.data().typ.data(), typ.data(), ctx)
                     })
             })
-        }
-
-        (SingleValueType::UntypedStruct, _) | (_, SingleValueType::UntypedStruct) => false,
-        (SingleValueType::TypedStruct(_), _) | (_, SingleValueType::TypedStruct(_)) => false,
-
-        (SingleValueType::Error, SingleValueType::Error) => true,
-        (SingleValueType::Error, _) | (_, SingleValueType::Error) => false,
-
-        (SingleValueType::Custom(a), SingleValueType::Custom(b)) => a == b,
-        (SingleValueType::Custom(_), _) | (_, SingleValueType::Custom(_)) => false,
-
-        (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
-            check_if_fn_signature_fits_another(signature.data(), into.data(), ctx)
-        } // (SingleValueType::Function(_), _) | (_, SingleValueType::Function(_)) => false,
+        } //
+          // (SingleValueType::UntypedStruct, _) | (_, SingleValueType::UntypedStruct) => false,
+          // (SingleValueType::TypedStruct(_), _) | (_, SingleValueType::TypedStruct(_)) => false,
     }
 }
 

@@ -97,12 +97,6 @@ pub fn program(
             just("string")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::String),
-            just("list")
-                .not_followed_by(possible_ident_char)
-                .map(|_| SingleValueType::List),
-            just("map")
-                .not_followed_by(possible_ident_char)
-                .map(|_| SingleValueType::Map),
             just("error")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::Error),
@@ -114,6 +108,20 @@ pub fn program(
                 .spanned()
                 .map(RuntimeEaten::Parsed)
                 .map(SingleValueType::Function),
+            just("list[")
+                .ignore_then(value_type.clone().map(Box::new))
+                .then_ignore(char(']').critical("expected ']' to close list type"))
+                .map(SingleValueType::TypedList),
+            just("list")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::UntypedList),
+            just("map[")
+                .ignore_then(value_type.clone().map(Box::new))
+                .then_ignore(char(']').critical("expected ']' to close map type"))
+                .map(SingleValueType::TypedMap),
+            just("map")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::UntypedMap),
             just("struct")
                 .ignore_then(ms)
                 .ignore_then(char('{'))
