@@ -7,13 +7,12 @@ use reshell_checker::{
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
-    typechecker::check_if_single_type_fits_type,
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
 };
 use reshell_parser::{
     ast::{
         Block, CmdCall, FnSignature, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
-        SingleValueType, ValueType,
+        ValueType,
     },
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
@@ -25,7 +24,8 @@ use crate::{
     conf::RuntimeConf,
     errors::{ExecError, ExecErrorNature, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
-    values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue},
+    typechecker::check_if_value_fits_type,
+    values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
 /// Scope ID of the native library
@@ -564,7 +564,7 @@ impl Context {
     pub fn find_applicable_method<'s>(
         &'s self,
         name: &Eaten<String>,
-        for_type: &SingleValueType,
+        for_value: &RuntimeValue,
     ) -> Result<&'s ScopeMethod, Vec<&'s ScopeMethod>> {
         let mut not_matching = vec![];
 
@@ -573,7 +573,7 @@ impl Context {
             .filter_map(|scope| scope.methods.get(&name.data))
             .flatten()
         {
-            if check_if_single_type_fits_type(for_type, &method.on_type, self) {
+            if check_if_value_fits_type(for_value, &method.on_type, self) {
                 return Ok(method);
             }
 

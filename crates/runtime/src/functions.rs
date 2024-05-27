@@ -4,7 +4,6 @@ use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
     FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeEaten,
-    SingleValueType,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -33,11 +32,7 @@ pub fn eval_fn_call(
 
         FnCallNature::Method => {
             let piped = piped.as_ref().unwrap();
-
-            let typ = piped.value.get_type();
-
-            let method = find_applicable_method(call.at, &call.data.name, &typ, ctx)?;
-
+            let method = find_applicable_method(call.at, &call.data.name, &piped.value, ctx)?;
             method.value.clone()
         }
 
@@ -723,16 +718,18 @@ fn get_matching_var_name(
 pub fn find_applicable_method<'s>(
     call_at: CodeRange,
     name: &Eaten<String>,
-    for_type: &SingleValueType,
+    for_value: &RuntimeValue,
     ctx: &'s Context,
 ) -> ExecResult<&'s ScopeMethod> {
-    ctx.find_applicable_method(name, for_type)
+    ctx.find_applicable_method(name, for_value)
         .map_err(|not_matching| {
             let mut err = ctx.error(
                 call_at,
                 format!(
                     "no such method for type {}",
-                    for_type.render_colored(ctx, PrettyPrintOptions::inline())
+                    for_value
+                        .get_type()
+                        .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             );
 
