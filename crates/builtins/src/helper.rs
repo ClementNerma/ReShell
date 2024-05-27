@@ -1,11 +1,11 @@
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-    RuntimeEaten, SingleValueType, ValueType,
+    SingleValueType, ValueType,
 };
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
-use crate::type_handlers::BoolType;
+use crate::{builder::internal_runtime_eaten, type_handlers::BoolType};
 
 // #[derive(Clone)]
 pub enum ArgNames {
@@ -69,10 +69,7 @@ pub trait Typing {
 
 impl<T: SingleTyping> Typing for T {
     fn underlying_type(&self) -> ValueType {
-        ValueType::Single(RuntimeEaten::Internal(
-            self.underlying_single_type(),
-            "native library's type generator",
-        ))
+        ValueType::Single(internal_runtime_eaten(self.underlying_single_type()))
     }
 
     type Parsed = T::Parsed;
@@ -245,22 +242,13 @@ pub(super) fn generate_internal_arg_decl<
         ArgNames::Positional(name) => {
             if !arg.is_rest() {
                 FnArg::Positional(FnPositionalArg {
-                    name: RuntimeEaten::Internal(
-                        (*name).to_owned(),
-                        "native library's arguments declaration",
-                    ),
+                    name: internal_runtime_eaten((*name).to_owned()),
                     is_optional: arg.is_optional(),
-                    typ: Some(RuntimeEaten::Internal(
-                        arg.base_typing().underlying_type(),
-                        "native library's arguments declaration",
-                    )),
+                    typ: Some(internal_runtime_eaten(arg.base_typing().underlying_type())),
                 })
             } else {
                 FnArg::Rest(FnRestArg {
-                    name: RuntimeEaten::Internal(
-                        (*name).to_owned(),
-                        "native library's arguments declaration",
-                    ),
+                    name: internal_runtime_eaten((*name).to_owned()),
                 })
             }
         }
@@ -271,17 +259,13 @@ pub(super) fn generate_internal_arg_decl<
                 //     FnFlagArgNames::ShortFlag(RuntimeEaten::Internal(short))
                 // }
                 //
-                ArgFlagNames::Long(long) => FnFlagArgNames::LongFlag(RuntimeEaten::Internal(
-                    long.raw.to_owned(),
-                    "native library's arguments declaration",
-                )),
+                ArgFlagNames::Long(long) => {
+                    FnFlagArgNames::LongFlag(internal_runtime_eaten(long.raw.to_owned()))
+                }
 
                 ArgFlagNames::LongAndShort(long, short) => FnFlagArgNames::LongAndShortFlag {
-                    long: RuntimeEaten::Internal(
-                        long.raw.to_owned(),
-                        "native library's arguments declaration",
-                    ),
-                    short: RuntimeEaten::Internal(*short, "native library's arguments declaration"),
+                    long: internal_runtime_eaten(long.raw.to_owned()),
+                    short: internal_runtime_eaten(*short),
                 },
             };
 
@@ -293,7 +277,7 @@ pub(super) fn generate_internal_arg_decl<
                 typ => FnArg::NormalFlag(FnNormalFlagArg {
                     names,
                     is_optional: arg.is_optional(),
-                    typ: RuntimeEaten::Internal(typ, "native library's arguments declaration"),
+                    typ: internal_runtime_eaten(typ),
                 }),
             }
         }

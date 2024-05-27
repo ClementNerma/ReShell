@@ -16,7 +16,10 @@ use reshell_runtime::{
     values::{CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
 };
 
-use crate::helper::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
+use crate::{
+    builder::internal_runtime_eaten,
+    helper::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation},
+};
 
 macro_rules! declare_basic_type_handlers {
     ($($name: ident ($variant: ident) = $type: ty => $value_ident: ident: $parser: expr),+) => {
@@ -258,14 +261,8 @@ impl<Inner: SingleTyping> NullableType<Inner> {
 impl<Inner: SingleTyping> Typing for NullableType<Inner> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            RuntimeEaten::Internal(
-                self.inner.underlying_single_type(),
-                "native library's type generator",
-            ),
-            RuntimeEaten::Internal(
-                NullType.underlying_single_type(),
-                "native library's type generator",
-            ),
+            internal_runtime_eaten(self.inner.underlying_single_type()),
+            internal_runtime_eaten(NullType.underlying_single_type()),
         ])
     }
 

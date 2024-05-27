@@ -1,6 +1,6 @@
 use reshell_checker::typechecker::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
-    FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
+    FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, ValueType,
 };
 use reshell_runtime::{
     cmd::{CmdArgResult, CmdSingleArgResult},
@@ -11,7 +11,7 @@ use reshell_runtime::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::helper::Typing;
+use crate::{builder::internal_runtime_eaten, helper::Typing};
 
 /// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(
@@ -19,28 +19,19 @@ pub fn forge_basic_fn_signature(
     ret_type: Option<ValueType>,
 ) -> FnSignature {
     FnSignature {
-        args: RuntimeEaten::Internal(
+        args: internal_runtime_eaten(
             args.into_iter()
                 .map(|(name, typ)| {
                     FnArg::Positional(FnPositionalArg {
-                        name: RuntimeEaten::Internal(
-                            name.into(),
-                            "native library's type generator",
-                        ),
+                        name: internal_runtime_eaten(name.into()),
                         is_optional: false,
-                        typ: Some(RuntimeEaten::Internal(
-                            typ,
-                            "native library's type generator",
-                        )),
+                        typ: Some(internal_runtime_eaten(typ)),
                     })
                 })
                 .collect(),
-            "native library's type generator",
         ),
 
-        ret_type: ret_type.map(|ret_type| {
-            RuntimeEaten::Internal(Box::new(ret_type), "native library's type generator")
-        }),
+        ret_type: ret_type.map(|ret_type| internal_runtime_eaten(Box::new(ret_type))),
     }
 }
 
