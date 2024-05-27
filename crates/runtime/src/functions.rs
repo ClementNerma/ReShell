@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use parsy::{CodeRange, Eaten};
-use reshell_checker::typechecker::check_if_single_type_fits_type;
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
     FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeEaten,
@@ -16,6 +15,7 @@ use crate::{
     exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
+    typechecker::check_if_value_fits_type,
     values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -154,7 +154,7 @@ pub fn call_fn_value(
             ));
         };
 
-        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), ctx) {
+        if !check_if_value_fits_type(&ret_val.value, ret_type.data(), ctx) {
             return Err(ctx.error(
                 call_at,
                 format!(
@@ -290,11 +290,7 @@ fn parse_fn_call_args(
                                         *is_optional && matches!(value.value, RuntimeValue::Null);
 
                                     if !is_null_for_optional
-                                        && !check_if_single_type_fits_type(
-                                            &value.value.get_type(),
-                                            typ.data(),
-                                            ctx,
-                                        )
+                                        && !check_if_value_fits_type(&value.value, typ.data(), ctx)
                                     {
                                         return Err(
                                                 ctx.error(
@@ -367,11 +363,7 @@ fn parse_fn_call_args(
 
                 if !is_null_for_optional {
                     if let Some(typ) = typ {
-                        if !check_if_single_type_fits_type(
-                            &loc_val.value.get_type(),
-                            typ.data(),
-                            ctx,
-                        ) {
+                        if !check_if_value_fits_type(&loc_val.value, typ.data(), ctx) {
                             let is_method_self_arg = func.is_method && name.data() == "self";
 
                             return Err(ctx.error(
