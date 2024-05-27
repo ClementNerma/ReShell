@@ -573,9 +573,7 @@ impl Context {
             .filter_map(|scope| scope.methods.get(&name.data))
             .flatten()
         {
-            if check_if_single_type_fits_type(for_type, &method.on_type, &|name| {
-                &self.get_type_alias(&name).data
-            }) {
+            if check_if_single_type_fits_type(for_type, &method.on_type, self) {
                 return Ok(method);
             }
 

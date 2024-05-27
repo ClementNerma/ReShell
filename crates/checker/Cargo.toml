@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 parsy = "0.6.4"
 reshell-parser = { path = "../parser" }
+reshell-shared = { version = "0.1.0", path = "../shared" }
