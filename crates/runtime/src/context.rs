@@ -18,11 +18,11 @@ use reshell_parser::{
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     bin_resolver::BinariesResolver,
     conf::RuntimeConf,
-    display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue},
@@ -384,7 +384,7 @@ impl Context {
         panic!(
             "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
-            dbg_loc(at.into(), self.files_map())
+            at.into().render_uncolored(self.files_map(), PrettyPrintOptions::inline())
         );
     }
 
@@ -728,7 +728,7 @@ impl Context {
                     body_content_at,
                     format!(
                         "cannot find {dep_type} '{name}' to capture (= bug in checker) (ocurred at {})",
-                        dbg_loc(body_content_at, &self.conf.files_map)
+                        body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
                     ),
                 );
             };
@@ -743,7 +743,7 @@ impl Context {
                             body_content_at,
                             format!(
                                 "cannot find variable '{name}' to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(body_content_at, &self.conf.files_map)
+                                body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
                             )
                         ));
 
@@ -759,7 +759,7 @@ impl Context {
                             body_content_at,
                             format!(
                                 "cannot find function '{name}' to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(body_content_at, &self.conf.files_map)
+                                body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
                             )
                         ));
 
@@ -800,7 +800,7 @@ impl Context {
                             body_content_at,
                             format!(
                                 "cannot find command alias '{name}' to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(body_content_at, &self.conf.files_map)
+                                body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
                             )
                         ));
 

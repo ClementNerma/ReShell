@@ -24,8 +24,8 @@ use reshell_runtime::{
     conf::RuntimeConf,
     context::{Context, ContextCreationParams},
     errors::{ExecErrorNature, ExecResult},
-    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use self::{
     args::Args,

@@ -19,9 +19,9 @@ use reshell_parser::{
 };
 use reshell_runtime::{
     context::CallStackEntry,
-    display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecInfoType},
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 #[derive(Debug)]
 pub enum ReportableError {
@@ -275,7 +275,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             eprintln!(
                 "  = {} function called at: {}",
                 "note:".cyan(),
-                dbg_loc(*fn_called_at, files).bright_magenta()
+                fn_called_at.render_colored(files, PrettyPrintOptions::inline())
             );
         }
     }

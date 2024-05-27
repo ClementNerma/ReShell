@@ -1,10 +1,7 @@
 use colored::Colorize;
 use parsy::FileId;
-use reshell_runtime::{
-    context::ScopeContent,
-    display::dbg_loc,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-};
+use reshell_runtime::context::ScopeContent;
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::define_internal_fn;
 
@@ -40,7 +37,8 @@ fn run() -> Runner {
                         "Function declared at: {}\n\n{}",
                         match func.name_at {
                             RuntimeCodeRange::Parsed(at) => {
-                                dbg_loc(at, ctx.files_map()).underline()
+                                at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                                    .underline()
                             }
 
                             RuntimeCodeRange::Internal(str) => {
@@ -58,7 +56,11 @@ fn run() -> Runner {
 
                     println!(
                         "Alias declared at: {}\n\n{}",
-                        dbg_loc(cmd_alias.value.name_declared_at, ctx.files_map()).underline(),
+                        cmd_alias
+                            .value
+                            .name_declared_at
+                            .render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                            .underline(),
                         match at.start.file_id {
                             FileId::SourceFile(id) => {
                                 let source = ctx.files_map().get_file(id).unwrap().content;

@@ -2,8 +2,8 @@ use reshell_parser::ast::FnCallNature;
 use reshell_runtime::{
     cmd::CmdArgResult,
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
-    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 crate::define_internal_fn!(
     "runFn",

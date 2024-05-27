@@ -1,0 +1,9 @@
+[package]
+name = "reshell-shared"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+colored = "2.1.0"
+parsy = "0.6.4"
+reshell-parser = { version = "0.1.0", path = "../parser" }

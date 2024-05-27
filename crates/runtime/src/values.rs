@@ -6,11 +6,14 @@ use dyn_clone::DynClone;
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::Dependency;
-use reshell_parser::ast::{
-    Block, FnSignature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
-    StructTypeMember, ValueType,
+use reshell_parser::{
+    ast::{
+        Block, FnSignature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
+        StructTypeMember, ValueType,
+    },
+    scope::AstScopeId,
 };
-use reshell_parser::scope::AstScopeId;
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::CmdSingleArgResult,
@@ -18,7 +21,6 @@ use crate::{
     errors::{ExecInfoType, ExecResult},
     functions::ValidatedFnCallArg,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
-    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
 /// Runtime function value
@@ -217,7 +219,9 @@ impl RuntimeValue {
 }
 
 /// Custom value type (used for e.g. custom builtin types)
-pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone + Send + Sync {
+pub trait CustomValueType:
+    Any + Debug + PrettyPrintable<Context = ()> + DynClone + Send + Sync
+{
     fn typename(&self) -> &'static str;
 
     fn typename_static() -> &'static str

@@ -1,11 +1,8 @@
 use std::time::Instant;
 
 use colored::Color;
-use reshell_runtime::{
-    gc::GcReadOnlyCell,
-    pretty::{PrettyPrintable, PrettyPrintablePiece},
-    values::CustomValueType,
-};
+use reshell_runtime::{gc::GcReadOnlyCell, values::CustomValueType};
+use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
 crate::define_internal_fn!(
     "instant",
@@ -49,7 +46,9 @@ impl CustomValueType for InstantValue {
 }
 
 impl PrettyPrintable for InstantValue {
-    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("instant(", Color::Magenta),
             PrettyPrintablePiece::colored_atomic("<internal>", Color::BrightBlack),

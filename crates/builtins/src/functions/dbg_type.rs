@@ -1,8 +1,5 @@
 use colored::Colorize;
-use reshell_runtime::{
-    display::dbg_loc,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-};
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use terminal_size::{terminal_size, Width};
 
 crate::define_internal_fn!(
@@ -33,7 +30,7 @@ fn run() -> Runner {
          ctx| {
             let at = format!(
                 "dbgType [{}]:",
-                dbg_loc(at, ctx.files_map()).bright_yellow()
+                at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
             );
 
             println!(

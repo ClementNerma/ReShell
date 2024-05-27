@@ -7,6 +7,7 @@ use reshell_parser::ast::{
     FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeEaten,
     SingleValueType,
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
@@ -15,7 +16,6 @@ use crate::{
     exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
-    pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -304,7 +304,7 @@ fn parse_fn_call_args(
                                                 format!(
                                                     "expected a value of type '{}' for flag '{}', found '{}'",
                                                     typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
-                                                    names.render_colored(ctx, PrettyPrintOptions::inline()),
+                                                    names.render_colored(&(), PrettyPrintOptions::inline()),
                                                     value.value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
                                                 )
                                             ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));

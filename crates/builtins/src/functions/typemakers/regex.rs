@@ -4,11 +4,9 @@ use colored::{Color, Colorize};
 use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
 use regex::Regex;
 use reshell_runtime::{
-    display::{dbg_loc, pretty_print_string},
-    gc::GcReadOnlyCell,
-    pretty::{PrettyPrintable, PrettyPrintablePiece},
-    values::CustomValueType,
+    gc::GcReadOnlyCell, pretty_impl::pretty_print_string, values::CustomValueType,
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece};
 
 use crate::define_internal_fn;
 
@@ -45,7 +43,7 @@ fn run() -> Runner {
                             Severity::Warning => "WARNING".bright_yellow(),
                             Severity::Error => "ERROR".bright_red(),
                         },
-                        dbg_loc(pattern_at, ctx.files_map()),
+                        pattern_at.render_colored(ctx.files_map(), PrettyPrintOptions::inline()),
                         diag.msg
                     );
                 }
@@ -95,7 +93,9 @@ impl CustomValueType for RegexValue {
 }
 
 impl PrettyPrintable for RegexValue {
-    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("regex(", Color::Magenta),
             pretty_print_string(self.inner.as_str()),

@@ -788,6 +788,7 @@ dependencies = [
  "reshell-checker",
  "reshell-parser",
  "reshell-runtime",
+ "reshell-shared",
  "serde_json",
  "terminal_size",
  "time",
@@ -831,6 +832,7 @@ dependencies = [
  "reshell-checker",
  "reshell-parser",
  "reshell-runtime",
+ "reshell-shared",
 ]
 
 [[package]]
@@ -842,6 +844,16 @@ dependencies = [
  "indexmap",
  "parsy",
  "reshell-checker",
+ "reshell-parser",
+ "reshell-shared",
+]
+
+[[package]]
+name = "reshell-shared"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "parsy",
  "reshell-parser",
 ]
 

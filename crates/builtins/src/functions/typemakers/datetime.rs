@@ -1,10 +1,8 @@
 use colored::Color;
 use reshell_runtime::{
-    display::pretty_print_string,
-    gc::GcReadOnlyCell,
-    pretty::{PrettyPrintable, PrettyPrintablePiece},
-    values::CustomValueType,
+    gc::GcReadOnlyCell, pretty_impl::pretty_print_string, values::CustomValueType,
 };
+use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 use time::{
     util::local_offset::{set_soundness, Soundness},
     OffsetDateTime, UtcOffset,
@@ -75,7 +73,9 @@ impl CustomValueType for DateTimeValue {
 }
 
 impl PrettyPrintable for DateTimeValue {
-    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
             pretty_print_string(&self.inner.to_string()),

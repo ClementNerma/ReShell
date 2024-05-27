@@ -1,12 +1,8 @@
 use std::time::Duration;
 
 use colored::Color;
-use reshell_runtime::{
-    context::Context,
-    display::pretty_print_string,
-    pretty::{PrettyPrintable, PrettyPrintablePiece},
-    values::CustomValueType,
-};
+use reshell_runtime::{pretty_impl::pretty_print_string, values::CustomValueType};
+use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
 /// Time duration
 ///
@@ -30,7 +26,9 @@ impl CustomValueType for DurationValue {
 }
 
 impl PrettyPrintable for DurationValue {
-    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("duration(", Color::Magenta),
             pretty_print_string(&format!("{:?}", self.inner)),
