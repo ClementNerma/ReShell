@@ -174,7 +174,7 @@ impl<Inner: Typing> DetachedListType<Inner> {
 
 impl<Inner: Typing> SingleTyping for DetachedListType<Inner> {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::UntypedList
+        SingleValueType::TypedList(Box::new(self.inner.underlying_type()))
     }
 
     type Parsed = Vec<Inner::Parsed>;
@@ -214,7 +214,7 @@ impl<Inner: Typing> DetachedMapType<Inner> {
 
 impl<Inner: Typing> SingleTyping for DetachedMapType<Inner> {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::UntypedMap
+        SingleValueType::TypedMap(Box::new(self.inner.underlying_type()))
     }
 
     type Parsed = HashMap<String, Inner::Parsed>;

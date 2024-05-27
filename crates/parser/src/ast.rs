@@ -257,13 +257,13 @@ pub enum Value {
     SingleParamLambda(Eaten<Block>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum ValueType {
     Single(RuntimeEaten<SingleValueType>),
     Union(Vec<RuntimeEaten<SingleValueType>>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum SingleValueType {
     Any,
     Null,
@@ -287,13 +287,13 @@ pub enum SingleValueType {
     Custom(&'static str),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct StructTypeMember {
     pub name: RuntimeEaten<String>,
     pub typ: RuntimeEaten<ValueType>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct FnSignature {
     pub args: RuntimeEaten<Vec<FnArg>>,
     pub ret_type: Option<RuntimeEaten<Box<ValueType>>>,
@@ -465,7 +465,7 @@ pub enum CmdPipeType {
     ValueOrStdout,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum FnArg {
     Positional(FnPositionalArg),
     PresenceFlag(FnPresenceFlagArg),
@@ -473,31 +473,31 @@ pub enum FnArg {
     Rest(FnRestArg),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct FnPositionalArg {
     pub name: RuntimeEaten<String>,
     pub is_optional: bool,
     pub typ: Option<RuntimeEaten<ValueType>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct FnPresenceFlagArg {
     pub names: FnFlagArgNames,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct FnNormalFlagArg {
     pub names: FnFlagArgNames,
     pub is_optional: bool,
     pub typ: RuntimeEaten<ValueType>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub struct FnRestArg {
     pub name: RuntimeEaten<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash)]
 pub enum FnFlagArgNames {
     ShortFlag(RuntimeEaten<char>),
     LongFlag(RuntimeEaten<String>),
@@ -532,14 +532,14 @@ pub enum FnCallArg {
 }
 
 /// A token that's either eaten from a real input or generated at runtime
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub enum RuntimeEaten<T> {
     Parsed(Eaten<T>),
     Internal(T, &'static str),
 }
 
 /// Either a [`CodeRange`] or an internal location
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub enum RuntimeCodeRange {
     Parsed(CodeRange),
     Internal(&'static str),

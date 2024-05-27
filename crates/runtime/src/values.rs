@@ -1,4 +1,6 @@
 use std::any::Any;
+use std::collections::HashSet;
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
 use std::{collections::HashMap, fmt::Debug};
 
@@ -157,9 +159,18 @@ impl RuntimeValue {
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
-            RuntimeValue::List(_) => SingleValueType::UntypedList,
             RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
-            RuntimeValue::Map(_) => SingleValueType::UntypedMap,
+            RuntimeValue::List(items) => SingleValueType::TypedList(Box::new(
+                generate_values_types(items.read_promise_no_write().iter()),
+            )),
+            RuntimeValue::Map(entries) => {
+                SingleValueType::TypedMap(Box::new(generate_values_types(
+                    entries
+                        .read_promise_no_write()
+                        .iter()
+                        .map(|(_, value)| value),
+                )))
+            }
             RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
                 members
                     .read_promise_no_write()
@@ -215,6 +226,33 @@ impl RuntimeValue {
 
             RuntimeValue::List(_) | RuntimeValue::Map(_) | RuntimeValue::Struct(_) => true,
         }
+    }
+}
+
+/// Generate types for list of values
+fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> ValueType {
+    let mut types = vec![];
+    let mut types_hash = HashSet::new();
+
+    for item in values {
+        let typ = item.get_type();
+
+        let mut hasher = DefaultHasher::new();
+        typ.hash(&mut hasher);
+        let type_hash = hasher.finish();
+
+        if types_hash.insert(type_hash) {
+            types.push(RuntimeEaten::Internal(typ, "internal value type computer"));
+        }
+    }
+
+    match types.len() {
+        0 => ValueType::Single(RuntimeEaten::Internal(
+            SingleValueType::Any,
+            "internal value type computer",
+        )),
+        1 => ValueType::Single(types.remove(0)),
+        _ => ValueType::Union(types),
     }
 }
 
