@@ -77,6 +77,7 @@ mod to_uppercase;
 mod transform;
 mod trim;
 mod values;
+mod whereis;
 mod which;
 mod write_file;
 
@@ -110,6 +111,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::error::build_fn(),
         self::exit::build_fn(),
         self::file_exists::build_fn(),
+        self::find_str::build_fn(),
         self::fold::build_fn(),
         self::for_each::build_fn(),
         self::get::build_fn(),
@@ -118,17 +120,16 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::inspect::build_fn(),
         self::is_empty::build_fn(),
         self::join::build_fn(),
-        self::parse_json::build_fn(),
         self::len::build_fn(),
         self::lines::build_fn(),
         self::filter::build_fn(),
         self::keys::build_fn(),
-        self::values::build_fn(),
         self::make_map::build_fn(),
         self::map::build_fn(),
         self::matches::build_fn(),
         self::mkdir::build_fn(),
         self::parent_dir::build_fn(),
+        self::parse_json::build_fn(),
         self::path_exists::build_fn(),
         self::transform::build_fn(),
         self::prepend::build_fn(),
@@ -148,18 +149,19 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::split::build_fn(),
         self::starts_with::build_fn(),
         self::stringify::build_fn(),
-        self::find_str::build_fn(),
+        self::runtime::build_fn(),
         self::struct_to_map::build_fn(),
         self::substr::build_fn(),
         self::succeeds::build_fn(),
         self::take::build_fn(),
-        self::runtime::build_fn(),
         self::term_cols::build_fn(),
         self::term_rows::build_fn(),
         self::to_json::build_fn(),
         self::to_lowercase::build_fn(),
         self::to_uppercase::build_fn(),
         self::trim::build_fn(),
+        self::values::build_fn(),
+        self::whereis::build_fn(),
         self::which::build_fn(),
         self::write_file::build_fn(),
     ]
