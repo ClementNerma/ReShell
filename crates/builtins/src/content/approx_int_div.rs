@@ -24,14 +24,14 @@ fn run() -> Runner {
          },
          _,
          _| {
-            Ok(Some(RuntimeValue::String(div_round_str(
+            Ok(Some(RuntimeValue::String(approx_int_div(
                 divident, dividor, precision,
             ))))
         },
     )
 }
 
-pub fn div_round_str(a: u64, b: u64, mut precision: u8) -> String {
+pub fn approx_int_div(a: u64, b: u64, mut precision: u8) -> String {
     let max_prec = 10_u128.pow(u32::from(precision));
 
     let div = u128::from(a) * max_prec / u128::from(b);

@@ -36,7 +36,7 @@ fn run() -> Runner {
 
         Ok(Some(RuntimeValue::String(format!(
             "{} {unit}",
-            approx_int_div::div_round_str(size, unit_base, precision.unwrap_or(2))
+            approx_int_div::approx_int_div(size, unit_base, precision.unwrap_or(2))
         ))))
     })
 }
