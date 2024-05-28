@@ -9,7 +9,7 @@ use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::ExecResult,
-    exec::{run_fn_body, InstrRet, InstrRetType},
+    exec::{run_body_with_deps, InstrRet, InstrRetType},
     expr::eval_expr,
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -77,29 +77,24 @@ pub fn call_fn_value(
 
             for (name, loc_value) in call_args {
                 scope_content.vars.insert(
-                    name,
+                    name.data,
                     ScopeVar {
-                        // TODO: use function argument declaration instead of the value location!
-                        declared_at: loc_value.from,
+                        declared_at: name.at,
                         is_mut: false,
-                        value: GcCell::new(Some(LocatedValue::new(
-                            loc_value.value,
-                            loc_value.from,
-                        ))),
+                        value: GcCell::new(Some(loc_value)),
                     },
                 );
             }
 
-            let instr_ret = run_fn_body(
+            let instr_ret = run_body_with_deps(
                 &body.data,
-                &func.captured_deps,
+                func.captured_deps.clone(),
                 ctx,
                 scope_content,
                 func.parent_scopes.clone(),
-                CallStackEntry {
+                Some(CallStackEntry {
                     fn_called_at: call_at,
-                    previous_scope: ctx.current_scope().id,
-                },
+                }),
             )?;
 
             match instr_ret {
@@ -156,7 +151,7 @@ fn parse_fn_call_args(
     call_args: FnPossibleCallArgs,
     fn_args: &[FnArg],
     ctx: &mut Context,
-) -> ExecResult<HashMap<String, LocatedValue>> {
+) -> ExecResult<HashMap<Eaten<String>, LocatedValue>> {
     let mut args = HashMap::new();
 
     let mut positional_args = fn_args.iter().filter(|arg| !arg.names.is_flag());
@@ -319,7 +314,7 @@ fn parse_fn_call_args(
                     call_arg_at,
                     format!(
                         "type mismatch for argument '{}': expected a {}, found a {}",
-                        fn_arg_var_name(fn_arg),
+                        fn_arg_var_name(fn_arg).data,
                         expected_type
                             .data
                             .render_colored(ctx, PrettyPrintOptions::inline()),
@@ -350,7 +345,7 @@ fn parse_fn_call_args(
                 },
                 format!(
                     "not enough arguments, missing value for argument '{}'",
-                    fn_arg_var_name(arg)
+                    fn_arg_var_name(arg).data
                 ),
             ));
         }
@@ -370,7 +365,7 @@ fn parse_fn_call_args(
                         call_at,
                         format!(
                             "value for flag '{}' was not provided",
-                            fn_arg_var_name(flag)
+                            fn_arg_var_name(flag).data
                         ),
                     ));
                 }
@@ -384,7 +379,7 @@ fn parse_fn_call_args(
 
     if let Some(rest_arg) = fn_args.iter().find(|arg| arg.is_rest) {
         let name = match &rest_arg.names {
-            FnArgNames::NotFlag(name) => name.data.clone(),
+            FnArgNames::NotFlag(name) => name.clone(),
             FnArgNames::ShortFlag(_)
             | FnArgNames::LongFlag(_)
             | FnArgNames::LongAndShortFlag { long: _, short: _ } => unreachable!(),
@@ -406,13 +401,13 @@ fn parse_fn_call_args(
     Ok(args)
 }
 
-fn fn_arg_var_name(arg: &FnArg) -> String {
+fn fn_arg_var_name(arg: &FnArg) -> Eaten<String> {
     // TODO: performance
     match &arg.names {
-        FnArgNames::NotFlag(name) => name.data.clone(),
-        FnArgNames::ShortFlag(short) => short.data.to_string(),
-        FnArgNames::LongFlag(long) => long.data.clone(),
-        FnArgNames::LongAndShortFlag { long, short: _ } => long.data.clone(),
+        FnArgNames::NotFlag(name) => name.clone(),
+        FnArgNames::ShortFlag(short) => short.map_ref(|c| c.to_string()),
+        FnArgNames::LongFlag(long) => long.clone(),
+        FnArgNames::LongAndShortFlag { long, short: _ } => long.clone(),
     }
 }
 

@@ -7,16 +7,18 @@ use reshell_parser::ast::{Block, ElsIf, Function, Instruction, Program, SwitchCa
 
 use crate::{
     cmd::run_cmd,
-    context::{CallStackEntry, Context, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
+    context::{
+        CallStackEntry, Context, DepsScopeCreationData, ScopeContent, ScopeFn, ScopeRange, ScopeVar,
+    },
     errors::ExecResult,
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
-    gc::GcCell,
+    gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy},
     values::{
-        are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeFnBody,
-        RuntimeFnValue, RuntimeValue,
+        are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeCmdAlias,
+        RuntimeFnBody, RuntimeFnValue, RuntimeTypeAlias, RuntimeValue,
     },
 };
 
@@ -86,22 +88,22 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
     Ok(None)
 }
 
-pub(crate) fn run_fn_body(
+pub(crate) fn run_body_with_deps(
     block: &Block,
-    captured_deps: &CapturedDependencies,
+    captured_deps: CapturedDependencies,
     ctx: &mut Context,
     content: ScopeContent,
     parent_scopes: IndexSet<u64>,
-    call_stack_entry: CallStackEntry,
+    call_stack_entry: Option<CallStackEntry>,
 ) -> ExecResult<Option<InstrRet>> {
     let Block {
         instructions: _,
         code_range,
     } = block;
 
-    ctx.create_and_push_fn_scope(
+    ctx.create_and_push_scope_with_deps(
         ScopeRange::CodeRange(*code_range),
-        captured_deps,
+        DepsScopeCreationData::CapturedDeps(captured_deps),
         content,
         parent_scopes,
         call_stack_entry,
@@ -401,7 +403,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::FnDecl { name, content } => {
             let parent_scopes = ctx.generate_parent_scopes();
 
-            let captured_deps = ctx.capture_deps(&content.body);
+            let captured_deps = ctx.capture_deps(content.body.data.code_range);
 
             let fns = &mut ctx.current_scope_content_mut().fns;
 
@@ -468,23 +470,45 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         },
 
         Instruction::CmdAliasDecl { name, content } => {
-            let aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
+            let parent_scopes = ctx.generate_parent_scopes();
 
-            if aliases.contains_key(&name.data) {
-                return Err(ctx.error(name.at, "duplicate alias declaration".to_string()));
-            }
+            let captured_deps = ctx.capture_deps(content.at);
 
-            aliases.insert(name.data.clone(), content.data.clone());
+            let cmd_aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
+
+            // We can do this thanks to the checker
+            assert!(!cmd_aliases.contains_key(&name.data));
+
+            cmd_aliases.insert(
+                name.data.clone(),
+                RuntimeCmdAlias {
+                    name_declared_at: name.at,
+                    alias_content: GcReadOnlyCell::new(content.data.clone()),
+                    parent_scopes,
+                    captured_deps,
+                },
+            );
         }
 
         Instruction::TypeAliasDecl { name, content } => {
-            let aliases = &mut ctx.current_scope_content_mut().types;
+            let parent_scopes = ctx.generate_parent_scopes();
 
-            if aliases.contains_key(&name.data) {
-                return Err(ctx.error(name.at, "duplicate type alias declaration".to_string()));
-            }
+            let captured_deps = ctx.capture_deps(content.at);
 
-            aliases.insert(name.data.clone(), content.data.clone());
+            let type_aliases = &mut ctx.current_scope_content_mut().type_aliases;
+
+            // We can do this thanks to the checker
+            assert!(!type_aliases.contains_key(&name.data));
+
+            type_aliases.insert(
+                name.data.clone(),
+                RuntimeTypeAlias {
+                    name_declared_at: name.at,
+                    alias_content: GcReadOnlyCell::new(content.data.clone()),
+                    parent_scopes,
+                    captured_deps,
+                },
+            );
         }
 
         Instruction::CmdCall(call) => {

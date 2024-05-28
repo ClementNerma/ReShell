@@ -49,7 +49,7 @@ impl RlCompleter for Completer {
 
             return ctx
                 .visible_scopes()
-                .flat_map(|scope| scope.content.vars.iter())
+                .flat_map(|scope| scope.vars.iter())
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
@@ -75,7 +75,7 @@ impl RlCompleter for Completer {
 
             return ctx
                 .visible_scopes()
-                .flat_map(|scope| scope.content.fns.iter())
+                .flat_map(|scope| scope.fns.iter())
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("@{name}"),

@@ -358,7 +358,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 // TODO: compute and store which values this references
                 body: RuntimeFnBody::Block(body.clone()),
                 parent_scopes: ctx.generate_parent_scopes(),
-                captured_deps: ctx.capture_deps(body),
+                captured_deps: ctx.capture_deps(body.data.code_range),
             })))
         }
     }

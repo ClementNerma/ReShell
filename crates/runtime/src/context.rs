@@ -1,20 +1,20 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
-use reshell_parser::ast::{Block, SingleCmdCall, ValueType};
 
 use crate::{
+    conf::RuntimeConf,
+    display::dbg_loc,
     errors::{ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::GcCell,
     native_lib::generate_native_lib,
-    values::{CapturedDependencies, LocatedValue, RuntimeFnValue},
+    values::{
+        CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeTypeAlias,
+    },
 };
 
 pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
@@ -28,21 +28,24 @@ static INITIAL_FIRST_SCOPE: Lazy<Scope> = Lazy::new(|| Scope {
     content: ScopeContent::new(),
     parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
     range: ScopeRange::SourceLess,
+    previous_scope: None,
+    deps_scope: None,
 });
 
 #[derive(Debug)]
 pub struct Context {
+    conf: RuntimeConf,
     scopes_id_counter: u64,
     scopes: HashMap<u64, Scope>,
+    deps_scopes: HashMap<u64, ScopeContent>,
     current_scope: u64,
     files_map: FilesMap,
     home_dir: Option<PathBuf>,
-    fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-    fn_deps_cleanup: HashMap<u64, u64>,
+    deps: IndexMap<CodeRange, IndexSet<Dependency>>,
 }
 
 impl Context {
-    pub fn new(home_dir: Option<PathBuf>) -> Self {
+    pub fn new(conf: RuntimeConf) -> Self {
         let scopes_to_add = [
             INITIAL_NATIVE_LIB_SCOPE.clone(),
             INITIAL_FIRST_SCOPE.clone(),
@@ -59,9 +62,10 @@ impl Context {
             scopes,
             current_scope: FIRST_SCOPE_ID,
             files_map: FilesMap::new(),
-            home_dir,
-            fn_deps: IndexMap::new(),
-            fn_deps_cleanup: HashMap::new(),
+            home_dir: conf.initial_home_dir.clone(),
+            deps: IndexMap::new(),
+            deps_scopes: HashMap::new(),
+            conf,
         }
     }
 
@@ -77,7 +81,7 @@ impl Context {
         &self.files_map
     }
 
-    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
+    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
         let current_scope = self.current_scope();
 
         current_scope
@@ -85,6 +89,15 @@ impl Context {
             .iter()
             .filter_map(|scope_id| self.scopes.get(scope_id))
             .chain([current_scope])
+            .flat_map(|scope| {
+                [
+                    scope
+                        .deps_scope
+                        .map(|deps_scope_id| self.deps_scopes.get(&deps_scope_id).unwrap()),
+                    Some(&scope.content),
+                ]
+            })
+            .flatten()
             .rev()
     }
 
@@ -92,15 +105,15 @@ impl Context {
         self.scopes.get(&FIRST_SCOPE_ID).unwrap()
     }
 
+    pub fn deps_for_debug(&self, from: &CodeRange) -> Option<&IndexSet<Dependency>> {
+        self.deps.get(from)
+    }
+
     // =============== Non-public functions =============== //
 
     pub(crate) fn append_checker_output(&mut self, checker_output: CheckerOutput) {
-        let CheckerOutput { fn_deps } = checker_output;
-
-        for (fn_decl, deps) in fn_deps {
-            let dup = self.fn_deps.insert(fn_decl, deps);
-            assert!(dup.is_none());
-        }
+        let CheckerOutput { deps } = checker_output;
+        self.deps = deps;
     }
 
     pub(crate) fn generate_scope_id(&mut self) -> u64 {
@@ -151,69 +164,98 @@ impl Context {
             content,
             call_stack_entry: None,
             call_stack: self.current_scope().call_stack.clone(),
+            previous_scope: Some(self.current_scope),
+            deps_scope: None,
         };
 
-        self.push_custom_scope(scope);
+        self.push_scope(scope);
 
         id
     }
 
-    pub(crate) fn create_and_push_fn_scope(
+    pub(crate) fn create_and_push_scope_with_deps(
         &mut self,
         range: ScopeRange,
-        captured_deps: &CapturedDependencies,
+        creation_data: DepsScopeCreationData,
         content: ScopeContent,
-        mut parent_scopes: IndexSet<u64>,
-        call_stack_entry: CallStackEntry,
+        parent_scopes: IndexSet<u64>,
+        call_stack_entry: Option<CallStackEntry>,
     ) {
-        let CapturedDependencies { vars, fns } = captured_deps;
-
-        let deps_scope_id = self.create_and_push_scope(
-            range,
-            ScopeContent {
-                vars: vars
-                    .iter()
-                    .map(|(dep, value)| (dep.name.clone(), value.clone()))
-                    .collect(),
-
-                fns: fns
-                    .iter()
-                    .map(|(dep, value)| (dep.name.clone(), value.clone()))
-                    .collect(),
-
-                // TODO?
-                cmd_aliases: HashMap::new(),
-                // TODO?
-                types: HashMap::new(),
+        let deps_scope_content = match creation_data {
+            DepsScopeCreationData::Retrieved(content) => content,
+            DepsScopeCreationData::CapturedDeps(captured_deps) => {
+                let CapturedDependencies {
+                    vars,
+                    fns,
+                    cmd_aliases,
+                    type_aliases,
+                } = captured_deps;
+        
+                ScopeContent {
+                    vars: vars
+                        .iter()
+                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                        .collect(),
+    
+                    fns: fns
+                        .iter()
+                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                        .collect(),
+    
+                    type_aliases: type_aliases
+                        .iter()
+                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                        .collect(),
+    
+                    cmd_aliases: cmd_aliases
+                        .iter()
+                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                        .collect(),
+                }
             },
+        };
+        
+        let deps_scope_id = self.generate_scope_id();
+
+        self.deps_scopes.insert(
+            deps_scope_id,
+            deps_scope_content
         );
 
-        parent_scopes.insert(deps_scope_id);
+        let mut call_stack = self.current_scope().call_stack.clone();
 
         let id = self.generate_scope_id();
 
-        self.fn_deps_cleanup.insert(id, deps_scope_id);
-
-        let mut call_stack = self.current_scope().call_stack.clone();
-        call_stack.append(call_stack_entry);
+        if let Some(call_stack_entry) = call_stack_entry {
+            call_stack.append(call_stack_entry);
+        }
 
         let scope = Scope {
             id,
             range,
             parent_scopes,
             content,
-            call_stack_entry: Some(call_stack_entry),
+            call_stack_entry,
             call_stack,
+            previous_scope: Some(self.current_scope),
+            deps_scope: Some(deps_scope_id),
         };
 
-        self.push_custom_scope(scope);
+        self.push_scope(scope);
     }
 
-    pub(crate) fn push_custom_scope(&mut self, scope: Scope) {
+    pub(crate) fn push_scope(&mut self, scope: Scope) {
         if let Some(file_id) = scope.source_file_id() {
             assert!(
                 self.files_map.has_file(file_id),
                 "Provided scope is associated to an unregistered file"
+            );
+        }
+
+        if scope.call_stack.history.len() > self.conf.call_stack_limit {
+            panic!(
+                "Maximum call stack size ({}) exceeded",
+                self.conf.call_stack_limit
             );
         }
 
@@ -241,28 +283,25 @@ impl Context {
     }
 
     pub(crate) fn pop_scope(&mut self) {
+        self.pop_scope_and_get_deps();
+    }
+
+    pub(crate) fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
         assert!(self.current_scope > FIRST_SCOPE_ID);
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 
-        if current_scope.call_stack_entry.is_some() {
-            let fn_deps_scope = self.fn_deps_cleanup.remove(&current_scope.id).unwrap();
-            self.scopes.remove(&fn_deps_scope).unwrap();
-        }
+        let deps_scope = current_scope
+            .deps_scope
+            .map(|scope_id| self.deps_scopes.remove(&scope_id).unwrap());
 
-        let prev_scope = current_scope
-            .call_stack_entry
-            .as_ref()
-            .map(|entry| entry.previous_scope);
+        // assert!(ENSURE scopes with stack entry (= fn calls) have a deps scope);
 
-        self.current_scope = match prev_scope {
-            Some(prev_scope) => prev_scope,
-            None => current_scope
-                .parent_scopes
-                .last()
-                .copied()
-                .expect("unexpected: cannot pop a scope without parents"),
-        };
+        self.current_scope = current_scope.previous_scope.unwrap();
+
+        assert!(self.scopes.contains_key(&self.current_scope));
+
+        deps_scope
     }
 
     pub(crate) fn current_source_file(&self) -> Option<&SourceFile> {
@@ -279,7 +318,7 @@ impl Context {
 
     pub(crate) fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
         self.visible_scopes()
-            .find_map(|scope| scope.content.fns.get(&name.data))
+            .find_map(|scope| scope.fns.get(&name.data))
     }
 
     pub(crate) fn get_visible_fn_value<'s>(
@@ -295,25 +334,25 @@ impl Context {
 
     pub(crate) fn get_visible_var<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeVar> {
         self.visible_scopes()
-            .find_map(|scope| scope.content.vars.get(&name.data))
+            .find_map(|scope| scope.vars.get(&name.data))
     }
 
-    pub(crate) fn capture_deps(&self, fn_body: &Eaten<Block>) -> CapturedDependencies {
+    pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies {
             vars: HashMap::new(),
             fns: HashMap::new(),
+            type_aliases: HashMap::new(),
+            cmd_aliases: HashMap::new(),
         };
 
-        let fn_body_at = fn_body.data.code_range;
-
-        let deps_list = self.fn_deps.get(&fn_body_at).expect(
-            "internal error: dependencies informations not found while constructing function value (this is a bug in the checker)"
+        let deps_list = self.deps.get(&body_content_at).expect(
+            "internal error: dependencies informations not found while constructing value (this is a bug in the checker)"
         );
 
         for dep in deps_list {
             let Dependency {
                 name,
-                name_declared_at,
+                declared_at,
                 dep_type,
             } = dep;
 
@@ -323,12 +362,14 @@ impl Context {
                         .visible_scopes()
                         .find_map(|scope| {
                             scope
-                                .content
                                 .vars
                                 .get(name)
-                                .filter(|var| var.declared_at == *name_declared_at)
+                                .filter(|var| var.declared_at == *declared_at)
                         })
-                        .unwrap_or_else(|| panic!("internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {name_declared_at:?})"));
+                        .unwrap_or_else(|| panic!(
+                            "internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {})",
+                            dbg_loc(*declared_at, self.files_map()
+                        )));
 
                     captured_deps.vars.insert(dep.clone(), var.clone());
                 }
@@ -338,14 +379,48 @@ impl Context {
                         .visible_scopes()
                         .find_map(|scope| {
                             scope
-                                .content
+                                
                                 .fns
                                 .get(name)
-                                .filter(|func| func.declared_at == *name_declared_at)
+                                .filter(|func| func.declared_at == *declared_at)
                         })
-                        .expect("internal error: cannot find variable to capture (this is a bug in the checker)");
+                        .expect("internal error: cannot find function to capture (this is a bug in the checker)");
 
                     captured_deps.fns.insert(dep.clone(), func.clone());
+                }
+
+                DependencyType::CmdAlias => {
+                    let cmd_alias = self
+                        .visible_scopes()
+                        .find_map(|scope| {
+                            scope
+                                
+                                .cmd_aliases
+                                .get(name)
+                                .filter(|alias| alias.name_declared_at == *declared_at)
+                        })
+                        .expect("internal error: cannot find command alias to capture (this is a bug in the checker)");
+
+                    captured_deps
+                        .cmd_aliases
+                        .insert(dep.clone(), cmd_alias.clone());
+                }
+
+                DependencyType::TypeAlias => {
+                    let type_alias = self
+                        .visible_scopes()
+                        .find_map(|scope| {
+                            scope
+                                
+                                .type_aliases
+                                .get(name)
+                                .filter(|alias| alias.name_declared_at == *declared_at)
+                        })
+                        .expect("internal error: cannot find type alias to capture (this is a bug in the checker)");
+
+                    captured_deps
+                        .type_aliases
+                        .insert(dep.clone(), type_alias.clone());
                 }
             };
         }
@@ -360,6 +435,8 @@ pub struct Scope {
     pub range: ScopeRange,
     pub content: ScopeContent,
     pub parent_scopes: IndexSet<u64>,
+    pub deps_scope: Option<u64>,
+    pub previous_scope: Option<u64>,
     pub call_stack_entry: Option<CallStackEntry>,
     pub call_stack: CallStack,
 }
@@ -389,13 +466,8 @@ impl Scope {
             vars,
             fns,
             cmd_aliases,
-            types,
+            type_aliases,
         } = content;
-
-        // For now
-        assert!(cmd_aliases.is_empty());
-        assert!(types.is_empty());
-        //////////
 
         CheckerScope {
             code_range: match range {
@@ -412,10 +484,18 @@ impl Scope {
                 ScopeRange::CodeRange(range) => *range,
             },
 
+            deps: false, // TODO: isn't that incorrect?
             fn_args_at: None,
 
-            cmd_aliases: HashSet::new(), // TODO
-            types: HashSet::new(),       // TODO
+            cmd_aliases: cmd_aliases
+                .iter()
+                .map(|(key, value)| (key.clone(), value.name_declared_at))
+                .collect(),
+
+            type_aliases: type_aliases
+                .iter()
+                .map(|(key, value)| (key.clone(), value.name_declared_at))
+                .collect(),
 
             fns: fns
                 .iter()
@@ -448,8 +528,8 @@ pub enum ScopeRange {
 pub struct ScopeContent {
     pub vars: HashMap<String, ScopeVar>,
     pub fns: HashMap<String, ScopeFn>,
-    pub cmd_aliases: HashMap<String, SingleCmdCall>,
-    pub types: HashMap<String, ValueType>,
+    pub cmd_aliases: HashMap<String, RuntimeCmdAlias>,
+    pub type_aliases: HashMap<String, RuntimeTypeAlias>,
 }
 
 impl ScopeContent {
@@ -458,7 +538,7 @@ impl ScopeContent {
             vars: HashMap::new(),
             fns: HashMap::new(),
             cmd_aliases: HashMap::new(),
-            types: HashMap::new(),
+            type_aliases: HashMap::new(),
         }
     }
 }
@@ -504,6 +584,9 @@ impl CallStack {
 #[derive(Debug, Clone, Copy)]
 pub struct CallStackEntry {
     pub fn_called_at: CodeRange,
-    pub previous_scope: u64,
-    // pub args: Vec<RuntimeValue>,
+}
+
+pub enum DepsScopeCreationData {
+    CapturedDeps(CapturedDependencies),
+    Retrieved(ScopeContent)
 }

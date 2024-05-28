@@ -103,10 +103,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     if let Some(call_stack) = call_stack {
         for entry in call_stack.history().iter().rev() {
-            let CallStackEntry {
-                fn_called_at,
-                previous_scope: _,
-            } = entry;
+            let CallStackEntry { fn_called_at } = entry;
 
             let entry_msg = format!(
                 "* Called at: {}",
