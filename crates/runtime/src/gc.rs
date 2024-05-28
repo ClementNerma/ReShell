@@ -11,21 +11,15 @@ use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 
 // Garbage-collectable cell
 #[derive(Debug)]
-pub struct GcCell<T: ?Sized> {
+pub struct GcCell<T> {
     value: Rc<RefCell<T>>,
     read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
 }
 
 impl<T> GcCell<T> {
     pub fn new(value: T) -> Self {
-        Self::new_unsized(Rc::new(RefCell::new(value)))
-    }
-}
-
-impl<T: ?Sized> GcCell<T> {
-    pub fn new_unsized(value: Rc<RefCell<T>>) -> Self {
         Self {
-            value,
+            value: Rc::new(RefCell::new(value)),
             read_lock: Rc::new(RefCell::new(None)),
         }
     }
@@ -58,7 +52,7 @@ impl<T: ?Sized> GcCell<T> {
 }
 
 // NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
-impl<T: ?Sized> Clone for GcCell<T> {
+impl<T> Clone for GcCell<T> {
     fn clone(&self) -> Self {
         Self {
             value: Rc::clone(&self.value),
@@ -67,13 +61,13 @@ impl<T: ?Sized> Clone for GcCell<T> {
     }
 }
 
-pub struct GcRef<'a, T: ?Sized> {
+pub struct GcRef<'a, T> {
     inner: Ref<'a, T>,
     read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
     is_read_lock_initiator: bool,
 }
 
-impl<'a, T: ?Sized> GcRef<'a, T> {
+impl<'a, T> GcRef<'a, T> {
     fn new(
         inner: Ref<'a, T>,
         read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
@@ -97,7 +91,7 @@ impl<'a, T: ?Sized> GcRef<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> Drop for GcRef<'a, T> {
+impl<'a, T> Drop for GcRef<'a, T> {
     fn drop(&mut self) {
         if self.is_read_lock_initiator {
             *self.read_lock.borrow_mut() = None;
@@ -105,7 +99,7 @@ impl<'a, T: ?Sized> Drop for GcRef<'a, T> {
     }
 }
 
-impl<'a, T: ?Sized> Deref for GcRef<'a, T> {
+impl<'a, T> Deref for GcRef<'a, T> {
     type Target = Ref<'a, T>;
 
     fn deref(&self) -> &Self::Target {
@@ -168,7 +162,7 @@ pub struct GcOnceCellAlreadyInitErr;
 
 // Garbage-collectable read-only cell
 #[derive(Debug)]
-pub struct GcReadOnlyCell<T: ?Sized> {
+pub struct GcReadOnlyCell<T> {
     value: Rc<T>,
 }
 
@@ -180,13 +174,7 @@ impl<T> GcReadOnlyCell<T> {
     }
 }
 
-impl<T: ?Sized> GcReadOnlyCell<T> {
-    pub fn new_unsized(value: Rc<T>) -> Self {
-        Self { value }
-    }
-}
-
-impl<T: ?Sized> Deref for GcReadOnlyCell<T> {
+impl<T> Deref for GcReadOnlyCell<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -195,23 +183,10 @@ impl<T: ?Sized> Deref for GcReadOnlyCell<T> {
 }
 
 // NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
-impl<T: ?Sized> Clone for GcReadOnlyCell<T> {
+impl<T> Clone for GcReadOnlyCell<T> {
     fn clone(&self) -> Self {
         Self {
             value: Rc::clone(&self.value),
         }
     }
-}
-
-// TODO: CoerceUnsized + DispatchFromDyn for all types here
-// In the meantime, these macros can be use
-#[macro_export]
-macro_rules! gc_cell {
-    ($value: expr) => {
-        $crate::gc::GcCell::new_unsized(::std::rc::Rc::new(::std::cell::RefCell::new($value)))
-    };
-
-    ([readonly] $value: expr) => {
-        $crate::gc::GcReadOnlyCell::new_unsized(::std::rc::Rc::new($value))
-    };
 }

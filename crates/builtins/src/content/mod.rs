@@ -40,6 +40,7 @@ mod lines;
 mod ls;
 mod make_map;
 mod map;
+mod matches;
 mod mkdir;
 mod parent_dir;
 mod parse_json;
@@ -131,6 +132,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::values::build_fn(),
             self::make_map::build_fn(),
             self::map::build_fn(),
+            self::matches::build_fn(),
             self::mkdir::build_fn(),
             self::parent_dir::build_fn(),
             self::path_exists::build_fn(),

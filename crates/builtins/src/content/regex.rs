@@ -4,7 +4,7 @@ use regex::Regex;
 use reshell_runtime::{
     display::{dbg_loc, pretty_print_string},
     errors::ExecErrorInfoType,
-    gc_cell,
+    gc::GcReadOnlyCell,
     pretty::{PrettyPrintable, PrettyPrintablePiece},
     values::CustomValueType,
 };
@@ -63,16 +63,16 @@ fn run() -> Runner {
                 }
             };
 
-            Ok(Some(RuntimeValue::Custom(
-                gc_cell!([readonly] RegexValue::new(regex)),
-            )))
+            Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
+                RegexValue::new(regex),
+            )))))
         },
     )
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RegexValue {
-    inner: Regex,
+    inner: Regex, // TODO: Rc
 }
 
 impl RegexValue {
@@ -80,13 +80,20 @@ impl RegexValue {
         Self { inner }
     }
 
-    fn inner(&self) -> &Regex {
+    pub fn inner(&self) -> &Regex {
         &self.inner
     }
 }
 
 impl CustomValueType for RegexValue {
     fn typename(&self) -> &'static str {
+        "regex"
+    }
+
+    fn typename_static() -> &'static str
+    where
+        Self: Sized,
+    {
         "regex"
     }
 }

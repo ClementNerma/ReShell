@@ -304,6 +304,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56ce8c6da7551ec6c462cbaf3bfbc75131ebbfa1c944aeaa9dab51ca1c5f0c3b"
 
 [[package]]
+name = "dyn-clone"
+version = "1.0.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "545b22097d44f8a9581187cdf93de7a71e4722bf51200cfaba810865b49a495d"
+
+[[package]]
 name = "either"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -783,6 +789,7 @@ name = "reshell-builtins"
 version = "0.1.0"
 dependencies = [
  "colored",
+ "dyn-clone",
  "glob",
  "indexmap",
  "parsy",
@@ -816,6 +823,7 @@ version = "0.1.0"
 dependencies = [
  "colored",
  "dunce",
+ "dyn-clone",
  "indexmap",
  "parsy",
  "reshell-checker",
