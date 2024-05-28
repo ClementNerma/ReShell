@@ -49,7 +49,8 @@ pub fn eval_prop_access_nature<'a>(
                 };
 
                 // TODO: HACK: find a more proper way to to that
-                if policy == PropAccessPolicy::TrailingAcessMayNotExist && !map.contains_key(&key) {
+                if policy == PropAccessPolicy::TrailingAccessMayNotExist && !map.contains_key(&key)
+                {
                     map.insert(key.clone(), RuntimeValue::Null);
                 }
 
@@ -92,5 +93,5 @@ pub fn eval_prop_access_nature<'a>(
 #[derive(PartialEq, Eq)]
 pub enum PropAccessPolicy {
     ExistingOnly,
-    TrailingAcessMayNotExist,
+    TrailingAccessMayNotExist,
 }
