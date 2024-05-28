@@ -82,59 +82,64 @@ impl BinariesResolver {
                 let resolved = self
                     .path_dirs
                     .iter()
-                    .find_map(|dir| {
-                        let dir = Path::new(dir);
-
-                        match TARGET_FAMILY {
-                            TargetFamily::Windows => {
-                                let path = dir.join(name);
-
-                                if path.is_file() {
-                                    return Some(path);
-                                }
-
-                                [
-                                    dir.join(name),
-                                    dir.join(format!("{name}.exe")),
-                                    dir.join(format!("{name}.cmd")),
-                                    dir.join(format!("{name}.bat")),
-                                ]
-                                .into_iter()
-                                .find(|path| path.is_file())
-                            }
-
-                            TargetFamily::Unix => {
-                                let path = dir.join(name);
-
-                                let mt = path.metadata().ok()?;
-
-                                if !mt.is_file() {
-                                    return None;
-                                }
-
-                                #[cfg(target_family = "unix")]
-                                {
-                                    use std::os::unix::fs::PermissionsExt;
-
-                                    // Ensure exec permissions are present
-                                    if mt.permissions().mode() & 0o111 != 0 {
-                                        Some(path)
-                                    } else {
-                                        None
-                                    }
-                                }
-
-                                #[cfg(not(target_family = "unix"))]
-                                unreachable!()
-                            }
-                        }
-                    })
-                    .ok_or_else(|| format!("command '{name}' was not found"))?;
+                    .find_map(|dir| find_exe_in_dir(name, Path::new(dir)).transpose())
+                    .ok_or_else(|| format!("command '{name}' was not found"))??;
 
                 self.entries.insert(name.to_owned(), resolved.clone());
 
                 Ok(resolved)
             }
+        }
+    }
+}
+
+fn find_exe_in_dir(name: &str, dir: &Path) -> Result<Option<PathBuf>, String> {
+    match TARGET_FAMILY {
+        TargetFamily::Windows => {
+            let path = dir.join(name);
+
+            Ok(if path.is_file() {
+                Some(path)
+            } else {
+                [
+                    dir.join(name),
+                    dir.join(format!("{name}.exe")),
+                    dir.join(format!("{name}.cmd")),
+                    dir.join(format!("{name}.bat")),
+                ]
+                .into_iter()
+                .find(|path| path.is_file())
+            })
+        }
+
+        TargetFamily::Unix => {
+            let path = dir.join(name);
+
+            let Ok(mt) = path.metadata() else {
+                return Ok(None);
+            };
+
+            if !mt.is_file() {
+                return Ok(None);
+            }
+
+            #[cfg(target_family = "unix")]
+            {
+                use std::os::unix::fs::PermissionsExt;
+
+                // Ensure exec permissions are present
+                if mt.permissions().mode() & 0o111 != 0 {
+                    Ok(Some(path))
+                } else {
+                    Err(format!(
+                        "file '{}' is not marked as executable",
+                        path.display()
+                    ))
+                }
+            }
+
+            #[cfg(not(target_family = "unix"))]
+            unreachable!()
         }
     }
 }
