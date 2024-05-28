@@ -601,13 +601,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         }
 
         CmdArg::SpreadVar(var_name) => {
-            let var = ctx.get_visible_var(var_name).unwrap_or_else(|| {
-                ctx.panic(
-                    var_name.at,
-                    "(spread) variable was not found (= bug in checker)",
-                )
-            });
-
+            let var = ctx.get_visible_var(var_name);
             let var_value = var.value.read(var_name.at);
 
             match &var_value.value {
@@ -633,6 +627,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 
                     Ok(CmdArgResult::Spreaded(spreaded))
                 }
+
                 RuntimeValue::ArgSpread(spread) => Ok(CmdArgResult::Spreaded(Vec::clone(spread))),
                 _ => Err(ctx.error(
                     var_name.at,
@@ -715,13 +710,7 @@ fn eval_cmd_computed_string_piece(
         }
         CmdComputedStringPiece::Escaped(char) => Ok(char.to_string()),
         CmdComputedStringPiece::Variable(var_name) => Ok(value_to_str(
-            &ctx.get_visible_var(var_name)
-                .unwrap_or_else(|| {
-                    ctx.panic(var_name.at, "variable was not found (= bug in checker)")
-                })
-                .value
-                .read(var_name.at)
-                .value,
+            &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             "only stringifyable variables can be used inside computable strings",
             var_name.at,
             ctx,

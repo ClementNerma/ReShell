@@ -4,15 +4,18 @@ use std::{
     error::Error,
     fs,
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+    sync::LazyLock,
 };
 
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
+use regex::{Captures, Regex};
 use reshell_parser::{ast::RuntimeCodeRange, DELIMITER_CHARS};
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     context::Context,
     pretty::{PrettyPrintOptions, PrettyPrintable},
+    values::RuntimeValue,
 };
 
 use crate::utils::lev_distance::levenshtein_distance;
@@ -84,12 +87,16 @@ pub fn generate_completions(
 
     let next_char = line[word_end..].chars().next();
 
-    if let Some(word) = word.strip_prefix('$') {
-        return complete_var_name(word, next_char, Some("$"), span, ctx);
+    if let Some(s_word) = word.strip_prefix('$') {
+        return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
+            complete_path(word, span, ctx)
+        } else {
+            complete_var_name(s_word, next_char, Some("$"), span, ctx)
+        };
     }
 
-    if let Some(word) = word.strip_prefix('@') {
-        return complete_fn_name(word, next_char, Some("@"), span, ctx);
+    if let Some(s_word) = word.strip_prefix('@') {
+        return complete_fn_name(s_word, next_char, Some("@"), span, ctx);
     }
 
     if !after_space && !word.contains(['/', '\\']) {
@@ -103,7 +110,7 @@ pub fn generate_completions(
         return sort_results(word, cmd_comp);
     }
 
-    build_path_completions(word, span, ctx)
+    complete_path(word, span, ctx)
 }
 
 fn build_fn_completions<'a>(
@@ -288,7 +295,36 @@ fn complete_var_name(
     sort_results(&word, results)
 }
 
-fn build_path_completions(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
+fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
+    let mut failed = false;
+
+    let word = VAR_IN_PATH_REGEX.replace_all(word, |cap: &Captures<'_>| {
+        let var_name = cap.get(1).unwrap().as_str();
+
+        for scope in ctx.visible_scopes() {
+            if let Some(var) = scope.vars.get(var_name) {
+                let value = var.value.read_promise_no_write();
+
+                let value = match &value.value {
+                    RuntimeValue::Int(int) => int.to_string(),
+                    RuntimeValue::Float(float) => float.to_string(),
+                    RuntimeValue::String(string) => string.clone(),
+
+                    _ => break,
+                };
+
+                return value;
+            }
+        }
+
+        failed = true;
+        String::new()
+    });
+
+    if failed {
+        return vec![];
+    }
+
     let mut search = word
         .split(['/', '\\'])
         .filter(|segment| !segment.is_empty() && *segment != ".")
@@ -419,3 +455,6 @@ fn escape_raw(str: &str) -> Cow<str> {
         Cow::Borrowed(str)
     }
 }
+
+static VAR_IN_PATH_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("\\$([[:alpha:]_][[:alnum:]_]*)").unwrap());

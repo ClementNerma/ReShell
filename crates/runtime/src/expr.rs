@@ -473,13 +473,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             Ok(RuntimeValue::Struct(GcCell::new(members)))
         }
 
-        Value::Variable(name) => Ok(ctx
-            .get_visible_var(name)
-            .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
-            .value
-            .read(name.at)
-            .value
-            .clone()),
+        Value::Variable(name) => Ok(ctx.get_visible_var(name).value.read(name.at).value.clone()),
 
         Value::FnAsValue(name) => Ok(RuntimeValue::Function(
             ctx.get_visible_fn_value(name)?.clone(),
@@ -566,13 +560,7 @@ fn eval_computed_string_piece(
         }
         .to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
-            &ctx.get_visible_var(var_name)
-                .unwrap_or_else(|| {
-                    ctx.panic(var_name.at, "variable was not found (= bug in checker)")
-                })
-                .value
-                .read(var_name.at)
-                .value,
+            &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             "only stringifyable variables can be used inside computable strings",
             var_name.at,
             ctx,

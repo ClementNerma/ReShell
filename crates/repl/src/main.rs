@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
+#![feature(lazy_cell)]
 
 use std::path::PathBuf;
 use std::process::ExitCode;

@@ -27,12 +27,7 @@ pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Optio
 
 pub fn eval_fn_call_type(call: &Eaten<FnCall>, call_type: Option<FnCallType>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     let func = if call.data.is_var_name {
-        let var = ctx.get_visible_var(&call.data.name).ok_or_else(|| {
-            ctx.error(
-                call.data.name.at,
-                "function variable was not found in scope",
-            )
-        })?;
+        let var = ctx.get_visible_var(&call.data.name);
 
         let var_value = var.value.read(call.data.name.at);
 
