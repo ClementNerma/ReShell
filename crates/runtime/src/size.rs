@@ -541,7 +541,6 @@ impl ComputableSize for CmdValueMakingArg {
             CmdValueMakingArg::CmdCall(cmd_call) => cmd_call.compute_heap_size(),
             CmdValueMakingArg::ParenExpr(expr) => expr.compute_heap_size(),
             CmdValueMakingArg::VarName(var_name) => var_name.compute_heap_size(),
-            CmdValueMakingArg::FnAsValue(fn_as_val) => fn_as_val.compute_heap_size(),
             CmdValueMakingArg::Raw(raw) => raw.compute_heap_size(),
         }
     }
@@ -612,6 +611,8 @@ impl ComputableSize for ExprInnerContent {
             ExprInnerContent::ParenExpr(expr) => expr.compute_heap_size(),
 
             ExprInnerContent::Value(value) => value.compute_heap_size(),
+
+            ExprInnerContent::FnAsValue(name) => name.compute_heap_size(),
 
             ExprInnerContent::Ternary {
                 cond,

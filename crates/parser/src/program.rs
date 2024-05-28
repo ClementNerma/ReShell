@@ -602,6 +602,11 @@ pub fn program(
                         catch_var,
                         catch_expr,
                     }),
+                // Function as value
+                char('@')
+                    .ignore_then(ident.critical("expected a function name"))
+                    .spanned()
+                    .map(ExprInnerContent::FnAsValue),
                 // Simple values
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))
@@ -781,11 +786,6 @@ pub fn program(
                 )
                 .then_ignore(char(')').critical("unclosed expression"))
                 .map(CmdValueMakingArg::ParenExpr),
-            // Function as value
-            char('@')
-                .ignore_then(ident.critical("expected a function name"))
-                .spanned()
-                .map(CmdValueMakingArg::FnAsValue),
             // Variables
             var_name.spanned().map(CmdValueMakingArg::VarName),
             // Raw argument

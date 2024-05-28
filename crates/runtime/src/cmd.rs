@@ -696,11 +696,6 @@ pub fn eval_cmd_value_making_arg(
                 .clone(),
         ),
 
-        CmdValueMakingArg::FnAsValue(name) => (
-            name.at,
-            RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
-        ),
-
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
         CmdValueMakingArg::CmdCall(call) => (
