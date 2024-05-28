@@ -35,11 +35,12 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "map",
 
                 Args [ArgsAt] (
-                    entries: OptionalArg<Union2Type<
-                        UntypedStructType,
-                        DetachedListType<Tuple2Type<StringType, AnyType>>
-                    >> =>
-                        Arg::positional("entries")
+                    entries: OptionalArg<
+                        Union2Type<
+                            UntypedStructType,
+                            DetachedListType<Tuple2Type<StringType, AnyType>>
+                        >
+                    > = Arg::positional("entries")
                 )
 
                 -> Some(MapType::direct_underlying_type()),
@@ -64,7 +65,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "echo",
 
                 Args [ArgsAt] (
-                    message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
+                    message: RequiredArg<Union3Type<StringType, IntType, FloatType>> = Arg::positional("message")
                 )
 
                 -> None,
@@ -87,9 +88,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "dbg",
 
                 Args [ArgsAt] (
-                    value: RequiredArg<AnyType> => Arg::positional("value"),
-                    tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
-                    max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
+                    value: RequiredArg<AnyType> = Arg::positional("value"),
+                    tab_size: OptionalArg<ExactIntType<usize>> = Arg::long_flag("tab-size"),
+                    max_line_size: OptionalArg<ExactIntType<usize>> = Arg::long_flag("max-line-size")
                 )
 
                 -> None,
@@ -114,9 +115,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "dbg_type",
 
                 Args [ArgsAt] (
-                    value: RequiredArg<AnyType> => Arg::positional("value"),
-                    tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
-                    max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
+                    value: RequiredArg<AnyType> = Arg::positional("value"),
+                    tab_size: OptionalArg<ExactIntType<usize>> = Arg::long_flag("tab-size"),
+                    max_line_size: OptionalArg<ExactIntType<usize>> = Arg::long_flag("max-line-size")
                 )
 
                 -> None,
@@ -142,8 +143,8 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "range",
 
                 Args [ArgsAt] (
-                    from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
-                    to: RequiredArg<ExactIntType<usize>> => Arg::positional("to")
+                    from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
+                    to: RequiredArg<ExactIntType<usize>> = Arg::positional("to")
                 )
 
                 -> Some(RangeType::direct_underlying_type()),
@@ -160,7 +161,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "error",
 
                 Args [ArgsAt] (
-                    content: RequiredArg<StringType> => Arg::positional("content")
+                    content: RequiredArg<StringType> = Arg::positional("content")
                 )
 
                 -> Some(ErrorType::direct_underlying_type()),
@@ -180,7 +181,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "len",
 
                 Args [ArgsAt] (
-                    content: RequiredArg<Union3Type<StringType, UntypedListType, MapType>> => Arg::positional("value")
+                    content: RequiredArg<Union3Type<StringType, UntypedListType, MapType>> = Arg::positional("value")
                 )
 
                 -> Some(ExactIntType::<usize>::direct_underlying_type()),
@@ -205,9 +206,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "slice",
 
                 Args [ArgsAt] (
-                    list: RequiredArg<UntypedListType> => Arg::positional("list"),
-                    from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
-                    length: OptionalArg<ExactIntType<usize>> => Arg::positional("length")
+                    list: RequiredArg<UntypedListType> = Arg::positional("list"),
+                    from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
+                    length: OptionalArg<ExactIntType<usize>> = Arg::positional("length")
                 )
 
                 -> Some(UntypedListType::direct_underlying_type()),
@@ -226,7 +227,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "pop",
 
                 Args [ArgsAt] (
-                    list: RequiredArg<UntypedListType> => Arg::positional("list")
+                    list: RequiredArg<UntypedListType> = Arg::positional("list")
                 )
 
                 -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type()),
@@ -243,8 +244,8 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "listmap",
 
                 Args [ArgsAt] (
-                    list: RequiredArg<UntypedListType> => Arg::positional("list"),
-                    mapper @ mapper_type: RequiredArg<TypedFunctionType> => Arg::new(ArgNames::Positional("mapper"), TypedFunctionType::new(forge_basic_fn_signature(
+                    list: RequiredArg<UntypedListType> = Arg::positional("list"),
+                    mapper @ mapper_type: RequiredArg<TypedFunctionType> = Arg::new(ArgNames::Positional("mapper"), TypedFunctionType::new(forge_basic_fn_signature(
                         vec![
                             ("index", ExactIntType::<usize>::direct_underlying_type()),
                             ("value", AnyType::direct_underlying_type()),
@@ -288,8 +289,8 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "env",
 
                 Args [ArgsAt] (
-                    var_name: RequiredArg<StringType> => Arg::positional("var_name"),
-                    lossy: OptionalArg<BoolType> => Arg::long_flag("lossy")
+                    var_name: RequiredArg<StringType> = Arg::positional("var_name"),
+                    lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
                 )
 
                 -> Some(StringType::direct_underlying_type()),
@@ -317,7 +318,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "cd",
 
                 Args [ArgsAt] (
-                    path: RequiredArg<StringType> => Arg::positional("path")
+                    path: RequiredArg<StringType> = Arg::positional("path")
                 )
 
                 -> None,
@@ -345,7 +346,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "current_dir",
 
                 Args [ArgsAt] (
-                    lossy: OptionalArg<BoolType> => Arg::long_flag("lossy")
+                    lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
                 )
 
                 -> Some(StringType::direct_underlying_type()),
@@ -372,7 +373,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 "exit",
 
                 Args [ArgsAt] (
-                    code: OptionalArg<ExactIntType<u8>> => Arg::positional("code")
+                    code: OptionalArg<ExactIntType<u8>> = Arg::positional("code")
                 )
 
                 -> None,
