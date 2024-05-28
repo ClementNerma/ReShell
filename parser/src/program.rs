@@ -245,12 +245,14 @@ pub fn program() -> impl Parser<Program> {
                 .then(digits(10))
                 .then(char('.'))
                 .then(digits(10))
+                .not_followed_by(possible_ident_char.clone())
                 .collect_string()
                 .map(|num| LiteralValue::Float(str::parse::<f64>(&num).unwrap())),
             // Integers
             char('-')
                 .or_not()
                 .then(digits(10))
+                .not_followed_by(possible_ident_char.clone())
                 .collect_string()
                 .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
         ));
