@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use colored::Colorize;
+use glob::{glob_with, MatchOptions};
 use terminal_size::{terminal_size, Height, Width};
 
 use crate::{
@@ -539,6 +540,49 @@ pub fn define_native_lib() -> NativeLibDefinition {
             // =                              =
             // ================================
             //
+            define_internal_fn!(
+                //
+                // Select items using a pattern
+                //
+
+                "glob",
+
+                Args [ArgsAt] (
+                    pattern: RequiredArg<StringType> = Arg::positional("pattern"),
+                    case_sensitive: OptionalArg<BoolType> = Arg::long_flag("case-sensitive"),
+                    lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
+                )
+
+                -> Some(DetachedListType::<StringType>::direct_underlying_type()),
+
+                |at, Args { pattern, case_sensitive, lossy }, ArgsAt { pattern: pattern_at, .. }, ctx| {
+                    let mut options = MatchOptions::default();
+
+                    if case_sensitive == Some(true) {
+                        options.case_sensitive = true;
+                    }
+
+                    let paths = glob_with(&pattern, options)
+                        .map_err(|err| ctx.error(pattern_at, format!("invalid glob pattern provided: {err}")))?;
+
+                    let paths = paths
+                        .map(|path|
+                            path
+                                .map_err(|err| ctx.error(at, format!("failed to access path during glob: {err}")))
+                                .and_then(|path| if lossy == Some(true) {
+                                    Ok(RuntimeValue::String(path.to_string_lossy().to_string()))
+                                } else {
+                                    match path.to_str() {
+                                        Some(path) => Ok(RuntimeValue::String(path.to_owned())),
+                                        None => Err(ctx.error(at, format!("encountered path with invalid UTF-8 character(s): {}", path.display())))
+                                    }
+                                })
+                        )
+                        .collect::<Result<_, _>>()?;
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(paths))))
+                }
+            ),
             define_internal_fn!(
                 //
                 // Check if a path exists
