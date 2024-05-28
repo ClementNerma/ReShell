@@ -8,7 +8,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use colored::Colorize;
 use reedline::{Reedline, Signal, Suggestion};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_parser::files::SourceFileLocation;
@@ -192,12 +191,12 @@ pub fn start(
                     // If we only run a single command (not more, no pipes, etc.) and it failed,
                     // display a simpler error.
                     if let ExecErrorNature::CommandFailed {
-                        message,
+                        message: _,
                         exit_status: _,
                     } = &err.nature
                     {
                         if program.data.content.data.instructions.len() == 1 {
-                            eprintln!("{} {message}", "ERROR:".bright_red());
+                            // eprintln!("{} {message}", "ERROR:".bright_red());
                             continue;
                         }
                     }
