@@ -11,8 +11,8 @@ use crate::utils::{
     lazy_cell::LazyCell,
     nesting::NestingOpeningType,
     syntax::{
-        compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule, RuleSet, SimpleRule,
-        ValidatedRuleSet,
+        compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule,
+        RuleSet, RuleStylization, SimpleRule, ValidatedRuleSet,
     },
 };
 
@@ -40,7 +40,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
             preceded_by: None,
             followed_by: None,
             followed_by_nesting: None,
-            style: colors.as_ref().iter().copied().map(S::into).collect(),
+            style: RuleStylization::Static(colors.as_ref().iter().copied().map(S::into).collect()),
         }
     }
 
@@ -76,7 +76,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         nesting_type: NestingOpeningType,
         regex: &'static str,
         colors: impl AsRef<[S]>,
-        followed_by: &'static str
+        followed_by: &'static str,
     ) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.inside = Some(HashSet::from([nesting_type]));
@@ -104,7 +104,28 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     use Color::*;
 
     // Match remaining invalid characters
-    let invalid_chars = simple("([^\\s])", [Style::new().fg(White).on(Red)]);
+    let invalid_chars = || simple("([^\\s])", [Style::new().fg(White).on(Red)]);
+
+    // Command name highlighter
+    let cmd_name = Rule::Simple(SimpleRule {
+        matches: Regex::new("([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
+        inside: None,
+        preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+        followed_by: None,
+        followed_by_nesting: None,
+        style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+            let in_scope = ctx.visible_scopes().any(|scope| {
+                scope.content.fns.contains_key(matched) ||
+                scope.content.cmd_aliases.contains_key(matched)
+            });
+                
+            if in_scope || ctx.binaries_resolver().resolve_binary_path(matched).is_ok() {
+                Style::new().fg(Color::Blue)
+            } else {
+                Style::new().fg(Color::Red)
+            }
+        }))
+    });
 
     // Build the rule set
     let rule_set = RuleSet {
@@ -173,7 +194,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple_preceded_by("(^|[\\|\\n;\\{]|\\->)\\s*$", "(\\.)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [LightYellow, Blue]),
 
                 // Command names
-                simple_preceded_by("(^|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Blue]),
+                cmd_name,
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),
@@ -188,7 +209,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\|'\"\\$]+)", [Green]),
 
                 // Invalid characters
-                invalid_chars.clone()
+                invalid_chars()
             ]),
             ("literal-strings", vec![
                 // Escaped characters
@@ -242,7 +263,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]|&&|\\|\\|)", [LightYellow]),
 
                 // Invalid characters
-                invalid_chars.clone()
+                invalid_chars()
             ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
@@ -332,3 +353,4 @@ fn highlight(input: &str) -> StyledText {
             .collect(),
     }
 }
+

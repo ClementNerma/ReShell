@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::sync::Arc;
 
 use colored::{Color, Colorize};
 use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
@@ -60,7 +60,7 @@ fn run() -> Runner {
 
             Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
                 RegexValue {
-                    inner: Rc::new(regex),
+                    inner: Arc::new(regex),
                 },
             )))))
         },
@@ -69,7 +69,7 @@ fn run() -> Runner {
 
 #[derive(Debug, Clone)]
 pub struct RegexValue {
-    inner: Rc<Regex>,
+    inner: Arc<Regex>,
 }
 
 impl RegexValue {

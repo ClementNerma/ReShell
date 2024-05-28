@@ -20,14 +20,12 @@ use reshell_runtime::{
     values::RuntimeValue,
 };
 
-use crate::utils::jaro_winkler::jaro_winkler_distance;
+use crate::{repl::SHARED_CONTEXT, utils::jaro_winkler::jaro_winkler_distance};
 
 pub static COMPLETION_MENU_NAME: &str = "completion_menu";
 
-pub fn create_completer(
-    completer: impl Fn(CompletionContext) -> Vec<Suggestion> + Send + 'static,
-) -> Box<dyn RlCompleter> {
-    Box::new(Completer { completer })
+pub fn create_completer() -> Box<dyn RlCompleter> {
+    Box::new(Completer)
 }
 
 pub fn create_completion_menu() -> ReedlineMenu {
@@ -35,32 +33,17 @@ pub fn create_completion_menu() -> ReedlineMenu {
     ReedlineMenu::EngineCompleter(Box::new(menu))
 }
 
-pub struct CompletionContext {
-    pub line: String,
-    pub pos: usize,
-}
+pub struct Completer;
 
-pub struct Completer<F: Fn(CompletionContext) -> Vec<Suggestion> + Send + 'static> {
-    completer: F,
-}
-
-impl<F: Fn(CompletionContext) -> Vec<Suggestion> + Send + 'static> RlCompleter for Completer<F> {
+impl RlCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        (self.completer)(CompletionContext {
-            line: line.to_owned(),
-            pos,
-        })
+        generate_completions(line, pos, SHARED_CONTEXT.lock().unwrap().as_ref().unwrap())
     }
 }
 
 type SortableSuggestion = (String, Suggestion);
 
-pub fn generate_completions(
-    completion_context: CompletionContext,
-    ctx: &Context,
-) -> Vec<Suggestion> {
-    let CompletionContext { line, pos } = completion_context;
-
+pub fn generate_completions(line: &str, pos: usize, ctx: &Context) -> Vec<Suggestion> {
     let split = |c: char| c.is_whitespace() && !DELIMITER_CHARS.contains(&c);
 
     let word_start = match line[..pos].rfind(split) {

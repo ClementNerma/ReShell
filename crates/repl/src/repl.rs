@@ -1,16 +1,13 @@
 use std::{
     error::Error,
     process::ExitCode,
-    sync::{
-        mpsc::{channel, TryRecvError},
-        Arc, Mutex,
-    },
-    time::{Duration, Instant},
+    sync::{Arc, LazyLock, Mutex},
+    time::Instant,
 };
 
 use colored::Colorize;
 use parsy::Parser;
-use reedline::{Reedline, Signal, Suggestion};
+use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_parser::{
     ast::{Instruction, Program},
@@ -24,8 +21,7 @@ use reshell_runtime::{
 
 use crate::{
     args::ExecArgs,
-    completer::{self, generate_completions, CompletionContext},
-    edit_mode,
+    completer, edit_mode,
     exec::run_script,
     highlighter, hinter, history,
     prompt::Prompt,
@@ -35,35 +31,24 @@ use crate::{
 };
 
 pub fn start(
-    ctx: &mut Context,
+    mut ctx: Context,
     parser: impl Parser<Program>,
     exec_args: ExecArgs,
     timings: Timings,
     show_timings: bool,
 ) -> Result<Option<ExitCode>, Box<dyn Error>> {
-    // These channels are used to receive completion requests from the completer (completer.rs)
-    // And send the generated suggestions back
-    let (sx_req, rx_req) = channel::<CompletionContext>();
-    let (sx_res, rx_res) = channel::<Vec<Suggestion>>();
-
     // Create a line editor
-    let line_editor = Reedline::create()
+    let mut line_editor = Reedline::create()
         .with_history(history::create_history(ctx.runtime_conf()))
         .with_menu(history::create_history_menu())
         .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())
         .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
-        .with_completer(completer::create_completer(move |data| {
-            sx_req.send(data).unwrap();
-            rx_res.recv().unwrap()
-        }))
+        .with_completer(completer::create_completer())
         .with_edit_mode(edit_mode::create_edit_mode())
         .with_quick_completions(true)
         .with_partial_completions(true);
-
-    // Wrap the line editor in a sharable type
-    let line_editor = Arc::new(Mutex::new(line_editor));
 
     // Programs counter in REPL
     let mut counter = 0;
@@ -82,7 +67,7 @@ pub fn start(
         let line_start = Instant::now();
 
         // Render prompt
-        let prompt_rendering = match render_prompt(ctx, last_cmd_status.take()) {
+        let prompt_rendering = match render_prompt(&mut ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
                 if let ExecErrorNature::Exit { code } = err.nature {
@@ -100,44 +85,18 @@ pub fn start(
             println!("* Time to interaction: {:?}", line_start.elapsed());
         }
 
-        // Spawn a line editor thread
-        // This is required in order to listen to other events in paralle, such as completion requests
-        let line_editor = Arc::clone(&line_editor);
-        let child = std::thread::spawn(move || line_editor.lock().unwrap().read_line(&prompt));
+        // Prepare line reading
+        let prev = SHARED_CONTEXT.lock().unwrap().replace(ctx);
+        assert!(prev.is_none());
 
-        // Wait for the line editing to complete
-        let signal = loop {
-            // If the thread is done, get the result
-            if child.is_finished() {
-                break child.join().map_err(|_| "Line reading thread panicked!")?;
-            }
+        // Perform a line reading
+        let line_reading_result = line_editor.read_line(&prompt);
 
-            // Otherwise, check if a completion request has been sent
-            match rx_req.try_recv() {
-                Ok(completion_context) => {
-                    // If yes, generate suggestions
-                    // As you can see, we could not do that in the completer itself as we borrow the runtime context,
-                    // which cannot be sent between threads
-                    let suggestions = generate_completions(completion_context, ctx);
-
-                    // Send the completion results back to the completer
-                    sx_res.send(suggestions).map_err(|err| {
-                        format!("Failed to send completions result to line reading thread: {err}")
-                    })?;
-                }
-
-                Err(err) => match err {
-                    TryRecvError::Empty => {}
-                    TryRecvError::Disconnected => panic!("Completer's thread disconnected"),
-                },
-            };
-
-            // Don't wait too much CPU while idleing
-            yield_for_at_least(Duration::from_millis(10));
-        };
+        // Retake the context
+        ctx = SHARED_CONTEXT.lock().unwrap().take().unwrap();
 
         // Handle the return signal of the line editor
-        let input = match signal {
+        let input = match line_reading_result {
             Ok(Signal::Success(buffer)) => buffer,
             Ok(Signal::CtrlC) => continue,
             Ok(Signal::CtrlD) => break Ok(None),
@@ -158,7 +117,7 @@ pub fn start(
             SourceFileLocation::CustomName(format!("repl[{counter}]")),
             &parser,
             exec_args,
-            ctx,
+            &mut ctx,
         );
 
         // Keep the last command status (used for prompt generation)
@@ -178,7 +137,7 @@ pub fn start(
                 if let Some(value) = ctx.take_wandering_value() {
                     println!(
                         "{}",
-                        value.render_colored(ctx, PrettyPrintOptions::multiline())
+                        value.render_colored(&ctx, PrettyPrintOptions::multiline())
                     )
                 }
             }
@@ -264,15 +223,5 @@ fn display_timings(timings: Timings, now: Instant) {
     );
 }
 
-/// Yield to the operating system for *at least* a provided duration
-pub fn yield_for_at_least(at_least: Duration) {
-    let started_waiting = Instant::now();
-
-    std::thread::yield_now();
-
-    let yielded_for = started_waiting.elapsed();
-
-    if yielded_for < at_least {
-        std::thread::sleep(at_least - yielded_for)
-    }
-}
+pub static SHARED_CONTEXT: LazyLock<Arc<Mutex<Option<Context>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(None)));

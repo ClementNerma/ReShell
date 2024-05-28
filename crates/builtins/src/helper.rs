@@ -241,21 +241,28 @@ pub(super) fn generate_internal_arg_decl<
     arg: A,
 ) -> FnArg {
     match arg.names() {
-        ArgNames::Positional(name) => if !arg.is_rest() {
-            FnArg::Positional {
-                name: RuntimeEaten::Internal(
-                    (*name).to_owned(),
-                    "native library's arguments declaration",
-                ),
-                is_optional: arg.is_optional(),
-                typ: Some(RuntimeEaten::Internal(
-                    arg.base_typing().underlying_type(),
-                    "native library's arguments declaration",
-                )),
+        ArgNames::Positional(name) => {
+            if !arg.is_rest() {
+                FnArg::Positional {
+                    name: RuntimeEaten::Internal(
+                        (*name).to_owned(),
+                        "native library's arguments declaration",
+                    ),
+                    is_optional: arg.is_optional(),
+                    typ: Some(RuntimeEaten::Internal(
+                        arg.base_typing().underlying_type(),
+                        "native library's arguments declaration",
+                    )),
+                }
+            } else {
+                FnArg::Rest {
+                    name: RuntimeEaten::Internal(
+                        (*name).to_owned(),
+                        "native library's arguments declaration",
+                    ),
+                }
             }
-        } else {
-            FnArg::Rest { name: RuntimeEaten::Internal((*name).to_owned(), "native library's arguments declaration") }
-        },
+        }
 
         ArgNames::Flag(flag) => {
             let names = match flag {

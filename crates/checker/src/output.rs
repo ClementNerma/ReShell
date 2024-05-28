@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    rc::Rc,
+    sync::Arc,
 };
 
 use parsy::{CodeRange, Eaten};
@@ -10,10 +10,10 @@ use reshell_parser::{
 };
 
 /// Sharing type used to avoid cloning in the runtime
-pub type SharingType<T> = Rc<T>;
+pub type SharingType<T> = Arc<T>;
 
 pub(crate) fn shared<T>(value: T) -> SharingType<T> {
-    Rc::new(value)
+    Arc::new(value)
 }
 
 /// Data returned by the checker in case of success

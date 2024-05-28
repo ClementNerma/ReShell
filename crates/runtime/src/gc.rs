@@ -1,7 +1,6 @@
 use std::{
-    cell::{Ref, RefCell, RefMut},
     ops::Deref,
-    rc::Rc,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use colored::Colorize;
@@ -12,31 +11,39 @@ use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 // Garbage-collectable cell
 #[derive(Debug)]
 pub struct GcCell<T> {
-    value: Rc<RefCell<T>>,
-    read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
+    value: Arc<RwLock<T>>,
+    read_lock: Arc<RwLock<Option<RuntimeCodeRange>>>,
 }
 
 impl<T> GcCell<T> {
     pub fn new(value: T) -> Self {
         Self {
-            value: Rc::new(RefCell::new(value)),
-            read_lock: Rc::new(RefCell::new(None)),
+            value: Arc::new(RwLock::new(value)),
+            read_lock: Arc::new(RwLock::new(None)),
         }
     }
 
     pub fn read(&self, at: impl Into<RuntimeCodeRange>) -> GcRef<T> {
-        GcRef::new(self.value.borrow(), Rc::clone(&self.read_lock), at.into())
+        GcRef::new(
+            self.value.read().unwrap(),
+            Arc::clone(&self.read_lock),
+            at.into(),
+        )
     }
 
-    pub fn read_promise_no_write(&self) -> Ref<T> {
-        self.value.borrow()
+    pub fn read_promise_no_write(&self) -> RwLockReadGuard<T> {
+        self.value.read().unwrap()
     }
 
-    pub fn write(&self, at: impl Into<RuntimeCodeRange>, ctx: &Context) -> ExecResult<RefMut<T>> {
-        self.value.try_borrow_mut().map_err(|_| {
+    pub fn write(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        ctx: &Context,
+    ) -> ExecResult<RwLockWriteGuard<T>> {
+        self.value.write().map_err(|_| {
             let at = at.into();
 
-            let borrowed_at = self.read_lock.borrow().unwrap_or_else(|| {
+            let borrowed_at = self.read_lock.read().unwrap().unwrap_or_else(|| {
                 ctx.panic(at, "write lock is not available in garbabe collector cell")
             });
 
@@ -55,25 +62,25 @@ impl<T> GcCell<T> {
 impl<T> Clone for GcCell<T> {
     fn clone(&self) -> Self {
         Self {
-            value: Rc::clone(&self.value),
-            read_lock: Rc::clone(&self.read_lock),
+            value: Arc::clone(&self.value),
+            read_lock: Arc::clone(&self.read_lock),
         }
     }
 }
 
 pub struct GcRef<'a, T> {
-    inner: Ref<'a, T>,
-    read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
+    inner: RwLockReadGuard<'a, T>,
+    read_lock: Arc<RwLock<Option<RuntimeCodeRange>>>,
     is_read_lock_initiator: bool,
 }
 
 impl<'a, T> GcRef<'a, T> {
     fn new(
-        inner: Ref<'a, T>,
-        read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
+        inner: RwLockReadGuard<'a, T>,
+        read_lock: Arc<RwLock<Option<RuntimeCodeRange>>>,
         at: RuntimeCodeRange,
     ) -> Self {
-        let mut read_lock_mut = read_lock.borrow_mut();
+        let mut read_lock_mut = read_lock.write().unwrap();
 
         let initiator = read_lock_mut.is_none();
 
@@ -94,13 +101,13 @@ impl<'a, T> GcRef<'a, T> {
 impl<'a, T> Drop for GcRef<'a, T> {
     fn drop(&mut self) {
         if self.is_read_lock_initiator {
-            *self.read_lock.borrow_mut() = None;
+            *self.read_lock.write().unwrap() = None;
         }
     }
 }
 
 impl<'a, T> Deref for GcRef<'a, T> {
-    type Target = Ref<'a, T>;
+    type Target = RwLockReadGuard<'a, T>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -110,24 +117,24 @@ impl<'a, T> Deref for GcRef<'a, T> {
 // Garbage-collectable once-assignable cell
 #[derive(Debug)]
 pub struct GcOnceCell<T> {
-    inner: Rc<RefCell<Option<T>>>,
+    inner: Arc<RwLock<Option<T>>>,
 }
 
 impl<T> GcOnceCell<T> {
     pub fn new_uninit() -> Self {
         Self {
-            inner: Rc::new(RefCell::new(None)),
+            inner: Arc::new(RwLock::new(None)),
         }
     }
 
     pub fn new_init(value: T) -> Self {
         Self {
-            inner: Rc::new(RefCell::new(Some(value))),
+            inner: Arc::new(RwLock::new(Some(value))),
         }
     }
 
     pub fn init(&self, data: T) -> Result<(), GcOnceCellAlreadyInitErr> {
-        let mut inner = self.inner.borrow_mut();
+        let mut inner = self.inner.write().unwrap();
 
         if inner.is_some() {
             return Err(GcOnceCellAlreadyInitErr);
@@ -138,13 +145,13 @@ impl<T> GcOnceCell<T> {
         Ok(())
     }
 
-    pub fn get(&self) -> Ref<Option<T>> {
-        self.inner.borrow()
+    pub fn get(&self) -> RwLockReadGuard<Option<T>> {
+        self.inner.read().unwrap()
     }
 
     pub fn get_or_init(&self, create: impl FnOnce() -> T) {
         let created = create();
-        *self.inner.borrow_mut() = Some(created);
+        *self.inner.write().unwrap() = Some(created);
     }
 }
 
@@ -152,7 +159,7 @@ impl<T> GcOnceCell<T> {
 impl<T> Clone for GcOnceCell<T> {
     fn clone(&self) -> Self {
         Self {
-            inner: Rc::clone(&self.inner),
+            inner: Arc::clone(&self.inner),
         }
     }
 }
@@ -163,13 +170,13 @@ pub struct GcOnceCellAlreadyInitErr;
 // Garbage-collectable read-only cell
 #[derive(Debug)]
 pub struct GcReadOnlyCell<T> {
-    value: Rc<T>,
+    value: Arc<T>,
 }
 
 impl<T> GcReadOnlyCell<T> {
     pub fn new(value: T) -> Self {
         Self {
-            value: Rc::new(value),
+            value: Arc::new(value),
         }
     }
 }
@@ -186,7 +193,7 @@ impl<T> Deref for GcReadOnlyCell<T> {
 impl<T> Clone for GcReadOnlyCell<T> {
     fn clone(&self) -> Self {
         Self {
-            value: Rc::clone(&self.value),
+            value: Arc::clone(&self.value),
         }
     }
 }

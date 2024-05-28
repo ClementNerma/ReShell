@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::{collections::HashMap, fmt::Debug};
 
 use dyn_clone::DynClone;
@@ -34,7 +34,7 @@ pub struct RuntimeFnValue {
 
 #[derive(Debug)]
 pub enum RuntimeFnSignature {
-    Shared(Rc<Eaten<FnSignature>>),
+    Shared(Arc<Eaten<FnSignature>>),
     Owned(FnSignature),
 }
 
@@ -50,7 +50,7 @@ impl RuntimeFnSignature {
 #[derive(Debug, Clone)]
 pub struct RuntimeCmdAlias {
     pub name_declared_at: CodeRange,
-    pub content: Rc<Eaten<SingleCmdCall>>,
+    pub content: Arc<Eaten<SingleCmdCall>>,
     pub content_scope_id: AstScopeId,
     pub parent_scopes: IndexSet<u64>,
     pub captured_deps: CapturedDependencies,
@@ -65,7 +65,7 @@ pub struct CapturedDependencies {
 }
 
 pub enum RuntimeFnBody {
-    Block(Rc<Eaten<Block>>),
+    Block(Arc<Eaten<Block>>),
     Internal(InternalFnBody),
 }
 
@@ -181,7 +181,7 @@ impl RuntimeValue {
 }
 
 /// Custom value type
-pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone {
+pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone + Send + Sync {
     fn typename(&self) -> &'static str;
 
     fn typename_static() -> &'static str

@@ -10,21 +10,29 @@ use std::{fs, time::Instant};
 use clap::Parser as _;
 use colored::Colorize;
 use parsy::FileId;
-use reshell_builtins::builder::{build_native_lib_content, NativeLibParams};
-use reshell_builtins::on_dir_jump::trigger_directory_jump_event;
-use reshell_parser::ast::RuntimeCodeRange;
-use reshell_parser::files::{FilesMap, SourceFileLocation};
-use reshell_parser::program;
-use reshell_runtime::bin_resolver::BinariesResolver;
-use reshell_runtime::context::ContextCreationParams;
-use reshell_runtime::errors::{ExecErrorNature, ExecResult};
-use reshell_runtime::{conf::RuntimeConf, context::Context};
+use reshell_builtins::{
+    builder::{build_native_lib_content, NativeLibParams},
+    on_dir_jump::trigger_directory_jump_event,
+};
+use reshell_parser::{
+    ast::RuntimeCodeRange,
+    files::{FilesMap, SourceFileLocation},
+    program,
+};
+use reshell_runtime::{
+    bin_resolver::BinariesResolver,
+    context::ContextCreationParams,
+    errors::{ExecErrorNature, ExecResult},
+    {conf::RuntimeConf, context::Context},
+};
 
-use self::args::Args;
-use self::exec::run_script;
-use self::paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_CONFIG_DIR, SHELL_LOCAL_DATA_DIR};
-use self::reports::ReportableError;
-use self::utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
+use self::{
+    args::Args,
+    exec::run_script,
+    paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_CONFIG_DIR, SHELL_LOCAL_DATA_DIR},
+    reports::ReportableError,
+    utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request},
+};
 
 mod args;
 mod completer;
@@ -255,7 +263,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         before_repl: Instant::now(),
     };
 
-    repl::start(&mut ctx, parser, exec_args, timings, show_timings)
+    repl::start(ctx, parser, exec_args, timings, show_timings)
         .map(|code| code.unwrap_or(ExitCode::SUCCESS))
         .map_err(|err| format!("REPL crashed: {err:?}"))
 }
