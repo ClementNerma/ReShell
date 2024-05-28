@@ -20,7 +20,9 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
         .unwrap()
         .clone();
 
-    let on_dir_jump_fn = on_dir_jump.value.read(RuntimeCodeRange::Internal);
+    let on_dir_jump_fn = on_dir_jump.value.read(RuntimeCodeRange::Internal(
+        "calling directory jump function",
+    ));
 
     if matches!(on_dir_jump_fn.value, RuntimeValue::Null) {
         return Ok(());

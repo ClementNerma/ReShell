@@ -437,7 +437,7 @@ fn parse_fn_call_args(
                             arg_var_name,
                             ValidatedFnCallArg {
                                 decl_name_at: fn_arg_var_at(arg),
-                                arg_value_at: RuntimeCodeRange::Internal,
+                                arg_value_at: RuntimeCodeRange::Internal("unprovided argument"),
                                 value: RuntimeValue::Null,
                             },
                         );
@@ -465,7 +465,7 @@ fn parse_fn_call_args(
                     arg_var_name,
                     ValidatedFnCallArg {
                         decl_name_at: fn_arg_var_at(arg),
-                        arg_value_at: RuntimeCodeRange::Internal,
+                        arg_value_at: RuntimeCodeRange::Internal("unprovided argument"),
                         value: RuntimeValue::Bool(false),
                     },
                 );

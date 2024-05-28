@@ -143,17 +143,18 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             }
         },
 
-        RuntimeCodeRange::Internal => {
-            let src = "<native code>";
+        RuntimeCodeRange::Internal(infos) => {
+            let src = format!("<native code: {infos}>");
+            let src_len = src.len();
 
             (
                 SourceFile {
                     id: SourceFileID::from(0),
                     location: SourceFileLocation::CustomName("native".to_owned()),
-                    content: src.to_string(),
+                    content: src,
                 },
                 0,
-                src.len(),
+                src_len,
                 msg,
             )
         }

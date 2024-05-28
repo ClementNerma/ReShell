@@ -62,9 +62,16 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             signature: RuntimeFnSignature::Owned(FnSignature {
-                                args: RuntimeEaten::Internal(args),
-                                ret_type: ret_type
-                                    .map(|ret_type| RuntimeEaten::Internal(Box::new(ret_type))),
+                                args: RuntimeEaten::Internal(
+                                    args,
+                                    "native library's type generator",
+                                ),
+                                ret_type: ret_type.map(|ret_type| {
+                                    RuntimeEaten::Internal(
+                                        Box::new(ret_type),
+                                        "native library's type generator",
+                                    )
+                                }),
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
@@ -95,9 +102,16 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         applyable_type: on_type.clone(),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             signature: RuntimeFnSignature::Owned(FnSignature {
-                                args: RuntimeEaten::Internal(args),
-                                ret_type: ret_type
-                                    .map(|ret_type| RuntimeEaten::Internal(Box::new(ret_type))),
+                                args: RuntimeEaten::Internal(
+                                    args,
+                                    "native library's type generator",
+                                ),
+                                ret_type: ret_type.map(|ret_type| {
+                                    RuntimeEaten::Internal(
+                                        Box::new(ret_type),
+                                        "native library's type generator",
+                                    )
+                                }),
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
@@ -124,7 +138,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         is_mut,
                         value: GcCell::new(LocatedValue::new(
                             init_value,
-                            RuntimeCodeRange::Internal,
+                            RuntimeCodeRange::Internal("native library's type generator"),
                         )),
                     },
                 )

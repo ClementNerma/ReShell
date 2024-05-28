@@ -119,7 +119,7 @@ pub fn dbg_loc(at: impl Into<RuntimeCodeRange>, files_map: &FilesMap) -> String 
             FileId::Custom(id) => format!("<custom: {id}>"),
         },
 
-        RuntimeCodeRange::Internal => "internal location".to_string(),
+        RuntimeCodeRange::Internal(infos) => format!("<internal location: {infos}>"),
     }
 }
 

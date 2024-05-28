@@ -1,4 +1,4 @@
-use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
+use parsy::{CodeRange, Eaten};
 
 use crate::{
     ast::{
@@ -40,28 +40,28 @@ impl<T> RuntimeEaten<T> {
     pub fn at(&self) -> RuntimeCodeRange {
         match self {
             RuntimeEaten::Parsed(eaten) => RuntimeCodeRange::Parsed(eaten.at),
-            RuntimeEaten::Internal(_) => RuntimeCodeRange::Internal,
+            RuntimeEaten::Internal(_, infos) => RuntimeCodeRange::Internal(infos),
         }
     }
 
     pub fn data(&self) -> &T {
         match &self {
             Self::Parsed(eaten) => &eaten.data,
-            Self::Internal(raw) => raw,
+            Self::Internal(raw, _) => raw,
         }
     }
 
     pub fn eaten(&self) -> Option<&Eaten<T>> {
         match self {
             RuntimeEaten::Parsed(eaten) => Some(eaten),
-            RuntimeEaten::Internal(_) => None,
+            RuntimeEaten::Internal(_, _) => None,
         }
     }
 
     pub fn map<U>(self, func: impl FnOnce(T) -> U) -> RuntimeEaten<U> {
         match self {
             RuntimeEaten::Parsed(eaten) => RuntimeEaten::Parsed(eaten.map(func)),
-            RuntimeEaten::Internal(data) => RuntimeEaten::Internal(func(data)),
+            RuntimeEaten::Internal(data, infos) => RuntimeEaten::Internal(func(data), infos),
         }
     }
 }
@@ -70,14 +70,7 @@ impl RuntimeCodeRange {
     pub fn parsed_range(&self) -> Option<CodeRange> {
         match self {
             RuntimeCodeRange::Parsed(range) => Some(*range),
-            RuntimeCodeRange::Internal => None,
-        }
-    }
-
-    pub fn contains(&self, range: CodeRange) -> Result<bool, CodeRangeComparisonError> {
-        match self {
-            RuntimeCodeRange::Parsed(c) => c.contains(range),
-            RuntimeCodeRange::Internal => Ok(false),
+            RuntimeCodeRange::Internal(_) => None,
         }
     }
 }

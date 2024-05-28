@@ -1166,7 +1166,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
         var_name: alt_var_name.unwrap_or_else(|| name.clone()),
         name_at: match name_at {
             RuntimeCodeRange::Parsed(at) => at,
-            RuntimeCodeRange::Internal => unreachable!(),
+            RuntimeCodeRange::Internal(_) => unreachable!(),
         },
         is_rest,
     })
@@ -1254,7 +1254,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
 
         SingleValueType::Function(signature) => match signature {
             RuntimeEaten::Parsed(eaten) => check_fn_signature(eaten, state).map(|_| ()),
-            RuntimeEaten::Internal(_) => Ok(()),
+            RuntimeEaten::Internal(_, _) => Ok(()),
         },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
@@ -1273,7 +1273,7 @@ fn check_fn_signature(
 
     let args = match args {
         RuntimeEaten::Parsed(args) => args,
-        RuntimeEaten::Internal(_) => unreachable!(),
+        RuntimeEaten::Internal(_, _) => unreachable!(),
     };
 
     let mut used_idents = HashSet::new();

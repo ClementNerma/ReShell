@@ -288,6 +288,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     },
                 },
             )??;
+
+            var.value.write(name.at, ctx)?.from = RuntimeCodeRange::Parsed(expr.at);
         }
 
         Instruction::IfCond {

@@ -356,13 +356,13 @@ impl Context {
     /// Generate a throw error
     pub fn throw(
         &self,
-        at: impl Into<RuntimeCodeRange>,
+        at: impl Into<RuntimeCodeRange> + Copy,
         message: impl Into<String>,
     ) -> Box<ExecError> {
         self.error(
             at,
             ExecErrorNature::Thrown {
-                at: RuntimeCodeRange::Internal,
+                at: at.into(),
                 message: message.into(),
             },
         )

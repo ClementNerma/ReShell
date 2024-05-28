@@ -14,7 +14,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|at, Args {}, _, ctx| {
         let source_file_id = match at {
-            RuntimeCodeRange::Internal => None,
+            RuntimeCodeRange::Internal(_) => None,
             RuntimeCodeRange::Parsed(range) => match range.start.file_id {
                 FileId::None | FileId::Internal | FileId::Custom(_) => None,
                 FileId::SourceFile(id) => Some(id),
