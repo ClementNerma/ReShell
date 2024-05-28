@@ -1,6 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, LazyLock, Mutex},
+    collections::{HashMap, HashSet}, path::MAIN_SEPARATOR, sync::{Arc, LazyLock, Mutex}
 };
 
 use nu_ansi_term::{Color, Style};
@@ -115,7 +114,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         followed_by: None,
         followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
         style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2]) {
+            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[0]) {
                 Color::Blue
             } else {
                 Color::Red
@@ -421,9 +420,25 @@ impl CommandsChecker {
             return *exists;
         }
 
-        let in_scope = ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name));
+        let in_scope = name.strip_prefix('.').is_some_and(|name| ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)));
 
-        let exists = in_scope || ctx.binaries_resolver().resolve_binary_path(name).is_ok();
+        let home_dir_str = ctx.home_dir().and_then(|home_dir| home_dir.to_str());
+
+        let name = if name == "~" {
+            match home_dir_str {
+                Some(home_dir_str) => home_dir_str.to_owned(),
+                None => return false,
+            }
+        } else if let Some(name) = name.strip_prefix("~/").or_else(|| name.strip_prefix("~\\")) {
+            match home_dir_str {
+                Some(home_dir_str) => format!("{home_dir_str}{MAIN_SEPARATOR}{name}"),
+                None => return false,
+            }
+        } else {
+            name.to_owned()
+        };
+        
+        let exists = in_scope || ctx.binaries_resolver().resolve_binary_path(&name).is_ok();
 
         self.entries.insert(name.to_owned(), exists);
 
