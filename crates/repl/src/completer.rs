@@ -38,7 +38,7 @@ pub fn create_completion_menu() -> ReedlineMenu {
 }
 
 pub type ExternalCompleter =
-    Box<dyn Fn(&[Cow<str>], &mut Context) -> Vec<ExternalCompletion> + Send + Sync>;
+    Box<dyn Fn(&[Vec<UnescapedSegment>], &mut Context) -> Vec<ExternalCompletion> + Send + Sync>;
 
 #[derive(Debug)]
 pub struct ExternalCompletion {
@@ -102,7 +102,7 @@ pub fn generate_completions(
 
     if let Some(s_word) = word.strip_prefix('$') {
         return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
-            complete_path(word, span, ctx)
+            complete_path(&unescape_str(word), span, ctx)
         } else {
             complete_var_name(s_word, Some("$"), span, ctx)
         };
@@ -152,7 +152,7 @@ pub fn generate_completions(
 
             let cmd_pieces = cmd_pieces
                 .iter()
-                .map(|piece| unescape(piece.content))
+                .map(|piece| unescape_str(piece.content))
                 .collect::<Vec<_>>();
 
             let completions = external_completer(&cmd_pieces, ctx);
@@ -180,7 +180,7 @@ pub fn generate_completions(
         }
     }
 
-    complete_path(&unescape(word), span, ctx)
+    complete_path(&unescape_str(word), span, ctx)
 }
 
 fn build_fn_completions<'a>(
@@ -387,8 +387,8 @@ fn complete_var_name(
     sort_results(&word, results)
 }
 
-fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
-    let Ok(globified) = globify_path(word, ctx) else {
+fn complete_path(path: &[UnescapedSegment], span: Span, ctx: &Context) -> Vec<Suggestion> {
+    let Ok(globified) = globify_path(path, ctx) else {
         // TODO: error handling
         return vec![];
     };
@@ -508,32 +508,58 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .collect()
 }
 
-fn unescape(str: &str) -> Cow<str> {
+pub enum UnescapedSegment {
+    VariableName(String),
+    String(String),
+}
+
+fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
     if !str.starts_with(['\'', '"']) {
-        return Cow::Borrowed(str);
+        return vec![UnescapedSegment::String(str.to_owned())];
     }
 
-    let mut out = String::new();
-    let mut escaping = false;
+    let mut out = vec![];
 
-    let mut chars = str.chars().enumerate();
+    let mut segment = String::new();
+    let mut escaping = false;
+    let mut reading_var_name = None::<String>;
+
+    let mut chars = str.chars().peekable().enumerate();
 
     let (_, opening_char) = chars.next().unwrap();
 
     for (i, c) in chars {
         if escaping {
-            out.push(c);
+            segment.push(c);
             escaping = false;
-        } else if c == '\\' {
+            continue;
+        }
+
+        if reading_var_name.is_some() {
+            if c.is_alphanumeric() || c == '_' {
+                reading_var_name.as_mut().unwrap().push(c);
+                continue;
+            }
+
+            out.push(UnescapedSegment::VariableName(
+                reading_var_name.take().unwrap(),
+            ));
+        }
+
+        if c == '\\' {
             escaping = true;
         } else if c == opening_char {
             assert!(i + 1 == str.chars().count());
+        } else if c == '$' && opening_char == '"' {
+            out.push(UnescapedSegment::String(segment));
+            segment = String::new();
+            reading_var_name = Some(String::new());
         } else {
-            out.push(c);
+            segment.push(c);
         }
     }
 
-    Cow::Owned(out)
+    out
 }
 
 fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> {

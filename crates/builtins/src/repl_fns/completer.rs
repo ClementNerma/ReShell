@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
@@ -11,9 +9,14 @@ use crate::{
 
 pub static GEN_COMPLETIONS_VAR_NAME: &str = "generateCompletions";
 
+pub enum CompletionStringSegment {
+    VariableName(String),
+    String(String),
+}
+
 /// Generate completions (used for the REPL)
 pub fn generate_completions(
-    cmd_pieces: &[Cow<str>],
+    cmd_pieces: &[Vec<CompletionStringSegment>],
     ctx: &mut Context,
 ) -> ExecResult<Option<Vec<(String, String)>>> {
     let completer_var = ctx
@@ -44,7 +47,20 @@ pub fn generate_completions(
     let completion_args = vec![RuntimeValue::List(GcCell::new(
         cmd_pieces
             .iter()
-            .map(|piece| RuntimeValue::String(piece.clone().into_owned()))
+            .map(|segments| {
+                RuntimeValue::String(
+                    segments
+                        .iter()
+                        .map(|segment| match segment {
+                            CompletionStringSegment::String(string) => string.clone(),
+                            CompletionStringSegment::VariableName(name) => {
+                                // TODO: find a better implementation
+                                format!("<variable: {name}>")
+                            }
+                        })
+                        .collect(),
+                )
+            })
             .collect(),
     ))];
 
