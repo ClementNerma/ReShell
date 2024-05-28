@@ -1,6 +1,6 @@
 use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 
-use crate::ast::{FnFlagArgNames, RuntimeCodeRange, RuntimeEaten};
+use crate::ast::{FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten};
 
 impl FnFlagArgNames {
     pub fn short_flag(&self) -> Option<RuntimeEaten<char>> {
@@ -69,5 +69,25 @@ impl RuntimeCodeRange {
 impl From<CodeRange> for RuntimeCodeRange {
     fn from(range: CodeRange) -> Self {
         Self::Parsed(range)
+    }
+}
+
+impl FnSignature {
+    pub fn is_method(&self) -> bool {
+        self.args.data().get(0).map_or(false, |arg| match arg {
+            FnArg::Positional {
+                name,
+                is_optional,
+                typ: _,
+            } => name.data() == "self" && !*is_optional,
+
+            FnArg::PresenceFlag { names: _ }
+            | FnArg::NormalFlag {
+                names: _,
+                is_optional: _,
+                typ: _,
+            }
+            | FnArg::Rest { name: _ } => false,
+        })
     }
 }
