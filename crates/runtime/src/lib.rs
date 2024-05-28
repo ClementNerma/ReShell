@@ -14,4 +14,5 @@ pub mod functions;
 pub mod gc;
 pub mod pretty_impl;
 pub mod props;
+pub mod typechecker;
 pub mod values;
