@@ -625,7 +625,17 @@ pub fn program(
         let expr_inner = expr_inner_content
             .spanned()
             .then(prop_access.spanned().repeated_vec())
-            .map(|(content, prop_acc)| ExprInner { content, prop_acc });
+            .then(
+                msnl.ignore_then(just("->"))
+                    .ignore_then(msnl)
+                    .ignore_then(fn_call.clone().spanned())
+                    .separated_by(msnl),
+            )
+            .map(|((content, prop_acc), method_calls)| ExprInner {
+                content,
+                prop_acc,
+                method_calls,
+            });
 
         let expr_op = double_op
             .spanned()
@@ -644,17 +654,7 @@ pub fn program(
                 .spanned()
                 .then_ignore(ms)
                 .then(expr_op.separated_by(ms))
-                .then(
-                    msnl.ignore_then(just("->"))
-                        .ignore_then(msnl)
-                        .ignore_then(fn_call.clone().spanned())
-                        .separated_by(msnl),
-                )
-                .map(|((inner, right_ops), method_calls)| Expr {
-                    inner,
-                    right_ops,
-                    method_calls,
-                }),
+                .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
         let delimiter_chars = delimiter_chars();

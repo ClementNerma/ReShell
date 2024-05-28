@@ -476,11 +476,7 @@ fn check_expr_with(
 }
 
 fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
-    let Expr {
-        inner,
-        right_ops,
-        method_calls,
-    } = expr;
+    let Expr { inner, right_ops } = expr;
 
     check_expr_inner(inner, state)?;
 
@@ -488,20 +484,24 @@ fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
         check_expr_op(op, state)?;
     }
 
-    for fn_call in method_calls {
-        check_fn_call(fn_call, state)?;
-    }
-
     Ok(())
 }
 
 fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResult {
-    let ExprInner { content, prop_acc } = &inner.data;
+    let ExprInner {
+        content,
+        prop_acc,
+        method_calls,
+    } = &inner.data;
 
     check_expr_inner_content(&content.data, state)?;
 
     for acc in prop_acc {
         check_prop_access(acc, state)?;
+    }
+
+    for fn_call in method_calls {
+        check_fn_call(fn_call, state)?;
     }
 
     Ok(())
