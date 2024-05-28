@@ -670,10 +670,12 @@ pub fn program(
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let delimiter_chars = delimiter_chars();
+        let dchars = delimiter_chars();
+        let delimitation = silent_choice((end(), filter(move |c| dchars.contains(&c))));
 
+        let dchars = delimiter_chars();
         let cmd_raw = not(just("->")).ignore_then(
-            filter(move |c| !c.is_whitespace() && !delimiter_chars.contains(&c))
+            filter(move |c| !c.is_whitespace() && !dchars.contains(&c))
                 .repeated()
                 .at_least(1)
                 .collect_string(),
@@ -747,8 +749,10 @@ pub fn program(
                 .not_followed_by(char('-'))
                 .ignore_then(cmd_raw.clone())
                 .map(CmdFlagNameArg::Long),
-            just("-")
+            char('-')
+                .not_followed_by(char('-'))
                 .ignore_then(first_ident_char)
+                .followed_by(delimitation)
                 .map(CmdFlagNameArg::Short),
         ));
 
@@ -1242,7 +1246,7 @@ pub fn program(
 
 pub fn delimiter_chars() -> HashSet<char> {
     HashSet::from([
-        '(', ')', '[', ']', '{', '}', '<', '>', '=', ';', '!', '?', '&', '|', '\'', '"', '$', '#',
+        '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '$', '#',
     ])
 }
 
