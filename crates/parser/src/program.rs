@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{
     atoms::{alphanumeric, digits},
-    char, choice, end, filter, just, late, lookahead, not, recursive, silent_choice, whitespaces,
-    FileId, Parser,
+    char, choice, end, filter, just, late, lookahead, newline, not, recursive, silent_choice,
+    whitespaces, FileId, Parser,
 };
 
 use crate::{
@@ -852,7 +852,18 @@ pub fn program(
             .separated_by(s)
             .spanned()
             .then(cmd_path.spanned())
-            .then(s.ignore_then(cmd_arg.spanned()).repeated_vec().spanned())
+            .then(
+                s.ignore_then(
+                    char('\\')
+                        .then(ms)
+                        .then(newline().critical("expected a newline"))
+                        .then(ms)
+                        .or_not(),
+                )
+                .ignore_then(cmd_arg.spanned())
+                .repeated_vec()
+                .spanned(),
+            )
             .map(|((env_vars, path), args)| SingleCmdCall {
                 env_vars,
                 path,
@@ -1256,7 +1267,7 @@ pub fn program(
 
 pub fn delimiter_chars() -> HashSet<char> {
     HashSet::from([
-        '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '`', '$', '#',
+        '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '`', '$', '#', '\\',
     ])
 }
 
