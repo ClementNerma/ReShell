@@ -103,8 +103,17 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             }
         };
 
-        let content = std::fs::read_to_string(&path)
-            .map_err(|err| format!("failed to include file at path '{}': {err}", path.display()))?;
+        let content =
+            std::fs::read_to_string(&path).map_err(|err| match std::env::current_dir() {
+                Err(_) => format!("failed to include file at path: '{}'", path.display()),
+                Ok(curr_dir) => {
+                    format!(
+                        "failed to include file at path '{}' from directory '{}': {err}",
+                        path.display(),
+                        curr_dir.display()
+                    )
+                }
+            })?;
 
         Ok((SourceFileLocation::RealFile(path), content))
     }));
