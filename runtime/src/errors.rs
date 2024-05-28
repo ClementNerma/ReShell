@@ -10,7 +10,7 @@ pub struct ExecError {
     pub in_file: Option<FileId>,
     pub source_file: Option<SourceFile>,
     pub content: ExecErrorContent,
-    pub stack_trace: StackTrace,
+    pub call_stack: CallStack,
 }
 
 #[derive(Debug)]
@@ -43,12 +43,13 @@ impl From<ParsingError> for ExecErrorContent {
 }
 
 #[derive(Debug, Clone)]
-pub struct StackTraceEntry {
+pub struct CallStackEntry {
     pub fn_called_at: CodeRange,
+    pub previous_scope: u64,
     // pub args: Vec<RuntimeValue>,
 }
 
 #[derive(Debug, Clone)]
-pub struct StackTrace {
-    pub history: Vec<StackTraceEntry>,
+pub struct CallStack {
+    pub history: Vec<CallStackEntry>,
 }

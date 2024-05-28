@@ -1,12 +1,13 @@
 use std::fmt::Debug;
 
+use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
     context::{Context, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
-    errors::{ExecResult, StackTraceEntry},
+    errors::{CallStackEntry, ExecResult},
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
     gc::GcCell,
@@ -32,26 +33,44 @@ pub fn run_block(
     ctx: &mut Context,
     content: ScopeContent,
 ) -> ExecResult<Option<InstrRet>> {
-    run_block_with_options(block, ctx, content, None)
+    let Block {
+        instructions: _,
+        code_range,
+    } = block;
+
+    ctx.create_and_push_scope(ScopeRange::CodeRange(*code_range), content);
+
+    let instr_ret = run_block_in_current_scope(block, ctx)?;
+
+    ctx.pop_scope();
+
+    Ok(instr_ret)
 }
 
-pub fn run_block_with_options(
+pub fn run_called_block(
     block: &Block,
     ctx: &mut Context,
     content: ScopeContent,
-    history_entry: Option<StackTraceEntry>,
+    parent_scopes: IndexSet<u64>,
+    call_stack_entry: CallStackEntry,
 ) -> ExecResult<Option<InstrRet>> {
     let Block {
         instructions: _,
         code_range,
     } = block;
 
-    ctx.create_and_push_scope(ScopeRange::CodeRange(*code_range), content, history_entry);
+    ctx.create_and_push_called_scope(
+        ScopeRange::CodeRange(*code_range),
+        content,
+        parent_scopes,
+        call_stack_entry,
+    );
 
     let instr_ret = run_block_in_current_scope(block, ctx)?;
 
+    ctx.pop_scope();
+
     Ok(instr_ret)
-    // Ok((ctx.pop_scope(), instr_ret))
 }
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
@@ -127,7 +146,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             } else {
                 eval_props_access(
                     // TODO: don't clone here?
-                    var.read().value.as_ref().unwrap().value.clone(),
+                    &mut var.write().value.as_mut().unwrap().value,
                     prop_acc,
                     PropAccessPolicy::TrailingAccessMayNotExist,
                     ctx,
@@ -359,7 +378,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             signature,
             body,
         } => {
-            let parent_scopes = ctx.current_scope().parent_scopes.clone();
+            let parent_scopes = ctx.generate_parent_scopes();
 
             let fns = &mut ctx.current_scope_content_mut().fns;
 

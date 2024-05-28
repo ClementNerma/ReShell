@@ -120,7 +120,6 @@ fn run_script(file_path: ScopableFilePath, content: &str, exit_on_fail: bool) {
                 content.len(),
             )),
             ScopeContent::new(),
-            None,
         );
     });
 

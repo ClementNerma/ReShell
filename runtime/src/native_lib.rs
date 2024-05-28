@@ -507,7 +507,7 @@ pub fn generate_native_lib() -> Scope {
         id: 0,
         range: ScopeRange::Global,
         parent_scopes: IndexSet::new(),
-        history_entry: None,
+        call_stack_entry: None,
         content,
     }
 }

@@ -206,7 +206,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
         // TODO: this may be slow for such a widely-used function
         left = eval_props_access(
             // TODO: don't clone here
-            left.clone(),
+            &mut left,
             // TODO: don't clone here
             &[nature.clone()],
             PropAccessPolicy::ExistingOnly,
@@ -357,7 +357,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 signature: signature.clone(),
                 // TODO: compute and store which values this references
                 body: RuntimeFnBody::Block(body.clone()),
-                parent_scopes: ctx.current_scope().parent_scopes.clone(),
+                parent_scopes: ctx.generate_parent_scopes(),
             })))
         }
     }
