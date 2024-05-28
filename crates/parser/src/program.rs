@@ -431,7 +431,7 @@ pub fn program(
                 .then_ignore(msnl)
                 .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
                 .map(Value::List),
-            char('{')
+            just("struct {")
                 .ignore_then(msnl)
                 .ignore_then(
                     ident
@@ -482,17 +482,16 @@ pub fn program(
             char('{')
                 .ignore_then(ms)
                 .ignore_then(
-                    not(just("->"))
-                        .ignore_then(fn_arg)
-                        .clone()
-                        .separated_by(char(',').padded_by(msnl))
-                        .spanned()
-                        .map(RuntimeEaten::Parsed)
-                        .map(|args| FnSignature {
-                            args,
-                            ret_type: None,
-                        })
-                        .spanned(),
+                    (not(just("->")) // to avoid parsing short flag with '>' name
+                        .ignore_then(fn_arg))
+                    .separated_by(char(',').padded_by(msnl))
+                    .spanned()
+                    .map(RuntimeEaten::Parsed)
+                    .map(|args| FnSignature {
+                        args,
+                        ret_type: None,
+                    })
+                    .spanned(),
                 )
                 .then_ignore(ms)
                 .then_ignore(just("->").critical_expectation())
