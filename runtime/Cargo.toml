@@ -10,4 +10,4 @@ glob = "0.3.1"
 parsy = "0.2.3"
 rand = "0.8.5"
 reshell-parser = { path = "../parser" }
-termsize = "0.1.6"
+terminal_size = "0.2.6"
