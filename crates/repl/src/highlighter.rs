@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet}, path::MAIN_SEPARATOR, sync::{Arc, LazyLock, Mutex}
+    collections::{HashMap, HashSet}, sync::{Arc, LazyLock, Mutex}
 };
 
 use nu_ansi_term::{Color, Style};
