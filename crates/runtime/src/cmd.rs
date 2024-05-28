@@ -465,14 +465,6 @@ fn exec_cmd(
         .resolve_binary_path(&cmd_path)
         .map_err(|err| ctx.error(name.at, err.to_string()))?;
 
-    // This instruction both canonicalizes AND simplifies the path (to avoid UNC like '\\?\C:\...' on Windows)
-    // This is required because the command path is transmitted as the program's first argument on most platforms,
-    // and some programs may use it to refer as themselves while in the same time not supporting UNC paths
-    let cmd_path = dunce::canonicalize(&cmd_path)
-        // A command may be able to be run without the user actually being able to access the file itself
-        // e.g. Windows Store applications' binaries
-        .unwrap_or(cmd_path);
-
     // Actually run the command
     let child = Command::new(cmd_path)
         .envs(env_vars)
