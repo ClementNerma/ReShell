@@ -21,7 +21,7 @@ pub struct CmdPiece<'a> {
 }
 
 pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
-    let detect_nesting_actions = detect_nesting_actions(input);
+    let detect_nesting_actions = detect_nesting_actions(input, true);
     let NestingDetectionResult {
         actions,
         final_nesting_level,

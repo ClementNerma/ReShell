@@ -23,7 +23,10 @@ pub struct NestingDetectionResult {
     pub final_nesting_level: usize,
 }
 
-pub fn detect_nesting_actions<'s>(input: &'s str) -> NestingDetectionResult {
+pub fn detect_nesting_actions<'s>(
+    input: &'s str,
+    insert_args_separator: bool,
+) -> NestingDetectionResult {
     let register_content =
         |output: &mut Vec<NestingAction>, offset: usize, opened: &[(&str, usize)]| {
             let from = output
@@ -48,6 +51,10 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> NestingDetectionResult {
                 offset: usize,
                 len: usize,
                 action_type: NestingActionType| {
+        if matches!(action_type, NestingActionType::ArgumentSeparator) && !insert_args_separator {
+            return;
+        }
+
         register_content(output, offset, opened);
 
         output.push(NestingAction {

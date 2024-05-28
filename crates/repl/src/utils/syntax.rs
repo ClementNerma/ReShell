@@ -37,6 +37,7 @@ pub struct RuleSet {
     pub closing_without_opening_style: Style,
     pub unclosed_style: Style,
     pub command_separator_style: Style,
+    pub use_arguments_separator: bool,
 }
 
 #[derive(Debug)]
@@ -89,6 +90,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
         closing_without_opening_style,
         unclosed_style,
         command_separator_style,
+        use_arguments_separator,
     } = rule_set;
 
     let mut output = Vec::<HighlightPiece>::new();
@@ -96,7 +98,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
     let NestingDetectionResult {
         actions: nesting,
         final_nesting_level: _,
-    } = detect_nesting_actions(input);
+    } = detect_nesting_actions(input, *use_arguments_separator);
 
     let mut opened = Vec::<(NestingAction, NestingOpeningType)>::new();
 
@@ -412,6 +414,7 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         closing_without_opening_style: _,
         unclosed_style: _,
         command_separator_style: _,
+        use_arguments_separator: _,
     } = rule_set;
 
     fn _validate_simple_rule(rule: &SimpleRule) -> Result<(), String> {
