@@ -1,12 +1,12 @@
 use colored::Color;
-use parsy::{CodeRange, FileId};
+use parsy::FileId;
 use reshell_parser::ast::{
-    CmdFlagNameArg, FnArg, FnArgNames, FnSignature, RuntimeCodeRange, SingleValueType,
-    StructTypeMember, ValueType,
+    CmdFlagNameArg, FlagValueSeparator, FnArg, FnArgNames, FnSignature, RuntimeCodeRange,
+    SingleValueType, StructTypeMember, ValueType,
 };
 
 use crate::{
-    cmd::{CmdArgResult, CmdSingleArgResult},
+    cmd::{CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
     context::Context,
     errors::ExecResult,
     files_map::{FilesMap, ScopableFilePath},
@@ -14,7 +14,11 @@ use crate::{
     values::{RuntimeFnBody, RuntimeValue},
 };
 
-pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecResult<String> {
+pub fn value_to_str(
+    value: &RuntimeValue,
+    at: impl Into<RuntimeCodeRange>,
+    ctx: &Context,
+) -> ExecResult<String> {
     match value {
         RuntimeValue::Bool(bool) => Ok(bool.to_string()),
         RuntimeValue::Int(num) => Ok(num.to_string()),
@@ -410,16 +414,21 @@ impl PrettyPrintable for CmdSingleArgResult {
         match self {
             CmdSingleArgResult::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
 
-            CmdSingleArgResult::Flag {
-                name,
-                value,
-                raw: _,
-            } => {
+            CmdSingleArgResult::Flag { name, value } => {
                 let mut join = vec![name.data.generate_pretty_data(ctx)];
 
-                if let Some(loc_val) = value {
-                    join.push(PrettyPrintablePiece::colored_atomic(" ", Color::Black));
-                    join.push(loc_val.value.generate_pretty_data(ctx));
+                if let Some(FlagArgValueResult { value, value_sep }) = value {
+                    let value_sep = match value_sep {
+                        FlagValueSeparator::Space => " ",
+                        FlagValueSeparator::Equal => "=",
+                    };
+
+                    join.push(PrettyPrintablePiece::colored_atomic(
+                        value_sep,
+                        Color::BrightYellow,
+                    ));
+
+                    join.push(value.value.generate_pretty_data(ctx));
                 }
 
                 PrettyPrintablePiece::Join(join)

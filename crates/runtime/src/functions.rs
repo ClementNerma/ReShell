@@ -2,12 +2,15 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    CmdFlagArg, CmdFlagNameArg, FnArg, FnArgNames, FnCall, FnCallArg, RuntimeCodeRange,
-    SingleValueType, ValueType,
+    CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, FnArg, FnArgNames, FnCall, FnCallArg,
+    RuntimeCodeRange, SingleValueType, ValueType,
 };
 
 use crate::{
-    cmd::{eval_cmd_arg, eval_cmd_value_making_arg, CmdArgResult, CmdSingleArgResult},
+    cmd::{
+        eval_cmd_arg, eval_cmd_value_making_arg, CmdArgResult, CmdSingleArgResult,
+        FlagArgValueResult,
+    },
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::ExecResult,
     exec::{run_body_with_deps, InstrRet},
@@ -191,11 +194,7 @@ fn parse_fn_call_args(
                 rest_args = Some(vec![]);
             }
 
-            CmdSingleArgResult::Flag {
-                name,
-                value,
-                raw: _,
-            } => {
+            CmdSingleArgResult::Flag { name, value } => {
                 let matching_arg = fn_args
                     .iter()
                     .find(|arg| match &name.data {
@@ -229,7 +228,12 @@ fn parse_fn_call_args(
                         }
                     }
 
-                    Some(loc_val) => {
+                    Some(arg_value_result) => {
+                        let FlagArgValueResult {
+                            value: loc_val,
+                            value_sep: _,
+                        } = arg_value_result;
+
                         if let Some(typ) = &matching_arg.typ {
                             if !check_if_single_type_fits_type(
                                 &loc_val.value.get_type(),
@@ -390,11 +394,20 @@ fn flatten_fn_call_args(
                     }
 
                     FnCallArg::Flag(flag) => {
-                        let CmdFlagArg { name, value, raw } = &flag.data;
+                        let CmdFlagArg { name, value } = &flag.data;
 
                         let value = value
                             .as_ref()
-                            .map(|value| eval_cmd_value_making_arg(&value.data, ctx))
+                            .map(|value| {
+                                let CmdFlagValueArg { value, value_sep } = value;
+
+                                eval_cmd_value_making_arg(&value.data, ctx).map(|value| {
+                                    FlagArgValueResult {
+                                        value,
+                                        value_sep: *value_sep,
+                                    }
+                                })
+                            })
                             .transpose()?;
 
                         out.push((
@@ -402,7 +415,6 @@ fn flatten_fn_call_args(
                             CmdSingleArgResult::Flag {
                                 name: name.clone(),
                                 value,
-                                raw: raw.clone(),
                             },
                         ))
                     }

@@ -6,8 +6,9 @@ use std::{
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdPath, CmdPipe,
-    CmdPipeType, CmdValueMakingArg, Expr, FnCall, FnCallArg, RuntimeCodeRange, SingleCmdCall,
+    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
+    CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, Expr, FlagValueSeparator, FnCall, FnCallArg,
+    RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
@@ -126,7 +127,7 @@ pub fn run_cmd(
                     message: format!(
                         "command failed{}",
                         match output.status.code() {
-                            Some(code) => format!(" (exit status: {code})"),
+                            Some(code) => format!(" with status code {code}"),
                             None => String::new(),
                         }
                     ),
@@ -186,14 +187,30 @@ fn single_call_to_chain_el(
                         eval_args.push(value_to_str(&value.value, arg.at, ctx)?)
                     }
 
-                    CmdSingleArgResult::Flag {
-                        name: _,
-                        value: _,
-                        raw,
-                    } => {
-                        for part in raw.split(char::is_whitespace) {
-                            if !part.is_empty() {
-                                eval_args.push(part.to_owned());
+                    CmdSingleArgResult::Flag { name, value } => {
+                        let name = match &name.data {
+                            CmdFlagNameArg::Short(short) => format!("-{short}"),
+                            CmdFlagNameArg::Long(long) => format!("--{long}"),
+                        };
+
+                        match value {
+                            Some(FlagArgValueResult { value, value_sep }) => {
+                                let value = value_to_str(&value.value, value.from, ctx)?;
+
+                                match value_sep {
+                                    FlagValueSeparator::Space => {
+                                        eval_args.push(name);
+                                        eval_args.push(value);
+                                    }
+
+                                    FlagValueSeparator::Equal => {
+                                        eval_args.push(format!("{name}={value}"))
+                                    }
+                                }
+                            }
+
+                            None => {
+                                eval_args.push(name);
                             }
                         }
                     }
@@ -529,14 +546,20 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 
         CmdArg::RestSeparator => Ok(CmdArgResult::Single(CmdSingleArgResult::RestSeparator)),
 
-        CmdArg::Flag(CmdFlagArg { name, value, raw }) => {
+        CmdArg::Flag(CmdFlagArg { name, value }) => {
             Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
                 name: name.clone(),
                 value: value
                     .as_ref()
-                    .map(|expr| eval_cmd_value_making_arg(&expr.data, ctx))
+                    .map(|CmdFlagValueArg { value, value_sep }| {
+                        eval_cmd_value_making_arg(&value.data, ctx).map(|value| {
+                            FlagArgValueResult {
+                                value,
+                                value_sep: *value_sep,
+                            }
+                        })
+                    })
                     .transpose()?,
-                raw: raw.clone(),
             }))
         }
 
@@ -654,10 +677,15 @@ pub enum CmdSingleArgResult {
     Basic(LocatedValue),
     Flag {
         name: Eaten<CmdFlagNameArg>,
-        value: Option<LocatedValue>,
-        raw: String,
+        value: Option<FlagArgValueResult>,
     },
     RestSeparator,
+}
+
+#[derive(Debug, Clone)]
+pub struct FlagArgValueResult {
+    pub value: LocatedValue,
+    pub value_sep: FlagValueSeparator,
 }
 
 #[derive(Debug)]

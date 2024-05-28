@@ -120,18 +120,12 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
                     // If we only run a single command (not more, no pipes, etc.) and it failed,
                     // display a simpler error.
                     if let ExecErrorNature::CommandFailed {
-                        message: _,
-                        exit_status,
-                    } = err.nature
+                        message,
+                        exit_status: _,
+                    } = &err.nature
                     {
                         if err.at.real() == Some(program.data.content.at) {
-                            eprintln!(
-                                "{} Command exited{}",
-                                "ERROR:".bright_red(),
-                                exit_status
-                                    .map(|code| format!(" with status code {code}"))
-                                    .unwrap_or_else(String::new)
-                            );
+                            eprintln!("{} {message}", "ERROR:".bright_red(),);
 
                             continue;
                         }
