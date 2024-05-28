@@ -420,6 +420,33 @@ pub fn program(
             .then_ignore(char('"').critical_expectation())
             .map(|pieces| ComputedString { pieces });
 
+        let closure = char('{')
+            .ignore_then(ms)
+            .ignore_then(
+                (not(just("->")) // to avoid parsing short flag with '>' name
+                    .ignore_then(fn_arg))
+                .separated_by(char(',').padded_by(msnl))
+                .spanned()
+                .map(RuntimeEaten::Parsed)
+                .map(|args| FnSignature {
+                    args,
+                    ret_type: None,
+                })
+                .spanned(),
+            )
+            .then_ignore(ms)
+            .then_ignore(just("->").critical_expectation())
+            .then_ignore(ms)
+            .then(
+                raw_block
+                    .clone()
+                    .critical("expected a body for the closure")
+                    .spanned(),
+            )
+            .then_ignore(ms)
+            .then_ignore(char('}').critical_expectation())
+            .map(|(signature, body)| Function { signature, body });
+
         let value = choice::<_, Value>((
             just("null").map(|_| Value::Null),
             // Literals
@@ -485,32 +512,7 @@ pub fn program(
                 .spanned()
                 .map(Value::FnAsValue),
             // Closures
-            char('{')
-                .ignore_then(ms)
-                .ignore_then(
-                    (not(just("->")) // to avoid parsing short flag with '>' name
-                        .ignore_then(fn_arg))
-                    .separated_by(char(',').padded_by(msnl))
-                    .spanned()
-                    .map(RuntimeEaten::Parsed)
-                    .map(|args| FnSignature {
-                        args,
-                        ret_type: None,
-                    })
-                    .spanned(),
-                )
-                .then_ignore(ms)
-                .then_ignore(just("->").critical_expectation())
-                .then_ignore(ms)
-                .then(
-                    raw_block
-                        .clone()
-                        .critical("expected a body for the closure")
-                        .spanned(),
-                )
-                .then_ignore(ms)
-                .then_ignore(char('}').critical_expectation())
-                .map(|(signature, body)| Value::Closure(Function { signature, body })),
+            closure.clone().map(Value::Closure),
         ));
 
         let single_op = choice::<_, SingleOp>((char('!').to(SingleOp::Neg),));
@@ -795,6 +797,8 @@ pub fn program(
                 )
                 .then_ignore(char(')').critical("unclosed expression"))
                 .map(CmdValueMakingArg::ParenExpr),
+            // Closures
+            closure.clone().spanned().map(CmdValueMakingArg::Closure),
             // Raw argument (but not flags, which aren't value making arguments)
             cmd_computed_string
                 .spanned()

@@ -400,6 +400,7 @@ pub enum CmdValueMakingArg {
     CmdOutput(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
     CmdComputedString(Eaten<CmdComputedString>),
+    Closure(Eaten<Function>),
 }
 
 #[derive(Debug, Clone)]

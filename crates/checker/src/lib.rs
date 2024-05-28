@@ -1001,6 +1001,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
         CmdValueMakingArg::CmdComputedString(cc_str) => {
             check_cmd_computed_string(&cc_str.data, state)
         }
+        CmdValueMakingArg::Closure(func) => check_function(&func.data, state),
     }
 }
 
