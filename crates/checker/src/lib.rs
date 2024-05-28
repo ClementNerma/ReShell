@@ -28,8 +28,8 @@ use reshell_parser::ast::{
 pub use self::{
     errors::CheckerError,
     state::{
-        CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
-        DependencyType,
+        CheckerOutput, CheckerScope, CmdPathTargetType, DeclaredCmdAlias, DeclaredFn, DeclaredVar,
+        Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
 };
 
@@ -139,14 +139,6 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                     ));
                 }
 
-                state.curr_scope_mut().cmd_aliases.insert(
-                    name.data.clone(),
-                    DeclaredCmdAlias {
-                        name_at: name.at,
-                        is_ready: false,
-                    },
-                );
-
                 state.curr_scope_mut().fns.insert(
                     name.data.clone(),
                     DeclaredFn {
@@ -174,6 +166,7 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                     name.data.clone(),
                     DeclaredCmdAlias {
                         name_at: name.at,
+                        content_at: content.at,
                         is_ready: false,
                     },
                 );
@@ -734,7 +727,7 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
                 if chain_type != call_type {
                     return Err(CheckerError::new(
                         call.at,
-                        format!("cannot pipe a {chain_type} into a {call_type}"),
+                        format!("{call_type} cannot be piped from a {chain_type}"),
                     ));
                 }
 
@@ -745,7 +738,7 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
         if let Some(pipe_type) = pipe_type {
             match pipe_type.data {
                 CmdPipeType::Stdout | CmdPipeType::Stderr => {
-                    if current_chain_type == SingleCmdCallTargetType::Function {
+                    if current_chain_type == CmdPathTargetType::Function {
                         return Err(CheckerError::new(
                             pipe_type.at,
                             "cannot apply stdout/stderr pipe to a function",
@@ -754,7 +747,7 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
                 }
 
                 CmdPipeType::Value => {
-                    if current_chain_type == SingleCmdCallTargetType::Command {
+                    if current_chain_type == CmdPathTargetType::ExternalCommand {
                         return Err(CheckerError::new(
                             pipe_type.at,
                             "value pipe can only be applied to functions",
@@ -771,7 +764,7 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
 fn check_single_cmd_call(
     single_cmd_call: &Eaten<SingleCmdCall>,
     state: &mut State,
-) -> CheckerResult<SingleCmdCallTargetType> {
+) -> CheckerResult<CmdPathTargetType> {
     let SingleCmdCall {
         env_vars,
         path,
@@ -782,36 +775,81 @@ fn check_single_cmd_call(
         check_cmd_env_var(env_var, state)?;
     }
 
-    let mut target_type = SingleCmdCallTargetType::Command;
+    let mut developed_aliases = vec![];
 
-    match &path.data {
+    let mut alias_final_path = None;
+
+    let target_type = match &path.data {
+        CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
+        CmdPath::Expr(_) => CmdPathTargetType::Function,
+        CmdPath::ComputedString(_) => CmdPathTargetType::ExternalCommand,
         CmdPath::RawString(name) => {
-            for scope in state.scopes() {
-                if scope.fns.contains_key(&name.data) {
-                    target_type = SingleCmdCallTargetType::Function;
-                    break;
-                }
+            enum Target {
+                CmdAlias(DeclaredCmdAlias),
+                Function,
+            }
 
-                if let Some(cmd_alias) = scope.cmd_aliases.get(&name.data) {
-                    if !cmd_alias.is_ready {
-                        return Err(CheckerError::new(
-                            name.at,
-                            "cannot use a command alias before its declaration",
-                        ));
+            let target = state.scopes().find_map(|scope| {
+                scope
+                    .cmd_aliases
+                    .get(&name.data)
+                    .map(|cmd_alias| Target::CmdAlias(*cmd_alias))
+                    .or_else(|| scope.fns.get(&name.data).map(|_| Target::Function))
+            });
+
+            match target {
+                Some(target) => match target {
+                    Target::CmdAlias(cmd_alias) => {
+                        let DeclaredCmdAlias {
+                            name_at,
+                            content_at,
+                            is_ready,
+                        } = cmd_alias;
+
+                        if !is_ready {
+                            return Err(CheckerError::new(
+                                name_at,
+                                "cannot use a command alias before it's ready",
+                            ));
+                        }
+
+                        developed_aliases.push(DevelopedCmdAliasCall {
+                            declared_name_at: name_at,
+                        });
+
+                        state.register_usage(name, DependencyType::CmdAlias)?;
+
+                        let alias_inner_call = state.collected.cmd_calls.get(&content_at);
+                        let alias_inner_call = alias_inner_call.as_ref().unwrap();
+
+                        developed_aliases.extend(&alias_inner_call.developed_aliases);
+
+                        alias_final_path = Some(alias_inner_call.final_cmd_path.clone());
+
+                        alias_inner_call.target_type
                     }
 
-                    target_type = SingleCmdCallTargetType::Command;
-                }
+                    Target::Function => CmdPathTargetType::Function,
+                },
+
+                None => CmdPathTargetType::ExternalCommand,
             }
         }
-        CmdPath::Direct(_) => {}
-        CmdPath::Expr(expr) => check_expr(&expr.data, state)?,
-        CmdPath::ComputedString(computed_string) => check_computed_string(computed_string, state)?,
-    }
+    };
 
     for arg in &args.data {
         check_cmd_arg(arg, state)?;
     }
+
+    state.collected.cmd_calls.insert(
+        path.at,
+        DevelopedSingleCmdCall {
+            at: path.at,
+            final_cmd_path: alias_final_path.unwrap_or_else(|| path.clone()),
+            target_type,
+            developed_aliases,
+        },
+    );
 
     Ok(target_type)
 }
@@ -1071,23 +1109,4 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     }
 
     Ok(())
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum SingleCmdCallTargetType {
-    Function,
-    Command,
-}
-
-impl std::fmt::Display for SingleCmdCallTargetType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Function => "function",
-                Self::Command => "command",
-            }
-        )
-    }
 }

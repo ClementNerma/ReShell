@@ -7,7 +7,9 @@ use std::{
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location, SourceFileID};
-use reshell_checker::{Dependency, DependencyType};
+use reshell_checker::{
+    CmdPathTargetType, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
@@ -1038,6 +1040,38 @@ impl ComputableSize for SourceFileLocation {
         match self {
             SourceFileLocation::CustomName(name) => name.compute_heap_size(),
             SourceFileLocation::RealFile(path) => path.compute_heap_size(),
+        }
+    }
+}
+
+impl ComputableSize for DevelopedSingleCmdCall {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            at,
+            final_cmd_path,
+            target_type,
+            developed_aliases,
+        } = self;
+
+        at.compute_heap_size()
+            + final_cmd_path.compute_heap_size()
+            + target_type.compute_heap_size()
+            + developed_aliases.compute_heap_size()
+    }
+}
+
+impl ComputableSize for DevelopedCmdAliasCall {
+    fn compute_heap_size(&self) -> usize {
+        let Self { declared_name_at } = self;
+        declared_name_at.compute_heap_size()
+    }
+}
+
+impl ComputableSize for CmdPathTargetType {
+    fn compute_heap_size(&self) -> usize {
+        match self {
+            CmdPathTargetType::Function => 0,
+            CmdPathTargetType::ExternalCommand => 0,
         }
     }
 }

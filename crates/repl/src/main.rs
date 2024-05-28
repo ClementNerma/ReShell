@@ -51,8 +51,8 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     let Args {
         exec_file,
         eval,
-        timings,
         skip_init_script,
+        timings,
     } = Args::parse();
 
     // Set up Ctrl+C handler
