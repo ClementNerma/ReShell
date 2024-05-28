@@ -233,6 +233,7 @@ impl ComputableSize for CmdFlagNameArg {
         match self {
             CmdFlagNameArg::Short(short) => short.compute_heap_size(),
             CmdFlagNameArg::Long(long) => long.compute_heap_size(),
+            CmdFlagNameArg::LongNoConvert(long) => long.compute_heap_size(),
         }
     }
 }

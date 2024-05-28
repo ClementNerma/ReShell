@@ -657,6 +657,18 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames, ctx: &mut
                 }
             }
         },
+
+        CmdFlagNameArg::LongNoConvert(name) => match into {
+            FnFlagArgNames::ShortFlag(_) => None,
+
+            FnFlagArgNames::LongFlag(long) | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
+                if name == long.data() {
+                    Some(long.data().clone())
+                } else {
+                    None
+                }
+            }
+        },        
     }
 }
 pub enum FnPossibleCallArgs<'a> {

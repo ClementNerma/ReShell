@@ -431,6 +431,7 @@ fn append_cmd_arg_as_string(
                 let name = match &name.data {
                     CmdFlagNameArg::Short(short) => format!("-{short}"),
                     CmdFlagNameArg::Long(long) => format!("--{long}"),
+                    CmdFlagNameArg::LongNoConvert(long) => format!("--{long}"),
                 };
 
                 match value {

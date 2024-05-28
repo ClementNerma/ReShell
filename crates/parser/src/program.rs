@@ -277,13 +277,13 @@ pub fn program(
             ident
                 .spanned()
                 .then_ignore(ms)
-                .then_ignore(char('='))
+                .then_ignore(char(':'))
                 .then_ignore(msnl)
                 .then(expr.clone().spanned())
                 .map(|(name, value)| FnCallArg::Flag {
                     name: name.map(|name| {
                         if name.chars().nth(1).is_some() {
-                            CmdFlagNameArg::Long(name)
+                            CmdFlagNameArg::LongNoConvert(name)
                         } else {
                             CmdFlagNameArg::Short(name.chars().next().unwrap())
                         }

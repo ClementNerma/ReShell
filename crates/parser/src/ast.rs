@@ -375,6 +375,7 @@ pub struct CmdFlagArg {
 pub enum CmdFlagNameArg {
     Short(char),
     Long(String),
+    LongNoConvert(String),
 }
 
 #[derive(Debug, Clone)]
