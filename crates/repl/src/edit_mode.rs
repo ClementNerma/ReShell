@@ -96,9 +96,9 @@ impl RlEditMode for EditMode {
                     ('d', KeyModifiers::CONTROL) => ReedlineEvent::CtrlD,
                     ('l', KeyModifiers::CONTROL) => ReedlineEvent::ClearScreen,
                     ('u', KeyModifiers::CONTROL) => {
-                        // TODO: find a better command
                         ReedlineEvent::Edit(vec![EditCommand::CutCurrentLine])
                     }
+
                     ('z', KeyModifiers::CONTROL) => ReedlineEvent::Edit(vec![EditCommand::Undo]),
                     ('y', KeyModifiers::CONTROL) => ReedlineEvent::Edit(vec![EditCommand::Redo]),
                     ('r', KeyModifiers::CONTROL) => ReedlineEvent::UntilFound(vec![

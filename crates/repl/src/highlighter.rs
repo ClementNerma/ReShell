@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use nu_ansi_term::{Color, Style};
+use once_cell::sync::Lazy;
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
@@ -53,7 +56,7 @@ impl RlHighlighter for Highlighter {
     }
 }
 
-fn highlight(input: &str) -> StyledText {
+static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
     // TODO: lazify this
     let rule_set = RuleSet {
         groups: [
@@ -153,9 +156,11 @@ fn highlight(input: &str) -> StyledText {
         rules: vec![rule!(@group "instructions")],
     };
 
-    let rule_set = ValidatedRuleSet::validate(rule_set).unwrap();
+    Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
+});
 
-    let pieces = SyntaxHighlighter::new(rule_set).highlight(input);
+fn highlight(input: &str) -> StyledText {
+    let pieces = SyntaxHighlighter::new(&RULE_SET).highlight(input);
 
     // TODO: highlight unclosed (override existing highlight pieces)
 

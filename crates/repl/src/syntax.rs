@@ -34,12 +34,12 @@ pub struct NestingRule {
 }
 
 #[derive(Debug)]
-pub struct Highlighter {
-    rule_set: ValidatedRuleSet,
+pub struct Highlighter<'a> {
+    rule_set: &'a ValidatedRuleSet,
 }
 
-impl Highlighter {
-    pub fn new(rule_set: ValidatedRuleSet) -> Self {
+impl<'a> Highlighter<'a> {
+    pub fn new(rule_set: &'a ValidatedRuleSet) -> Self {
         Self { rule_set }
     }
 
