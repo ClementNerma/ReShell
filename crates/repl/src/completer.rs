@@ -568,19 +568,23 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
                 }]),
 
                 // for <...> <in?> <...>
-                _ => InstructionCompletion::Undefined(CompletionMode {
+                4 => InstructionCompletion::Undefined(CompletionMode {
                     allow_files: false,
                     allow_vars: true,
                 }),
+
+                _ => InstructionCompletion::Undefined(CompletionMode::default()),
             }
         }
 
-        "if" | "while" | "do" | "try" | "throw" | "switch" | "return" => {
-            InstructionCompletion::Undefined(CompletionMode {
+        "if" | "while" | "do" | "try" | "throw" | "switch" | "return" => match cmd_pieces.len() {
+            1 | 2 => InstructionCompletion::Undefined(CompletionMode {
                 allow_vars: true,
                 allow_files: false,
-            })
-        }
+            }),
+
+            _ => InstructionCompletion::Undefined(CompletionMode::default()),
+        },
 
         "continue" | "break" | "fn" => InstructionCompletion::Specific(vec![]),
 
@@ -646,10 +650,14 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
         },
 
         // TODO: improve this
-        "let" => InstructionCompletion::Undefined(CompletionMode {
-            allow_files: false,
-            allow_vars: true,
-        }),
+        "let" => match cmd_pieces.len() {
+            1..=3 => InstructionCompletion::Undefined(CompletionMode {
+                allow_vars: true,
+                allow_files: false,
+            }),
+
+            _ => InstructionCompletion::Undefined(CompletionMode::default()),
+        },
 
         // TODO: complete like usual but with "direct" stripped
         //       => and ignore aliases / functions
