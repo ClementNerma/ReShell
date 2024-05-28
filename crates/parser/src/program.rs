@@ -482,7 +482,8 @@ pub fn program(
             char('{')
                 .ignore_then(ms)
                 .ignore_then(
-                    fn_arg
+                    not(just("->"))
+                        .ignore_then(fn_arg)
                         .clone()
                         .separated_by(char(',').padded_by(msnl))
                         .spanned()
