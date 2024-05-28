@@ -12,7 +12,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    completer, edit_mode, highlighting, hinter, history,
+    completer, edit_mode, highlighter, hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
     state::{with_writable_rt_ctx, RUNTIME_CONTEXT},
@@ -22,7 +22,7 @@ pub fn start() {
     let mut line_editor = Reedline::create()
         .with_history(history::create_history())
         .with_menu(history::create_history_menu())
-        .with_highlighter(highlighting::create_highlighter())
+        .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())
         // .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
