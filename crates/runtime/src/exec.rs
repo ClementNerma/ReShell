@@ -616,7 +616,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             catch_var,
             catch_body,
         } => {
-            if let Err(err) = eval_fn_call(call, ctx) {
+            if let Err(err) = eval_fn_call(call, None, ctx) {
                 match err.nature {
                     ExecErrorNature::Thrown { at, message } => {
                         let mut scope = ScopeContent::new();

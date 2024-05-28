@@ -473,9 +473,16 @@ pub enum FnFlagArgNames {
 
 #[derive(Debug, Clone)]
 pub struct FnCall {
-    pub is_var_name: bool,
+    pub nature: FnCallNature,
     pub name: Eaten<String>,
     pub call_args: Eaten<Vec<Eaten<FnCallArg>>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum FnCallNature {
+    NamedFunction,
+    Method,
+    Variable,
 }
 
 #[derive(Debug, Clone)]

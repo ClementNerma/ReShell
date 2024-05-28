@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
+    CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
     MethodApplyableType, RuntimeCodeRange,
 };
 
@@ -18,52 +18,57 @@ use crate::{
     values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
-pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
-    eval_fn_call_type(call, None, ctx)
-}
-
-pub fn eval_fn_call_type(
+pub fn eval_fn_call(
     call: &Eaten<FnCall>,
-    call_type: Option<FnCallType>,
+    piped: Option<LocatedValue>,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {
-    let func = if call.data.is_var_name {
-        let var = ctx.get_visible_var(&call.data.name);
+    let func = match call.data.nature {
+        FnCallNature::NamedFunction => {
+            assert!(piped.is_none());
 
-        let var_value = var.value.read(call.data.name.at);
-
-        match &var_value.value {
-            RuntimeValue::Function(func) => func.clone(),
-
-            value => {
-                return Err(ctx.error(
-                    call.data.name.at,
-                    format!(
-                        "expected a function, found a {} instead",
-                        value
-                            .get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
-                    ),
-                ))
-            }
+            ctx.get_visible_fn_value(&call.data.name)?.clone()
         }
-    } else {
-        match &call_type {
-            None | Some(FnCallType::Piped(_)) => ctx.get_visible_fn_value(&call.data.name)?.clone(),
-            Some(FnCallType::Method(loc_val)) => {
-                let typ = loc_val.value.get_type();
-                let typ =
-                    MethodApplyableType::from_single_value_type(typ.clone()).ok_or_else(|| {
-                        ctx.error(
-                            call.at,
-                            format!(
-                                "cannot call this method on a {}",
-                                typ.render_colored(ctx, PrettyPrintOptions::inline())
-                            ),
-                        )
-                    })?;
 
-                ctx.get_visible_method_value(&call.data.name, &typ)?.clone()
+        FnCallNature::Method => {
+            let piped = piped.as_ref().unwrap();
+
+            let typ = piped.value.get_type();
+            let typ =
+                MethodApplyableType::from_single_value_type(typ.clone()).ok_or_else(|| {
+                    ctx.error(
+                        call.at,
+                        format!(
+                            "cannot call this method on a {}",
+                            typ.render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    )
+                })?;
+
+            ctx.get_visible_method_value(&call.data.name, &typ)?.clone()
+        }
+
+        FnCallNature::Variable => {
+            assert!(piped.is_none());
+
+            let var = ctx.get_visible_var(&call.data.name);
+
+            let var_value = var.value.read(call.data.name.at);
+
+            match &var_value.value {
+                RuntimeValue::Function(func) => func.clone(),
+
+                value => {
+                    return Err(ctx.error(
+                        call.data.name.at,
+                        format!(
+                            "expected a function, found a {} instead",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
             }
         }
     };
@@ -71,9 +76,10 @@ pub fn eval_fn_call_type(
     call_fn_value(
         RuntimeCodeRange::Parsed(call.at),
         &func,
-        FnPossibleCallArgs::Parsed {
-            call_type,
-            args: &call.data.call_args,
+        FnCallInfos {
+            nature: call.data.nature,
+            args: FnPossibleCallArgs::Parsed(&call.data.call_args),
+            piped,
         },
         ctx,
     )
@@ -81,8 +87,8 @@ pub fn eval_fn_call_type(
 
 pub fn call_fn_value(
     call_at: RuntimeCodeRange,
-    func: &RuntimeFnValue,
-    call_args: FnPossibleCallArgs,
+    func: &GcReadOnlyCell<RuntimeFnValue>,
+    infos: FnCallInfos,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {
     ctx.ensure_no_ctrl_c_press(call_at)?;
@@ -90,7 +96,7 @@ pub fn call_fn_value(
     let args = parse_fn_call_args(
         call_at,
         func,
-        call_args,
+        infos,
         func.signature.inner().args.data(),
         ctx,
     )?;
@@ -176,11 +182,11 @@ pub fn call_fn_value(
 fn parse_fn_call_args(
     call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
-    call_args: FnPossibleCallArgs,
+    infos: FnCallInfos,
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
-    let mut call_args = flatten_fn_call_args(call_at, func.is_method, call_args, ctx)?;
+    let mut call_args = flatten_fn_call_args(call_at, func.is_method, infos, ctx)?;
 
     // Reverse call args so we can .pop() them! without shifting elements
     call_args.reverse();
@@ -493,42 +499,42 @@ fn parse_fn_call_args(
 fn flatten_fn_call_args(
     call_at: RuntimeCodeRange,
     is_method: bool,
-    call_args: FnPossibleCallArgs,
+    infos: FnCallInfos,
     ctx: &mut Context,
 ) -> ExecResult<Vec<CmdSingleArgResult>> {
+    let FnCallInfos {
+        nature,
+        args,
+        piped,
+    } = infos;
+
     let mut out = vec![];
 
-    let mut treat_call_type = |call_type: Option<FnCallType>| -> ExecResult<()> {
-        match call_type {
-            None => {
-                // if is_method {
-                //     return Err(ctx.error(call_at, "cannot call a method like a normal function"));
-                // }
-            }
-
-            // Methods can be called through the value piping operator
-            Some(FnCallType::Piped(piped)) => out.push(CmdSingleArgResult::Basic(piped)),
-
-            Some(FnCallType::Method(left)) => {
-                if !is_method {
-                    return Err(ctx.error(call_at, "cannot call a normal function like a method"));
-                }
-
-                out.push(CmdSingleArgResult::Basic(left))
+    match nature {
+        FnCallNature::NamedFunction => {
+            if let Some(piped) = piped {
+                out.push(CmdSingleArgResult::Basic(piped));
             }
         }
 
-        Ok(())
-    };
+        FnCallNature::Method => {
+            if !is_method {
+                return Err(ctx.error(call_at, "cannot call a normal function like a method"));
+            }
 
-    match call_args {
-        FnPossibleCallArgs::Parsed {
-            call_type,
-            args: parsed,
-        } => {
-            treat_call_type(call_type)?;
+            if let Some(piped) = piped {
+                out.push(CmdSingleArgResult::Basic(piped))
+            }
+        }
 
-            for parsed in &parsed.data {
+        FnCallNature::Variable => {
+            assert!(piped.is_none());
+        }
+    }
+
+    match args {
+        FnPossibleCallArgs::Parsed(args) => {
+            for parsed in &args.data {
                 match &parsed.data {
                     FnCallArg::Expr(expr) => {
                         let eval = eval_expr(&expr.data, ctx)?
@@ -563,9 +569,7 @@ fn flatten_fn_call_args(
             }
         }
 
-        FnPossibleCallArgs::ParsedCmdArgs { call_type, args } => {
-            treat_call_type(call_type)?;
-
+        FnPossibleCallArgs::ParsedCmdArgs(args) => {
             for (arg_result, _) in args {
                 match arg_result {
                     CmdArgResult::Single(single) => out.push(single),
@@ -727,21 +731,17 @@ fn get_matching_var_name(
         },
     }
 }
-pub enum FnPossibleCallArgs<'a> {
-    Parsed {
-        call_type: Option<FnCallType>,
-        args: &'a Eaten<Vec<Eaten<FnCallArg>>>,
-    },
-    ParsedCmdArgs {
-        call_type: Option<FnCallType>,
-        args: Vec<(CmdArgResult, CodeRange)>,
-    },
-    Internal(Vec<CmdArgResult>),
+
+pub struct FnCallInfos<'a> {
+    pub nature: FnCallNature,
+    pub args: FnPossibleCallArgs<'a>,
+    pub piped: Option<LocatedValue>,
 }
 
-pub enum FnCallType {
-    Piped(LocatedValue),
-    Method(LocatedValue),
+pub enum FnPossibleCallArgs<'a> {
+    Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
+    ParsedCmdArgs(Vec<(CmdArgResult, CodeRange)>),
+    Internal(Vec<CmdArgResult>),
 }
 
 pub struct ValidatedFnCallArg {

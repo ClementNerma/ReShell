@@ -11,7 +11,7 @@ use crate::{
     cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
     context::{Context, ScopeContent, ScopeVar},
     errors::{ExecError, ExecErrorNature, ExecResult},
-    functions::{eval_fn_call, eval_fn_call_type, FnCallType},
+    functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
@@ -267,7 +267,7 @@ fn eval_expr_inner(
             }
 
             ExprInnerChaining::FnCall(fn_call) => {
-                let result = eval_fn_call_type(fn_call, Some(FnCallType::Piped(left)), ctx)?;
+                let result = eval_fn_call(fn_call, Some(left), ctx)?;
 
                 result.map(|result| result.value)
             }
@@ -309,7 +309,7 @@ fn eval_expr_inner_direct_chaining(
         }
 
         ExprInnerDirectChaining::MethodCall(fn_call) => {
-            let result = eval_fn_call_type(fn_call, Some(FnCallType::Method(left)), ctx)?;
+            let result = eval_fn_call(fn_call, Some(left), ctx)?;
 
             Ok(result.map(|result| result.value))
         }
@@ -421,7 +421,7 @@ fn eval_expr_inner_content(
             catch_var,
             catch_expr,
             catch_expr_scope_id,
-        } => match eval_fn_call(fn_call, ctx) {
+        } => match eval_fn_call(fn_call, None, ctx) {
             Ok(returned) => returned
                 .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
                 .map(|loc_val| Some(loc_val.value)),
@@ -499,7 +499,9 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<Option<Runt
         Value::Variable(name) => ctx.get_visible_var(name).value.read(name.at).value.clone(),
         Value::FnAsValue(name) => RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
 
-        Value::FnCall(call) => return Ok(eval_fn_call(call, ctx)?.map(|loc_val| loc_val.value)),
+        Value::FnCall(call) => {
+            return Ok(eval_fn_call(call, None, ctx)?.map(|loc_val| loc_val.value))
+        }
 
         Value::CmdOutput(call) => RuntimeValue::String(
             run_cmd(

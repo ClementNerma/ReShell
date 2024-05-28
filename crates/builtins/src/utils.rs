@@ -1,10 +1,12 @@
-use reshell_parser::ast::{FnArg, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType};
+use reshell_parser::ast::{
+    FnArg, FnCallNature, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
+};
 
 use reshell_runtime::{
     cmd::{CmdArgResult, CmdSingleArgResult},
     context::Context,
     errors::ExecResult,
-    functions::{call_fn_value, FnPossibleCallArgs},
+    functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_fn_signature_equality,
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
@@ -89,16 +91,20 @@ pub fn call_fn_checked(
     call_fn_value(
         loc_val.from,
         func,
-        FnPossibleCallArgs::Internal(
-            args.into_iter()
-                .map(|arg| {
-                    CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
-                        arg,
-                        loc_val.from,
-                    )))
-                })
-                .collect(),
-        ),
+        FnCallInfos {
+            nature: FnCallNature::NamedFunction,
+            piped: None,
+            args: FnPossibleCallArgs::Internal(
+                args.into_iter()
+                    .map(|arg| {
+                        CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
+                            arg,
+                            loc_val.from,
+                        )))
+                    })
+                    .collect(),
+            ),
+        },
         ctx,
     )
 }
