@@ -231,8 +231,19 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
             check_expr(&init_expr.data, state)?;
 
-            fn insert_var(decl: &SingleVarDecl, state: &mut State) {
+            fn insert_var(
+                decl: &SingleVarDecl,
+                idents: &mut HashSet<String>,
+                state: &mut State,
+            ) -> CheckerResult {
                 let SingleVarDecl { name, is_mut } = decl;
+
+                if !idents.insert(name.data.clone()) {
+                    return Err(CheckerError::new(
+                        name.at,
+                        "duplicate identifier in declaration",
+                    ));
+                }
 
                 let scope_id = state.curr_scope().id;
 
@@ -243,14 +254,23 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                         is_mut: is_mut.is_some(),
                     },
                 );
+
+                Ok(())
             }
 
-            fn insert_vars(names: &VarDeclType, state: &mut State) {
+            fn insert_vars(
+                names: &VarDeclType,
+                idents: &mut HashSet<String>,
+                state: &mut State,
+            ) -> CheckerResult {
                 match names {
-                    VarDeclType::Single(single) => insert_var(single, state),
+                    VarDeclType::Single(single) => {
+                        insert_var(single, idents, state)?;
+                    }
+
                     VarDeclType::Tuple(vars) => {
                         for vars in vars {
-                            insert_vars(&vars.data, state);
+                            insert_vars(&vars.data, idents, state)?;
                         }
                     }
 
@@ -263,26 +283,29 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                                             name: alias.clone(),
                                             is_mut: name.data.is_mut,
                                         },
+                                        idents,
                                         state,
-                                    );
+                                    )?;
                                 }
 
                                 Some(MapDestructBinding::Destruct(destruct)) => {
-                                    insert_vars(&destruct.data, state);
+                                    insert_vars(&destruct.data, idents, state)?;
                                 }
 
                                 None => {
-                                    insert_var(&name.data, state);
+                                    insert_var(&name.data, idents, state)?;
                                 }
                             }
                         }
                     }
                 }
+
+                Ok(())
             }
 
             // TODO: detect duplicate identifiers (deeply nested) -> use a HashSet<> for that
 
-            insert_vars(&names.data, state);
+            insert_vars(&names.data, &mut HashSet::new(), state)?;
         }
 
         Instruction::AssignVar {
