@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use annotate_snippets::{Annotation, AnnotationType, Renderer, Slice, Snippet, SourceAnnotation};
+use annotate_snippets::{Level, Renderer, Snippet};
 use colored::Colorize;
 use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
@@ -223,28 +223,20 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         source[offset..offset + len.max(1)].chars().count()
     };
 
-    let snippet = Snippet {
-        title: Some(Annotation {
-            label: Some(&nature),
-            id: None,
-            annotation_type: AnnotationType::Error,
-        }),
-        footer: vec![],
-        slices: vec![Slice {
-            source: &extract,
-            line_start: extract_start_line,
-            origin: Some(&display_file),
-            fold: false,
-            annotations: vec![SourceAnnotation {
-                label: &msg,
-                annotation_type: AnnotationType::Error,
-                range: (
-                    offset - extract_start_offset,
-                    offset - extract_start_offset + range_chars_len,
-                ),
-            }],
-        }],
-    };
+    let snippet = Level::Error.title(&nature).snippet(
+        Snippet::source(&extract)
+            .line_start(extract_start_line)
+            .origin(&display_file)
+            .fold(false)
+            .annotation(
+                Level::Error
+                    .span(
+                        offset - extract_start_offset
+                            ..offset - extract_start_offset + range_chars_len,
+                    )
+                    .label(&msg),
+            ),
+    );
 
     eprintln!("{}", Renderer::styled().render(snippet));
 
