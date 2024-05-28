@@ -337,13 +337,13 @@ dependencies = [
 
 [[package]]
 name = "fd-lock"
-version = "3.0.13"
+version = "4.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef033ed5e9bad94e55838ca0ca906db0e043f517adda0c8b79c7a8c66c93c1b5"
+checksum = "7e5768da2206272c81ef0b5e951a41862938a6070da63bcea197899942d3b947"
 dependencies = [
  "cfg-if",
  "rustix",
- "windows-sys 0.48.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -724,8 +724,8 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.30.0"
-source = "git+https://github.com/ClementNerma/reedline.git#73936382eb38fcf07a9fc3c69b5a999b90243dd5"
+version = "0.31.0"
+source = "git+https://github.com/ClementNerma/reedline.git?rev=794eb53#794eb533355ede5e7bfefffc22e8b9e8e9c1a647"
 dependencies = [
  "chrono",
  "crossterm",
