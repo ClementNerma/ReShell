@@ -268,9 +268,8 @@ pub fn program(
                 )
                 .then_ignore(msnl)
                 .then_ignore(char(')').critical_with_no_message())
-                .then_ignore(msnl)
                 .then(
-                    just("->")
+                    msnl.ignore_then(just("->"))
                         .ignore_then(ms)
                         .ignore_then(
                             value_type
