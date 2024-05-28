@@ -72,7 +72,8 @@ impl std::fmt::Debug for RuleStylization {
     }
 }
 
-pub type DynamicRuleStylizer = Box<dyn Fn(&mut Context, &str) -> Vec<Style> + Send + Sync + 'static>;
+pub type DynamicRuleStylizer =
+    Box<dyn Fn(&mut Context, Vec<String>) -> Vec<Style> + Send + Sync + 'static>;
 
 pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec<HighlightPiece> {
     let ValidatedRuleSet(rule_set) = rule_set;
@@ -222,12 +223,14 @@ fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<
 
     let style = match &matched.rule.style {
         RuleStylization::Static(style) => style.clone(),
-        RuleStylization::Dynamic(stylizer) => {
-            stylizer(
-                SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
-                matched.get(0).unwrap().extract,
-            )
-        }
+        RuleStylization::Dynamic(stylizer) => stylizer(
+            SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
+            matched
+                ._captured
+                .iter()
+                .map(|cap| cap.unwrap().as_str().to_owned())
+                .collect(),
+        ),
     };
 
     for (i, style) in style.iter().enumerate() {
@@ -401,9 +404,9 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
             );
         }
 
-        let mut static_len = matches.static_captures_len().ok_or_else(|| format!(
-            "Regex '{matches}' does not contain a constant number of capture groups"
-        ))?;
+        let mut static_len = matches.static_captures_len().ok_or_else(|| {
+            format!("Regex '{matches}' does not contain a constant number of capture groups")
+        })?;
 
         // Account the zeroth group (full match)
         static_len -= 1;

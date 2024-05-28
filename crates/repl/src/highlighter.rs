@@ -107,24 +107,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     // Match remaining invalid characters
     let invalid_chars = || simple("([^\\s])", [Style::new().fg(White).on(Red)]);
 
-    // Command name highlighter
-    let cmd_name = Rule::Simple(SimpleRule {
-        matches: Regex::new("([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
-        inside: None,
-        preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
-        followed_by: None,
-        followed_by_nesting: None,
-        style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, matched) {
-                Color::Blue
-            } else {
-                Color::Red
-            };
-
-            vec![Style::new().fg(color)]
-        }))
-    });
-
     // Build the rule set
     let rule_set = RuleSet {
         groups: [
@@ -189,10 +171,42 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple_nested_and_followed_by(NestingOpeningType::Block, "([a-zA-Z0-9_,\\s]+)", [Red], "->"),
 
                 // Method names
-                simple_preceded_by("(^|[\\|\\n;\\{]|\\->)\\s*$", "(\\.)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [LightYellow, Blue]),
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new("(\\.)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
+                    inside: None,
+                    preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->)\\s*$").unwrap()),
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+                        let method_exists = ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method_name, _)| method_name == &matched[2]));
+
+                        let color = if method_exists {
+                            Color::Blue
+                        } else {
+                            Color::Red
+                        };
+            
+                        vec![Style::new().fg(Color::LightYellow), Style::new().fg(color)]
+                    }))
+                }),
 
                 // Command names
-                cmd_name,
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new("([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
+                    inside: None,
+                    preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[1]) {
+                            Color::Blue
+                        } else {
+                            Color::Red
+                        };
+            
+                        vec![Style::new().fg(color)]
+                    }))
+                }),
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),
@@ -201,7 +215,22 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(true|false)\\b", [LightYellow]),
 
                 // Method calls
-                simple_followed_by_nesting("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$", [LightYellow, Blue], [NestingOpeningType::ExprWithParen]),
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
+                    inside: None,
+                    preceded_by: None,
+                    followed_by: None,
+                    followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+                    style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2]) {
+                            Color::Blue
+                        } else {
+                            Color::Red
+                        };
+
+                        vec![Style::new().fg(color)]
+                    }))
+                }),
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\|'\"\\$]+)", [Green]),
