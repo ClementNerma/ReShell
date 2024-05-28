@@ -21,3 +21,4 @@ time = { version = "0.3.34", features = [
     "parsing",
     "local-offset",
 ] }
+toml = "0.8.12"
