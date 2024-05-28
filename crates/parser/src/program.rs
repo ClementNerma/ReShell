@@ -592,7 +592,7 @@ pub fn program(
             .then_ignore(msnl)
             .then_ignore(char('}').critical_with_no_message());
 
-        let expr_inner_direct_chaining = late::<ExprInnerChaining>();
+        let expr_inner_chaining = late::<ExprInnerChaining>();
 
         let scope_id_gen_bis = scope_id_gen.clone();
 
@@ -603,7 +603,7 @@ pub fn program(
                     .spanned()
                     .then_ignore(ms)
                     .then(expr_inner_content.map(Box::new).spanned())
-                    .then(expr_inner_direct_chaining.clone().spanned().repeated_vec())
+                    .then(expr_inner_chaining.clone().spanned().repeated_vec())
                     .map(
                         |((op, right), right_chainings)| ExprInnerContent::SingleOp {
                             op,
@@ -778,13 +778,13 @@ pub fn program(
                 nature,
             });
 
-        let expr_inner_chaining = choice::<_, ExprInnerChaining>((
+        expr_inner_chaining.finish(choice::<_, ExprInnerChaining>((
             lookahead(char('.'))
                 .ignore_then(fn_call.clone())
                 .spanned()
                 .map(ExprInnerChaining::MethodCall),
             prop_access.spanned().map(ExprInnerChaining::PropAccess),
-        ));
+        )));
 
         let expr_inner = expr_inner_content
             .spanned()
