@@ -596,8 +596,25 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 )
             })?;
 
-            let RuntimeValue::ArgSpread(items) = &value.value else {
-                return Err(ctx.error(
+            match &value.value {
+                RuntimeValue::List(items) => {
+                    let spreaded = items
+                        .read_promise_no_write()
+                        .iter()
+                        .map(|item| {
+                            value_to_str(item, value.from, ctx).map(|str| {
+                                CmdSingleArgResult::Basic(LocatedValue::new(
+                                    RuntimeValue::String(str),
+                                    value.from,
+                                ))
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+
+                    Ok(CmdArgResult::Spreaded(spreaded))
+                }
+                RuntimeValue::ArgSpread(spread) => Ok(CmdArgResult::Spreaded(Vec::clone(spread))),
+                _ => Err(ctx.error(
                     var_name.at,
                     format!(
                         "expected a spread value, found a {}",
@@ -606,10 +623,8 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
-                ));
-            };
-
-            Ok(CmdArgResult::Spreaded(Vec::clone(items)))
+                )),
+            }
         }
     }
 }
