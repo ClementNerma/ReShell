@@ -11,7 +11,8 @@ crate::define_internal_fn!(
 
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
-        parents: OptionalArg<BoolType> = Arg::long_and_short_flag("parents", 'p')
+        parents: OptionalArg<BoolType> = Arg::long_and_short_flag("parents", 'p'),
+        ignore_if_exists: OptionalArg<BoolType> = Arg::long_and_short_flag("ignore-if-exists", 'e')
     )
 
     -> None
@@ -19,13 +20,34 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(
-        |at, Args { path, parents }, ArgsAt { path: path_at, .. }, ctx| {
+        |at,
+         Args {
+             path,
+             parents,
+             ignore_if_exists,
+         },
+         ArgsAt { path: path_at, .. },
+         ctx| {
             let path = Path::new(&path);
+
+            if path.is_dir() {
+                return if ignore_if_exists == Some(true) {
+                    Ok(None)
+                } else {
+                    Err(ctx.error(
+                        path_at,
+                        format!("a directory already exists at path '{}'", path.display()),
+                    ))
+                };
+            }
 
             if path.exists() {
                 return Err(ctx.error(
                     path_at,
-                    format!("provided path '{}' already exists", path.display()),
+                    format!(
+                        "a non-directory item already exists at path '{}'",
+                        path.display()
+                    ),
                 ));
             }
 

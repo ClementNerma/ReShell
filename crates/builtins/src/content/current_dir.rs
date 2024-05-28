@@ -5,7 +5,7 @@ crate::define_internal_fn!(
     // Get the current directory
     //
 
-    "current_dir",
+    "currentDir",
 
     (
         lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
