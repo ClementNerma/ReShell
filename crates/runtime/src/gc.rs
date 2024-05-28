@@ -10,7 +10,7 @@ use reshell_parser::ast::RuntimeCodeRange;
 use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 
 // Garbage-collectable cell
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GcCell<T> {
     value: Rc<RefCell<T>>,
     read_lock: Rc<RefCell<Option<RuntimeCodeRange>>>,
@@ -48,6 +48,16 @@ impl<T> GcCell<T> {
                 ),
             )
         })
+    }
+}
+
+// NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
+impl<T> Clone for GcCell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            value: Rc::clone(&self.value),
+            read_lock: Rc::clone(&self.read_lock),
+        }
     }
 }
 
@@ -97,6 +107,59 @@ impl<'a, T> Deref for GcRef<'a, T> {
     }
 }
 
+// Garbage-collectable once-assignable cell
+#[derive(Debug)]
+pub struct GcOnceCell<T> {
+    inner: Rc<RefCell<Option<T>>>,
+}
+
+impl<T> GcOnceCell<T> {
+    pub fn new_uninit() -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(None)),
+        }
+    }
+
+    pub fn new_init(value: T) -> Self {
+        Self {
+            inner: Rc::new(RefCell::new(Some(value))),
+        }
+    }
+
+    pub fn init(&self, data: T) -> Result<(), GcOnceCellAlreadyInitErr> {
+        let mut inner = self.inner.borrow_mut();
+
+        if inner.is_some() {
+            return Err(GcOnceCellAlreadyInitErr);
+        }
+
+        *inner = Some(data);
+
+        Ok(())
+    }
+
+    pub fn get(&self) -> Ref<Option<T>> {
+        self.inner.borrow()
+    }
+
+    pub fn get_or_init(&self, create: impl FnOnce() -> T) {
+        let created = create();
+        *self.inner.borrow_mut() = Some(created);
+    }
+}
+
+// NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
+impl<T> Clone for GcOnceCell<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Rc::clone(&self.inner),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct GcOnceCellAlreadyInitErr;
+
 // Garbage-collectable read-only cell
 #[derive(Debug)]
 pub struct GcReadOnlyCell<T> {
@@ -119,7 +182,7 @@ impl<T> Deref for GcReadOnlyCell<T> {
     }
 }
 
-// NOTE: manual implementation is required due to a limitation of the Rust compiler
+// NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
 impl<T> Clone for GcReadOnlyCell<T> {
     fn clone(&self) -> Self {
         Self {

@@ -5,7 +5,7 @@ use reshell_parser::ast::{FnSignature, RuntimeCodeRange, RuntimeEaten};
 
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeVar},
-    gc::{GcCell, GcReadOnlyCell},
+    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     values::{
         CapturedDependencies, LocatedValue, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
         RuntimeValue,
@@ -51,7 +51,7 @@ pub fn build_native_lib_content() -> ScopeContent {
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
-                            captured_deps: CapturedDependencies::default(),
+                            captured_deps: GcOnceCell::new_init(CapturedDependencies::default()),
                         }),
                     },
                 )
