@@ -5,6 +5,7 @@
 
 mod append;
 mod approx_int_div;
+mod ask;
 mod at;
 mod basename;
 mod canonicalize;
@@ -87,6 +88,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         // Collect function from individual modules
         self::append::build_fn(),
         self::approx_int_div::build_fn(),
+        self::ask::build_fn(),
         self::at::build_fn(),
         self::basename::build_fn(),
         self::canonicalize::build_fn(),
