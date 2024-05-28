@@ -1,5 +1,6 @@
 use std::fs;
 
+use parsy::FileId;
 use reshell_parser::files::SourceFileLocation;
 
 crate::define_internal_fn!(
@@ -12,7 +13,15 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args {}, _, ctx| {
-        let Some(source_file_id) = ctx.current_scope().source_file_id() else {
+        let source_file_id = match at {
+            RuntimeCodeRange::Internal => None,
+            RuntimeCodeRange::Parsed(range) => match range.start.file_id {
+                FileId::None | FileId::Internal | FileId::Custom(_) => None,
+                FileId::SourceFile(id) => Some(id),
+            },
+        };
+
+        let Some(source_file_id) = source_file_id else {
             return Ok(Some(RuntimeValue::Null));
         };
 
