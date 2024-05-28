@@ -1,4 +1,4 @@
-use glob::glob;
+use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
 use reshell_runtime::{
     display::readable_value_type,
@@ -120,7 +120,13 @@ impl RlCompleter for Completer {
             search.push_str("/*");
         }
 
-        let Ok(entries) = glob(&search) else {
+        let glob_options = MatchOptions {
+            case_sensitive: false,
+            require_literal_leading_dot: true,
+            require_literal_separator: true,
+        };
+
+        let Ok(entries) = glob_with(&search, glob_options) else {
             return vec![];
         };
 
