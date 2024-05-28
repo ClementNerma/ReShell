@@ -1,7 +1,7 @@
 use crate::functions::ProgressBarValue;
 
 crate::define_internal_fn!(
-    "incProgressBar",
+    "inc",
 
     (
         pb: RequiredArg<CustomType<ProgressBarValue>> = Arg::method_self(),

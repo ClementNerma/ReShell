@@ -479,6 +479,20 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
+        Instruction::MethodCall {
+            var_name,
+            prop_acc,
+            method_call,
+        } => {
+            state.register_usage(var_name, DependencyType::Variable)?;
+
+            for nature in prop_acc {
+                check_prop_access_nature(nature, state)?;
+            }
+
+            check_fn_or_method_call(method_call, true, state)?;
+        }
+
         Instruction::Include(program) => {
             let Program { content } = &program.data;
             let Block {

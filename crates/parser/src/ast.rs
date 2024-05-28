@@ -122,6 +122,13 @@ pub enum Instruction {
     /// Function call
     FnCall(Eaten<FnCall>),
 
+    /// Method call
+    MethodCall {
+        var_name: Eaten<String>,
+        prop_acc: Vec<Eaten<PropAccessNature>>,
+        method_call: Eaten<FnCall>,
+    },
+
     /// Command call
     CmdCall(Eaten<CmdCall>),
 
