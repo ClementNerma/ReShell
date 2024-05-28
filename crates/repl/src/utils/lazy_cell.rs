@@ -1,5 +1,5 @@
 ///
-/// Polyfill untio https://github.com/rust-lang/rust/issues/109736 is resolved
+/// Polyfill until https://github.com/rust-lang/rust/issues/109736 is resolved
 ///
 use std::{ops::Deref, sync::OnceLock};
 
