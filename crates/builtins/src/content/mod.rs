@@ -34,7 +34,6 @@ mod glob;
 mod human_size;
 mod inspect;
 mod join;
-mod json;
 mod keys;
 mod len;
 mod lines;
@@ -43,6 +42,7 @@ mod make_map;
 mod map;
 mod mkdir;
 mod parent_dir;
+mod parse_json;
 mod path_exists;
 mod pop;
 mod prepend;
@@ -67,6 +67,7 @@ mod succeeds;
 mod take;
 mod term_cols;
 mod term_rows;
+mod to_json;
 mod to_lowercase;
 mod to_uppercase;
 mod transform;
@@ -121,7 +122,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::human_size::build_fn(),
             self::inspect::build_fn(),
             self::join::build_fn(),
-            self::json::build_fn(),
+            self::parse_json::build_fn(),
             self::len::build_fn(),
             self::lines::build_fn(),
             self::filter::build_fn(),
@@ -158,6 +159,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::runtime::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
+            self::to_json::build_fn(),
             self::to_lowercase::build_fn(),
             self::to_uppercase::build_fn(),
             self::trim::build_fn(),
