@@ -6,7 +6,7 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{CmdCall, FnSignature, FunctionBody, SingleCmdCall, ValueType},
-    scope::ScopeId,
+    scope::AstScopeId,
 };
 
 /// Sharing type used to avoid cloning in the runtime
@@ -21,14 +21,15 @@ pub(crate) fn shared<T>(value: T) -> SharingType<T> {
 pub struct CheckerOutput {
     /// Dependencies list
     ///
-    /// Associates an item's content (e.g. a command alias' content or a function's body)
+    /// Associates a scope to set of items
+    /// Then associates item's content (e.g. a command alias' content or a function's body)
     /// with a set of dependency, which will be captured when encountering this item at runtime
     ///
     /// This is filled by the [`State::register_usage`] method
     ///
     /// Capture is required in order to drop scopes safely without losing a reference to the original value
     /// from other values (e.g. functions) when they are returned to an outer scope
-    pub deps: HashMap<CodeRange, HashSet<Dependency>>,
+    pub deps: HashMap<AstScopeId, HashSet<Dependency>>,
 
     /// List of type aliases declaration
     ///
@@ -48,7 +49,7 @@ pub struct CheckerOutput {
     ///
     /// Associates a scope's ID to a mapping between the type aliases' name and location.
     /// The aliases can then be retrieved using `type_alias_decl` in this struct
-    pub type_aliases_decl_by_scope: HashMap<ScopeId, HashMap<String, CodeRange>>,
+    pub type_aliases_decl_by_scope: HashMap<AstScopeId, HashMap<String, CodeRange>>,
 
     /// Signature of all functions and closures
     ///
@@ -152,8 +153,11 @@ pub struct DevelopedSingleCmdCall {
 /// Developed command alias call
 #[derive(Debug, Clone)]
 pub struct DevelopedCmdAliasCall {
-    /// Alias name
-    pub called_alias_name: Eaten<String>,
+    /// Location where the alias was called
+    pub alias_called_at: Eaten<String>,
+
+    /// Location of the alias' content
+    pub alias_content_at: CodeRange,
 }
 
 /// Description of an item that will require capture at runtime
@@ -162,8 +166,8 @@ pub struct Dependency {
     /// Name of the item
     pub name: String,
 
-    /// Location of the item's name in its original declaration
-    pub declared_name_at: CodeRange,
+    /// Scope the item was declared in
+    pub declared_in: AstScopeId,
 
     /// Type of dependency
     pub dep_type: DependencyType,

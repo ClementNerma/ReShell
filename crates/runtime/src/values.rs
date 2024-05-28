@@ -10,6 +10,7 @@ use reshell_parser::ast::{
     FnSignature, FunctionBody, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
     StructTypeMember, ValueType,
 };
+use reshell_parser::scope::AstScopeId;
 
 use crate::cmd::CmdSingleArgResult;
 use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
@@ -48,7 +49,8 @@ impl RuntimeFnSignature {
 #[derive(Debug, Clone)]
 pub struct RuntimeCmdAlias {
     pub name_declared_at: CodeRange,
-    pub alias_content: Rc<Eaten<SingleCmdCall>>,
+    pub content: Rc<Eaten<SingleCmdCall>>,
+    pub content_scope_id: AstScopeId,
     pub parent_scopes: IndexSet<u64>,
     pub captured_deps: CapturedDependencies,
 }

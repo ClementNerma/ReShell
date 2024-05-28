@@ -33,24 +33,22 @@ fn run() -> Runner {
             },
         ) {
             Ok(_) => Ok(None),
-            Err(err) => {
-                match err.nature {
-                    ExecErrorNature::CommandFailedToStart { message } => {
-                        Err(ctx.throw(cmd_call, format!("failed to start command: {message}")))
-                    }
-
-                    ExecErrorNature::CommandFailed {
-                        message,
-                        exit_status: _,
-                    } => Err(ctx.throw(cmd_call, message)),
-
-                    ExecErrorNature::ParsingErr(_)
-                    | ExecErrorNature::Thrown { message: _, at: _ }
-                    | ExecErrorNature::Exit { code: _ }
-                    | ExecErrorNature::CtrlC
-                    | ExecErrorNature::Custom(_) => Err(err),
+            Err(err) => match err.nature {
+                ExecErrorNature::CommandFailedToStart { message } => {
+                    Err(ctx.throw(cmd_call, format!("failed to start command: {message}")))
                 }
-            }
+
+                ExecErrorNature::CommandFailed {
+                    message,
+                    exit_status: _,
+                } => Err(ctx.throw(cmd_call, message)),
+
+                ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::Thrown { message: _, at: _ }
+                | ExecErrorNature::Exit { code: _ }
+                | ExecErrorNature::CtrlC
+                | ExecErrorNature::Custom(_) => Err(err),
+            },
         }
     })
 }

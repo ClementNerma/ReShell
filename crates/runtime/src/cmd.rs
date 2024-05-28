@@ -261,28 +261,25 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
 
     for (i, developed_alias) in developed_aliases.iter().rev().enumerate() {
         let runtime_alias = ctx
-            .visible_scopes()
-            .find_map(|scope| {
-                scope
-                    .cmd_aliases
-                    .get(&developed_alias.called_alias_name.data)
-            })
+            .visible_scopes_content()
+            .find_map(|scope| scope.cmd_aliases.get(&developed_alias.alias_called_at.data))
             .unwrap_or_else(|| {
                 ctx.panic(
-                    developed_alias.called_alias_name.at,
+                    developed_alias.alias_called_at.at,
                     "runtime alias not found (= bug in checker)",
                 )
             });
 
         let RuntimeCmdAlias {
-            name_declared_at,
-            alias_content: _,
+            name_declared_at: _,
+            content: _,
+            content_scope_id,
             parent_scopes,
             captured_deps,
         } = &*runtime_alias.value;
 
         ctx.create_and_push_scope_with_deps(
-            RuntimeCodeRange::Parsed(*name_declared_at),
+            *content_scope_id,
             DepsScopeCreationData::CapturedDeps(captured_deps.clone()),
             None,
             parent_scopes.clone(),

@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 /// A scope ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ScopeId(u64);
+pub struct AstScopeId(u64);
 
 #[derive(Clone)]
 pub struct ScopeIdGenerator {
@@ -16,11 +16,11 @@ impl ScopeIdGenerator {
         }
     }
 
-    pub fn gen(&self) -> ScopeId {
+    pub fn gen(&self) -> AstScopeId {
         let mut counter = self.counter.borrow_mut();
         *counter += 1;
 
-        ScopeId(*counter)
+        AstScopeId(*counter)
     }
 }
 
@@ -30,4 +30,4 @@ impl Default for ScopeIdGenerator {
     }
 }
 
-pub static NATIVE_LIB_SCOPE_ID: ScopeId = ScopeId(0);
+pub static NATIVE_LIB_AST_SCOPE_ID: AstScopeId = AstScopeId(0);

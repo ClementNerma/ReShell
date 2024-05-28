@@ -125,7 +125,7 @@ fn build_fn_completions<'a>(
 
     let append_whitespace = next_char != Some(' ') && next_char != Some('(');
 
-    ctx.visible_scopes()
+    ctx.visible_scopes_content()
         .flat_map(|scope| scope.fns.iter())
         .filter(move |(name, _)| name.to_lowercase().contains(&word))
         .map(move |(name, func)| {
@@ -266,7 +266,7 @@ fn complete_var_name(
     let append_whitespace = next_char != Some(' ');
 
     let results = ctx
-        .visible_scopes()
+        .visible_scopes_content()
         .flat_map(|scope| scope.vars.iter())
         .filter(|(name, _)| name.to_lowercase().contains(&word))
         .map(|(name, item)| {
@@ -302,7 +302,7 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
     let word = VAR_IN_PATH_REGEX.replace_all(word, |cap: &Captures<'_>| {
         let var_name = cap.get(1).unwrap().as_str();
 
-        for scope in ctx.visible_scopes() {
+        for scope in ctx.visible_scopes_content() {
             if let Some(var) = scope.vars.get(var_name) {
                 let value = var.value.read_promise_no_write();
 

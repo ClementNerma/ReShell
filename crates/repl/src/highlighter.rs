@@ -1,16 +1,19 @@
-use std::{sync::Arc, collections::{HashMap, HashSet}};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
 use crate::utils::{
-    syntax::{
-        HighlightPiece, Rule, RuleSet, SimpleRule,
-        ValidatedRuleSet, compute_highlight_pieces, NestedContentRules,
-    },
+    lazy_cell::LazyCell,
     nesting::NestingOpeningType,
-    lazy_cell::LazyCell
+    syntax::{
+        compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule, RuleSet, SimpleRule,
+        ValidatedRuleSet,
+    },
 };
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
@@ -27,14 +30,17 @@ impl RlHighlighter for Highlighter {
 
 static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     /// Create a simple rule's inner content
-    fn simple_rule<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>) -> SimpleRule {
+    fn simple_rule<S: Into<Style> + Copy>(
+        regex: &'static str,
+        colors: impl AsRef<[S]>,
+    ) -> SimpleRule {
         SimpleRule {
             matches: Regex::new(regex).unwrap(),
             inside: None,
             preceded_by: None,
             followed_by: None,
             followed_by_nesting: None,
-            style: colors.as_ref().iter().copied().map(S::into).collect()
+            style: colors.as_ref().iter().copied().map(S::into).collect(),
         }
     }
 
@@ -44,21 +50,33 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     }
 
     /// Create a simple rule that must be preceded by a given pattern
-    fn simple_preceded_by<S: Into<Style> + Copy>(preceded_by: &'static str, regex: &'static str, colors: impl AsRef<[S]>) -> Rule {
+    fn simple_preceded_by<S: Into<Style> + Copy>(
+        preceded_by: &'static str,
+        regex: &'static str,
+        colors: impl AsRef<[S]>,
+    ) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.preceded_by = Some(Regex::new(preceded_by).unwrap());
         Rule::Simple(rule)
     }
 
     /// Create a simple rule that must be followed by a given pattern
-    fn simple_followed_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: &'static str) -> Rule {
+    fn simple_followed_by<S: Into<Style> + Copy>(
+        regex: &'static str,
+        colors: impl AsRef<[S]>,
+        followed_by: &'static str,
+    ) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.followed_by = Some(Regex::new(followed_by).unwrap());
         Rule::Simple(rule)
     }
 
     /// Create a simple rule that must be followed by a specific nesting type
-    fn simple_followed_by_nesting<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
+    fn simple_followed_by_nesting<S: Into<Style> + Copy>(
+        regex: &'static str,
+        colors: impl AsRef<[S]>,
+        followed_by: impl Into<HashSet<NestingOpeningType>>,
+    ) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.followed_by_nesting = Some(followed_by.into());
         Rule::Simple(rule)
@@ -68,7 +86,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     fn include_group(name: &'static str) -> Rule {
         Rule::Group(name.to_owned())
     }
-    
+
     // Import all available colors for ease of use
     use Color::*;
 
@@ -278,17 +296,16 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
 fn highlight(input: &str) -> StyledText {
     StyledText {
-        buffer:
-            compute_highlight_pieces(input, &RULE_SET)
-                .into_iter()
-                .map(|piece| {
-                    let HighlightPiece { start, len, style } = piece;
-        
-                    (
-                        style.unwrap_or_default(),
-                        input[start..start + len].to_owned()
-                    )
-                })
-                .collect()
+        buffer: compute_highlight_pieces(input, &RULE_SET)
+            .into_iter()
+            .map(|piece| {
+                let HighlightPiece { start, len, style } = piece;
+
+                (
+                    style.unwrap_or_default(),
+                    input[start..start + len].to_owned(),
+                )
+            })
+            .collect(),
     }
 }
