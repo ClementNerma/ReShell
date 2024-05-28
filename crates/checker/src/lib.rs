@@ -21,13 +21,14 @@ use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath,
-        CmdPipe, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
-        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-        ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, LiteralValue, MapDestructBinding, Program, PropAccess, PropAccessNature,
-        RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType, VarDeconstruction,
+        CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
+        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
+        ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
+        FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
+        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, Program, PropAccess,
+        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -871,18 +872,35 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
 fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult {
     let CmdCall { base, pipes } = &cmd_call.data;
 
-    match base {
+    let mut has_prev_stderr = match base {
         CmdCallBase::Expr(expr) => {
             check_expr(&expr.data, state)?;
+            false
         }
 
         CmdCallBase::SingleCmdCall(call) => {
             check_single_cmd_call(call, state)?;
+            true
         }
-    }
+    };
 
-    for CmdPipe { pipe_type: _, cmd } in pipes.iter() {
-        check_single_cmd_call(cmd, state)?;
+    for CmdPipe { pipe_type, cmd } in pipes.iter() {
+        match pipe_type.data {
+            CmdPipeType::ValueOrStdout => {}
+            CmdPipeType::Stderr => {
+                if !has_prev_stderr {
+                    return Err(CheckerError::new(
+                        pipe_type.at,
+                        "expressions do not have an stderr pipe",
+                    ));
+                }
+            }
+        }
+
+        has_prev_stderr = match check_single_cmd_call(cmd, state)? {
+            CmdPathTargetType::Function => false,
+            CmdPathTargetType::ExternalCommand => true,
+        };
     }
 
     Ok(())
