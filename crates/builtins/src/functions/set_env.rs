@@ -3,7 +3,7 @@ crate::define_internal_fn!(
     // Set an environment variable's value
     //
 
-    "set_env",
+    "setEnv",
 
     (
         var_name: RequiredArg<StringType> = Arg::positional("var_name"),
