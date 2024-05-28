@@ -151,8 +151,6 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                         groups,
                     );
 
-                    // TODO: remove progressive rules
-
                     match matched {
                         Some(matched) => {
                             highlight_piece(&matched, &mut covering, &mut output);
