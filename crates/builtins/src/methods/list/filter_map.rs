@@ -44,7 +44,7 @@ fn run() -> Runner {
             let mut filtered = vec![];
 
             for value in list.read(filter_at).iter() {
-                let keep = call_fn_checked(
+                let result = call_fn_checked(
                     &filter,
                     filter_type().base_typing().signature(),
                     vec![value.clone()],
@@ -54,8 +54,8 @@ fn run() -> Runner {
                     expect_returned_value(ret, filter_at, AnyType::new_direct(), ctx)
                 })?;
 
-                if !matches!(keep, RuntimeValue::Null) {
-                    filtered.push(value.clone());
+                if !matches!(result, RuntimeValue::Null) {
+                    filtered.push(result);
                 }
             }
 
