@@ -515,6 +515,7 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(ident.clone().spanned().critical("expected a property name"))
                 .map(PropAccessNature::Prop),
             char('[')
+                .not_followed_by(char(']'))
                 .ignore_then(
                     expr.clone()
                         .padded()
@@ -778,7 +779,7 @@ pub fn program() -> impl Parser<Program> {
             var_name
                 .spanned()
                 .then(prop_access_nature.spanned().repeated_vec())
-                .then(just("+[]").to(()).spanned().or_not())
+                .then(just("[]").to(()).spanned().or_not())
                 .then_ignore(ms)
                 .then_ignore(char('=').critical("expected the assignment operator '='"))
                 .then_ignore(msnl)
