@@ -420,8 +420,14 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
         let value = match &start_var {
             Some((var_name, var_value)) => {
                 let stripped_path = path_str.strip_prefix(var_value.as_str()).unwrap();
+                let mut escaped = escape_raw(stripped_path).into_owned();
 
-                format!("${var_name}{}", escape_raw(stripped_path))
+                let insertion_point = if escaped.starts_with('"') { 1 } else { 0 };
+
+                escaped.insert(insertion_point, '$');
+                escaped.insert_str(insertion_point + 1, var_name);
+
+                escaped
             }
 
             None => escape_raw(&path).into_owned(),
