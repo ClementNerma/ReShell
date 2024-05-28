@@ -174,15 +174,11 @@ pub struct Dependency {
 }
 
 /// Type of dependency
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum DependencyType {
-    /// A variable
     Variable,
-
-    /// A function
     Function,
-
-    /// A command alias
+    Method,
     CmdAlias,
 }
 
@@ -191,6 +187,7 @@ impl std::fmt::Display for DependencyType {
         match self {
             DependencyType::Variable => write!(f, "variable"),
             DependencyType::Function => write!(f, "function"),
+            DependencyType::Method => write!(f, "method"),
             DependencyType::CmdAlias => write!(f, "command alias"),
         }
     }

@@ -25,6 +25,7 @@ fn run() -> Runner {
                 let ScopeContent {
                     vars: _,
                     fns,
+                    methods: _,
                     cmd_aliases,
                 } = scope;
 

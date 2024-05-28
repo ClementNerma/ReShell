@@ -31,10 +31,12 @@ use reshell_parser::{
     scope::AstScopeId,
 };
 
-use self::state::UsedItem;
 pub use self::{
     errors::CheckerError,
-    state::{CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, SpecialScopeType, State},
+    state::{
+        CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar, SpecialScopeType,
+        State,
+    },
 };
 
 use crate::{errors::CheckerResult, output::*};
@@ -76,6 +78,7 @@ fn check_block_with(
         special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
+        methods: HashMap::new(),
         cmd_aliases: HashMap::new(),
         type_aliases: HashMap::new(),
     };
@@ -125,7 +128,7 @@ fn block_first_pass(
                 state.register_type_alias(name, content, block);
             }
 
-            Instruction::FnDecl { name, content } => {
+            Instruction::FnDecl { name, content: _ } => {
                 if state.curr_scope().fns.contains_key(&name.data) {
                     return Err(CheckerError::new(name.at, "duplicate function declaration"));
                 }
@@ -143,7 +146,31 @@ fn block_first_pass(
                     name.data.clone(),
                     DeclaredFn {
                         scope_id: curr_scope_id,
-                        is_method: content.signature.data.is_method(),
+                    },
+                );
+            }
+
+            Instruction::MethodDecl {
+                name,
+                on_type,
+                content: _,
+            } => {
+                let curr_scope_id = state.curr_scope().id;
+
+                let type_methods = state
+                    .curr_scope_mut()
+                    .methods
+                    .entry(on_type.clone())
+                    .or_default();
+
+                if type_methods.contains_key(&name.data) {
+                    return Err(CheckerError::new(name.at, "duplicate method declaration"));
+                }
+
+                type_methods.insert(
+                    name.data.clone(),
+                    DeclaredMethod {
+                        scope_id: curr_scope_id,
                     },
                 );
             }
@@ -228,19 +255,18 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             list_push: _,
             expr,
         } => {
-            let dep = state.register_usage(name, DependencyType::Variable)?;
+            state.register_usage(name, DependencyType::Variable)?;
 
-            match dep {
-                UsedItem::Variable(var) => {
-                    if !var.is_mut {
-                        return Err(CheckerError::new(
-                            name.at,
-                            "variable was not declared as mutable",
-                        ));
-                    }
-                }
+            let var = state
+                .scopes()
+                .find_map(|scope| scope.vars.get(&name.data))
+                .unwrap();
 
-                UsedItem::Function(_) | UsedItem::CmdAlias(_) => unreachable!(),
+            if !var.is_mut {
+                return Err(CheckerError::new(
+                    name.at,
+                    "variable was not declared as mutable",
+                ));
             }
 
             for nature in prop_acc {
@@ -367,10 +393,20 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             check_function(content, state)?;
         }
 
+        Instruction::MethodDecl {
+            name: _,
+            on_type: _,
+            content,
+        } => {
+            // NOTE: method was already registered during init.
+
+            check_function(content, state)?;
+        }
+
         Instruction::FnReturn { expr } => {
             if !matches!(
                 state.nearest_special_scope_type(),
-                Some(SpecialScopeType::Function { args_at: _ })
+                Some(SpecialScopeType::Function)
             ) {
                 return Err(CheckerError::new(
                     instr.at,
@@ -418,6 +454,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 special_scope_type: Some(SpecialScopeType::CmdAlias),
                 vars: HashMap::new(),
                 fns: HashMap::new(),
+                methods: HashMap::new(),
                 cmd_aliases: HashMap::new(),
                 type_aliases: HashMap::new(),
             });
@@ -469,6 +506,7 @@ fn check_expr_with(
         special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
+        methods: HashMap::new(),
         cmd_aliases: HashMap::new(),
         type_aliases: HashMap::new(),
     };
@@ -522,20 +560,7 @@ fn check_expr_direct_chaining(
     match chaining {
         ExprInnerDirectChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
         ExprInnerDirectChaining::MethodCall(method_call) => {
-            match check_fn_call_and_get_item(method_call, state)? {
-                UsedItem::Function(func) => {
-                    if func.is_method {
-                        Ok(())
-                    } else {
-                        Err(CheckerError::new(
-                            method_call.data.name.at,
-                            "this function is not a method",
-                        ))
-                    }
-                }
-
-                UsedItem::Variable(_) | UsedItem::CmdAlias(_) => unreachable!(),
-            }
+            check_fn_or_method_call(method_call, true, state)
         }
     }
 }
@@ -740,30 +765,34 @@ fn check_computed_string_piece(
 }
 
 fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
-    check_fn_call_and_get_item(fn_call, state).map(|_| ())
+    check_fn_or_method_call(fn_call, false, state)
 }
 
-fn check_fn_call_and_get_item(
+fn check_fn_or_method_call(
     fn_call: &Eaten<FnCall>,
+    is_method: bool,
     state: &mut State,
-) -> CheckerResult<UsedItem> {
+) -> CheckerResult {
     let FnCall {
         is_var_name,
         name,
         call_args,
     } = &fn_call.data;
 
-    let item = if *is_var_name {
-        state.register_usage(name, DependencyType::Variable)?
+    if is_method {
+        assert!(!*is_var_name);
+        state.register_usage(name, DependencyType::Method)?;
+    } else if *is_var_name {
+        state.register_usage(name, DependencyType::Variable)?;
     } else {
-        state.register_usage(name, DependencyType::Function)?
-    };
+        state.register_usage(name, DependencyType::Function)?;
+    }
 
     for arg in &call_args.data {
         check_fn_call_arg(arg, state)?;
     }
 
-    Ok(item)
+    Ok(())
 }
 
 fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult {
@@ -1023,13 +1052,6 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     let checked_args = check_fn_signature(signature, state)?;
 
-    let FnSignature { args, ret_type: _ } = &signature.data;
-
-    let args = match args {
-        RuntimeEaten::Parsed(args) => args,
-        RuntimeEaten::Internal(_) => unreachable!(),
-    };
-
     let fn_body_scope_id = body.data.ast_scope_id();
 
     let mut vars = HashMap::with_capacity(checked_args.len());
@@ -1055,7 +1077,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     state.prepare_deps(fn_body_scope_id);
 
     let fill_scope = |scope: &mut CheckerScope| {
-        scope.special_scope_type = Some(SpecialScopeType::Function { args_at: args.at });
+        scope.special_scope_type = Some(SpecialScopeType::Function);
 
         for (name, var) in vars {
             scope.vars.insert(name, var);

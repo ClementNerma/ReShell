@@ -1,4 +1,4 @@
-use crate::functions::regex::RegexValue;
+use crate::functions::RegexValue;
 
 crate::define_internal_fn!(
     //

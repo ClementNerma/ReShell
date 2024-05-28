@@ -1,4 +1,6 @@
-use reshell_parser::ast::{FnArg, FnFlagArgNames, RuntimeEaten, SingleValueType, ValueType};
+use reshell_parser::ast::{
+    FnArg, FnFlagArgNames, MethodApplyableType, RuntimeEaten, SingleValueType, ValueType,
+};
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
@@ -300,6 +302,7 @@ pub fn long_flag_var_name(name: &str) -> String {
 
 pub struct InternalFunction {
     pub name: &'static str,
+    pub method_on_type: Option<MethodApplyableType>,
     pub args: Vec<FnArg>,
     pub run: InternalFnBody,
     pub ret_type: Option<ValueType>,
@@ -310,7 +313,7 @@ macro_rules! define_internal_fn {
     ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
         use std::collections::HashMap;
 
-        use reshell_parser::ast::RuntimeCodeRange;
+        use reshell_parser::ast::{FnArg, MethodApplyableType, RuntimeCodeRange, RuntimeEaten, ValueType};
 
         use reshell_runtime::{
             context::Context,
@@ -392,19 +395,39 @@ macro_rules! define_internal_fn {
         }
 
         pub fn build_fn() -> InternalFunction {
+            let args = vec![
+                $({
+                    let arg: $arg_handler_type = $arg_handler_gen;
+                    generate_internal_arg_decl(arg)
+                }),*
+            ];
+
+            let method_on_type = args.first().and_then(|first_arg| match first_arg {
+                FnArg::Positional {
+                    name: RuntimeEaten::Internal(name),
+                    is_optional: false,
+                    typ
+                } if name == "self" => {
+                    match typ {
+                        Some(RuntimeEaten::Internal(ValueType::Single(typ))) => {
+                            Some(MethodApplyableType::from_single_value_type(typ.data().clone()).unwrap_or_else(|| {
+                                panic!("invalid method applyable type in native library: {:?}", typ.data())
+                            }))
+                        },
+
+                        _ => panic!("invalid method applyable type in native library: {:?}", typ)
+                    }
+                }
+
+                _ => None
+            });
+
             InternalFunction {
-                args: vec![
-                    $({
-                        let arg: $arg_handler_type = $arg_handler_gen;
-                        generate_internal_arg_decl(arg)
-                    }),*
-                ],
-
-                run: _run,
-
+                name: $name,
                 ret_type: $ret_type,
-
-                name: $name
+                args,
+                method_on_type,
+                run: _run,
             }
         }
     };

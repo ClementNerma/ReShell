@@ -83,6 +83,13 @@ pub enum Instruction {
         content: Function,
     },
 
+    /// Method declaration
+    MethodDecl {
+        name: Eaten<String>,
+        on_type: MethodApplyableType,
+        content: Function,
+    },
+
     /// Function return statement
     FnReturn { expr: Option<Eaten<Expr>> },
 
@@ -258,6 +265,22 @@ pub enum SingleValueType {
     TypedStruct(Vec<RuntimeEaten<StructTypeMember>>),
     Function(RuntimeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
+    CmdCall,
+    ArgSpread,
+    // TODO: parsable?
+    Custom(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MethodApplyableType {
+    Bool,
+    Int,
+    Float,
+    String,
+    List,
+    Range,
+    Map,
+    Error,
     CmdCall,
     ArgSpread,
     // TODO: parsable?

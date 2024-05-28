@@ -3,7 +3,8 @@ use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 use crate::{
     ast::{
         CmdComputedString, CmdComputedStringPiece, CmdFlagNameArg, EscapableChar, FnArg,
-        FnFlagArgNames, FnSignature, FunctionBody, RuntimeCodeRange, RuntimeEaten,
+        FnFlagArgNames, FnSignature, FunctionBody, MethodApplyableType, RuntimeCodeRange,
+        RuntimeEaten, SingleValueType,
     },
     scope::AstScopeId,
 };
@@ -145,6 +146,31 @@ impl FunctionBody {
             } => *scope_id,
 
             FunctionBody::Block(block) => block.data.scope_id,
+        }
+    }
+}
+
+impl MethodApplyableType {
+    pub fn from_single_value_type(value: SingleValueType) -> Option<Self> {
+        match value {
+            SingleValueType::Bool => Some(Self::Bool),
+            SingleValueType::Int => Some(Self::Int),
+            SingleValueType::Float => Some(Self::Float),
+            SingleValueType::String => Some(Self::String),
+            SingleValueType::List => Some(Self::List),
+            SingleValueType::Range => Some(Self::Range),
+            SingleValueType::Map => Some(Self::Map),
+            SingleValueType::Error => Some(Self::Error),
+            SingleValueType::CmdCall => Some(Self::CmdCall),
+            SingleValueType::ArgSpread => Some(Self::ArgSpread),
+            SingleValueType::Custom(name) => Some(Self::Custom(name)),
+
+            SingleValueType::Any
+            | SingleValueType::Null
+            | SingleValueType::UntypedStruct
+            | SingleValueType::TypedStruct(_)
+            | SingleValueType::Function(_)
+            | SingleValueType::TypeAlias(_) => None,
         }
     }
 }

@@ -13,7 +13,7 @@ use reshell_parser::ast::{
 use reshell_parser::scope::AstScopeId;
 
 use crate::cmd::CmdSingleArgResult;
-use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
+use crate::context::{ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar};
 use crate::errors::ExecInfoType;
 use crate::functions::ValidatedFnCallArg;
 use crate::gc::{GcOnceCell, GcReadOnlyCell};
@@ -59,6 +59,7 @@ pub struct RuntimeCmdAlias {
 pub struct CapturedDependencies {
     pub vars: HashMap<Dependency, ScopeVar>,
     pub fns: HashMap<Dependency, ScopeFn>,
+    pub methods: HashMap<Dependency, ScopeMethod>,
     pub cmd_aliases: HashMap<Dependency, ScopeCmdAlias>,
 }
 

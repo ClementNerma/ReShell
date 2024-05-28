@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "fold",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         init: RequiredArg<AnyType> = Arg::positional("init"),
         fold_fn: RequiredArg<TypedFunctionType> = fold_fn_type()
     )

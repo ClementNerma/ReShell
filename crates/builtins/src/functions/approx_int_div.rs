@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "approxIntDiv",
 
     (
-        divident: RequiredArg<ExactIntType<u64>> = Arg::method_self(),
+        divident: RequiredArg<ExactIntType<u64>> = Arg::positional("divident"),
         dividor: RequiredArg<ExactIntType<u64>> = Arg::positional("dividor"),
         precision: RequiredArg<ExactIntType<u8>> = Arg::long_and_short_flag("precision", 'p')
     )

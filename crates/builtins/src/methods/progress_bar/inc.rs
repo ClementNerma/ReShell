@@ -1,4 +1,4 @@
-use super::progress_bar::ProgressBarValue;
+use crate::functions::ProgressBarValue;
 
 crate::define_internal_fn!(
     "incProgressBar",

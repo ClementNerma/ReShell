@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
@@ -25,7 +26,7 @@ pub fn render_prompt(
         .unwrap()
         .clone();
 
-    let prompt_var_value = prompt_var.value.read(prompt_var.name_at);
+    let prompt_var_value = prompt_var.value.read(RuntimeCodeRange::Internal);
 
     if matches!(prompt_var_value.value, RuntimeValue::Null) {
         return Ok(None);
@@ -97,7 +98,7 @@ pub fn render_prompt(
 
     let ret_val = ret_val.ok_or_else(|| {
         ctx.error(
-            prompt_var.name_at,
+            RuntimeCodeRange::Internal,
             "prompt generation function did not return a value",
         )
     })?;

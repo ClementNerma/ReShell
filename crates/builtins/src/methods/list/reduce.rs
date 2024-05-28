@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "reduce",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         reduce_fn: RequiredArg<TypedFunctionType> = reduce_fn_type()
     )
 

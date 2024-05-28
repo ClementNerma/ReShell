@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "forEach",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         for_each_fn: RequiredArg<TypedFunctionType> = for_each_fn_type()
     )
 

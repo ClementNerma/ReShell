@@ -10,7 +10,7 @@ crate::define_internal_fn!(
     "map",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         mapper: RequiredArg<TypedFunctionType> = mapper_type()
     )
 
