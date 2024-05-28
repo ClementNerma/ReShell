@@ -59,11 +59,11 @@
 					"name": "keyword"
 				},
 				{
-					"match": "\\bself\\b",
+					"match": "\\b(self)\\b",
 					"name": "keyword"
 				},
 				{
-					"match": "@direct\\b",
+					"match": "@(direct|include)\\b",
 					"name": "keyword"
 				},
 				{

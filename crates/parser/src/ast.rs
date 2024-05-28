@@ -159,6 +159,7 @@ pub enum ExprInnerContent {
     SingleOp {
         op: Eaten<SingleOp>,
         right: Eaten<Box<ExprInnerContent>>,
+        right_chainings: Vec<Eaten<ExprInnerDirectChaining>>,
     },
     ParenExpr(Eaten<Box<Expr>>),
     Value(Eaten<Value>),
@@ -184,9 +185,14 @@ pub struct ElsIfExpr {
 
 #[derive(Debug, Clone)]
 pub enum ExprInnerChaining {
+    Direct(ExprInnerDirectChaining),
+    FnCall(Eaten<FnCall>),
+}
+
+#[derive(Debug, Clone)]
+pub enum ExprInnerDirectChaining {
     PropAccess(Eaten<PropAccess>),
     MethodCall(Eaten<FnCall>),
-    FnCall(Eaten<FnCall>),
 }
 
 #[derive(Debug, Clone)]
