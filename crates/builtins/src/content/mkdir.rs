@@ -1,5 +1,7 @@
 use std::{fs, path::Path};
 
+use crate::errors::FallibleAtRuntime;
+
 crate::define_internal_fn!(
     //
     // Create a directory
@@ -33,7 +35,7 @@ fn run() -> Runner {
                 fs::create_dir(path)
             };
 
-            result.map_err(|err| ctx.error(at, format!("failed to create directory: {err}")))?;
+            result.context("failed to create directory", at, ctx)?;
 
             Ok(None)
         },
