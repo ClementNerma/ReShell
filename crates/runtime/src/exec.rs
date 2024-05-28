@@ -3,15 +3,13 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId};
 use reshell_checker::CheckerOutput;
-use reshell_parser::ast::{
-    Block, ElsIf, Function, Instruction, Program, RuntimeCodeRange, SwitchCase,
-};
+use reshell_parser::ast::{Block, ElsIf, Instruction, Program, RuntimeCodeRange, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
     context::{
-        CallStackEntry, Context, DepsScopeCreationData, ScopeContent, ScopeFn, ScopeVar,
-        FIRST_SCOPE_ID,
+        CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
+        ScopeVar, FIRST_SCOPE_ID,
     },
     errors::ExecResult,
     expr::eval_expr,
@@ -512,11 +510,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let fns = &mut ctx.current_scope_content_mut().fns;
 
-            let Function {
-                signature: _,
-                body: _,
-            } = content;
-
             fns.insert(
                 name.data.clone(),
                 ScopeFn {
@@ -579,22 +572,32 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         },
 
         Instruction::CmdAliasDecl { name, content } => {
+            // We can do this thanks to the checker
+            assert!(!ctx
+                .current_scope_content_mut()
+                .cmd_aliases
+                .contains_key(&name.data));
+
             let parent_scopes = ctx.generate_parent_scopes_list();
 
             let captured_deps = ctx.capture_deps(content.at);
 
-            let cmd_aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
+            let alias_content = ctx
+                .get_cmd_alias_content(content)
+                .expect("internal error: unregistered command alias");
 
-            // We can do this thanks to the checker
-            assert!(!cmd_aliases.contains_key(&name.data));
+            let cmd_aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
 
             cmd_aliases.insert(
                 name.data.clone(),
-                RuntimeCmdAlias {
-                    name_declared_at: name.at,
-                    alias_content: GcReadOnlyCell::new(content.data.clone()),
-                    parent_scopes,
-                    captured_deps,
+                ScopeCmdAlias {
+                    name_at: name.at,
+                    value: GcReadOnlyCell::new(RuntimeCmdAlias {
+                        name_declared_at: name.at,
+                        alias_content,
+                        parent_scopes,
+                        captured_deps,
+                    }),
                 },
             );
         }

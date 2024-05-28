@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{Block, FnSignature, RuntimeCodeRange, ValueType};
+use reshell_parser::ast::{Block, FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall};
 
 use crate::{errors::CheckerResult, CheckerError};
 
@@ -18,6 +18,7 @@ pub struct CheckerOutput {
     pub type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
     pub fn_signatures: HashMap<CodeRange, Eaten<FnSignature>>,
     pub fn_bodies: HashMap<CodeRange, Eaten<Block>>,
+    pub cmd_aliases: HashMap<CodeRange, Eaten<SingleCmdCall>>
 }
 
 impl State {
@@ -31,6 +32,7 @@ impl State {
                 type_aliases_decl: HashMap::new(),
                 fn_signatures: HashMap::new(),
                 fn_bodies: HashMap::new(),
+                cmd_aliases: HashMap::new()
             },
         }
     }

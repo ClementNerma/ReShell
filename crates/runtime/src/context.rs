@@ -1,9 +1,15 @@
-use std::{collections::{HashMap, HashSet}, path::PathBuf,  rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    rc::Rc,
+};
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, FileId, };
-use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType, DeclaredVar};
-use reshell_parser::ast::{ValueType, FnSignature, Block, Program, RuntimeCodeRange};
+use parsy::{CodeRange, Eaten, FileId};
+use reshell_checker::{CheckerOutput, CheckerScope, DeclaredVar, Dependency, DependencyType};
+use reshell_parser::ast::{
+    Block, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType,
+};
 
 use crate::{
     conf::RuntimeConf,
@@ -11,9 +17,7 @@ use crate::{
     errors::{ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::{GcCell, GcReadOnlyCell},
-    values::{
-        CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue, 
-    }, 
+    values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
 /// Scope ID of the native library
@@ -77,17 +81,22 @@ pub struct Context {
     /// Used to avoid cloning the whole signature object (which is heavy)
     /// everytime we encounter the same function during runtime (e.g. in a loop)
     fn_signatures: HashMap<CodeRange, Rc<Eaten<FnSignature>>>,
-    
+
     /// List of function bodies
     /// Used to avoid cloning the whole signature object (which is heavy)
     /// everytime we encounter the same function during runtime (e.g. in a loop)
     fn_bodies: HashMap<CodeRange, Rc<Eaten<Block>>>,
 
+    /// List of command aliases
+    /// Used to avoid cloning the whole alias' content (which is heavy)
+    /// everytime we encounter the same command alias during runtime (e.g. in a loop)
+    cmd_aliases: HashMap<CodeRange, Rc<Eaten<SingleCmdCall>>>,
+
     /// Value returned by the very last function or command call in a program
     /// that was not assigned or used as an argument
     /// Reset at each new instruction, set by the last function or command call,
     /// retrieved and erased with [`Context::take_wandering_value`]
-    wandering_value: Option<RuntimeValue>
+    wandering_value: Option<RuntimeValue>,
 }
 
 impl Context {
@@ -102,7 +111,7 @@ impl Context {
                 parent_scopes: IndexSet::new(),
                 range: RuntimeCodeRange::Internal,
                 previous_scope: None,
-                deps_scope: None
+                deps_scope: None,
             },
             Scope {
                 id: FIRST_SCOPE_ID,
@@ -112,7 +121,7 @@ impl Context {
                 range: RuntimeCodeRange::Internal,
                 previous_scope: None,
                 deps_scope: None,
-            }
+            },
         ];
 
         let mut scopes = HashMap::new();
@@ -134,6 +143,7 @@ impl Context {
             type_aliases_decl: HashMap::new(),
             fn_signatures: HashMap::new(),
             fn_bodies: HashMap::new(),
+            cmd_aliases: HashMap::new(),
             wandering_value: None,
             conf,
         }
@@ -162,7 +172,6 @@ impl Context {
         self.home_dir.as_ref()
     }
 
-
     /// Register a file
     pub fn register_file(&mut self, path: ScopableFilePath, content: String) -> u64 {
         self.files_map.register_file(path, content)
@@ -178,7 +187,8 @@ impl Context {
     pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
         let current_scope = self.current_scope();
 
-        current_scope.parent_scopes
+        current_scope
+            .parent_scopes
             // Iterate over all parent scopes
             .iter()
             // Remove scopes that are already dropped (= not referenced anymore)
@@ -203,12 +213,18 @@ impl Context {
 
     /// Get the native library scope (only scope to never be removed) for checker
     pub fn native_lib_scope_for_checker(&self) -> CheckerScope {
-        self.scopes.get(&NATIVE_LIB_SCOPE_ID).unwrap().to_checker_scope(self)
+        self.scopes
+            .get(&NATIVE_LIB_SCOPE_ID)
+            .unwrap()
+            .to_checker_scope(self)
     }
 
     /// Get the very first user scope (only scope to never be removed) for checker
     pub fn first_scope_for_checker(&self) -> CheckerScope {
-        self.scopes.get(&FIRST_SCOPE_ID).unwrap().to_checker_scope(self)
+        self.scopes
+            .get(&FIRST_SCOPE_ID)
+            .unwrap()
+            .to_checker_scope(self)
     }
 
     /// Get content of the (immutable) native library scope
@@ -220,17 +236,39 @@ impl Context {
     /// Requires the program to have already been checked
     pub fn prepare_for_new_program(&mut self, program: &Program, checker_output: CheckerOutput) {
         // Update the current scope's range
-        self.scopes.get_mut(&self.current_scope).unwrap().range = RuntimeCodeRange::CodeRange(program.content.at);
+        self.scopes.get_mut(&self.current_scope).unwrap().range =
+            RuntimeCodeRange::CodeRange(program.content.at);
 
         // Merge the checker's output
-        let CheckerOutput { deps, type_aliases, type_aliases_usages, type_aliases_decl, fn_signatures, fn_bodies } = checker_output;
+        let CheckerOutput {
+            deps,
+            type_aliases,
+            type_aliases_usages,
+            type_aliases_decl,
+            fn_signatures,
+            fn_bodies,
+            cmd_aliases,
+        } = checker_output;
 
         self.deps.extend(deps);
         self.type_aliases.extend(type_aliases);
         self.type_aliases_usages.extend(type_aliases_usages);
         self.type_aliases_decl.extend(type_aliases_decl);
-        self.fn_signatures.extend(fn_signatures.into_iter().map(|(at, signature)| (at, Rc::new(signature))));
-        self.fn_bodies.extend(fn_bodies.into_iter().map(|(at, body)| (at, Rc::new(body))));
+
+        self.fn_signatures.extend(
+            fn_signatures
+                .into_iter()
+                .map(|(at, signature)| (at, Rc::new(signature))),
+        );
+
+        self.fn_bodies
+            .extend(fn_bodies.into_iter().map(|(at, body)| (at, Rc::new(body))));
+
+        self.cmd_aliases.extend(
+            cmd_aliases
+                .into_iter()
+                .map(|(at, body)| (at, Rc::new(body))),
+        );
     }
 
     /// (Crate-private) Reset to the first scope after the current program entirely ends
@@ -241,7 +279,11 @@ impl Context {
     /// Generate an error object
     /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
     /// Given an error will almost always lead to a program's end, the allocation overhead is acceptable
-    pub fn error(&self, at: impl Into<RuntimeCodeRange>, content: impl Into<ExecErrorContent>) -> Box<ExecError> {
+    pub fn error(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        content: impl Into<ExecErrorContent>,
+    ) -> Box<ExecError> {
         let current_scope = self.current_scope();
 
         Box::new(ExecError {
@@ -252,7 +294,7 @@ impl Context {
             content: content.into(),
             call_stack: current_scope.call_stack.clone(),
             scope_range: current_scope.range,
-            note: None // can be changed with .with_note()
+            note: None, // can be changed with .with_note()
         })
     }
 
@@ -264,11 +306,7 @@ impl Context {
     }
 
     /// Create and push a new scope above the current one
-    pub fn create_and_push_scope(
-        &mut self,
-        range: RuntimeCodeRange,
-        content: ScopeContent,
-    ) -> u64 {
+    pub fn create_and_push_scope(&mut self, range: RuntimeCodeRange, content: ScopeContent) -> u64 {
         let id = self.generate_scope_id();
 
         let scope = Scope {
@@ -302,35 +340,32 @@ impl Context {
                 let CapturedDependencies {
                     vars,
                     fns,
-                    cmd_aliases
+                    cmd_aliases,
                 } = captured_deps;
-        
+
                 ScopeContent {
                     vars: vars
                         .iter()
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
                         .collect(),
-    
+
                     fns: fns
                         .iter()
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
                         .collect(),
-    
+
                     cmd_aliases: cmd_aliases
                         .iter()
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
                         .collect(),
                 }
-            },
+            }
         };
-        
+
         let deps_scope_id = self.generate_scope_id();
 
         // Insert the dependency scope
-        self.deps_scopes.insert(
-            deps_scope_id,
-            deps_scope_content
-        );
+        self.deps_scopes.insert(deps_scope_id, deps_scope_content);
 
         // Update the call stack if necessary
         let mut call_stack = self.current_scope().call_stack.clone();
@@ -468,7 +503,7 @@ impl Context {
     /// as type alias usages are collected before runtime
     pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> Option<&'c Eaten<ValueType>> {
         let type_alias_at = self.type_aliases_usages.get(name)?;
-        
+
         Some(self.type_aliases.get(type_alias_at).unwrap())
     }
 
@@ -484,8 +519,17 @@ impl Context {
         self.fn_bodies.get(&from.at).map(Rc::clone)
     }
 
+    /// Get a specific command alias' content from its location
+    /// Avoids cloning the entire (heavy) [`Eaten<SingleCmdCall>`]
+    pub fn get_cmd_alias_content(
+        &self,
+        from: &Eaten<SingleCmdCall>,
+    ) -> Option<Rc<Eaten<SingleCmdCall>>> {
+        self.cmd_aliases.get(&from.at).map(Rc::clone)
+    }
+
     /// (Crate-private)
-    /// 
+    ///
     /// Capture all dependencies for an item used at a point in time
     /// The dependencies list is built before runtime and used here for capture
     ///
@@ -495,10 +539,10 @@ impl Context {
     /// In such case, when the function is called, it must have access to a reference pointing to said variable
     /// But as scopes are dropped whenever they end (in order to free memory), references must be collected inside
     /// a "dependency scope", which will be stored in the context.
-    /// 
+    ///
     /// This dependency scope will be dropped (= freed from memory) whenever the related value (e.g. the function)
     /// is dropped.
-    /// 
+    ///
     /// References work through [`GcCell`] values which allow to share access to multiple items at the same time
     pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies::default();
@@ -540,7 +584,6 @@ impl Context {
                         .visible_scopes()
                         .find_map(|scope| {
                             scope
-                                
                                 .fns
                                 .get(name)
                                 .filter(|func| match func.name_at {
@@ -558,10 +601,9 @@ impl Context {
                         .visible_scopes()
                         .find_map(|scope| {
                             scope
-                                
                                 .cmd_aliases
                                 .get(name)
-                                .filter(|alias| alias.name_declared_at == *declared_at)
+                                .filter(|alias| alias.name_at == *declared_at)
                         })
                         .expect("internal error: cannot find command alias to capture (this is a bug in the checker)");
 
@@ -640,7 +682,6 @@ impl Scope {
     }
 }
 
-
 /// Content of a scope
 #[derive(Debug, Clone)]
 pub struct ScopeContent {
@@ -651,7 +692,7 @@ pub struct ScopeContent {
     pub fns: HashMap<String, ScopeFn>,
 
     /// Command aliases (map keys are command alias names)
-    pub cmd_aliases: HashMap<String, RuntimeCmdAlias>,
+    pub cmd_aliases: HashMap<String, ScopeCmdAlias>,
 }
 
 impl ScopeContent {
@@ -681,12 +722,16 @@ impl ScopeContent {
 
             cmd_aliases: cmd_aliases
                 .iter()
-                .map(|(key, value)| (key.clone(), value.name_declared_at))
+                .map(|(key, value)| (key.clone(), value.name_at))
                 .collect(),
 
             type_aliases: match range {
                 RuntimeCodeRange::Internal => Default::default(),
-                RuntimeCodeRange::CodeRange(range) => ctx.type_aliases_decl.get(&range).cloned().unwrap_or_default(),
+                RuntimeCodeRange::CodeRange(range) => ctx
+                    .type_aliases_decl
+                    .get(&range)
+                    .cloned()
+                    .unwrap_or_default(),
             },
 
             fns: fns
@@ -710,7 +755,7 @@ impl ScopeContent {
     }
 }
 
-/// Scope variable
+/// Scoped variable
 #[derive(Debug, Clone)]
 pub struct ScopeVar {
     /// Location of the variable's name in its declaration
@@ -723,7 +768,7 @@ pub struct ScopeVar {
     pub value: GcCell<Option<LocatedValue>>,
 }
 
-/// Scope function
+/// Scoped function
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
     /// Location of the function's name in its declaration
@@ -731,6 +776,16 @@ pub struct ScopeFn {
     /// Value of the function
     /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
+}
+
+/// Scoped command alias
+#[derive(Debug, Clone)]
+pub struct ScopeCmdAlias {
+    /// Location of the alias' name in its declaration
+    pub name_at: CodeRange,
+    /// Content of the alias
+    /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
+    pub value: GcReadOnlyCell<RuntimeCmdAlias>,
 }
 
 /// A scope's call stack
@@ -768,7 +823,7 @@ pub struct CallStackEntry {
 pub enum DepsScopeCreationData {
     /// Use already-captured dependencies
     CapturedDeps(CapturedDependencies),
-    
+
     /// Use already-built dependency scope
-    Retrieved(ScopeContent)
+    Retrieved(ScopeContent),
 }
