@@ -19,7 +19,7 @@ pub enum Instruction {
     /// Variable declaration
     DeclareVar {
         name: Eaten<String>,
-        init_expr: Option<Eaten<Expr>>,
+        init_expr: Eaten<Expr>,
 
         /// Location of this item points to the "mut" keyword
         mutable: Option<Eaten<()>>,

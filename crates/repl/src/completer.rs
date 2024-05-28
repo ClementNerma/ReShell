@@ -270,13 +270,13 @@ fn complete_var_name(
                         Some(prefix) => format!("{prefix}{name}"),
                         None => name.clone(),
                     },
-                    description: Some(match item.value.read(RuntimeCodeRange::Internal).as_ref() {
-                        Some(loc_val) => loc_val
+                    description: Some(
+                        item.value
+                            .read(RuntimeCodeRange::Internal)
                             .value
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
-                        None => "<value not set>".to_string(),
-                    }),
+                    ),
                     extra: None,
                     span,
                     append_whitespace,

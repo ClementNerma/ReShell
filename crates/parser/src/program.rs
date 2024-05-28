@@ -897,14 +897,11 @@ pub fn program(
                 )
                 .then(ident.spanned())
                 .then(
-                    ms.ignore_then(char('='))
-                        .ignore_then(msnl)
-                        .ignore_then(
-                            expr.clone()
-                                .spanned()
-                                .critical("expected an expression to assign"),
-                        )
-                        .or_not(),
+                    ms.ignore_then(char('=')).ignore_then(msnl).ignore_then(
+                        expr.clone()
+                            .spanned()
+                            .critical("expected an expression to assign"),
+                    ),
                 )
                 .map(|((mutable, name), init_expr)| Instruction::DeclareVar {
                     mutable: mutable.map(|tok| tok.replace(())),

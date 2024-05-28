@@ -26,7 +26,6 @@ pub fn render_prompt(
         .clone();
 
     let prompt_var_value = prompt_var.value.read(prompt_var.name_at);
-    let prompt_var_value = prompt_var_value.as_ref().unwrap();
 
     if matches!(prompt_var_value.value, RuntimeValue::Null) {
         return Ok(None);
@@ -90,7 +89,7 @@ pub fn render_prompt(
     )])));
 
     let ret_val = call_fn_checked(
-        prompt_var_value,
+        &prompt_var_value,
         &expected_signature,
         vec![prompt_data],
         ctx,

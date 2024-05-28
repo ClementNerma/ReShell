@@ -404,10 +404,10 @@ fn eval_expr_inner_content(
                         ScopeVar {
                             name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             is_mut: false,
-                            value: GcCell::new(Some(LocatedValue::new(
+                            value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::String(message),
                                 at,
-                            ))),
+                            )),
                         },
                     );
 
@@ -463,13 +463,6 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
             .value
             .read(name.at)
-            .as_ref()
-            .ok_or_else(|| {
-                ctx.error(
-                    name.at,
-                    "trying to use variable before it is assigned a value",
-                )
-            })?
             .value
             .clone()),
 
@@ -562,13 +555,6 @@ fn eval_computed_string_piece(
                 .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
                 .value
                 .read(var_name.at)
-                .as_ref()
-                .ok_or_else(|| {
-                    ctx.error(
-                        var_name.at,
-                        "trying to use variable before it is assigned a value",
-                    )
-                })?
                 .value,
             "only stringifyable variables can be used inside computable strings",
             var_name.at,
