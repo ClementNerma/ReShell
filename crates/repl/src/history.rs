@@ -219,7 +219,9 @@ impl RlHistory for History {
             None => self.entries.len().saturating_sub(1),
         };
 
-        assert!(start_idx <= end_idx);
+        if start_idx > end_idx {
+            return Ok(vec![]);
+        }
 
         let iter = self
             .entries
