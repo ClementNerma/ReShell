@@ -88,22 +88,16 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 }
             }
 
-            '(' => {
-                if inside_string!() {
-                    if let Some(("$", prev_offset)) = prev_char {
-                        open(
-                            &mut output,
-                            &mut opened,
-                            prev_offset,
-                            &input[prev_offset..prev_offset + 2],
-                        );
-                    }
+            '(' => match prev_char {
+                Some(("$", prev_offset)) => open(
+                    &mut output,
+                    &mut opened,
+                    prev_offset,
+                    &input[prev_offset..prev_offset + 2],
+                ),
 
-                    continue;
-                }
-
-                open(&mut output, &mut opened, offset, char_as_str);
-            }
+                _ => open(&mut output, &mut opened, offset, char_as_str),
+            },
 
             '[' | '{' => {
                 if !inside_string!() {
@@ -273,7 +267,7 @@ pub enum NestingOpeningType {
     LiteralString,
     ComputedString,
     ExprInString,
-    CmdCallInString,
+    CmdOutput,
 }
 
 impl NestingOpeningType {
@@ -285,7 +279,7 @@ impl NestingOpeningType {
             "'" => Ok(NestingOpeningType::LiteralString),
             "\"" => Ok(NestingOpeningType::ComputedString),
             "`" => Ok(NestingOpeningType::ExprInString),
-            "$(" => Ok(NestingOpeningType::CmdCallInString),
+            "$(" => Ok(NestingOpeningType::CmdOutput),
             _ => Err(format!(
                 "Internal error: unrecognized opening type: >{str}<"
             )),

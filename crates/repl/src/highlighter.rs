@@ -247,7 +247,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 ]
             }),
 
-            (NestingOpeningType::CmdCallInString, NestedContentRules {
+            (NestingOpeningType::CmdOutput, NestedContentRules {
                 opening_style: Style::new().fg(LightYellow),
                 closing_style: Style::new().fg(LightYellow),
                 rules: vec![
