@@ -41,7 +41,7 @@ pub fn eval_fn_call(
                     ctx.error(
                         call.at,
                         format!(
-                            "cannot call this method on a {}",
+                            "no such method for type {}",
                             typ.render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     )

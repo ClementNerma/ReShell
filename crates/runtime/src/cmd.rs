@@ -143,7 +143,7 @@ pub fn run_cmd(
                             ctx.error(
                                 call_at,
                                 format!(
-                                    "cannot call this method on a {}",
+                                    "no such method for type {}",
                                     typ.render_colored(ctx, PrettyPrintOptions::inline())
                                 ),
                             )
