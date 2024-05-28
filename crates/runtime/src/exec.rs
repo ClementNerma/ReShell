@@ -200,6 +200,8 @@ pub(crate) fn run_body_with_deps(
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     ctx.clear_wandering_value();
 
+    let can_set_wandering_value = ctx.current_scope().id == ctx.program_main_scope().unwrap();
+
     match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             // assert!(
@@ -674,13 +676,19 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::DoBlock(block) => {
-            run_block(block, ctx, None)?;
+            let result = run_block(block, ctx, None)?;
+
+            if can_set_wandering_value {
+                if let Some(InstrRet::FnReturn(Some(last_return_value))) = result {
+                    ctx.set_wandering_value(last_return_value.value);
+                }
+            }
         }
 
         Instruction::CmdCall(call) => {
             let cmd_result = run_cmd(call, ctx, CmdExecParams { capture: None })?;
 
-            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
+            if can_set_wandering_value {
                 if let Some(Some(last_return_value)) = cmd_result.as_returned() {
                     ctx.set_wandering_value(last_return_value.value);
                 }
@@ -690,7 +698,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::Expr(expr) => {
             let value = eval_expr(&expr.data, ctx)?;
 
-            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
+            if can_set_wandering_value {
                 ctx.set_wandering_value(value);
             }
         }
