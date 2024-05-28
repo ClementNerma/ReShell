@@ -822,7 +822,7 @@ pub fn program(
                 )
                 .map(CmdFlagNameArg::Long),
             char('-')
-                .ignore_then(first_ident_char)
+                .ignore_then(possible_ident_char)
                 .map(CmdFlagNameArg::Short),
         ))
         .followed_by(silent_choice((
