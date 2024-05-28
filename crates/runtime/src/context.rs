@@ -499,20 +499,6 @@ impl Context {
         deps_scope
     }
 
-    /// Get the current scope's source file
-    pub fn current_source_file(&self) -> Option<&SourceFile> {
-        self.current_scope()
-            .source_file_id()
-            .and_then(|file_id| self.files_map.get_file(file_id))
-    }
-
-    /// Get the current scope's source file path
-    pub fn current_file_path(&self) -> Option<&PathBuf> {
-        self.current_scope()
-            .source_file_id()
-            .and_then(|file_id| self.files_map.get_file_path(file_id))
-    }
-
     /// Get a specific function
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
