@@ -12,7 +12,13 @@
 				{
 					"begin": "\"",
 					"end": "\"",
-					"name": "string.quoted.double"
+					"name": "string.quoted.double",
+					"patterns": [
+						{
+							"match": "\\$[a-zA-Z_][a-zA-Z0-9_]*\\b",
+							"name": "variable.name"
+						}
+					]
 				},
 				{
 					"begin": "#",
