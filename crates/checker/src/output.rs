@@ -51,12 +51,12 @@ pub struct CheckerOutput {
     /// The aliases can then be retrieved using `type_alias_decl` in this struct
     pub type_aliases_decl_by_scope: HashMap<AstScopeId, HashMap<String, CodeRange>>,
 
-    /// Signature of all functions and closures
+    /// Signature of all functions and lambdas
     ///
     /// Maps the signature's location to its content
     pub fn_signatures: HashMap<CodeRange, SharingType<Eaten<FnSignature>>>,
 
-    /// Body of all functions and closures
+    /// Body of all functions and lambdas
     ///
     /// Maps the body's location to its content
     pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<Block>>>,

@@ -16,7 +16,7 @@ use reshell_parser::ast::{
 use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
-    expr::{closure_to_value, eval_computed_string, eval_expr, eval_literal_value},
+    expr::{eval_computed_string, eval_expr, eval_literal_value, lambda_to_value},
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -709,7 +709,7 @@ fn eval_cmd_value_making_arg(
 
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
-        CmdValueMakingArg::Closure(func) => (func.at, closure_to_value(&func.data, ctx)),
+        CmdValueMakingArg::Lambda(func) => (func.at, lambda_to_value(&func.data, ctx)),
 
         CmdValueMakingArg::InlineCmdCall(call) => (
             call.at,
