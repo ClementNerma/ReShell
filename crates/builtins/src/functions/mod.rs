@@ -7,6 +7,7 @@ mod append;
 mod approx_int_div;
 mod at;
 mod basename;
+mod canonicalize;
 mod captures;
 mod cd;
 mod chars;
@@ -89,6 +90,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::approx_int_div::build_fn(),
         self::at::build_fn(),
         self::basename::build_fn(),
+        self::canonicalize::build_fn(),
         self::captures::build_fn(),
         self::cd::build_fn(),
         self::chars::build_fn(),
