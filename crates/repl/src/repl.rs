@@ -34,9 +34,12 @@ pub fn start(
     timings: Timings,
     show_timings: bool,
 ) -> Result<Option<ExitCode>, Box<dyn Error>> {
+    // These channels are used to receive completion requests from the completer (completer.rs)
+    // And send the generated suggestions back
     let (sx_req, rx_req) = channel::<CompletionContext>();
     let (sx_res, rx_res) = channel::<Vec<Suggestion>>();
 
+    // Create a line editor
     let line_editor = Reedline::create()
         .with_history(history::create_history(ctx.conf()))
         .with_menu(history::create_history_menu())
@@ -52,24 +55,32 @@ pub fn start(
         .with_quick_completions(true)
         .with_partial_completions(true);
 
+    // Wrap the line editor in a sharable type
     let line_editor = Arc::new(Mutex::new(line_editor));
 
+    // Prepare a program parser with access to the shared files map
     let files_map = ctx.files_map().clone();
 
     let parser =
         reshell_parser::program(move |path, relative_to| files_map.load_file(&path, relative_to));
 
+    // Programs counter in REPL
     let mut counter = 0;
 
+    // Status of the last command run in the REPL (if any)
     let mut last_cmd_status = None;
 
+    // Display timings is asked to
     if show_timings {
         display_timings(timings, Instant::now());
     }
 
+    // This is the REPL's actual loop
     loop {
+        // Measure start time for performance
         let line_start = Instant::now();
 
+        // Render prompt
         let prompt_rendering = match render_prompt(ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
@@ -88,26 +99,32 @@ pub fn start(
             println!("* Time to interaction: {:?}", line_start.elapsed());
         }
 
+        // Spawn a line editor thread
+        // This is required in order to listen to other events in paralle, such as completion requests
         let line_editor = Arc::clone(&line_editor);
-
         let child = std::thread::spawn(move || line_editor.lock().unwrap().read_line(&prompt));
 
+        // Wait for the line editing to complete
         let signal = loop {
+            // If the thread is done, get with the result
             if child.is_finished() {
                 break child
                     .join()
                     .map_err(|err| format!("Line reading thread panicked: {err:?}"))?;
             }
 
+            // Otherwise, check if a completion request has been sent
             match rx_req.try_recv() {
                 Ok(completion_context) => {
-                    sx_res
-                        .send(generate_completions(completion_context, ctx))
-                        .map_err(|err| {
-                            format!(
-                                "Failed to send completions result to line reading thread: {err}"
-                            )
-                        })?;
+                    // If yes, generate suggestions
+                    // As you can see, we could not do that in the completer itself as we borrow the runtime context,
+                    // which cannot be sent between threads
+                    let suggestions = generate_completions(completion_context, ctx);
+
+                    // Send the completion results back to the completer
+                    sx_res.send(suggestions).map_err(|err| {
+                        format!("Failed to send completions result to line reading thread: {err}")
+                    })?;
                 }
 
                 Err(err) => match err {
@@ -117,6 +134,7 @@ pub fn start(
             };
         };
 
+        // Handle the return signal of the line editor
         let input = match signal {
             Ok(Signal::Success(buffer)) => buffer,
             Ok(Signal::CtrlC) => continue,
@@ -127,10 +145,12 @@ pub fn start(
             }
         };
 
+        // Measure program start time for performance
         let start = Instant::now();
 
         counter += 1;
 
+        // Run the input program
         let ret = run_script(
             &input,
             SourceFileLocation::CustomName(format!("repl[{counter}]")),
@@ -138,6 +158,7 @@ pub fn start(
             ctx,
         );
 
+        // Keep the last command status (used for prompt generation)
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
             duration_ms: start.elapsed().as_millis(),
@@ -145,6 +166,7 @@ pub fn start(
         });
 
         match &ret {
+            // If the program succeeded and has a wandering value, pretty-print it
             Ok(()) => {
                 if let Some(value) = ctx.take_wandering_value() {
                     println!(
@@ -154,10 +176,12 @@ pub fn start(
                 }
             }
 
+            // If the program failed, display the error
             Err(err) => {
                 if let ReportableError::Runtime(err, program) = &err {
                     let program = program.as_ref().unwrap();
 
+                    // Except in case of Exit request, which makes the REPL itself quit
                     if let ExecErrorNature::Exit { code } = err.nature {
                         return Ok(Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS)));
                     }
@@ -176,12 +200,14 @@ pub fn start(
                     }
                 }
 
+                // In any other case, print the full error
                 reports::print_error(err, ctx.files_map());
             }
         }
     }
 }
 
+/// Display timings
 fn display_timings(timings: Timings, now: Instant) {
     let Timings {
         started,
