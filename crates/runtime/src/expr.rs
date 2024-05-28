@@ -244,6 +244,23 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
 
                 left = loc_val.value;
             }
+
+            ExprInnerChaining::FnCall(fn_call) => {
+                let result = eval_fn_call_type(
+                    fn_call,
+                    Some(FnCallType::Piped(LocatedValue::new(
+                        left,
+                        RuntimeCodeRange::Parsed(left_at),
+                    ))),
+                    ctx,
+                )?;
+
+                let loc_val = result.ok_or_else(|| {
+                    ctx.error(fn_call.at, "called function did not return a value")
+                })?;
+
+                left = loc_val.value;
+            }
         }
     }
 

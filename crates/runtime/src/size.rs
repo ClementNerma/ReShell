@@ -656,6 +656,7 @@ impl ComputableSize for ExprInnerChaining {
         match self {
             ExprInnerChaining::PropAccess(prop_acc) => prop_acc.compute_heap_size(),
             ExprInnerChaining::MethodCall(method_call) => method_call.compute_heap_size(),
+            ExprInnerChaining::FnCall(fn_call) => fn_call.compute_heap_size(),
         }
     }
 }
