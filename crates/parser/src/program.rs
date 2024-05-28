@@ -7,11 +7,11 @@ use parsy::{
 
 use crate::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdPath,
-    CmdPipe, CmdPipeType, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
-    EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg,
-    FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-    RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
-    ValueType,
+    CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
+    ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall,
+    FnCallArg, FnSignature, Function, Instruction, LiteralValue, Program, PropAccess,
+    PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
+    SwitchCase, Value, ValueType,
 };
 
 pub fn program() -> impl Parser<Program> {
@@ -710,29 +710,17 @@ pub fn program() -> impl Parser<Program> {
                 .map(CmdFlagNameArg::Short),
         ));
 
-        let cmd_flag_arg = cmd_flag_name_arg
-            .spanned()
-            .then(
-                choice((s.map(|_| ()), char('=').map(|_| ())))
-                    .ignore_then(char('('))
-                    .ignore_then(msnl)
-                    .ignore_then(expr.clone().spanned().critical("expected an expression"))
-                    .then_ignore(
-                        char(')').critical("expected a closing parenthesis after the expression"),
-                    )
-                    .or_not(),
-            )
-            .collect_string_and_data()
-            .map(|(raw, (name, value))| CmdFlagArg { name, value, raw });
-
-        let cmd_arg = choice::<_, CmdArg>((
+        let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
             // Literal values
-            literal_value.clone().spanned().map(CmdArg::LiteralValue),
+            literal_value
+                .clone()
+                .spanned()
+                .map(CmdValueMakingArg::LiteralValue),
             // Computed strings
             computed_string
                 .clone()
                 .spanned()
-                .map(CmdArg::ComputedString),
+                .map(CmdValueMakingArg::ComputedString),
             // Command call
             just("$(")
                 .ignore_then(
@@ -745,16 +733,7 @@ pub fn program() -> impl Parser<Program> {
                 .then_ignore(
                     char(')').critical("unclosed command call (expected a closing parenthesis)"),
                 )
-                .map(CmdArg::CmdCall),
-            // Spread
-            just("$...")
-                .ignore_then(
-                    ident
-                        .clone()
-                        .spanned()
-                        .critical("expected a variable to spread"),
-                )
-                .map(CmdArg::SpreadVar),
+                .map(CmdValueMakingArg::CmdCall),
             // Parenthesis-wrapped expressions
             char('(')
                 .ignore_then(
@@ -764,18 +743,42 @@ pub fn program() -> impl Parser<Program> {
                         .critical("expected an expression"),
                 )
                 .then_ignore(char(')').critical("unclosed expression"))
-                .map(CmdArg::ParenExpr),
+                .map(CmdValueMakingArg::ParenExpr),
             // Function as value
             char('@')
                 .ignore_then(ident.clone().critical("expected a function name"))
                 .spanned()
-                .map(CmdArg::FnAsValue),
+                .map(CmdValueMakingArg::FnAsValue),
+            // Variables
+            var_name.clone().spanned().map(CmdValueMakingArg::VarName),
+            // Raw argument
+            cmd_raw.spanned().map(CmdValueMakingArg::Raw),
+        ));
+
+        let cmd_flag_arg = cmd_flag_name_arg
+            .spanned()
+            .then(
+                choice((s.map(|_| ()), char('=').map(|_| ())))
+                    .ignore_then(cmd_value_making_arg.clone().spanned())
+                    .or_not(),
+            )
+            .collect_string_and_data()
+            .map(|(raw, (name, value))| CmdFlagArg { name, value, raw });
+
+        let cmd_arg = choice::<_, CmdArg>((
             // Flag arguments
             cmd_flag_arg.map(CmdArg::Flag),
-            // Variables
-            var_name.clone().spanned().map(CmdArg::VarName),
-            // Raw argument
-            cmd_raw.spanned().map(CmdArg::Raw),
+            // Spread
+            just("$...")
+                .ignore_then(
+                    ident
+                        .clone()
+                        .spanned()
+                        .critical("expected a variable to spread"),
+                )
+                .map(CmdArg::SpreadVar),
+            // Value-making
+            cmd_value_making_arg.map(CmdArg::ValueMaking),
         ));
 
         let single_cmd_call = cmd_env_var
