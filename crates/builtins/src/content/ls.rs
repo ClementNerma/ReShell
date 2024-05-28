@@ -40,7 +40,7 @@ fn run() -> Runner {
             }
         };
 
-        let read_dir = fs::read_dir(&path)
+        let read_dir = fs::read_dir(path)
             .map_err(|err| ctx.error(at, format!("Failed to read directory: {err}")))?;
 
         struct LsItem {
