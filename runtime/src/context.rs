@@ -280,7 +280,7 @@ impl Context {
                                 .get(name)
                                 .filter(|var| var.declared_at == *name_declared_at)
                         })
-                        .expect("internal error: cannot find variable to capture (this is a bug in the checker)");
+                        .unwrap_or_else(|| panic!("internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {name_declared_at:?})"));
 
                     captured_deps.vars.insert(dep.clone(), var.clone());
                 }

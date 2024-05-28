@@ -667,7 +667,7 @@ pub fn program() -> impl Parser<Program> {
                     .spanned()
                     .then_ignore(s)
                     .map(CmdCallMethod::Raw),
-                just("@var")
+                just("@callVar")
                     .to(())
                     .spanned()
                     .then_ignore(s)
