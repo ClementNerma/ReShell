@@ -1,13 +1,4 @@
 pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
-    let mut opened: Vec<(&str, usize)> = vec![];
-    let mut opened_strings: Vec<(&str, usize)> = vec![];
-    let mut output: Vec<NestingAction> = vec![];
-    let mut escaping = false;
-
-    let mut offset = 0;
-    let mut last_char: Option<(&str, usize)> = None;
-    let mut prev_char: Option<(&str, usize)> = None;
-
     let register_content = |output: &mut Vec<NestingAction>, offset: usize| {
         let from = output
             .last()
@@ -46,6 +37,16 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         ));
     };
 
+    let mut opened: Vec<(&str, usize)> = vec![];
+    let mut opened_strings: Vec<(&str, usize)> = vec![];
+    let mut output: Vec<NestingAction> = vec![];
+    let mut escaping = false;
+    let mut commenting = false;
+
+    let mut offset = 0;
+    let mut last_char: Option<(&str, usize)> = None;
+    let mut prev_char: Option<(&str, usize)> = None;
+
     for char in input.chars() {
         if let Some((last_str, last_offset)) = last_char {
             offset += last_str.len();
@@ -61,7 +62,20 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             continue;
         }
 
+        if commenting {
+            if char == '\n' {
+                commenting = false;
+            }
+            continue;
+        }
+
         match char {
+            '#' => {
+                if !matches!(opened.last(), Some(("\"", _))) {
+                    commenting = true;
+                }
+            }
+
             '\\' => {
                 if matches!(opened.last(), Some(("\"", _))) {
                     escaping = true;

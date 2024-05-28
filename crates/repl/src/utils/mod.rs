@@ -1,3 +1,4 @@
+pub mod covering;
 pub mod ctrl_c;
 pub mod lazy_cell;
 pub mod lev_distance;
