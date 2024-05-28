@@ -1,10 +1,9 @@
 use once_cell::sync::OnceCell;
 use parsy::{Eaten, FileId, Parser};
-use reshell_builtins::builder::build_native_lib_content;
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    context::{Context, ScopeRange},
+    context::Context,
     exec::{run_program, ProgramExitStatus},
     files_map::ScopableFilePath,
 };
