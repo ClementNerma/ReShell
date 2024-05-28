@@ -1,3 +1,11 @@
+//!
+//! Input covering computation
+//!
+//! This module provides a way to track which parts of an input (e.g. string) has been covered.
+//! It allows listing uncovered parts of the input as well as fetching the next uncovered segment.
+//!
+//! It is notably used for syntax highlighting.
+
 #[derive(Debug)]
 pub struct InputCovering {
     offset: usize,

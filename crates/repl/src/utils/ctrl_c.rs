@@ -1,3 +1,9 @@
+//!
+//! Ctrl+C handling
+//!
+//! Allows to check periodically if Ctrl+C was pressed
+//!
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 static UNTREATED_CTRL_C: AtomicBool = AtomicBool::new(false);

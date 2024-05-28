@@ -4,6 +4,7 @@ use reshell_runtime::{context::Context, exec::run_program};
 
 use crate::{args::ExecArgs, reports::ReportableError};
 
+/// Run a ReShell script
 pub fn run_script(
     input: &str,
     file_loc: SourceFileLocation,

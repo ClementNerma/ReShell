@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+/// Command line arguments of the shell's binary
 #[derive(Parser)]
 #[clap(
     name = "ReShell",

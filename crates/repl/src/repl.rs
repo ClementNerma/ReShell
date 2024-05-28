@@ -1,3 +1,11 @@
+//!
+//! REPL core program.
+//!
+//! Provide the REPL and connects it with different components.
+//!
+//! Indirectly handles completion, syntax highlighting, history, keyboard shortcuts, and more.
+//!
+
 use std::{
     error::Error,
     process::ExitCode,

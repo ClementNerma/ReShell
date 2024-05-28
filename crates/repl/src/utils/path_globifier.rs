@@ -1,3 +1,11 @@
+//!
+//! Path globification module.
+//!
+//! Allows to create a glob pattern from a path input.
+//!
+//! Used for auto-completion of paths.
+//!
+
 use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
 use reshell_runtime::{context::Context, values::RuntimeValue};

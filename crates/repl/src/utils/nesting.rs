@@ -1,6 +1,25 @@
+//!
+//! Nesting computation module.
+//!
+//! This is an advanced and pretty complex module.
+//!
+//! Basically it takes an input (prompt) and produces a list of nesting actions.
+//!
+//! An action can for instance be the opening or closing of a string, the opening of a parenthesis,
+//! the presence of a command separation marker, etc. These can be found in the [`NestingActionType`] enum.
+//!
+//! These informations are then used for checking if a line is complete or not
+//!     (cf. [`super::super::validator`])
+//! They are also used to extract informations from a command prompt
+//!     (cf. [`super::cmd_pieces`])
+//!
+
 #[derive(Debug)]
 pub struct NestingDetectionResult {
     pub actions: Vec<NestingAction>,
+
+    /// Final nesting level (starting at 0)
+    /// e.g. `cmd arg1 $(arg2 $(arg3` would result in a final level of 2
     pub final_nesting_level: usize,
 }
 

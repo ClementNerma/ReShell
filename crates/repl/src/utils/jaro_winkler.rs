@@ -1,3 +1,11 @@
+//!
+//! Implementation of the Jaro-Winkler distance algorithm
+//!
+//! Computes the distance between two strings. The higher the value, the different are the strings.
+//!
+//! Used to order results in completion menus.
+//!
+
 use std::cmp::{max, min};
 
 pub fn jaro_winkler_distance(input: &str, candidate: &str) -> f64 {
