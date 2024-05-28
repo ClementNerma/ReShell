@@ -404,10 +404,10 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::FnReturn { expr } => {
-            if !matches!(
-                state.nearest_special_scope_type(),
-                Some(SpecialScopeType::Function)
-            ) {
+            if !state
+                .scopes()
+                .any(|scope| scope.special_scope_type == Some(SpecialScopeType::Function))
+            {
                 return Err(CheckerError::new(
                     instr.at,
                     "'return' keyword can only be used inside a function",

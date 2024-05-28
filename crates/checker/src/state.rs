@@ -355,7 +355,7 @@ pub struct CheckerScope {
     pub type_aliases: HashMap<String, CodeRange>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SpecialScopeType {
     /// Inside the body of a function
     /// Will provoke dependencies collection inside it
