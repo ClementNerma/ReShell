@@ -60,14 +60,14 @@ pub struct DateTimeValue {
 
 impl CustomValueType for DateTimeValue {
     fn typename(&self) -> &'static str {
-        "DateTime"
+        "datetime"
     }
 
     fn typename_static() -> &'static str
     where
         Self: Sized,
     {
-        "DateTime"
+        "datetime"
     }
 }
 
