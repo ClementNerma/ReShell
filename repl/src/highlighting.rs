@@ -27,7 +27,11 @@ impl<'a> SyntaxHighlighter<'a> {
         let mut items = vec![];
 
         for cap in regex.captures_iter(self.input) {
-            assert_eq!(cap.len() - 1, styles.len());
+            assert_eq!(
+                cap.len() - 1,
+                styles.len(),
+                "Number of captures do not match number of styles"
+            );
 
             for (i, style) in styles.iter().enumerate() {
                 let cap = cap.get(i + 1).unwrap();

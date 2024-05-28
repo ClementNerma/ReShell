@@ -35,7 +35,7 @@ fn highlight(input: &str) -> StyledText {
 
     highlight!(
         ("flags") => "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
-        ("keywords") => "(?:(?:^|\\n|;|\\{)\\s*)(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
+        ("keywords") => "(?:^|\\n|;|\\{)\\s*(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
         ("in") => "(?:\\bfor\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+)(in)\\b" => Magenta,
         ("types") => "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
         ("booleans") => "\\b(true|false)\\b" => LightYellow,
@@ -44,13 +44,14 @@ fn highlight(input: &str) -> StyledText {
         ("variables declaration") => "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
         ("loop iterator") => "(?:^|\\n|\\s)for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
         ("function arguments and struct fields") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:" => Red,
-        ("untyped function arguments (1)") => "\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
+        ("untyped function arguments (1)") => "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
         ("untyped function arguments (2)") => "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
         ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
-        ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
+        ("command") => "(?:^|[\\{;]|\\$\\()\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
         ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
-        ("raw arguments") => "([^\\s\\(\\)\\[\\]\\{\\}&\\|;=!<>\\?]+)" => Green,
-        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|;=!<>\\?]+)" => Default
+        ("command expression opening") => "\\s(\\$)\\(" => Red,
+        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|;=!<>\\?\\+\\-\\*\\/]+)" => Blue,
+        ("raw arguments") => "(.)" => Green
     );
 
     h.finalize(Style::default())
