@@ -11,13 +11,14 @@ use parsy::{
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
-        CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
-        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
-        ExprInner, ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp,
-        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnSignature,
-        Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten,
-        SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar,
+        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType,
+        CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
+        EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
+        ExprInnerDirectChaining, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
+        FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, Program,
+        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -743,19 +744,14 @@ pub fn program(
                         .spanned(),
                 )
                 .map(CmdPath::Direct),
-            // Expression that evealuates to a function
-            char('(')
+            // Method
+            char('.')
                 .ignore_then(
-                    expr.clone()
-                        .map(Box::new)
-                        .critical("expected an expression")
+                    ident
                         .spanned()
-                        .padded_by(msnl),
+                        .critical("expected a method name after the dot '.'"),
                 )
-                .then_ignore(
-                    char(')').critical("expected a closing parenthesis after the expression"),
-                )
-                .map(CmdPath::Expr),
+                .map(CmdPath::Method),
             // Computed string
             computed_string
                 .clone()
@@ -895,10 +891,19 @@ pub fn program(
                 args,
             });
 
-        cmd_call.finish(
+        let cmd_call_base = choice::<_, CmdCallBase>((
+            just("expr")
+                .ignore_then(s)
+                .ignore_then(expr.clone().map(Box::new).spanned())
+                .map(CmdCallBase::Expr),
             single_cmd_call
                 .clone()
                 .spanned()
+                .map(CmdCallBase::SingleCmdCall),
+        ));
+
+        cmd_call.finish(
+            cmd_call_base
                 .then(
                     msnl.ignore_then(
                         choice::<_, CmdPipeType>((
@@ -1260,8 +1265,6 @@ pub fn program(
                         }),
                 )
                 .map(Instruction::Include),
-            // Expression
-            expr.spanned().map(Instruction::Expr),
             //
             // Command calls
             //

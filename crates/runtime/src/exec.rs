@@ -12,7 +12,7 @@ use crate::{
         ScopeMethod, ScopeVar,
     },
     errors::{ExecError, ExecErrorNature, ExecResult},
-    expr::{eval_expr, VOID_EXPR_ERR},
+    expr::eval_expr,
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -198,8 +198,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             //     "duplicate variable declaration (this is a bug in the checker)"
             // );
 
-            let init_value = eval_expr(&init_expr.data, ctx)?
-                .ok_or_else(|| ctx.error(init_expr.at, VOID_EXPR_ERR))?;
+            let init_value = eval_expr(&init_expr.data, ctx)?;
 
             let decl_scope_id = ctx.current_scope().ast_scope_id;
 
@@ -227,8 +226,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             // Same goes here
             assert!(var.is_mut);
 
-            let assign_value =
-                eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
+            let assign_value = eval_expr(&expr.data, ctx)?;
 
             eval_props_access(
                 &mut var.value.write(name.at, ctx)?.value,
@@ -290,9 +288,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             els,
         } => {
             let cond_val =
-                match eval_expr(&cond.data, ctx)?
-                    .ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?
-                {
+                match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
                     value => {
                         return Err(ctx.error(
@@ -313,8 +309,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 for branch in elsif {
                     let ElsIf { cond, body } = &branch.data;
 
-                    let cond_val = eval_expr(&cond.data, ctx)?
-                        .ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?;
+                    let cond_val = eval_expr(&cond.data, ctx)?;
 
                     let RuntimeValue::Bool(cond_val) = cond_val else {
                         return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.get_type().render_colored(ctx, PrettyPrintOptions::inline()))));
@@ -340,9 +335,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             iter_var,
             iter_on,
             body,
-        } => match eval_expr(&iter_on.data, ctx)?
-            .ok_or_else(|| ctx.error(iter_on.at, VOID_EXPR_ERR))?
-        {
+        } => match eval_expr(&iter_on.data, ctx)? {
             RuntimeValue::List(list) => {
                 for item in list.read(iter_on.at).iter() {
                     let mut loop_scope = ScopeContent::new();
@@ -418,9 +411,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             iter_on,
             body,
         } => {
-            let map = match eval_expr(&iter_on.data, ctx)?
-                .ok_or_else(|| ctx.error(iter_on.at, VOID_EXPR_ERR))?
-            {
+            let map = match eval_expr(&iter_on.data, ctx)? {
                 RuntimeValue::Map(map) => map,
                 value => {
                     return Err(ctx.error(
@@ -474,9 +465,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
         Instruction::WhileLoop { cond, body } => loop {
             let cond_val =
-                match eval_expr(&cond.data, ctx)?
-                    .ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?
-                {
+                match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
                     value => {
                         return Err(ctx.error(
@@ -507,12 +496,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
 
         Instruction::Switch { expr, cases } => {
-            let switch_on =
-                eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
+            let switch_on = eval_expr(&expr.data, ctx)?;
 
             for SwitchCase { cond, body } in cases {
-                let case_value =
-                    eval_expr(&cond.data, ctx)?.ok_or_else(|| ctx.error(cond.at, VOID_EXPR_ERR))?;
+                let case_value = eval_expr(&cond.data, ctx)?;
 
                 let cmp = are_values_equal(&switch_on, &case_value).map_err(
                     |NotComparableTypes { reason }| {
@@ -572,11 +559,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             return Ok(Some(InstrRet::FnReturn(
                 expr.as_ref()
                     .map(|expr| {
-                        let result = eval_expr(&expr.data, ctx)?
-                            .ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
-
                         Ok::<_, Box<ExecError>>(LocatedValue::new(
-                            result,
+                            eval_expr(&expr.data, ctx)?,
                             RuntimeCodeRange::Parsed(expr.at),
                         ))
                     })
@@ -585,9 +569,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::Throw(expr) => {
-            let message = match eval_expr(&expr.data, ctx)?
-                .ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?
-            {
+            let message = match eval_expr(&expr.data, ctx)? {
                 RuntimeValue::String(string) => string,
                 value => {
                     return Err(ctx.error(
@@ -696,16 +678,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
                 if let Some(Some(last_return_value)) = cmd_result.as_returned() {
                     ctx.set_wandering_value(last_return_value.value);
-                }
-            }
-        }
-
-        Instruction::Expr(expr) => {
-            let evaluated = eval_expr(&expr.data, ctx)?;
-
-            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
-                if let Some(evaluated) = evaluated {
-                    ctx.set_wandering_value(evaluated);
                 }
             }
         }

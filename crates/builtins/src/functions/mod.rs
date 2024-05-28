@@ -34,6 +34,7 @@ mod read_file;
 mod regex;
 mod rm;
 mod run;
+mod run_fn;
 mod runtime;
 mod set_env;
 mod struct_to_map;
@@ -86,6 +87,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::read_file::build_fn(),
         self::regex::build_fn(),
         self::rm::build_fn(),
+        self::run_fn::build_fn(),
         self::set_env::build_fn(),
         self::run::build_fn(),
         self::runtime::build_fn(),

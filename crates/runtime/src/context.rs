@@ -556,7 +556,7 @@ impl Context {
     pub fn get_visible_method<'s>(
         &'s self,
         name: &Eaten<String>,
-        on_type: &MethodApplyableType,
+        on_type: MethodApplyableType,
     ) -> Option<&'s ScopeMethod> {
         self.visible_scopes_content().find_map(|scope| {
             scope.methods.get(

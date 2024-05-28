@@ -7,15 +7,15 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
+    CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
     CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
-    FlagValueSeparator, FnCallNature, RuntimeCodeRange, SingleCmdCall,
+    FlagValueSeparator, FnCallNature, MethodApplyableType, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
-    expr::{closure_to_value, eval_computed_string, eval_expr, eval_literal_value, VOID_EXPR_ERR},
+    expr::{closure_to_value, eval_computed_string, eval_expr, eval_literal_value},
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -45,7 +45,21 @@ pub fn run_cmd(
 
     let CmdCall { base, pipes } = &call.data;
 
-    let chain = [(base, None)]
+    let (base, from_value) = match base {
+        CmdCallBase::Expr(expr) => {
+            let value = eval_expr(&expr.data, ctx)?;
+            (
+                None,
+                Some(LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))),
+            )
+        }
+
+        CmdCallBase::SingleCmdCall(cmd_call) => (Some(cmd_call), None),
+    };
+
+    let chain = base
+        .into_iter()
+        .map(|base| (base, None))
         .into_iter()
         .chain(
             pipes
@@ -65,7 +79,7 @@ pub fn run_cmd(
     // TODO: optimize (this should only be an assertion)
     let chain_has_fn_call = chain.iter().any(|(cmd_data, _)| match cmd_data.target {
         EvaluatedCmdTarget::ExternalCommand(_) => false,
-        EvaluatedCmdTarget::Function(_) => true,
+        EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => true,
     });
 
     if chain_has_fn_call {
@@ -73,7 +87,7 @@ pub fn run_cmd(
             return Err(ctx.error(call.at, "only external commands' output can be captured"));
         }
 
-        let mut last_return_value = None::<LocatedValue>;
+        let mut last_return_value = from_value;
 
         let chain_len = chain.len();
 
@@ -98,6 +112,46 @@ pub fn run_cmd(
             let func = match target {
                 EvaluatedCmdTarget::ExternalCommand(_) => unreachable!(),
                 EvaluatedCmdTarget::Function(func) => func,
+                EvaluatedCmdTarget::Method(name) => {
+                    let first_arg = match &last_return_value {
+                        Some(value) => value,
+                        None => args
+                            .iter()
+                            .find_map(|(arg, _)| {
+                                let arg = match arg {
+                                    CmdArgResult::Single(single) => single,
+                                    CmdArgResult::Spreaded(spreaded) => spreaded.first()?,
+                                };
+
+                                match arg {
+                                    CmdSingleArgResult::Basic(value) => Some(value),
+                                    CmdSingleArgResult::Flag { name: _, value: _ } => None,
+                                }
+                            })
+                            .ok_or_else(|| {
+                                ctx.error(
+                                    call_at,
+                                    "please provide at least one argument to run the method on",
+                                )
+                            })?,
+                    };
+
+                    let typ = first_arg.value.get_type();
+
+                    let method = MethodApplyableType::from_single_value_type(typ.clone())
+                        .and_then(|typ| ctx.get_visible_method(&name, typ))
+                        .ok_or_else(|| {
+                            ctx.error(
+                                call_at,
+                                format!(
+                                    "cannot call this method on a {}",
+                                    typ.render_colored(ctx, PrettyPrintOptions::inline())
+                                ),
+                            )
+                        })?;
+
+                    method.value.clone()
+                }
             };
 
             let return_value = call_fn_value(
@@ -146,7 +200,7 @@ pub fn run_cmd(
 
         let cmd_name = match target {
             EvaluatedCmdTarget::ExternalCommand(name) => name,
-            EvaluatedCmdTarget::Function(_) => unreachable!(),
+            EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => unreachable!(),
         };
 
         let child = exec_cmd(
@@ -309,7 +363,7 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
     };
 
     match target {
-        EvaluatedCmdTarget::Function(_) => assert!(is_function),
+        EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => assert!(is_function),
         EvaluatedCmdTarget::ExternalCommand(_) => assert!(!is_function),
     }
 
@@ -364,33 +418,16 @@ fn evaluate_cmd_target(
 
     if developed.is_function {
         let func = match &cmd_path.data {
-            CmdPath::Expr(expr) => {
-                let value =
-                    eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?;
-
-                match value {
-                    RuntimeValue::Function(func) => func,
-
-                    _ => {
-                        return Err(ctx.error(
-                            cmd_path.at,
-                            format!(
-                                "expected a function, found a {}",
-                                value
-                                    .get_type()
-                                    .render_colored(ctx, PrettyPrintOptions::inline())
-                            ),
-                        ))
-                    }
-                }
-            }
+            CmdPath::Method(name) => EvaluatedCmdTarget::Method(name.clone()),
 
             CmdPath::CmdComputedString(cc_str) => {
                 assert!(cc_str.data.only_literal().is_some());
 
                 let string = eval_cmd_computed_string(cc_str, ctx)?;
 
-                GcReadOnlyCell::clone(ctx.get_visible_fn_value(&cc_str.forge_here(string))?)
+                EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
+                    ctx.get_visible_fn_value(&cc_str.forge_here(string))?,
+                ))
             }
 
             CmdPath::Direct(_) | CmdPath::ComputedString(_) => {
@@ -398,12 +435,12 @@ fn evaluate_cmd_target(
             }
         };
 
-        return Ok(EvaluatedCmdTarget::Function(func));
+        return Ok(func);
     }
 
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
         CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_computed_string(cc_str, ctx)?),
-        CmdPath::Expr(_) => unreachable!(),
+        CmdPath::Method(_) => unreachable!(),
         CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
         CmdPath::CmdComputedString(cc_str) => {
             cc_str.forge_here(eval_cmd_computed_string(cc_str, ctx)?)
@@ -425,6 +462,7 @@ struct EvaluatedCmdArgs {
 enum EvaluatedCmdTarget {
     ExternalCommand(Eaten<String>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
+    Method(Eaten<String>),
 }
 
 struct ExecCmdArgs<'a> {
@@ -651,10 +689,7 @@ pub fn eval_cmd_value_making_arg(
             RuntimeValue::String(eval_cmd_computed_string(computed_str, ctx)?),
         ),
 
-        CmdValueMakingArg::ParenExpr(expr) => (
-            expr.at,
-            eval_expr(&expr.data, ctx)?.ok_or_else(|| ctx.error(expr.at, VOID_EXPR_ERR))?,
-        ),
+        CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
         CmdValueMakingArg::Closure(func) => (func.at, closure_to_value(&func.data, ctx)),
 
