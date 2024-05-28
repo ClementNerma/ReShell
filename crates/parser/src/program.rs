@@ -835,6 +835,13 @@ pub fn program(
                 .map(CmdPath::Direct),
             // Method
             char('.').ignore_then(ident.spanned()).map(CmdPath::Method),
+            // Single-quoted command name
+            literal_string.spanned().map(CmdPath::LiteralString),
+            // Double-quoted command name
+            computed_string
+                .clone()
+                .spanned()
+                .map(CmdPath::ComputedString),
             // Command name
             filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
                 .repeated()
@@ -853,7 +860,7 @@ pub fn program(
                 )))
                 .collect_string()
                 .spanned()
-                .map(CmdPath::Literal),
+                .map(CmdPath::Raw),
         ));
 
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
@@ -1013,12 +1020,16 @@ pub fn program(
             });
 
         let cmd_call_base = choice::<_, CmdCallBase>((
+            //
+            // Normal command call
+            //
             single_cmd_call
                 .clone()
                 .spanned()
                 .map(CmdCallBase::SingleCmdCall),
             //
             // Expressions
+            //
             expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
         ));
 
