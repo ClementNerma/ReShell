@@ -56,6 +56,13 @@ impl<T: ArgSingleTyping> ArgTyping for T {
 
 pub trait ArgTypingDirectCreation: ArgTyping {
     fn new_direct() -> Self;
+
+    fn direct_underlying_type() -> ValueType
+    where
+        Self: Sized,
+    {
+        Self::new_direct().underlying_type()
+    }
 }
 
 impl<T: ArgSingleTypingDirectCreation> ArgTypingDirectCreation for T {
@@ -214,10 +221,9 @@ pub struct InternalFunction {
 
 #[macro_export]
 macro_rules! define_internal_fn {
-    ($name: expr, $args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
+    ($name: expr, $args_struct_name: ident [$args_loc_struct_name: ident, $args_types_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
         use std::collections::HashMap;
 
-        use reshell_parser::ast::FnArg;
         use parsy::{CodeRange, Eaten};
 
         use reshell_runtime::{
@@ -239,36 +245,32 @@ macro_rules! define_internal_fn {
             ),*
         }
 
-        fn build_args_decl() -> Vec<FnArg> {
-            vec![
-                $({
-                    let arg: $arg_handler = $gen;
-                    generate_internal_arg_decl(arg)
-                }),*
-            ]
+        struct $args_types_struct_name {
+            $(
+                #[allow(dead_code)]
+                $arg_name: $arg_handler
+            ),*
         }
 
         fn parse_args(call_at: CodeRange, args: HashMap<Eaten<String>, LocatedValue>)
-            -> Result<($args_struct_name, $args_loc_struct_name), (CodeRange, String)>
+            -> Result<($args_struct_name, $args_loc_struct_name, $args_types_struct_name), (CodeRange, String)>
         {
             let mut args = args
                 .into_iter()
                 .map(|(Eaten { at, data }, value)| (data, (at, value)))
                 .collect::<HashMap<_, _>>();
 
-            let args_at = $args_loc_struct_name {
-                $( $arg_name: {
-                    let arg_handler: $arg_handler = $gen;
+            let args_ty = $args_types_struct_name {
+                $( $arg_name: $gen ),*
+            };
 
-                    args.get(&arg_handler.names().static_name()).map(|(at, _)| *at)
-                } ),*
+            let args_at = $args_loc_struct_name {
+                $( $arg_name: args.get(&args_ty.$arg_name.names().static_name()).map(|(at, _)| *at) ),*
             };
 
             let parsed = $args_struct_name {
                 $( $arg_name: {
-                    let arg_handler: $arg_handler = $gen;
-
-                    let arg = args.remove(&arg_handler.names().static_name());
+                    let arg = args.remove(&args_ty.$arg_name.names().static_name());
 
                     let arg_may_be_at = match arg {
                         Some((at, _)) => at,
@@ -276,14 +278,14 @@ macro_rules! define_internal_fn {
                     };
 
                     let parsed =
-                        arg_handler.parse(arg.map(|arg| arg.1.value)).map_err(|err| (arg_may_be_at, err))?;
+                        args_ty.$arg_name.parse(arg.map(|arg| arg.1.value)).map_err(|err| (arg_may_be_at, err))?;
 
                     parsed
                 } ),*
             };
 
             if args.is_empty() {
-                Ok((parsed, args_at))
+                Ok((parsed, args_at, args_ty))
             } else {
                 Err((call_at, format!("internal error: unknown arguments: {}", args.into_keys().collect::<Vec<_>>().join(", "))))
             }
@@ -292,18 +294,31 @@ macro_rules! define_internal_fn {
         fn run(call_data: InternalFnCallData) -> ExecResult<Option<LocatedValue>> {
             let InternalFnCallData { call_at, args, ctx } = call_data;
 
-            let (args, args_at) = parse_args(call_at, args)
+            let (args, args_at, args_ty) = parse_args(call_at, args)
                 .map_err(|(at, err)| ctx.error(at, err))?;
 
-            fn wrapper() -> impl Fn(CodeRange, $args_struct_name, $args_loc_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {
+            fn wrapper() -> impl Fn(CodeRange, $args_struct_name, $args_loc_struct_name, $args_types_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {
                 $run
             }
 
             #[allow(clippy::redundant_closure_call)]
-            wrapper()(call_at, args, args_at, ctx)
+            wrapper()(call_at, args, args_at, args_ty, ctx)
                 .map(|value| value.map(|value| LocatedValue::new(value, forge_internal_loc())))
         }
 
-        InternalFunction { args: build_args_decl(), run, ret_type: $ret_type, name: $name }
+        InternalFunction {
+            args: vec![
+                $({
+                    let arg: $arg_handler = $gen;
+                    generate_internal_arg_decl(arg)
+                }),*
+            ],
+
+            run,
+
+            ret_type: $ret_type,
+
+            name: $name
+        }
     }};
 }

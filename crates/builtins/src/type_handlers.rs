@@ -9,9 +9,8 @@ use reshell_runtime::{
     values::{RuntimeFnValue, RuntimeValue},
 };
 
-use crate::{
-    helper::{ArgSingleTyping, ArgSingleTypingDirectCreation, ArgTyping, ArgTypingDirectCreation},
-    utils::forge_internal_token,
+use crate::helper::{
+    ArgSingleTyping, ArgSingleTypingDirectCreation, ArgTyping, ArgTypingDirectCreation,
 };
 
 macro_rules! declare_basic_types {
@@ -183,34 +182,34 @@ impl<Inner: ArgTypingDirectCreation> ArgSingleTypingDirectCreation for DetachedL
     }
 }
 
-pub struct UntypedFunctionType;
+// pub struct UntypedFunctionType;
 
-impl ArgSingleTypingDirectCreation for UntypedFunctionType {
-    fn new_single_direct() -> Self {
-        Self
-    }
-}
+// impl ArgSingleTypingDirectCreation for UntypedFunctionType {
+//     fn new_single_direct() -> Self {
+//         Self
+//     }
+// }
 
-impl ArgSingleTyping for UntypedFunctionType {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Function(MaybeEaten::Raw(
-            // Universal signature (TODO: doesn't work :p)
-            FnSignature {
-                args: forge_internal_token(vec![]),
-                ret_type: None,
-            },
-        ))
-    }
+// impl ArgSingleTyping for UntypedFunctionType {
+//     fn underlying_single_type(&self) -> SingleValueType {
+//         SingleValueType::Function(MaybeEaten::Raw(
+//             // Universal signature (TODO: doesn't work :p)
+//             FnSignature {
+//                 args: forge_internal_token(vec![]),
+//                 ret_type: None,
+//             },
+//         ))
+//     }
 
-    type Parsed = GcReadOnlyCell<RuntimeFnValue>;
+//     type Parsed = GcReadOnlyCell<RuntimeFnValue>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        match value {
-            RuntimeValue::Function(func) => Ok(func),
-            _ => Err("expected a function".to_owned()),
-        }
-    }
-}
+//     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+//         match value {
+//             RuntimeValue::Function(func) => Ok(func),
+//             _ => Err("expected a function".to_owned()),
+//         }
+//     }
+// }
 
 pub struct MapType;
 
@@ -232,6 +231,39 @@ impl ArgSingleTyping for MapType {
 impl ArgSingleTypingDirectCreation for MapType {
     fn new_single_direct() -> Self {
         Self
+    }
+}
+
+pub struct TypedFunctionType {
+    signature: FnSignature,
+}
+
+impl TypedFunctionType {
+    pub fn new(signature: FnSignature) -> Self {
+        Self { signature }
+    }
+
+    pub fn signature(&self) -> &FnSignature {
+        &self.signature
+    }
+}
+
+impl ArgSingleTyping for TypedFunctionType {
+    fn underlying_single_type(&self) -> SingleValueType {
+        SingleValueType::Function(MaybeEaten::Raw(self.signature.clone()))
+    }
+
+    type Parsed = GcReadOnlyCell<RuntimeFnValue>;
+
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        match value {
+            RuntimeValue::Function(func) => {
+                // NOTE: we don't check the function as it was already checked by the runtime
+                // at call time
+                Ok(func)
+            }
+            _ => Err("expected a function".to_owned()),
+        }
     }
 }
 

@@ -4,12 +4,13 @@ use terminal_size::{terminal_size, Width};
 use crate::{
     builder::BuiltinVar,
     define_internal_fn,
-    helper::{Arg, ArgTyping, ArgTypingDirectCreation, OptionalArg, RequiredArg},
+    helper::{Arg, ArgNames, ArgTypingDirectCreation, OptionalArg, RequiredArg},
     type_handlers::{
         AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType, RangeType,
-        StringType, Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type,
-        UntypedStructType,
+        StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type, Union3Result,
+        Union3Type, UntypedListType, UntypedStructType,
     },
+    utils::{call_fn_checked, forge_basic_fn_signature},
 };
 
 use reshell_runtime::{
@@ -31,7 +32,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "map",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     entries: OptionalArg<Union2Type<
                         UntypedStructType,
                         DetachedListType<Tuple2Type<StringType, AnyType>>
@@ -39,9 +40,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         Arg::positional("entries")
                 )
 
-                -> Some(MapType::new_direct().underlying_type()),
+                -> Some(MapType::direct_underlying_type()),
 
-                |_, Args { entries }, _, _| {
+                |_, Args { entries }, _, _, _| {
                     let map = match entries {
                         None => HashMap::new(),
                         Some(entries) => match entries {
@@ -60,13 +61,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "exit",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     code: OptionalArg<IntType> => Arg::positional("code")
                 )
 
                 -> None,
 
-                |at, Args { code }, ArgsAt { code: code_at }, ctx| {
+                |at, Args { code }, ArgsAt { code: code_at }, _, ctx| {
                     let code = code
                         .map(|code|
                             u8::try_from(code)
@@ -84,13 +85,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "echo",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
                 )
 
                 -> None,
 
-                |_, Args { message }, _, _| {
+                |_, Args { message }, _, _, _| {
                     println!("{}", match message {
                         Union3Result::A(string) => string,
                         Union3Result::B(int) => int.to_string(),
@@ -107,7 +108,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "dbg",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     value: RequiredArg<AnyType> => Arg::positional("value"),
                     tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
                     max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
@@ -115,7 +116,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> None,
 
-                |at, Args { value, tab_size, max_line_size }, _, ctx| {
+                |at, Args { value, tab_size, max_line_size }, _, _, ctx| {
                     let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
 
                     println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
@@ -134,7 +135,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             define_internal_fn!(
                 "dbg-type",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     value: RequiredArg<AnyType> => Arg::positional("value"),
                     tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
                     max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
@@ -142,7 +143,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 -> None,
 
-                |at, Args { value, tab_size, max_line_size }, _, ctx| {
+                |at, Args { value, tab_size, max_line_size }, _, _, ctx| {
                     let at = format!("dbg-type [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
 
                     println!("{} {}", at.bright_magenta(), value.get_type().render_colored(ctx, PrettyPrintOptions {
@@ -162,14 +163,14 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "range",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
                     to: RequiredArg<ExactIntType<usize>> => Arg::positional("to")
                 )
 
-                -> Some(RangeType::new_direct().underlying_type()),
+                -> Some(RangeType::direct_underlying_type()),
 
-                |_, Args { from, to }, _, _| {
+                |_, Args { from, to }, _, _, _| {
                     Ok(Some(RuntimeValue::Range { from, to }))
                 }
             ),
@@ -180,14 +181,80 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 "error",
 
-                Args [ArgsAt] (
+                Args [ArgsAt, ArgsTy] (
                     content: RequiredArg<StringType> => Arg::positional("content")
                 )
 
-                -> Some(ErrorType::new_direct().underlying_type()),
+                -> Some(ErrorType::direct_underlying_type()),
 
-                |at, Args { content }, _, _| {
+                |at, Args { content }, _, _, _| {
                     Ok(Some(RuntimeValue::Error { at, msg: content }))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // slice a list
+                //
+
+                "slice",
+
+                Args [ArgsAt, ArgsTy] (
+                    list: RequiredArg<UntypedListType> => Arg::positional("list"),
+                    from: RequiredArg<ExactIntType<usize>> => Arg::positional("from"),
+                    length: OptionalArg<ExactIntType<usize>> => Arg::positional("length")
+                )
+
+                -> Some(UntypedListType::direct_underlying_type()),
+
+                |_, Args { list, from, length }, _, _, _| {
+                    let sliced = list.read().iter().skip(from).take(length.unwrap_or(usize::MAX)).cloned().collect::<Vec<_>>();
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // map over a list
+                //
+
+                "listMap",
+
+                Args [ArgsAt, ArgsTy] (
+                    list: RequiredArg<UntypedListType> => Arg::positional("list"),
+                    mapper: RequiredArg<TypedFunctionType> => Arg::new(ArgNames::Positional("mapper"), TypedFunctionType::new(forge_basic_fn_signature(
+                        vec![
+                            ("index", ExactIntType::<usize>::direct_underlying_type()),
+                            ("value", AnyType::direct_underlying_type()),
+                        ],
+                        Some(AnyType::direct_underlying_type()
+                    ))))
+                )
+
+                -> Some(UntypedListType::direct_underlying_type()),
+
+                |_, Args { list, mapper }, ArgsAt { list: _, mapper: mapper_at }, ArgsTy { list: _, mapper: mapper_ty }, ctx| {
+                    let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at.unwrap_or_else(forge_internal_loc));
+
+                    let mapped = list
+                        .read()
+                        .iter()
+                        .enumerate()
+                        .map(|(index, value)| -> ExecResult<RuntimeValue> {
+                            let ret = call_fn_checked(
+                                &mapper,
+                                mapper_ty.base_typing().signature(),
+                                vec![
+                                    RuntimeValue::Int(index.try_into().expect("list contains too many elements to be represented by an integer")),
+                                    value.clone()
+                                ],
+                                ctx
+                            )?;
+
+                            Ok(ret.expect("internal error: mapper did not return an error (should have been caught before returning)").value)
+                        })
+                        .collect::<Result<_, _>>()?;
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(mapped))))
                 }
             ),
         ],
