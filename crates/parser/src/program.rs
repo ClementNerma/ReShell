@@ -1112,7 +1112,7 @@ pub fn program() -> impl Parser<Program> {
             // Base blocks
             //
             just("do")
-                .ignore_then(ms)
+                .ignore_then(s)
                 .ignore_then(block.spanned())
                 .map(Instruction::BaseBlock),
             //
