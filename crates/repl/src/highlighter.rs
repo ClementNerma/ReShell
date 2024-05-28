@@ -265,3 +265,13 @@ fn highlight(input: &str) -> StyledText {
 
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{utils::syntax::compute_highlight_pieces, highlighter::RULE_SET};
+
+    #[test]
+    fn tmp() {
+        println!("{:?}", compute_highlight_pieces("\"\" -", &RULE_SET));
+    }
+}
