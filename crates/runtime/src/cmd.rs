@@ -457,7 +457,7 @@ fn exec_cmd(
     }
 
     // Determine the command name (or path)
-    let cmd_path = treat_cwd_raw(name, ctx)?;
+    let cmd_path = treat_cwd_raw(&name.data, name.at, ctx)?;
 
     // Resolve the command name to a binary's path
     let cmd_path = ctx
@@ -695,16 +695,24 @@ pub fn eval_cmd_computed_string(
         .data
         .pieces
         .iter()
-        .map(|piece| eval_cmd_computed_string_piece(piece, ctx))
+        .enumerate()
+        .map(|(i, piece)| eval_cmd_computed_string_piece(piece, i == 0, ctx))
         .collect::<Result<String, _>>()
 }
 
 fn eval_cmd_computed_string_piece(
     piece: &Eaten<CmdComputedStringPiece>,
+    transmute_tilde: bool,
     ctx: &mut Context,
 ) -> ExecResult<String> {
     match &piece.data {
-        CmdComputedStringPiece::Literal(str) => Ok(str.clone()),
+        CmdComputedStringPiece::Literal(str) => {
+            if transmute_tilde {
+                treat_cwd_raw(str, piece.at, ctx)
+            } else {
+                Ok(str.clone())
+            }
+        }
         CmdComputedStringPiece::Escaped(char) => Ok(char.to_string()),
         CmdComputedStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name)
@@ -721,29 +729,25 @@ fn eval_cmd_computed_string_piece(
     }
 }
 
-fn treat_cwd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {
+fn treat_cwd_raw(raw: &str, raw_at: CodeRange, ctx: &Context) -> ExecResult<String> {
     let home_dir = || {
         ctx.home_dir()
-            .ok_or_else(|| ctx.error(raw.at, "home directory was not defined in context"))?
+            .ok_or_else(|| ctx.error(raw_at, "home directory was not defined in context"))?
             .to_str()
             .ok_or_else(|| {
                 ctx.error(
-                    raw.at,
+                    raw_at,
                     "home directory path contains invalid UTF-8 characters",
                 )
             })
     };
 
-    let out = if raw.data == "~" {
+    let out = if raw == "~" {
         home_dir()?.to_owned()
-    } else if let Some(rest) = raw
-        .data
-        .strip_prefix("~/")
-        .or_else(|| raw.data.strip_prefix("~\\"))
-    {
+    } else if let Some(rest) = raw.strip_prefix("~/").or_else(|| raw.strip_prefix("~\\")) {
         format!("{}{MAIN_SEPARATOR}{rest}", home_dir()?)
     } else {
-        raw.data.clone()
+        raw.to_owned()
     };
 
     Ok(out)
