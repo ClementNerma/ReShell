@@ -162,6 +162,9 @@ fn parse_fn_call_args(
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
     let mut call_args = flatten_fn_call_args(call_args, ctx)?;
 
+    // Reverse call args so we can .pop() them! without shifting elements
+    call_args.reverse();
+
     let mut out = HashMap::<String, ValidatedFnCallArg>::new();
     let mut rest_args = None::<Vec<CmdSingleArgResult>>;
 
