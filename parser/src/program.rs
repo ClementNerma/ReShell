@@ -665,10 +665,12 @@ pub fn program() -> impl Parser<Program> {
             .spanned()
             .separated_by(s)
             .spanned()
+            .then(just("@raw").to(()).spanned().then_ignore(s).or_not())
             .then(cmd_path.clone().spanned())
             .then(s.ignore_then(cmd_arg.spanned()).repeated_vec().spanned())
-            .map(|((env_vars, path), args)| SingleCmdCall {
+            .map(|(((env_vars, raw_call), path), args)| SingleCmdCall {
                 env_vars,
+                raw_call,
                 path,
                 args,
             });
