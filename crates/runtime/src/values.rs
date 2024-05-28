@@ -312,11 +312,11 @@ pub fn value_to_str(
     ctx: &Context,
 ) -> ExecResult<String> {
     match value {
+        RuntimeValue::Bool(bool) => Ok(bool.to_string()),
         RuntimeValue::Int(num) => Ok(num.to_string()),
         RuntimeValue::Float(num) => Ok(num.to_string()),
         RuntimeValue::String(str) => Ok(str.clone()),
         RuntimeValue::Null
-        | RuntimeValue::Bool(_)
         | RuntimeValue::List(_)
         | RuntimeValue::Range { from: _, to: _ }
         | RuntimeValue::Map(_)
