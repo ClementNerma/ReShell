@@ -78,39 +78,35 @@ pub fn program() -> impl Parser<Program> {
                 .not_followed_by(possible_ident_char.clone())
                 .to(SingleValueType::Error),
             just("struct")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::UntypedStruct),
+            fn_signature.clone().map(SingleValueType::Function),
+            ident.clone().spanned().map(SingleValueType::TypeAlias),
+            ms.ignore_then(char('{'))
+                .ignore_then(msnl)
                 .ignore_then(
-                    ms.ignore_then(char('{'))
-                        .ignore_then(msnl)
-                        .ignore_then(
-                            ident
+                    ident
+                        .clone()
+                        .spanned()
+                        .map(MaybeEaten::Eaten)
+                        .then_ignore(ms)
+                        .then_ignore(char(':').critical("expected a ':'"))
+                        .then_ignore(msnl)
+                        .then(
+                            value_type
                                 .clone()
                                 .spanned()
                                 .map(MaybeEaten::Eaten)
-                                .then_ignore(ms)
-                                .then_ignore(char(':').critical("expected a ':'"))
-                                .then_ignore(msnl)
-                                .then(
-                                    value_type
-                                        .clone()
-                                        .spanned()
-                                        .map(MaybeEaten::Eaten)
-                                        .critical("expected a value type"),
-                                )
-                                .map(|(name, typ)| StructTypeMember { name, typ })
-                                .spanned()
-                                .map(MaybeEaten::Eaten)
-                                .separated_by(char(',').padded()),
+                                .critical("expected a value type"),
                         )
-                        .then_ignore(msnl)
-                        .then_ignore(char('}').critical("expected a closing brace '}'"))
-                        .or_not(),
+                        .map(|(name, typ)| StructTypeMember { name, typ })
+                        .spanned()
+                        .map(MaybeEaten::Eaten)
+                        .separated_by(char(',').padded()),
                 )
-                .map(|members| match members {
-                    Some(members) => SingleValueType::TypedStruct(members),
-                    None => SingleValueType::UntypedStruct,
-                }),
-            fn_signature.clone().map(SingleValueType::Function),
-            ident.clone().spanned().map(SingleValueType::TypeAlias),
+                .then_ignore(msnl)
+                .then_ignore(char('}').critical("expected a closing brace '}'"))
+                .map(SingleValueType::TypedStruct),
         ));
 
         value_type.finish(

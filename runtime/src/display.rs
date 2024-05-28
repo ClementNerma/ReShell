@@ -69,7 +69,7 @@ pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<
                 ));
             }
 
-            format!("struct {{ {} }}", args.join(",")).into()
+            format!("struct {{ {} }}", args.join(", ")).into()
         }
         SingleValueType::Function(signature) => dbg_fn_signature(&signature, ctx).into(),
         SingleValueType::Error => "error".into(),
