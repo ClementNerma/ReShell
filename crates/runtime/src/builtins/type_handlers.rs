@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display, marker::PhantomData};
 
+use colored::Colorize;
 use parsy::{CodeRange, MaybeEaten};
 use reshell_parser::ast::{FnSignature, SingleValueType, StructTypeMember, ValueType};
 
@@ -19,7 +20,7 @@ macro_rules! declare_basic_types {
             pub struct $name;
 
             impl ArgSingleTyping for $name {
-                fn arg_single_type(&self) -> SingleValueType {
+                fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::$variant
                 }
 
@@ -109,7 +110,7 @@ pub struct ExactIntType<From: SpecificIntType> {
 }
 
 impl<From: SpecificIntType> ArgSingleTyping for ExactIntType<From> {
-    fn arg_single_type(&self) -> SingleValueType {
+    fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Int
     }
 
@@ -152,9 +153,9 @@ impl<Inner: ArgTyping> DetachedListType<Inner> {
     }
 }
 
-impl<Inner: ArgTyping> ArgTyping for DetachedListType<Inner> {
-    fn arg_type(&self) -> ValueType {
-        ValueType::Single(MaybeEaten::Raw(SingleValueType::List))
+impl<Inner: ArgTyping> ArgSingleTyping for DetachedListType<Inner> {
+    fn underlying_single_type(&self) -> SingleValueType {
+        SingleValueType::List
     }
 
     type Parsed = Vec<Inner::Parsed>;
@@ -176,8 +177,8 @@ impl<Inner: ArgTyping> ArgTyping for DetachedListType<Inner> {
     }
 }
 
-impl<Inner: ArgTypingDirectCreation> ArgTypingDirectCreation for DetachedListType<Inner> {
-    fn new_direct() -> Self {
+impl<Inner: ArgTypingDirectCreation> ArgSingleTypingDirectCreation for DetachedListType<Inner> {
+    fn new_single_direct() -> Self {
         Self::new(Inner::new_direct())
     }
 }
@@ -191,7 +192,7 @@ impl ArgSingleTypingDirectCreation for UntypedFunctionType {
 }
 
 impl ArgSingleTyping for UntypedFunctionType {
-    fn arg_single_type(&self) -> SingleValueType {
+    fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Function(MaybeEaten::Raw(
             // Universal signature (TODO: doesn't work :p)
             FnSignature {
@@ -211,6 +212,87 @@ impl ArgSingleTyping for UntypedFunctionType {
     }
 }
 
+pub struct MapType;
+
+impl ArgSingleTyping for MapType {
+    fn underlying_single_type(&self) -> SingleValueType {
+        SingleValueType::Map
+    }
+
+    type Parsed = GcCell<HashMap<String, RuntimeValue>>;
+
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        match value {
+            RuntimeValue::Map(map) => Ok(map),
+            _ => Err("expected a map".to_owned()),
+        }
+    }
+}
+
+impl ArgSingleTypingDirectCreation for MapType {
+    fn new_single_direct() -> Self {
+        Self
+    }
+}
+
+pub struct Tuple2Type<A: ArgTyping, B: ArgTyping> {
+    a: A,
+    b: B,
+}
+
+impl<A: ArgTyping, B: ArgTyping> Tuple2Type<A, B> {
+    pub fn new(a: A, b: B) -> Self {
+        Self { a, b }
+    }
+}
+
+impl<A: ArgTyping, B: ArgTyping> ArgSingleTyping for Tuple2Type<A, B> {
+    fn underlying_single_type(&self) -> SingleValueType {
+        SingleValueType::List
+    }
+
+    type Parsed = (A::Parsed, B::Parsed);
+
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        let items = match value {
+            RuntimeValue::List(items) => items,
+            _ => return Err("expected a tuple (list)".to_owned()),
+        };
+
+        let items = items.read();
+
+        if items.len() != 2 {
+            return Err(format!(
+                "tuple is expected to contain exactly 2 elements, contains {}",
+                items.len()
+            ));
+        }
+
+        let a = self
+            .a
+            .parse(items[0].clone())
+            .map_err(|err| format!("error in tuple's first element: {err}"))?;
+
+        let b = self
+            .b
+            .parse(items[1].clone())
+            .map_err(|err| format!("error in tuple's second element: {err}"))?;
+
+        Ok((a, b))
+    }
+}
+
+impl<A: ArgTypingDirectCreation, B: ArgTypingDirectCreation> ArgSingleTypingDirectCreation
+    for Tuple2Type<A, B>
+{
+    fn new_single_direct() -> Self {
+        Self {
+            a: A::new_direct(),
+            b: B::new_direct(),
+        }
+    }
+}
+
 pub struct Union2Type<A: ArgSingleTyping, B: ArgSingleTyping> {
     a: A,
     b: B,
@@ -223,10 +305,10 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping> Union2Type<A, B> {
 }
 
 impl<A: ArgSingleTyping, B: ArgSingleTyping> ArgTyping for Union2Type<A, B> {
-    fn arg_type(&self) -> ValueType {
+    fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            MaybeEaten::Raw(self.a.arg_single_type()),
-            MaybeEaten::Raw(self.b.arg_single_type()),
+            MaybeEaten::Raw(self.a.underlying_single_type()),
+            MaybeEaten::Raw(self.b.underlying_single_type()),
         ])
     }
 
@@ -237,7 +319,10 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping> ArgTyping for Union2Type<A, B> {
             Ok(value) => Ok(Union2Result::A(value)),
             Err(a_err) => match self.b.parse(value) {
                 Ok(value) => Ok(Union2Result::B(value)),
-                Err(b_err) => Err(format!("union error: {a_err} | {b_err}")),
+                Err(b_err) => Err(format!(
+                    "union error: {a_err} {} {b_err}",
+                    "/".bright_yellow()
+                )),
             },
         }
     }
@@ -269,11 +354,11 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> Union3Type<A, B
 }
 
 impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> ArgTyping for Union3Type<A, B, C> {
-    fn arg_type(&self) -> ValueType {
+    fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            MaybeEaten::Raw(self.a.arg_single_type()),
-            MaybeEaten::Raw(self.b.arg_single_type()),
-            MaybeEaten::Raw(self.c.arg_single_type()),
+            MaybeEaten::Raw(self.a.underlying_single_type()),
+            MaybeEaten::Raw(self.b.underlying_single_type()),
+            MaybeEaten::Raw(self.c.underlying_single_type()),
         ])
     }
 
@@ -286,7 +371,11 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> ArgTyping for U
                 Ok(value) => Ok(Union3Result::B(value)),
                 Err(b_err) => match self.c.parse(value) {
                     Ok(c) => Ok(Union3Result::C(c)),
-                    Err(c_err) => Err(format!("union error: {a_err} | {b_err} | {c_err}")),
+                    Err(c_err) => Err(format!(
+                        "union error: {a_err} {} {b_err} {} {c_err}",
+                        "/".bright_yellow(),
+                        "/".bright_yellow()
+                    )),
                 },
             },
         }
@@ -328,12 +417,12 @@ macro_rules! declare_typed_struct_type {
             }
 
             impl<$($generic: ArgTyping),+> ArgSingleTyping for $struct<$($generic),+> {
-                fn arg_single_type(&self) -> SingleValueType {
+                fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::TypedStruct(vec![
                         $(
                             MaybeEaten::Raw(StructTypeMember {
                                 name: MaybeEaten::Raw(self.$member.0.clone()),
-                                typ: MaybeEaten::Raw(self.$member.1.arg_type())
+                                typ: MaybeEaten::Raw(self.$member.1.underlying_type())
                             })
                         ),+
                     ])

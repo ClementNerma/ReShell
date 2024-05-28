@@ -25,7 +25,7 @@ impl ArgNames {
 }
 
 pub trait ArgSingleTyping {
-    fn arg_single_type(&self) -> SingleValueType;
+    fn underlying_single_type(&self) -> SingleValueType;
 
     type Parsed;
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
@@ -36,15 +36,15 @@ pub trait ArgSingleTypingDirectCreation: ArgSingleTyping {
 }
 
 pub trait ArgTyping {
-    fn arg_type(&self) -> ValueType;
+    fn underlying_type(&self) -> ValueType;
 
     type Parsed;
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
 impl<T: ArgSingleTyping> ArgTyping for T {
-    fn arg_type(&self) -> ValueType {
-        ValueType::Single(MaybeEaten::Raw(self.arg_single_type()))
+    fn underlying_type(&self) -> ValueType {
+        ValueType::Single(MaybeEaten::Raw(self.underlying_single_type()))
     }
 
     type Parsed = T::Parsed;
@@ -201,18 +201,19 @@ pub(super) fn generate_internal_arg_decl<
         },
         is_optional: arg.is_optional(),
         is_rest: arg.is_rest(),
-        typ: Some(forge_internal_token(arg.base_typing().arg_type())),
+        typ: Some(forge_internal_token(arg.base_typing().underlying_type())),
     }
 }
 
 pub struct InternalFunction {
     pub args: Vec<FnArg>,
     pub run: InternalFnBody,
+    pub ret_type: Option<ValueType>,
 }
 
 #[macro_export]
 macro_rules! define_internal_fn {
-    ($args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ), $run: expr) => {{
+    ($args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
         use std::collections::HashMap;
 
         use reshell_parser::ast::FnArg;
@@ -301,6 +302,6 @@ macro_rules! define_internal_fn {
                 .map(|value| value.map(|value| LocatedValue::new(value, forge_internal_loc())))
         }
 
-        InternalFunction { args: build_args_decl(), run }
+        InternalFunction { args: build_args_decl(), run, ret_type: $ret_type }
     }};
 }
