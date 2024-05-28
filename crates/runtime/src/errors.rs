@@ -17,18 +17,18 @@ pub struct ExecError {
     pub nature: ExecErrorNature,
     /// Call stack
     pub call_stack: CallStack,
-    /// Optional note on the error
-    pub note: Option<String>,
+    /// Additional informations
+    pub infos: Vec<(ExecErrorInfoType, String)>,
 }
 
 impl ExecError {
-    /// Add a note to the error
-    pub fn with_note(mut self: Box<Self>, note: impl Into<String>) -> Box<Self> {
-        // TODO: allow multiple notes
-        assert!(self.note.is_none());
-        // =======
-
-        self.note = Some(note.into());
+    /// Add an information to the error
+    pub fn with_info(
+        mut self: Box<Self>,
+        info_type: ExecErrorInfoType,
+        content: impl Into<String>,
+    ) -> Box<Self> {
+        self.infos.push((info_type, content.into()));
         self
     }
 }
@@ -71,4 +71,11 @@ impl From<ParsingError> for ExecErrorNature {
     fn from(value: ParsingError) -> Self {
         Self::ParsingErr(value)
     }
+}
+
+/// Error's additional information type
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ExecErrorInfoType {
+    Note,
+    Tip,
 }

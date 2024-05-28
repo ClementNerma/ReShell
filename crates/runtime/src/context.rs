@@ -365,7 +365,7 @@ impl Context {
             at: at.into(),
             nature: nature.into(),
             call_stack: current_scope.call_stack.clone(),
-            note: None, // can be changed with .with_note()
+            infos: vec![],
         })
     }
 
