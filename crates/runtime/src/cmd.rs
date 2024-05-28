@@ -21,7 +21,6 @@ use crate::{
     values::{LocatedValue, RuntimeCmdAlias, RuntimeValue},
 };
 
-// TODO: this should be able to return an InstrRet
 pub fn run_cmd(
     call: &Eaten<CmdCall>,
     ctx: &mut Context,
@@ -242,20 +241,17 @@ fn eval_cmd_chain_el_content(
             } = call;
 
             match nature {
-                NonCmdCallNature::Function { is_var_name, name } => {
-                    // TODO: handle non-success cases (e.g. Thrown)
-                    eval_fn_call(
-                        &Eaten::ate(
-                            at,
-                            FnCall {
-                                is_var_name,
-                                name,
-                                call_args,
-                            },
-                        ),
-                        ctx,
-                    )
-                }
+                NonCmdCallNature::Function { is_var_name, name } => eval_fn_call(
+                    &Eaten::ate(
+                        at,
+                        FnCall {
+                            is_var_name,
+                            name,
+                            call_args,
+                        },
+                    ),
+                    ctx,
+                ),
 
                 NonCmdCallNature::Expr(expr) => {
                     let result = eval_expr(&expr.data, ctx)?;
@@ -312,10 +308,8 @@ fn eval_cmd_chain_el_content(
                 })
                 .stdout(
                     if capture_stdout || next_pipe_type == Some(CmdPipeType::Stdout) {
-                        // println!("(piped) {}", name.data);
                         Stdio::piped()
                     } else {
-                        // println!("(inherit) {}", name.data);
                         Stdio::inherit()
                     },
                 )

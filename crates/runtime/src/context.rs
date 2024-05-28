@@ -211,20 +211,66 @@ impl Context {
             .rev()
     }
 
+    /// (Internal) Generate a checker scope from a runtime scope
+    fn generate_checker_scope(&self, scope: &Scope) -> CheckerScope {
+        assert!(scope.id == NATIVE_LIB_SCOPE_ID || scope.id == FIRST_SCOPE_ID);
+
+        let Scope { range, content, .. } = &scope;
+
+        let ScopeContent {
+            vars,
+            fns,
+            cmd_aliases,
+        } = &content;
+
+        CheckerScope {
+            code_range: *range,
+
+            deps: false,
+            typ: None,
+
+            cmd_aliases: cmd_aliases
+                .iter()
+                .map(|(key, value)| (key.clone(), value.name_at))
+                .collect(),
+
+            type_aliases: match range {
+                RuntimeCodeRange::Internal => Default::default(),
+                RuntimeCodeRange::CodeRange(range) => self
+                    .type_aliases_decl
+                    .get(range)
+                    .cloned()
+                    .unwrap_or_default(),
+            },
+
+            fns: fns
+                .iter()
+                .map(|(name, scope_fn)| (name.clone(), scope_fn.name_at))
+                .collect(),
+
+            vars: vars
+                .iter()
+                .map(|(name, decl)| {
+                    (
+                        name.clone(),
+                        DeclaredVar {
+                            is_mut: decl.is_mut,
+                            name_at: decl.name_at,
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+
     /// Get the native library scope (only scope to never be removed) for checker
     pub fn native_lib_scope_for_checker(&self) -> CheckerScope {
-        self.scopes
-            .get(&NATIVE_LIB_SCOPE_ID)
-            .unwrap()
-            .to_checker_scope(self)
+        self.generate_checker_scope(self.scopes.get(&NATIVE_LIB_SCOPE_ID).unwrap())
     }
 
     /// Get the very first user scope (only scope to never be removed) for checker
     pub fn first_scope_for_checker(&self) -> CheckerScope {
-        self.scopes
-            .get(&FIRST_SCOPE_ID)
-            .unwrap()
-            .to_checker_scope(self)
+        self.generate_checker_scope(self.scopes.get(&FIRST_SCOPE_ID).unwrap())
     }
 
     /// Get content of the (immutable) native library scope
@@ -675,10 +721,6 @@ impl Scope {
             },
         }
     }
-
-    fn to_checker_scope(&self, ctx: &Context) -> CheckerScope {
-        self.content.to_checker_scope(self.range, ctx)
-    }
 }
 
 /// Content of a scope
@@ -702,54 +744,6 @@ impl ScopeContent {
             vars: HashMap::new(),
             fns: HashMap::new(),
             cmd_aliases: HashMap::new(),
-        }
-    }
-
-    /// Create a [`CheckerScope`] from this one
-    fn to_checker_scope(&self, range: RuntimeCodeRange, ctx: &Context) -> CheckerScope {
-        let ScopeContent {
-            vars,
-            fns,
-            cmd_aliases,
-        } = self;
-
-        CheckerScope {
-            code_range: range,
-
-            deps: false, // TODO: isn't that incorrect?
-            typ: None,
-
-            cmd_aliases: cmd_aliases
-                .iter()
-                .map(|(key, value)| (key.clone(), value.name_at))
-                .collect(),
-
-            type_aliases: match range {
-                RuntimeCodeRange::Internal => Default::default(),
-                RuntimeCodeRange::CodeRange(range) => ctx
-                    .type_aliases_decl
-                    .get(&range)
-                    .cloned()
-                    .unwrap_or_default(),
-            },
-
-            fns: fns
-                .iter()
-                .map(|(name, scope_fn)| (name.clone(), scope_fn.name_at))
-                .collect(),
-
-            vars: vars
-                .iter()
-                .map(|(name, decl)| {
-                    (
-                        name.clone(),
-                        DeclaredVar {
-                            is_mut: decl.is_mut,
-                            name_at: decl.name_at,
-                        },
-                    )
-                })
-                .collect(),
         }
     }
 }
