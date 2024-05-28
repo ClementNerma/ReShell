@@ -11,7 +11,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    completer, editor, highlighter, hinter, history,
+    completer, edit_mode, highlighter, hinter, history,
     prompt::Prompt,
     reports,
     state::{with_writable_rt_ctx, RUNTIME_CONTEXT},
@@ -26,7 +26,7 @@ pub fn start() {
         .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
         .with_completer(completer::create_completer())
-        .with_edit_mode(editor::create_edit_mode())
+        .with_edit_mode(edit_mode::create_edit_mode())
         .with_quick_completions(true)
         .with_partial_completions(true);
 

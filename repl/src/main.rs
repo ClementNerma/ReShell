@@ -10,7 +10,7 @@ use std::fs;
 
 mod cmd;
 mod completer;
-mod editor;
+mod edit_mode;
 mod highlighter;
 mod highlighting;
 mod hinter;
