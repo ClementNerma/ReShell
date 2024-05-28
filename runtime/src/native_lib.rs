@@ -378,19 +378,19 @@ pub fn generate_native_lib() -> Scope {
         //
         // check if path exists
         //
-        native_fn!(path_exists (path: String) -> (Bool) {
+        native_fn!(pathExists (path: String) -> (Bool) {
             Ok(Some(RuntimeValue::Bool(Path::new(&path).exists())))
         }),
         //
         // check if file exists
         //
-        native_fn!(file_exists (path: String) -> (Bool) {
+        native_fn!(fileExists (path: String) -> (Bool) {
             Ok(Some(RuntimeValue::Bool(Path::new(&path).is_file())))
         }),
         //
         // check if directory exists
         //
-        native_fn!(dir_exists (path: String) -> (Bool) {
+        native_fn!(dirExists (path: String) -> (Bool) {
             Ok(Some(RuntimeValue::Bool(Path::new(&path).is_dir())))
         }),
         //
