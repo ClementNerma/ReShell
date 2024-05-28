@@ -65,16 +65,18 @@ macro_rules! native_fn {
                 declared_at: forge_internal_token(()).at,
                 value: GcCell::new(RuntimeFnValue {
                     signature: FnSignature {
-                        args: vec![
-                            $(
-                                FnArg {
-                                    names: forge_arg_names!($arg_name, $(--$arg_long)? $(-$arg_short)?),
-                                    is_rest: arg_rest!($($rest_type)?),
-                                    is_optional: false,
-                                    typ: Some(forge_internal_token(ValueType::Single(MaybeEaten::Raw(SingleValueType::$arg_type)))),
-                                }
-                            ),*
-                        ],
+                        args: forge_internal_token(
+                            vec![
+                                $(
+                                    FnArg {
+                                        names: forge_arg_names!($arg_name, $(--$arg_long)? $(-$arg_short)?),
+                                        is_rest: arg_rest!($($rest_type)?),
+                                        is_optional: false,
+                                        typ: Some(forge_internal_token(ValueType::Single(MaybeEaten::Raw(SingleValueType::$arg_type)))),
+                                    }
+                                ),*
+                            ]
+                        ),
 
                         ret_type: value_type!($($ret_type $(| $ret_other_type)*)?)
                     },
@@ -227,6 +229,25 @@ pub fn generate_native_lib() -> Scope {
             Ok(None)
         }),
         //
+        // debug a value's type
+        //
+        native_fn!(dbgtype (value: Any [at]) [ctx] {
+            // TODO: disable color if we're not in a terminal
+            let at = format!("dbgtype [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
+
+            println!("{} {}", at.bright_magenta(), value.get_type().render_colored(ctx, PrettyPrintOptions {
+                pretty: true,
+                line_prefix_size: at.chars().count(),
+                max_line_size: match terminal_size() {
+                    Some((Width(cols), Height(_))) => cols.into(),
+                    None => 30 // todo: make this a static?
+                },
+                tab_size: 4 // todo: make this configurable?
+            }));
+
+            Ok(None)
+        }),
+        //
         // create an error
         //
         native_fn!(error (msg: String [msg_from]) -> (Error) {
@@ -340,7 +361,7 @@ pub fn generate_native_lib() -> Scope {
             let fork = fork().map_err(|_| ctx.error(at, "failed to fork the process (unknown error occurred)"))?;
 
             if let Fork::Child = fork {
-                call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: vec![], ret_type: None }, vec![], ctx)?;
+                call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: forge_internal_token(vec![]), ret_type: None }, vec![], ctx)?;
 
                 std::process::exit(0);
             }
@@ -458,7 +479,12 @@ pub fn generate_native_lib() -> Scope {
         native_fn!(howlong (closure: Any [closure_at]) [ctx] -> (Int) {
             let start = Instant::now();
 
-            call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: vec![], ret_type: None }, vec![], ctx)?;
+            call_fn_checked(
+                &LocatedValue::new(closure, closure_at),
+                &FnSignature { args: forge_internal_token(vec![]), ret_type: None },
+                vec![],
+                ctx
+            )?;
 
             Ok(Some(RuntimeValue::Int(start.elapsed().as_millis() as i64)))
         }),
@@ -549,8 +575,8 @@ pub fn generate_native_lib_for_checker() -> reshell_checker::Scope {
     //////////
 
     reshell_checker::Scope {
-        is_fn_body: false,
         code_range: forge_internal_loc(),
+        fn_args_at: None,
         cmd_aliases: HashSet::new(),
         types: HashSet::new(),
         fns: fns
@@ -594,7 +620,7 @@ pub fn render_prompt(
     }
 
     let expected_signature = FnSignature {
-        args: vec![FnArg {
+        args: forge_internal_token(vec![FnArg {
             names: FnArgNames::NotFlag(forge_internal_token("prompt_data".to_string())),
             is_optional: false,
             is_rest: false,
@@ -602,7 +628,7 @@ pub fn render_prompt(
                 // TODO: fully typed struct
                 MaybeEaten::Raw(SingleValueType::UntypedStruct),
             ))),
-        }],
+        }]),
         ret_type: Some(forge_internal_token(Box::new(ValueType::Single(
             // TODO: fully typed struct
             MaybeEaten::Raw(SingleValueType::UntypedStruct),

@@ -212,9 +212,10 @@ pub struct StructTypeMember {
     pub typ: MaybeEaten<ValueType>,
 }
 
+// TODO: this struct can be very expensive to clone, put it inside an Arc<> or something?
 #[derive(Debug, Clone)]
 pub struct FnSignature {
-    pub args: Vec<FnArg>,
+    pub args: Eaten<Vec<FnArg>>,
     pub ret_type: Option<Eaten<Box<ValueType>>>,
 }
 

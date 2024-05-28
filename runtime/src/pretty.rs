@@ -196,10 +196,10 @@ impl PrintablePiece {
                     w(&Colored(format!("\n{}", " ".repeat(current_ident)), None));
 
                     w(end);
+                }
 
-                    if let Some(suffix) = suffix {
-                        suffix.render_inner(opts, w, current_ident);
-                    }
+                if let Some(suffix) = suffix {
+                    suffix.render_inner(opts, w, current_ident);
                 }
             }
 

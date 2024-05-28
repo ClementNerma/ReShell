@@ -57,9 +57,7 @@ pub fn check_if_single_type_fits_single(
                 .visible_scopes()
                 .flat_map(|scope| scope.content.types.iter())
                 .find(|(typename, _)| typename == &&name.data)
-                .ok_or_else(|| {
-                    ctx.error(name.at, format!("type alias {} was not found", name.data))
-                })?;
+                .ok_or_else(|| ctx.error(name.at, format!("type '{}' was not found", name.data)))?;
 
             check_if_single_type_fits(value_type, typ, ctx)
         }
@@ -142,11 +140,11 @@ pub fn check_fn_equality(
     into: &FnSignature,
     ctx: &Context,
 ) -> ExecResult<bool> {
-    if signature.args.len() != into.args.len() {
+    if signature.args.data.len() != into.args.data.len() {
         return Ok(false);
     }
 
-    for (arg, cmp_arg) in signature.args.iter().zip(into.args.iter()) {
+    for (arg, cmp_arg) in signature.args.data.iter().zip(into.args.data.iter()) {
         if arg.is_optional != cmp_arg.is_optional {
             return Ok(false);
         }

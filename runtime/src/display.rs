@@ -276,6 +276,7 @@ impl PrettyPrintable for FnSignature {
         PrintablePiece::List {
             begin: Colored::with_color("fn(", Color::Blue),
             items: args
+                .data
                 .iter()
                 .map(|item| item.generate_pretty_data(ctx))
                 .collect(),

@@ -69,7 +69,7 @@ pub fn call_fn_value(
 ) -> ExecResult<FnCallResult> {
     let func = func.read();
 
-    let call_args = parse_fn_call_args(call_at, call_args, &func.signature.args, ctx)?;
+    let call_args = parse_fn_call_args(call_at, call_args, &func.signature.args.data, ctx)?;
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
