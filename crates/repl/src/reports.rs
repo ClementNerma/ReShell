@@ -172,6 +172,13 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let nature = format!("{}", nature.bright_red());
 
+    // NOTE: we add a space at the end as this library
+    // doesns't support end offsets
+    // (= offset after the source's last character)
+    // TODO: do that for the line the error occurs one (and only that one)
+    let mut source = source_file.content;
+    source.push(' ');
+
     let snippet = Snippet {
         title: Some(Annotation {
             label: Some(&nature),
@@ -180,7 +187,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         }),
         footer: vec![],
         slices: vec![Slice {
-            source: &source_file.content,
+            source: &source,
             line_start: 1, // TODO
             origin: Some(&display_file),
             fold: true, // ?

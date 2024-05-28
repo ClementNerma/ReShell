@@ -5,6 +5,7 @@
 
 mod approx_int_div;
 mod cd;
+mod chars;
 mod clone;
 mod current_dir;
 mod dbg;
@@ -56,6 +57,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
         functions: vec![
             // Collect function from individual modules
             self::cd::build_fn(),
+            self::chars::build_fn(),
             self::clone::build_fn(),
             self::current_dir::build_fn(),
             self::dbg::build_fn(),

@@ -657,10 +657,12 @@ pub fn program(
 
         let delimiter_chars = delimiter_chars();
 
-        let cmd_raw = filter(move |c| !c.is_whitespace() && !delimiter_chars.contains(&c))
-            .repeated()
-            .at_least(1)
-            .collect_string();
+        let cmd_raw = not(just("->")).ignore_then(
+            filter(move |c| !c.is_whitespace() && !delimiter_chars.contains(&c))
+                .repeated()
+                .at_least(1)
+                .collect_string(),
+        );
 
         let cmd_path = choice::<_, CmdPath>((
             // Direct
@@ -837,8 +839,8 @@ pub fn program(
                 .then(
                     ms.ignore_then(
                         choice::<_, CmdPipeType>((
-                            just("!|").to(CmdPipeType::Stderr),
                             just("->").to(CmdPipeType::Value),
+                            just("!|").to(CmdPipeType::Stderr),
                             char('|').to(CmdPipeType::Stdout),
                         ))
                         .spanned(),
@@ -848,7 +850,7 @@ pub fn program(
                         single_cmd_call
                             .clone()
                             .spanned()
-                            .critical("expected a command call after the pipe '|' symbol"),
+                            .critical("expected a command call after the pipe"),
                     )
                     .map(|(pipe_type, cmd)| CmdPipe { cmd, pipe_type })
                     .repeated_vec(),
