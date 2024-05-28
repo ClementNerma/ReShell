@@ -254,7 +254,7 @@ pub fn program(
                         .map(RuntimeEaten::Parsed),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char(')').critical("missing closing parenthesis for arguments list"))
+                .then_ignore(char(')').critical_expectation())
                 .then_ignore(ms)
                 .then(
                     just("->")
@@ -374,9 +374,7 @@ pub fn program(
                                 .padded_by(msnl)
                                 .critical("expected a command call"),
                         )
-                        .then_ignore(
-                            char(')').critical("missing closing parenthesis for command call ')'"),
-                        )
+                        .then_ignore(char(')').critical_expectation())
                         .map(ComputedStringPiece::CmdCall),
                     // Literal character suites
                     filter(|c| c != '"' && c != '\\' && c != '$')
@@ -671,9 +669,6 @@ pub fn program(
         );
 
         let dchars = delimiter_chars();
-        let delimitation = silent_choice((end(), filter(move |c| dchars.contains(&c))));
-
-        let dchars = delimiter_chars();
         let cmd_raw = not(just("->")).ignore_then(
             filter(move |c| !c.is_whitespace() && !dchars.contains(&c))
                 .repeated()
@@ -744,17 +739,25 @@ pub fn program(
             )
             .map(|(name, value)| CmdEnvVar { name, value });
 
+        let dchars = delimiter_chars();
+
         let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
             just("--")
-                .not_followed_by(char('-'))
-                .ignore_then(cmd_raw.clone())
+                .ignore_then(
+                    first_ident_char
+                        .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
+                        .collect_string(),
+                )
                 .map(CmdFlagNameArg::Long),
             char('-')
-                .not_followed_by(char('-'))
                 .ignore_then(first_ident_char)
-                .followed_by(delimitation)
                 .map(CmdFlagNameArg::Short),
-        ));
+        ))
+        .followed_by(silent_choice((
+            filter(move |c| dchars.contains(&c)),
+            char('='),
+            end(),
+        )));
 
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
             // Literal values
