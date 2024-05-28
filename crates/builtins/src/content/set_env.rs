@@ -15,7 +15,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { var_name, value }, _, ctx| {
-        let is_path_var = var_name.to_ascii_lowercase() == "PATH";
+        let is_path_var = var_name.to_ascii_uppercase() == "PATH";
 
         std::env::set_var(var_name, value);
 

@@ -40,7 +40,6 @@ impl BinariesResolver {
     }
 
     pub fn refresh(&mut self) -> Result<(), PathParsingError> {
-        println!("refreshed");
         self.path_dirs = Self::parse_path_var()?;
         self.clear();
         Ok(())
