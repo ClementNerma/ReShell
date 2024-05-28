@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
@@ -6,7 +8,7 @@ use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{
     context::CallStackEntry,
     display::dbg_loc,
-    errors::{ExecError, ExecErrorContent},
+    errors::{ExecError, ExecErrorNature},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
@@ -29,14 +31,20 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             (RuntimeCodeRange::CodeRange(at), err)
         }
 
-        ReportableError::Runtime(err) => match &err.content {
-            ExecErrorContent::Str(str) => (err.at, str.to_string()),
-            ExecErrorContent::String(string) => (err.at, string.clone()),
-            ExecErrorContent::ParsingErr(err) => {
+        ReportableError::Runtime(err) => match &err.nature {
+            ExecErrorNature::Exit { code: _ } => unreachable!(),
+            ExecErrorNature::Custom(message) => (
+                err.at,
+                match message {
+                    Cow::Borrowed(str) => (*str).to_owned(),
+                    Cow::Owned(string) => string.clone(),
+                },
+            ),
+            ExecErrorNature::ParsingErr(err) => {
                 let (at, err) = parsing_error(err);
                 (RuntimeCodeRange::CodeRange(at), err)
             }
-            ExecErrorContent::CommandFailed {
+            ExecErrorNature::CommandFailed {
                 message,
                 exit_status: _,
             } => (err.at, message.clone()),

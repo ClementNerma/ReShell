@@ -13,7 +13,7 @@ use reshell_parser::ast::{
 use crate::{
     context::{Context, DepsScopeCreationData, ScopeContent},
     display::value_to_str,
-    errors::{ExecErrorContent, ExecResult},
+    errors::{ExecErrorNature, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
     functions::{call_fn, call_fn_value, FnCallResult, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
@@ -183,7 +183,7 @@ pub fn run_cmd(
                     .map_err(|err| {
                         ctx.error(
                             path.at,
-                            ExecErrorContent::CommandFailed {
+                            ExecErrorNature::CommandFailed {
                                 message: format!("failed to start command '{}': {err}", path.data),
                                 exit_status: None,
                             },
@@ -205,7 +205,7 @@ pub fn run_cmd(
         let output = child.wait_with_output().map_err(|err| {
             ctx.error(
                 at,
-                ExecErrorContent::CommandFailed {
+                ExecErrorNature::CommandFailed {
                     message: format!("command failed: {err}"),
                     exit_status: None,
                 },
@@ -215,7 +215,7 @@ pub fn run_cmd(
         if !output.status.success() {
             return Err(ctx.error(
                 at,
-                ExecErrorContent::CommandFailed {
+                ExecErrorNature::CommandFailed {
                     message: format!(
                         "command failed{}",
                         match output.status.code() {

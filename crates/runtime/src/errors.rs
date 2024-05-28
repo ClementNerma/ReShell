@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use parsy::{FileId, ParsingError};
 use reshell_parser::ast::RuntimeCodeRange;
 
@@ -7,11 +9,10 @@ pub type ExecResult<T> = Result<T, Box<ExecError>>;
 
 #[derive(Debug)]
 pub struct ExecError {
-    pub has_exit_code: Option<u8>,
     pub at: RuntimeCodeRange,
     pub in_file: Option<FileId>,
     pub source_file: Option<SourceFile>,
-    pub content: ExecErrorContent,
+    pub nature: ExecErrorNature,
     pub call_stack: CallStack,
     pub scope_range: RuntimeCodeRange,
     pub note: Option<String>,
@@ -29,29 +30,31 @@ impl ExecError {
 }
 
 #[derive(Debug)]
-pub enum ExecErrorContent {
-    Str(&'static str),
-    String(String),
+pub enum ExecErrorNature {
+    Custom(Cow<'static, str>),
     ParsingErr(ParsingError),
     CommandFailed {
         message: String,
         exit_status: Option<i32>,
     },
+    Exit {
+        code: Option<u8>,
+    },
 }
 
-impl From<&'static str> for ExecErrorContent {
+impl From<&'static str> for ExecErrorNature {
     fn from(value: &'static str) -> Self {
-        Self::Str(value)
+        Self::Custom(Cow::Borrowed(value))
     }
 }
 
-impl From<String> for ExecErrorContent {
+impl From<String> for ExecErrorNature {
     fn from(value: String) -> Self {
-        Self::String(value)
+        Self::Custom(Cow::Owned(value))
     }
 }
 
-impl From<ParsingError> for ExecErrorContent {
+impl From<ParsingError> for ExecErrorNature {
     fn from(value: ParsingError) -> Self {
         Self::ParsingErr(value)
     }

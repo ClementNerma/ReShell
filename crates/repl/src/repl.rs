@@ -9,7 +9,7 @@ use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_runtime::{
     context::Context,
-    errors::ExecErrorContent,
+    errors::ExecErrorNature,
     exec::ProgramExitStatus,
     files_map::ScopableFilePath,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -103,7 +103,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
                 }
 
                 ProgramExitStatus::ExitRequested { code } => {
-                    return Some(ExitCode::from(code));
+                    return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
                 }
             },
 
@@ -118,11 +118,10 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             exit_code: ret.as_ref().err().and_then(|err| match err {
                 ReportableError::Parsing(_) => None,
                 ReportableError::Checking(_) => None,
-                ReportableError::Runtime(err) => match err.content {
-                    ExecErrorContent::Str(_) => None,
-                    ExecErrorContent::String(_) => None,
-                    ExecErrorContent::ParsingErr(_) => None,
-                    ExecErrorContent::CommandFailed {
+                ReportableError::Runtime(err) => match err.nature {
+                    ExecErrorNature::Custom(_) | ExecErrorNature::ParsingErr(_) => None,
+                    ExecErrorNature::Exit { code: _ } => unreachable!(),
+                    ExecErrorNature::CommandFailed {
                         message: _,
                         exit_status,
                     } => exit_status,

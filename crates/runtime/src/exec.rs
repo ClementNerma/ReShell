@@ -11,7 +11,7 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeVar, FIRST_SCOPE_ID,
     },
-    errors::ExecResult,
+    errors::{ExecErrorNature, ExecResult},
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
@@ -27,7 +27,7 @@ use crate::{
 #[must_use]
 pub enum ProgramExitStatus {
     Normal,
-    ExitRequested { code: u8 },
+    ExitRequested { code: Option<u8> },
 }
 
 pub fn run_program(
@@ -61,9 +61,15 @@ pub fn run_program(
         Err(err) => {
             ctx.reset_to_first_scope();
 
-            match err.has_exit_code {
-                None => Err(err),
-                Some(code) => Ok(ProgramExitStatus::ExitRequested { code }),
+            match err.nature {
+                ExecErrorNature::Custom(_)
+                | ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::CommandFailed {
+                    message: _,
+                    exit_status: _,
+                } => Err(err),
+
+                ExecErrorNature::Exit { code } => Ok(ProgramExitStatus::ExitRequested { code }),
             }
         }
     }
