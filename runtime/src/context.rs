@@ -40,7 +40,7 @@ impl Context {
                         call_stack: CallStack::empty(),
                         call_stack_entry: None,
                         content: ScopeContent::new(),
-                        parent_scopes: IndexSet::from([1]),
+                        parent_scopes: IndexSet::from([0]),
                         range: ScopeRange::SourceLess,
                     },
                 ),
