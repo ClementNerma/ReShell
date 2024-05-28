@@ -28,21 +28,27 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             }
         };
 
-    let open = |output: &mut Vec<NestingAction>,
-                opened: &mut Vec<(&'s str, usize)>,
-                offset: usize,
-                opening_str: &'s str| {
-        register_string_piece(output, opened, offset);
-        opened.push((opening_str, offset));
-    };
-
     let push = |output: &mut Vec<NestingAction>,
                 opened: &mut Vec<(&str, usize)>,
                 offset: usize,
                 len: usize,
                 action_type: NestingActionType| {
         register_string_piece(output, opened, offset);
+
         output.push(NestingAction::new(offset, len, action_type));
+    };
+
+    let open = |output: &mut Vec<NestingAction>,
+                opened: &mut Vec<(&'s str, usize)>,
+                offset: usize,
+                opening_str: &'s str| {
+        register_string_piece(output, opened, offset);
+        opened.push((opening_str, offset));
+        output.push(NestingAction::new(
+            offset,
+            opening_str.len(),
+            NestingActionType::Opening,
+        ));
     };
 
     for char in input.chars() {
@@ -122,23 +128,17 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 if let Some((opening_str, opening_offset)) = opened.last().copied() {
                     if matches!(
                         (opening_str, char),
-                        ("(" | "$(", ')') | ("[", ']') | ("{", '}')
+                        ("(" | "$(", ')') | ("[", ']') | ("{" | "${", '}')
                     ) {
-                        opened.pop();
-
                         push(
                             &mut output,
                             &mut opened,
-                            opening_offset,
-                            opening_str.len(),
-                            NestingActionType::Opening,
-                        );
-
-                        output.push(NestingAction::new(
                             offset,
                             1,
                             NestingActionType::Closing { opening_offset },
-                        ));
+                        );
+
+                        opened.pop();
 
                         continue;
                     }
@@ -156,18 +156,10 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             '"' => {
                 if let Some((opening_str, opening_offset)) = opened_strings.last().copied() {
                     if opened.last().copied() == Some((opening_str, opening_offset)) {
-                        register_string_piece(&mut output, &mut opened, offset);
+                        // register_string_piece(&mut output, &mut opened, offset);
 
                         opened.pop();
                         opened_strings.pop();
-
-                        push(
-                            &mut output,
-                            &mut opened,
-                            opening_offset,
-                            opening_str.len(),
-                            NestingActionType::Opening,
-                        );
 
                         push(
                             &mut output,
@@ -211,6 +203,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
     output
 }
 
+#[derive(Debug)]
 pub struct NestingAction {
     pub offset: usize,
     pub len: usize,
@@ -227,6 +220,7 @@ impl NestingAction {
     }
 }
 
+#[derive(Debug)]
 pub enum NestingActionType {
     Opening,
     Closing { opening_offset: usize },
