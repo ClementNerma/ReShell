@@ -5,7 +5,7 @@
 mod errors;
 mod state;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexSet;
 use parsy::Eaten;
@@ -725,13 +725,40 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
 fn check_fn_signature(signature: &FnSignature, state: &mut State) -> CheckerResult {
     let FnSignature { args, ret_type } = signature;
 
+    let mut used_idents = HashSet::new();
+
     for arg in &args.data {
         let FnArg {
-            names: _,
+            names,
             is_optional: _,
             is_rest: _,
             typ,
         } = arg;
+
+        let (long, short) = match names {
+            FnArgNames::NotFlag(name) => (Some(name), None),
+            FnArgNames::ShortFlag(flag) => (None, Some(flag)),
+            FnArgNames::LongFlag(flag) => (Some(flag), None),
+            FnArgNames::LongAndShortFlag { long, short } => (Some(long), Some(short)),
+        };
+
+        if let Some(long) = long {
+            if used_idents.contains(&long.data) {
+                return Err(CheckerError::new(long.at, "duplicate argument name "));
+            }
+
+            used_idents.insert(long.data.clone());
+        }
+
+        if let Some(short) = short {
+            let short_str = short.data.to_string();
+
+            if used_idents.contains(&short_str) {
+                return Err(CheckerError::new(short.at, "duplicate flag name"));
+            }
+
+            used_idents.insert(short_str);
+        }
 
         if let Some(typ) = typ {
             check_value_type(&typ.data, state)?;
