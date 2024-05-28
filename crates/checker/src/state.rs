@@ -1,6 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_parser::ast::ValueType;
 
@@ -13,10 +12,10 @@ pub struct State {
 
 #[derive(Debug)]
 pub struct CheckerOutput {
-    pub deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-    pub type_aliases: IndexMap<CodeRange, Eaten<ValueType>>,
-    pub type_aliases_usages: IndexMap<Eaten<String>, CodeRange>,
-    pub type_aliases_decl: IndexMap<CodeRange, HashMap<String, CodeRange>>,
+    pub deps: HashMap<CodeRange, HashSet<Dependency>>,
+    pub type_aliases: HashMap<CodeRange, Eaten<ValueType>>,
+    pub type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
+    pub type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
 }
 
 impl State {
@@ -24,10 +23,10 @@ impl State {
         Self {
             scopes: vec![],
             collected: CheckerOutput {
-                deps: IndexMap::new(),
-                type_aliases: IndexMap::new(),
-                type_aliases_usages: IndexMap::new(),
-                type_aliases_decl: IndexMap::new(),
+                deps: HashMap::new(),
+                type_aliases: HashMap::new(),
+                type_aliases_usages: HashMap::new(),
+                type_aliases_decl: HashMap::new(),
             },
         }
     }

@@ -1,6 +1,6 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::{HashMap, HashSet}, path::PathBuf};
 
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
 use reshell_parser::ast::ValueType;
@@ -28,10 +28,10 @@ pub struct Context {
     current_scope: u64,
     files_map: FilesMap,
     home_dir: Option<PathBuf>,
-    deps: IndexMap<CodeRange, IndexSet<Dependency>>,
-    type_aliases: IndexMap<CodeRange, Eaten<ValueType>>,
-    type_aliases_usages: IndexMap<Eaten<String>, CodeRange>,
-    type_aliases_decl: IndexMap<CodeRange, HashMap<String, CodeRange>>
+    deps: HashMap<CodeRange, HashSet<Dependency>>,
+    type_aliases: HashMap<CodeRange, Eaten<ValueType>>,
+    type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
+    type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>
 }
 
 impl Context {
@@ -71,11 +71,11 @@ impl Context {
             current_scope: FIRST_SCOPE_ID,
             files_map: FilesMap::new(),
             home_dir: conf.initial_home_dir.clone(),
-            deps: IndexMap::new(),
+            deps: HashMap::new(),
             deps_scopes: HashMap::new(),
-            type_aliases: IndexMap::new(),
-            type_aliases_usages: IndexMap::new(),
-            type_aliases_decl: IndexMap::new(),
+            type_aliases: HashMap::new(),
+            type_aliases_usages: HashMap::new(),
+            type_aliases_decl: HashMap::new(),
             conf,
         }
     }
@@ -118,7 +118,7 @@ impl Context {
         self.scopes.get(&FIRST_SCOPE_ID).unwrap()
     }
 
-    pub fn deps_for_debug(&self, from: &CodeRange) -> Option<&IndexSet<Dependency>> {
+    pub fn deps_for_debug(&self, from: &CodeRange) -> Option<&HashSet<Dependency>> {
         self.deps.get(from)
     }
 

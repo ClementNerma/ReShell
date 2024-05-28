@@ -1,4 +1,5 @@
-use indexmap::IndexMap;
+use std::collections::HashMap;
+
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
@@ -317,7 +318,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             let members = obj
                 .iter()
                 .map(|(name, expr)| eval_expr(&expr.data, ctx).map(|value| (name.clone(), value)))
-                .collect::<Result<IndexMap<String, RuntimeValue>, _>>()?;
+                .collect::<Result<HashMap<String, RuntimeValue>, _>>()?;
 
             Ok(RuntimeValue::Struct(GcCell::new(members)))
         }
