@@ -110,9 +110,6 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Command names
                 simple("(?:^|[\\|\\n])\\s*([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
-                // Function names
-                simple_followed_by("\\b([a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
-
                 // Variables
                 simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
 
@@ -145,7 +142,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
             ]),
             ("expressions", vec![
                 // Function calls
-                simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(", [Blue]),
+                simple_followed_by("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
 
                 // Types
                 simple("\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b", [Magenta]),
@@ -160,10 +157,10 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 simple("\\s(\\-[\\-a-zA-Z0-9_]*)", [LightYellow]),
 
                 // Variables
-                simple("(\\$[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
+                simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
 
-                // Single variable marker
-                simple("(\\$)", [Red]),
+                // Functions as values
+                simple("(\\@(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Magenta]),
 
                 // Numbers
                 simple("(\\d+(?:\\.\\d+)?)", [LightYellow]),
