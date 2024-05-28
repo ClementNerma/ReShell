@@ -76,14 +76,12 @@ pub fn program() -> impl Parser<Program> {
             just("error")
                 .not_followed_by(possible_ident_char.clone())
                 .to(SingleValueType::Error),
-            just("struct")
-                .not_followed_by(possible_ident_char.clone())
-                .to(SingleValueType::UntypedStruct),
             just("fn")
                 .ignore_then(fn_signature.clone())
                 .map(SingleValueType::Function),
-            ident.clone().spanned().map(SingleValueType::TypeAlias),
-            ms.ignore_then(char('{'))
+            just("struct")
+                .ignore_then(ms)
+                .ignore_then(char('{'))
                 .ignore_then(msnl)
                 .ignore_then(
                     ident
@@ -108,6 +106,10 @@ pub fn program() -> impl Parser<Program> {
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical("expected a closing brace '}'"))
                 .map(SingleValueType::TypedStruct),
+            just("struct")
+                .not_followed_by(possible_ident_char.clone())
+                .to(SingleValueType::UntypedStruct),
+            ident.clone().spanned().map(SingleValueType::TypeAlias),
         ));
 
         value_type.finish(
