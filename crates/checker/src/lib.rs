@@ -718,20 +718,20 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
 
             Some(chain_type) => {
                 if chain_type != call_type {
-                    return Err(CheckerError::new(
-                        call.at,
-                        match (call_type, chain_type) {
-                            (CmdPathTargetType::Function, CmdPathTargetType::ExternalCommand) => {
-                                "cannot pipe the result of a function into an external command"
-                            }
+                    return Err(match (call_type, chain_type) {
+                        (CmdPathTargetType::Function, CmdPathTargetType::ExternalCommand) => {
+                            CheckerError::new(
+                                call.at,
+                                "cannot pipe the result of a function into an external command",
+                            )
+                        }
 
-                            (CmdPathTargetType::ExternalCommand, CmdPathTargetType::Function) => {
-                                "cannot pipe the output of an external command into a function"
-                            }
+                        (CmdPathTargetType::ExternalCommand, CmdPathTargetType::Function) => {
+                            CheckerError::new(call.data.path.at, "function was not found")
+                        }
 
-                            _ => unreachable!(),
-                        },
-                    ));
+                        _ => unreachable!(),
+                    });
                 }
 
                 chain_type
