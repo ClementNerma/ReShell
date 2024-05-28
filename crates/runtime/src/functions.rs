@@ -737,7 +737,7 @@ pub fn find_applicable_method<'s>(
                 err = err.with_info(
                     ExecInfoType::Note,
                     format!(
-                        "found incompatible method with type: {}",
+                        "found method for another type: {}",
                         method
                             .on_type
                             .render_colored(ctx, PrettyPrintOptions::inline())
