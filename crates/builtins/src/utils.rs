@@ -89,7 +89,7 @@ pub fn call_fn_checked_with_parsed_args(
                     "type mismatch: expected a {}, found a {}",
                     expected_signature.render_colored(ctx, PrettyPrintOptions::inline()),
                     value
-                        .get_type()
+                        .compute_type()
                         .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             ))
@@ -109,7 +109,7 @@ pub fn call_fn_checked_with_parsed_args(
                 expected_signature.render_colored(ctx, PrettyPrintOptions::inline()),
                 loc_val
                     .value
-                    .get_type()
+                    .compute_type()
                     .render_colored(ctx, PrettyPrintOptions::inline())
             ),
         ));

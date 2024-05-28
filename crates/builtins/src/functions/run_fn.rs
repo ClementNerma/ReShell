@@ -41,7 +41,7 @@ fn run() -> Runner {
             args_at.func,
             format!(
                 "expected a function, found a: {}",
-                func.get_type()
+                func.compute_type()
                     .render_colored(ctx, PrettyPrintOptions::inline())
             ),
         )),

@@ -36,7 +36,7 @@ fn run() -> Runner {
             println!(
                 "{} {}",
                 at.bright_magenta(),
-                value.get_type().render_colored(
+                value.compute_type().render_colored(
                     ctx,
                     PrettyPrintOptions {
                         pretty: true,

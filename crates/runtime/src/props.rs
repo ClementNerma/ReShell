@@ -59,7 +59,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 format!(
                                     "expected an index (integer), found a {}",
                                     value
-                                        .get_type()
+                                        .compute_type()
                                         .render_colored(ctx, PrettyPrintOptions::inline())
                                 ),
                             ));
@@ -114,7 +114,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 format!(
                                     "expected a key (string), found a {}",
                                     value
-                                        .get_type()
+                                        .compute_type()
                                         .render_colored(ctx, PrettyPrintOptions::inline())
                                 ),
                             ));
@@ -185,7 +185,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                         acc.at,
                         format!(
                             "left operand is not a map nor a list, but a {}",
-                            left.get_type()
+                            left.compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ));
@@ -238,7 +238,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                         acc.at,
                         format!(
                             "left operand is not a struct, but a {}",
-                            left.get_type()
+                            left.compute_type()
                                 .render_colored(ctx, PrettyPrintOptions::inline())
                         ),
                     ));

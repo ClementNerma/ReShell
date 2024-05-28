@@ -419,7 +419,7 @@ fn complete_var_name(
                         item.value
                             .read_promise_no_write()
                             .value
-                            .get_type()
+                            .compute_type()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
                     ),
                     style: None,
