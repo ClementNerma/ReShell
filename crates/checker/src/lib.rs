@@ -165,11 +165,9 @@ fn block_first_pass(
                 let curr_scope_id = state.curr_scope().id;
 
                 if let Some(same_name_methods) = state.curr_scope().methods.get(&name.data) {
-                    let get_type_alias = &|name| state.get_type_alias_or_panic(&name);
-
                     for (other_type, _) in same_name_methods.iter() {
-                        if check_if_type_fits_type(&on_type.data, other_type, get_type_alias)
-                            || check_if_type_fits_type(other_type, &on_type.data, get_type_alias)
+                        if check_if_type_fits_type(&on_type.data, other_type, state)
+                            || check_if_type_fits_type(other_type, &on_type.data, state)
                         {
                             // TODO: display both clashing types
                             return Err(CheckerError::new(

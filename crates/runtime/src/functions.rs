@@ -154,9 +154,7 @@ pub fn call_fn_value(
             ));
         };
 
-        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), &|name| {
-            &ctx.get_type_alias(&name).data
-        }) {
+        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), ctx) {
             return Err(ctx.error(
                 call_at,
                 format!(
@@ -295,7 +293,7 @@ fn parse_fn_call_args(
                                         && !check_if_single_type_fits_type(
                                             &value.value.get_type(),
                                             typ.data(),
-                                            &|name| &ctx.get_type_alias(&name).data,
+                                            ctx,
                                         )
                                     {
                                         return Err(
@@ -372,7 +370,7 @@ fn parse_fn_call_args(
                         if !check_if_single_type_fits_type(
                             &loc_val.value.get_type(),
                             typ.data(),
-                            &|name| &ctx.get_type_alias(&name).data,
+                            ctx,
                         ) {
                             let is_method_self_arg = func.is_method && name.data() == "self";
 

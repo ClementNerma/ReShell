@@ -5,6 +5,7 @@ use reshell_parser::{
     ast::{Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
+use reshell_shared::pretty::TypeAliasStore;
 
 use crate::{errors::CheckerResult, output::*, CheckerError};
 
@@ -360,9 +361,10 @@ impl<'a> State<'a> {
 
         assert!(dup.is_none());
     }
+}
 
-    /// Get a type alias or panic (used for typechecker)
-    pub(crate) fn get_type_alias_or_panic(&self, name: &Eaten<String>) -> &ValueType {
+impl<'a> TypeAliasStore for State<'a> {
+    fn get_type_alias_or_panic<'b>(&'b self, name: &Eaten<String>) -> &'b ValueType {
         let type_alias_loc = self.collected.type_aliases_usages.get(name).unwrap();
 
         &self

@@ -101,9 +101,7 @@ pub fn call_fn_checked_with_parsed_args(
         RuntimeFnSignature::Owned(owned) => owned,
     };
 
-    if !check_if_fn_signature_fits_another(signature, expected_signature, &|name| {
-        &ctx.get_type_alias(&name).data
-    }) {
+    if !check_if_fn_signature_fits_another(signature, expected_signature, ctx) {
         return Err(ctx.error(
             loc_val.from,
             format!(

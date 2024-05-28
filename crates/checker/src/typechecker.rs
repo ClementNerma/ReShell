@@ -1,28 +1,26 @@
 use std::collections::HashSet;
 
-use parsy::Eaten;
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     FnSignature, SingleValueType, StructTypeMember, ValueType,
 };
-
-pub type GetTypeAliasOrPanic<'a, 'b> = &'a dyn Fn(Eaten<String>) -> &'b ValueType;
+use reshell_shared::pretty::TypeAliasStore;
 
 /// Check if a type can fit into another (which is if all values of this type would be compatible with the target type)
 #[must_use]
 pub fn check_if_type_fits_type(
     value_type: &ValueType,
     into: &ValueType,
-    get_type_alias: GetTypeAliasOrPanic,
+    ctx: &dyn TypeAliasStore,
 ) -> bool {
     match value_type {
         ValueType::Single(single_type) => {
-            check_if_single_type_fits_type(single_type.data(), into, get_type_alias)
+            check_if_single_type_fits_type(single_type.data(), into, ctx)
         }
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_type(typ.data(), into, get_type_alias)),
+            .all(|typ| check_if_single_type_fits_type(typ.data(), into, ctx)),
     }
 }
 
@@ -31,16 +29,16 @@ pub fn check_if_type_fits_type(
 pub fn check_if_single_type_fits_type(
     value_type: &SingleValueType,
     into: &ValueType,
-    get_type_alias: GetTypeAliasOrPanic,
+    ctx: &dyn TypeAliasStore,
 ) -> bool {
     match into {
         ValueType::Single(single) => {
-            check_if_single_type_fits_single(value_type, single.data(), get_type_alias)
+            check_if_single_type_fits_single(value_type, single.data(), ctx)
         }
 
         ValueType::Union(types) => types
             .iter()
-            .any(|typ| check_if_single_type_fits_single(value_type, typ.data(), get_type_alias)),
+            .any(|typ| check_if_single_type_fits_single(value_type, typ.data(), ctx)),
     }
 }
 
@@ -49,16 +47,14 @@ pub fn check_if_single_type_fits_type(
 pub fn check_if_type_fits_single(
     value_type: &ValueType,
     into: &SingleValueType,
-    get_type_alias: GetTypeAliasOrPanic,
+    ctx: &dyn TypeAliasStore,
 ) -> bool {
     match value_type {
-        ValueType::Single(single) => {
-            check_if_single_type_fits_single(single.data(), into, get_type_alias)
-        }
+        ValueType::Single(single) => check_if_single_type_fits_single(single.data(), into, ctx),
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_single(typ.data(), into, get_type_alias)),
+            .all(|typ| check_if_single_type_fits_single(typ.data(), into, ctx)),
     }
 }
 
@@ -67,17 +63,17 @@ pub fn check_if_type_fits_single(
 pub fn check_if_single_type_fits_single(
     value_type: &SingleValueType,
     into: &SingleValueType,
-    get_type_alias: GetTypeAliasOrPanic,
+    ctx: &dyn TypeAliasStore,
 ) -> bool {
     match (value_type, into) {
         (SingleValueType::Any, _) | (_, SingleValueType::Any) => true,
 
         (SingleValueType::TypeAlias(name), _) => {
-            check_if_type_fits_single(get_type_alias(name.clone()), into, get_type_alias)
+            check_if_type_fits_single(ctx.get_type_alias_or_panic(name), into, ctx)
         }
 
         (_, SingleValueType::TypeAlias(name)) => {
-            check_if_single_type_fits_type(value_type, get_type_alias(name.clone()), get_type_alias)
+            check_if_single_type_fits_type(value_type, ctx.get_type_alias_or_panic(name), ctx)
         }
 
         (SingleValueType::Null, SingleValueType::Null) => true,
@@ -121,11 +117,7 @@ pub fn check_if_single_type_fits_single(
                 a.iter()
                     .find(|member| member.data().name.data() == name.data())
                     .map_or(false, |a_member| {
-                        check_if_type_fits_type(
-                            a_member.data().typ.data(),
-                            typ.data(),
-                            get_type_alias,
-                        )
+                        check_if_type_fits_type(a_member.data().typ.data(), typ.data(), ctx)
                     })
             })
         }
@@ -140,7 +132,7 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Custom(_), _) | (_, SingleValueType::Custom(_)) => false,
 
         (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
-            check_if_fn_signature_fits_another(signature.data(), into.data(), get_type_alias)
+            check_if_fn_signature_fits_another(signature.data(), into.data(), ctx)
         } // (SingleValueType::Function(_), _) | (_, SingleValueType::Function(_)) => false,
     }
 }
@@ -150,11 +142,11 @@ pub fn check_if_single_type_fits_single(
 pub fn check_if_fn_signature_fits_another(
     signature: &FnSignature,
     into: &FnSignature,
-    get_type_alias: GetTypeAliasOrPanic,
+    ctx: &dyn TypeAliasStore,
 ) -> bool {
     // Compare return types
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
-        if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), get_type_alias) {
+        if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), ctx) {
             return false;
         }
     }
@@ -190,11 +182,7 @@ pub fn check_if_fn_signature_fits_another(
                 } else if let (Some(cmp_positional_typ), Some(positional_typ)) =
                     (&cmp_positional.typ, &positional.typ)
                 {
-                    check_if_type_fits_type(
-                        cmp_positional_typ.data(),
-                        positional_typ.data(),
-                        get_type_alias,
-                    )
+                    check_if_type_fits_type(cmp_positional_typ.data(), positional_typ.data(), ctx)
                 } else {
                     true
                 }
@@ -296,11 +284,8 @@ pub fn check_if_fn_signature_fits_another(
                 }
 
                 // Check if the type fits as well
-                if !check_if_type_fits_type(
-                    cmp_normal_flag.typ.data(),
-                    normal_flag.typ.data(),
-                    get_type_alias,
-                ) {
+                if !check_if_type_fits_type(cmp_normal_flag.typ.data(), normal_flag.typ.data(), ctx)
+                {
                     return false;
                 }
             }
