@@ -11,7 +11,7 @@ use crate::{
     errors::ExecResult,
     files_map::{FilesMap, ScopableFilePath},
     pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece},
-    values::RuntimeValue,
+    values::{RuntimeFnBody, RuntimeValue},
 };
 
 pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecResult<String> {
@@ -290,7 +290,13 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::Function(func) => PrettyPrintablePiece::Join(vec![
                 func.signature.inner().generate_pretty_data(ctx),
-                PrettyPrintablePiece::colored_atomic(" { ... }", Color::BrightBlack),
+                PrettyPrintablePiece::colored_atomic(
+                    match func.body {
+                        RuntimeFnBody::Block(_) => " { ... }",
+                        RuntimeFnBody::Internal(_) => " { /* internal code */ }",
+                    },
+                    Color::BrightBlack,
+                ),
             ]),
         }
     }
