@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, FnArg, FnCall, FnCallArg,
-    FnFlagArgNames, RuntimeCodeRange,
+    CmdFlagNameArg,  FnArg, FnCall, FnCallArg,
+    FnFlagArgNames, RuntimeCodeRange, FlagValueSeparator,
 };
 
 use crate::{
     cmd::{
-        eval_cmd_arg, eval_cmd_value_making_arg, CmdArgResult, CmdSingleArgResult,
+        eval_cmd_arg,  CmdArgResult, CmdSingleArgResult,
         FlagArgValueResult,
     },
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
@@ -237,6 +237,28 @@ fn parse_fn_call_args(
                                 continue;
                             };
 
+                            if let Some(FlagArgValueResult { value, value_sep }) = value {
+                                // Skip the flag if was associated the `false` value using the `=` sign
+                                
+                                let mut is_true_with_eq = false;
+
+                                if value_sep == FlagValueSeparator::Equal {
+                                    if let RuntimeValue::Bool(bool) = &value.value {
+                                        if *bool {
+                                            is_true_with_eq = true;
+                                        } else {
+                                            continue 'iter;
+                                        }
+                                    }
+                                }
+
+                                // Just set the flag normally if it's the `true` value with the `=` sign
+                                // (which is equivalent to not providing a value at all)
+                                if !is_true_with_eq {
+                                    value_on_hold = Some(CmdSingleArgResult::Basic(value));
+                                }
+                            }
+
                             out.insert(
                                 var_name,
                                 ValidatedFnCallArg {
@@ -245,10 +267,6 @@ fn parse_fn_call_args(
                                     value: RuntimeValue::Bool(true),
                                 },
                             );
-
-                            if let Some(FlagArgValueResult { value, value_sep: _ }) = value {
-                                value_on_hold = Some(CmdSingleArgResult::Basic(value));
-                            }
 
                             continue 'iter;
                         }
@@ -317,7 +335,7 @@ fn parse_fn_call_args(
 
                 return Err(ctx.error(
                     name.at,
-                    "called function does not have a flag with this name",
+                    "unknown flag provided",
                 ));
             }
 
@@ -448,26 +466,13 @@ fn flatten_fn_call_args(
                         )))
                     }
 
-                    FnCallArg::Flag(flag) => {
-                        let CmdFlagArg { name, value } = &flag.data;
-
-                        let value = value
-                            .as_ref()
-                            .map(|value| {
-                                let CmdFlagValueArg { value, value_sep } = value;
-
-                                eval_cmd_value_making_arg(&value.data, ctx).map(|value| {
-                                    FlagArgValueResult {
-                                        value,
-                                        value_sep: *value_sep,
-                                    }
-                                })
-                            })
-                            .transpose()?;
-
+                    FnCallArg::Flag { name, value } => {
                         out.push(CmdSingleArgResult::Flag {
                             name: name.clone(),
-                            value,
+                            value: Some(FlagArgValueResult {
+                                value: LocatedValue::new(eval_expr(&value.data, ctx)?, RuntimeCodeRange::Parsed(value.at)),
+                                value_sep: FlagValueSeparator::Equal
+                            }),
                         })
                     }
 

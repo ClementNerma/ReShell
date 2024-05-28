@@ -733,7 +733,7 @@ impl ComputableSize for FnCallArg {
     fn compute_heap_size(&self) -> usize {
         match self {
             FnCallArg::Expr(expr) => expr.compute_heap_size(),
-            FnCallArg::Flag(flag) => flag.compute_heap_size(),
+            FnCallArg::Flag { name, value } => name.compute_heap_size() + value.compute_heap_size(),
             FnCallArg::CmdArg(cmd_arg) => cmd_arg.compute_heap_size(),
         }
     }
