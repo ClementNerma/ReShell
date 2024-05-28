@@ -139,7 +139,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
             ]),
             ("expressions", vec![
                 // Method calls
-                simple_followed_by_nesting("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
+                simple_followed_by_nesting("((?:[\\?]|\\s*\\->\\s*)?\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
 
                 // Function calls
                 simple_followed_by_nesting("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
@@ -157,7 +157,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
 
                 // Struct member access
-                simple("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
+                simple("([\\?]?\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
 
                 // Functions as values
                 simple("(\\@(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Magenta]),

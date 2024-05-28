@@ -6,7 +6,7 @@ define_internal_fn!(
     "prepend",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         prepend: RequiredArg<UntypedListType> = Arg::positional("prepend")
     )
 
