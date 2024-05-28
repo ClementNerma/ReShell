@@ -479,7 +479,22 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
 fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) -> CheckerResult {
     match chaining {
         ExprInnerChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
-        ExprInnerChaining::MethodCall(method_call) => check_fn_call(method_call, state),
+        ExprInnerChaining::MethodCall(method_call) => {
+            match check_fn_call_and_get_item(method_call, state)? {
+                UsedItem::Function(func) => {
+                    if func.is_method {
+                        Ok(())
+                    } else {
+                        Err(CheckerError::new(
+                            method_call.data.name.at,
+                            "this function is not a method",
+                        ))
+                    }
+                }
+
+                UsedItem::Variable(_) | UsedItem::CmdAlias(_) => unreachable!(),
+            }
+        }
     }
 }
 
@@ -673,23 +688,30 @@ fn check_computed_string_piece(
 }
 
 fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
+    check_fn_call_and_get_item(fn_call, state).map(|_| ())
+}
+
+fn check_fn_call_and_get_item(
+    fn_call: &Eaten<FnCall>,
+    state: &mut State,
+) -> CheckerResult<UsedItem> {
     let FnCall {
         is_var_name,
         name,
         call_args,
     } = &fn_call.data;
 
-    if *is_var_name {
-        state.register_usage(name, DependencyType::Variable)?;
+    let item = if *is_var_name {
+        state.register_usage(name, DependencyType::Variable)?
     } else {
-        state.register_usage(name, DependencyType::Function)?;
-    }
+        state.register_usage(name, DependencyType::Function)?
+    };
 
     for arg in &call_args.data {
         check_fn_call_arg(arg, state)?;
     }
 
-    Ok(())
+    Ok(item)
 }
 
 fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult {
