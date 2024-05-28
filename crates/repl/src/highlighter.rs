@@ -252,26 +252,18 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 });
 
 fn highlight(input: &str) -> StyledText {
-    let mut out = StyledText::new();
-
-    for piece in compute_highlight_pieces(input, &RULE_SET) {
-        let HighlightPiece { start, len, style } = piece;
-
-        out.push((
-            style.unwrap_or_default(),
-            input[start..start + len].to_owned(),
-        ));
-    }
-
-    out
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{utils::syntax::compute_highlight_pieces, highlighter::RULE_SET};
-
-    #[test]
-    fn tmp() {
-        println!("{:?}", compute_highlight_pieces("\"\" -", &RULE_SET));
+    StyledText {
+        buffer:
+            compute_highlight_pieces(input, &RULE_SET)
+                .into_iter()
+                .map(|piece| {
+                    let HighlightPiece { start, len, style } = piece;
+        
+                    (
+                        style.unwrap_or_default(),
+                        input[start..start + len].to_owned()
+                    )
+                })
+                .collect()
     }
 }
