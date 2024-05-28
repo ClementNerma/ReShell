@@ -34,6 +34,7 @@ fn highlight(input: &str) -> StyledText {
         }
 
     highlight!(
+        ("comments") => "(#.*)$" => DarkGray,
         ("flags") => "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
         ("keywords") => "(?:^|\\n|;|\\{)\\s*(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
         ("in") => "(?:\\bfor\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+)(in)\\b" => Magenta,
