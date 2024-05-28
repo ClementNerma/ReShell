@@ -6,7 +6,10 @@ use std::{
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, SourceFileID};
-use reshell_checker::{CheckerOutput, CheckerScope, DeclaredVar, Dependency, DependencyType};
+use reshell_checker::{
+    CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
+    DependencyType,
+};
 use reshell_parser::{
     ast::{Block, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
     files::FilesMap,
@@ -226,7 +229,7 @@ impl Context {
 
             cmd_aliases: cmd_aliases
                 .iter()
-                .map(|(key, value)| (key.clone(), value.name_at))
+                .map(|(key, value)| (key.clone(), DeclaredCmdAlias::ready(value.name_at)))
                 .collect(),
 
             type_aliases: match range {
@@ -240,7 +243,7 @@ impl Context {
 
             fns: fns
                 .iter()
-                .map(|(name, scope_fn)| (name.clone(), scope_fn.name_at))
+                .map(|(name, scope_fn)| (name.clone(), DeclaredFn::ready(scope_fn.name_at)))
                 .collect(),
 
             vars: vars
