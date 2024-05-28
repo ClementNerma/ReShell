@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    rc::Rc,
-};
+use std::{collections::HashMap, path::PathBuf, rc::Rc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, SourceFileID};
@@ -71,40 +67,9 @@ pub struct Context {
     /// Used for tilde '~' expansion
     home_dir: Option<PathBuf>,
 
-    /// Map of items with their dependencies
-    /// For more informations, see [`Context::capture_deps`]
-    deps: HashMap<CodeRange, HashSet<Dependency>>,
-
-    /// List of type aliases with their content
-    type_aliases_decl: HashMap<CodeRange, Eaten<ValueType>>,
-
-    /// List of type aliases usage
-    /// Used to know which type alias is referenced at a given point,
-    /// necessary when multiple type aliases with the same name exist
-    /// in the program but in different scopes
-    type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
-
-    /// List of declared type aliases, used to build a checker scope
-    /// See [`ScopeContent::to_checker_scope`] and [`Scope::to_checker_scope`]
-    type_aliases_decl_by_scope: HashMap<CodeRange, HashMap<String, CodeRange>>,
-
-    /// List of function signatures
-    /// Used to avoid cloning the whole signature object (which is heavy)
-    /// everytime we encounter the same function during runtime (e.g. in a loop)
-    fn_signatures: HashMap<CodeRange, Rc<Eaten<FnSignature>>>,
-
-    /// List of function bodies
-    /// Used to avoid cloning the whole signature object (which is heavy)
-    /// everytime we encounter the same function during runtime (e.g. in a loop)
-    fn_bodies: HashMap<CodeRange, Rc<Eaten<FunctionBody>>>,
-
-    /// List of command aliases
-    /// Used to avoid cloning the whole alias' content (which is heavy)
-    /// everytime we encounter the same command alias during runtime (e.g. in a loop)
-    cmd_aliases: HashMap<CodeRange, Rc<Eaten<SingleCmdCall>>>,
-
-    /// List of all command calls, developed by the checker
-    cmd_calls: HashMap<CodeRange, Rc<DevelopedSingleCmdCall>>,
+    /// Data collected from the checker
+    /// Whenever a new program is run, the new program's data is merged with the existing one
+    collected: CheckerOutput,
 
     /// Value returned by the very last function or command call in a program
     /// that was not assigned or used as an argument
@@ -152,19 +117,12 @@ impl Context {
         Self {
             scopes_id_counter: FIRST_SCOPE_ID,
             scopes,
+            deps_scopes: HashMap::new(),
             current_scope: FIRST_SCOPE_ID,
             program_main_scope: None,
             files_map,
             home_dir: conf.initial_home_dir.clone(),
-            deps: HashMap::new(),
-            deps_scopes: HashMap::new(),
-            type_aliases_decl: HashMap::new(),
-            type_aliases_usages: HashMap::new(),
-            type_aliases_decl_by_scope: HashMap::new(),
-            fn_signatures: HashMap::new(),
-            fn_bodies: HashMap::new(),
-            cmd_aliases: HashMap::new(),
-            cmd_calls: HashMap::new(),
+            collected: CheckerOutput::empty(),
             wandering_value: None,
             take_ctrl_c_indicator,
             conf,
@@ -279,6 +237,7 @@ impl Context {
                     type_aliases: match range {
                         RuntimeCodeRange::Internal => Default::default(),
                         RuntimeCodeRange::Parsed(range) => self
+                            .collected
                             .type_aliases_decl_by_scope
                             .get(range)
                             .cloned()
@@ -333,26 +292,7 @@ impl Context {
         self.clear_wandering_value();
 
         // Merge the checker's output
-        let CheckerOutput {
-            deps,
-            type_aliases_decl,
-            type_aliases_usages,
-            type_aliases_decl_by_scope,
-            fn_signatures,
-            fn_bodies,
-            cmd_aliases,
-            cmd_calls,
-        } = checker_output;
-
-        self.deps.extend(deps);
-        self.type_aliases_decl.extend(type_aliases_decl);
-        self.type_aliases_usages.extend(type_aliases_usages);
-        self.type_aliases_decl_by_scope
-            .extend(type_aliases_decl_by_scope);
-        self.cmd_calls.extend(cmd_calls);
-        self.fn_signatures.extend(fn_signatures);
-        self.fn_bodies.extend(fn_bodies);
-        self.cmd_aliases.extend(cmd_aliases);
+        self.collected.merge(checker_output);
     }
 
     /// (Internal) Reset to the program's main scope after execution
@@ -581,21 +521,21 @@ impl Context {
     /// It is guaranteed to be the one referenced at that point in time
     /// as type alias usages are collected before runtime
     pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> Option<&'c Eaten<ValueType>> {
-        let type_alias_at = self.type_aliases_usages.get(name)?;
+        let type_alias_at = self.collected.type_aliases_usages.get(name)?;
 
-        Some(self.type_aliases_decl.get(type_alias_at).unwrap())
+        Some(self.collected.type_aliases_decl.get(type_alias_at).unwrap())
     }
 
     /// Get a specific type signature from its location
     /// Avoids cloning the entire (heavy) [`FnSignature`] value
     pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Rc<Eaten<FnSignature>>> {
-        self.fn_signatures.get(&from.at).map(Rc::clone)
+        self.collected.fn_signatures.get(&from.at).map(Rc::clone)
     }
 
     /// Get a specific function's body from its location
     /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
     pub fn get_fn_body(&self, from: &Eaten<FunctionBody>) -> Option<Rc<Eaten<FunctionBody>>> {
-        self.fn_bodies.get(&from.at).map(Rc::clone)
+        self.collected.fn_bodies.get(&from.at).map(Rc::clone)
     }
 
     /// Get a specific command alias' content from its location
@@ -604,7 +544,7 @@ impl Context {
         &self,
         from: &Eaten<SingleCmdCall>,
     ) -> Option<Rc<Eaten<SingleCmdCall>>> {
-        self.cmd_aliases.get(&from.at).map(Rc::clone)
+        self.collected.cmd_aliases.get(&from.at).map(Rc::clone)
     }
 
     /// Get a specific command alias' content from a developed version
@@ -613,7 +553,7 @@ impl Context {
         &self,
         from: &DevelopedCmdAliasCall,
     ) -> Rc<Eaten<SingleCmdCall>> {
-        match self.cmd_aliases.get(&from.content_at) {
+        match self.collected.cmd_aliases.get(&from.content_at) {
             Some(developed) => Rc::clone(developed),
 
             None => self.panic(
@@ -629,7 +569,7 @@ impl Context {
         &self,
         from: &Eaten<SingleCmdCall>,
     ) -> Rc<DevelopedSingleCmdCall> {
-        match self.cmd_calls.get(&from.at) {
+        match self.collected.cmd_calls.get(&from.at) {
             Some(developed) => Rc::clone(developed),
 
             None => self.panic(
@@ -658,7 +598,7 @@ impl Context {
     pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies::default();
 
-        let deps_list = self.deps.get(&body_content_at).unwrap_or_else(||
+        let deps_list = self.collected.deps.get(&body_content_at).unwrap_or_else(||
             self.panic(body_content_at, "dependencies informations not found while constructing value (this is a bug in the checker)")
         );
 
@@ -761,18 +701,8 @@ impl Context {
     }
 
     /// Generate a [`CheckerOutput`] for running a new program
-    /// TODO: try to find a way to avoid having to do this expensive cloning?
     pub fn generate_checker_output(&self) -> CheckerOutput {
-        CheckerOutput {
-            deps: self.deps.clone(),
-            cmd_calls: self.cmd_calls.clone(),
-            type_aliases_decl: self.type_aliases_decl.clone(),
-            type_aliases_usages: self.type_aliases_usages.clone(),
-            type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
-            fn_signatures: self.fn_signatures.clone(),
-            fn_bodies: self.fn_bodies.clone(),
-            cmd_aliases: self.cmd_aliases.clone(),
-        }
+        self.collected.reuse_in_checker()
     }
 }
 
@@ -946,14 +876,7 @@ impl ComputableSize for Context {
             program_main_scope,
             files_map,
             home_dir,
-            deps,
-            type_aliases_decl,
-            type_aliases_usages,
-            type_aliases_decl_by_scope,
-            fn_signatures,
-            fn_bodies,
-            cmd_aliases,
-            cmd_calls,
+            collected,
             wandering_value,
         } = self;
 
@@ -966,14 +889,7 @@ impl ComputableSize for Context {
             + program_main_scope.compute_heap_size()
             + files_map.compute_heap_size()
             + home_dir.compute_heap_size()
-            + deps.compute_heap_size()
-            + type_aliases_decl.compute_heap_size()
-            + type_aliases_usages.compute_heap_size()
-            + type_aliases_decl_by_scope.compute_heap_size()
-            + fn_signatures.compute_heap_size()
-            + fn_bodies.compute_heap_size()
-            + cmd_aliases.compute_heap_size()
-            + cmd_calls.compute_heap_size()
+            + collected.compute_heap_size()
             + wandering_value.compute_heap_size()
     }
 }

@@ -7,7 +7,9 @@ use std::{
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location, SourceFileID};
-use reshell_checker::{Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall};
+use reshell_checker::{
+    CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
@@ -1064,5 +1066,29 @@ impl ComputableSize for DevelopedCmdAliasCall {
         } = self;
 
         content_at.compute_heap_size() + called_alias_name.compute_heap_size()
+    }
+}
+
+impl ComputableSize for CheckerOutput {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            deps,
+            type_aliases_decl,
+            type_aliases_usages,
+            type_aliases_decl_by_scope,
+            fn_signatures,
+            fn_bodies,
+            cmd_aliases,
+            cmd_calls,
+        } = self;
+
+        deps.compute_heap_size()
+            + type_aliases_decl.compute_heap_size()
+            + type_aliases_usages.compute_heap_size()
+            + type_aliases_decl_by_scope.compute_heap_size()
+            + fn_signatures.compute_heap_size()
+            + fn_bodies.compute_heap_size()
+            + cmd_aliases.compute_heap_size()
+            + cmd_calls.compute_heap_size()
     }
 }
