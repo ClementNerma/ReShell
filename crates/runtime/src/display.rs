@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use colored::Color;
 use parsy::FileId;
 use reshell_parser::{
@@ -197,30 +199,33 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::Map(map) => PrettyPrintablePiece::List {
                 begin: Colored::with_color("map({", Color::Magenta),
-                items: map
-                    .read_promise_no_write()
-                    .iter()
-                    .map(|(key, value)|
-                        // Yes, that part is a hack :p
-                        PrettyPrintablePiece::List {
-                            begin: Colored::with_color(
-                            format!(
-                                "\"{}\": ",
-                                key
-                                    .replace('\\', "\\\\")
-                                    .replace('\"', "\\\"")
-                                    .replace('\n', "\\n")
+                items: {
+                    let map = map.read_promise_no_write();
+
+                    // Sort keys
+                    let keys = map.keys().collect::<BTreeSet<_>>();
+
+                    keys.iter()
+                        .map(|key| {
+                            // Yes, that part is a hack :p
+                            PrettyPrintablePiece::List {
+                                begin: Colored::with_color(
+                                    format!(
+                                        "\"{}\": ",
+                                        key.replace('\\', "\\\\")
+                                            .replace('\"', "\\\"")
+                                            .replace('\n', "\\n")
+                                    ),
+                                    Color::Green,
                                 ),
-                                Color::Green
-                            ),
-                            items: vec![
-                                value.generate_pretty_data(ctx)
-                            ],
-                            sep: Colored::empty(),
-                            end: Colored::empty(),
-                            suffix: None
+                                items: vec![map.get(*key).unwrap().generate_pretty_data(ctx)],
+                                sep: Colored::empty(),
+                                end: Colored::empty(),
+                                suffix: None,
+                            }
                         })
-                    .collect(),
+                        .collect()
+                },
                 sep: Colored::with_color(",", Color::Blue),
                 end: Colored::with_color("})", Color::Magenta),
                 suffix: None,
@@ -228,10 +233,14 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::Struct(obj) => PrettyPrintablePiece::List {
                 begin: Colored::with_color("{", Color::Blue),
-                items: obj
-                    .read_promise_no_write()
-                    .iter()
-                    .map(|(field, value)|
+                items: {
+                    let obj = obj.read_promise_no_write();
+
+                    // Sort keys
+                    let keys = obj.keys().collect::<BTreeSet<_>>();
+
+                    keys.iter()
+                        .map(|field|
                         // Yes, that part is a hack :p
                         PrettyPrintablePiece::List {
                             begin: Colored::with_color(
@@ -239,13 +248,14 @@ impl PrettyPrintable for RuntimeValue {
                                 Color::Red
                             ),
                             items: vec![
-                                value.generate_pretty_data(ctx)
+                                obj.get(*field).unwrap().generate_pretty_data(ctx)
                             ],
                             sep: Colored::empty(),
                             end: Colored::empty(),
                             suffix: None
                         })
-                    .collect(),
+                        .collect()
+                },
                 sep: Colored::with_color(",", Color::Blue),
                 end: Colored::with_color("}", Color::Blue),
                 suffix: None,
