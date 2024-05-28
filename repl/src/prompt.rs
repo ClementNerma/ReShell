@@ -18,7 +18,7 @@ impl Prompt {
 impl RlPrompt for Prompt {
     fn render_prompt_left(&self) -> Cow<str> {
         if let Some(str) = &self.rendering.prompt_left {
-            return str.clone().into();
+            return str.into();
         }
 
         std::env::current_dir()
@@ -30,7 +30,7 @@ impl RlPrompt for Prompt {
 
     fn render_prompt_right(&self) -> Cow<str> {
         if let Some(str) = &self.rendering.prompt_right {
-            return str.clone().into();
+            return str.into();
         }
 
         "".into()
@@ -40,7 +40,7 @@ impl RlPrompt for Prompt {
         assert!(matches!(prompt_mode, PromptEditMode::Custom(_)));
 
         if let Some(str) = &self.rendering.prompt_indicator {
-            return str.clone().into();
+            return str.into();
         }
 
         "〉".into()
@@ -48,7 +48,7 @@ impl RlPrompt for Prompt {
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
         if let Some(str) = &self.rendering.prompt_multiline_indicator {
-            return str.clone().into();
+            return str.into();
         }
 
         "::: ".into()
