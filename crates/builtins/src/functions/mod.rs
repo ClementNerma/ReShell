@@ -20,6 +20,7 @@ mod env;
 mod error;
 mod exit;
 mod file_exists;
+mod file_size;
 mod glob;
 mod human_size;
 mod inspect;
@@ -74,6 +75,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::error::build_fn(),
         self::exit::build_fn(),
         self::file_exists::build_fn(),
+        self::file_size::build_fn(),
         self::glob::build_fn(),
         self::human_size::build_fn(),
         self::inspect::build_fn(),
