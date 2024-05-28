@@ -275,15 +275,12 @@ fn develop_aliases<'a>(
 
             call.data.path.change_value(path.data.clone());
 
-            // TODO: optimize insertion as bulk
-            for alias_env_var in env_vars.data.iter().rev() {
-                call.data.env_vars.data.insert(0, alias_env_var.clone());
-            }
+            call.data
+                .env_vars
+                .data
+                .splice(0..0, env_vars.data.iter().cloned());
 
-            // TODO: optimize insertion as bulk
-            for alias_arg in args.data.iter().rev() {
-                call.data.args.data.insert(0, alias_arg.clone());
-            }
+            call.data.args.data.splice(0..0, args.data.iter().cloned());
 
             return Cow::Owned(call);
         }
