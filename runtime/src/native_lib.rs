@@ -259,6 +259,24 @@ pub fn generate_native_lib() -> Scope {
             Ok(Some(RuntimeValue::String(string.chars().skip(from as usize).take(to as usize).collect())))
         }),
         //
+        // turn a string uppercase
+        //
+        native_fn!(uppercase (string: String) -> (String) {
+            Ok(Some(RuntimeValue::String(string.to_uppercase())))
+        }),
+        //
+        // turn a string lowercase
+        //
+        native_fn!(uppercase (string: String) -> (String) {
+            Ok(Some(RuntimeValue::String(string.to_lowercase())))
+        }),
+        //
+        // replace a string
+        //
+        native_fn!(replace (string: String, pattern: String, with: String) -> (String) {
+            Ok(Some(RuntimeValue::String(string.replace(&pattern, &with))))
+        }),
+        //
         // read an environment variable
         //
         native_fn!(env (name: String [name_from]) [ctx] -> (String) {
