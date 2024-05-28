@@ -271,15 +271,13 @@ fn single_call_to_chain_el(
         None => (Cow::Borrowed(call), vec![]),
     };
 
-    let cmd_aliases_len = cmd_aliases.len();
-
-    for cmd_alias in cmd_aliases {
+    for cmd_alias in &cmd_aliases {
         let RuntimeCmdAlias {
             name_declared_at,
             alias_content: _,
             parent_scopes,
             captured_deps,
-        } = &*cmd_alias;
+        } = &**cmd_alias;
 
         ctx.create_and_push_scope_with_deps(
             RuntimeCodeRange::Parsed(*name_declared_at),
@@ -293,7 +291,7 @@ fn single_call_to_chain_el(
 
     inner(&call, ctx).map(|content| CmdChainEl {
         content,
-        aliases_deps_scopes: (0..cmd_aliases_len)
+        aliases_deps_scopes: (0..cmd_aliases.len())
             .map(|_| ctx.pop_scope_and_get_deps().unwrap())
             .collect(),
     })
@@ -636,9 +634,12 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         }
 
         CmdArg::SpreadVar(var_name) => {
-            let var = ctx
-                .get_visible_var(var_name)
-                .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?;
+            let var = ctx.get_visible_var(var_name).unwrap_or_else(|| {
+                ctx.panic(
+                    var_name.at,
+                    "(spread) variable was not found (= bug in checker)",
+                )
+            });
 
             let var_value = var.value.read(var_name.at);
 
@@ -682,7 +683,7 @@ pub fn eval_cmd_value_making_arg(
         CmdValueMakingArg::VarName(name) => (
             name.at,
             ctx.get_visible_var(name)
-                .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
+                .unwrap_or_else(|| ctx.panic(name.at, "variable was not found (= bug in checker)"))
                 .value
                 .read(name.at)
                 .as_ref()
