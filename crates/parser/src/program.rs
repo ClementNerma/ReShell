@@ -574,6 +574,7 @@ pub fn program(
             char('-').to(DoubleOp::Sub),
             char('*').to(DoubleOp::Mul),
             char('/').to(DoubleOp::Div),
+            char('%').to(DoubleOp::Mod),
             just("&&").to(DoubleOp::And),
             just("||").to(DoubleOp::Or),
             just("==").to(DoubleOp::Eq),

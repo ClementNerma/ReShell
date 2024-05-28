@@ -308,6 +308,7 @@ pub enum DoubleOp {
     Sub,          // -
     Mul,          // *
     Div,          // /
+    Mod,          // %
     And,          // &&
     Or,           // ||
     Eq,           // ==
