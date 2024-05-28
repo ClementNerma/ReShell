@@ -257,7 +257,7 @@ pub struct InternalFunction {
 
 #[macro_export]
 macro_rules! define_internal_fn {
-    ($name: expr, $args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident $(@ $arg_type_alias: ident)? : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr $(=> $ret_type_var: ident)?, $run: expr) => {{
+    ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
         use std::collections::HashMap;
 
         use reshell_parser::ast::RuntimeCodeRange;
@@ -270,21 +270,21 @@ macro_rules! define_internal_fn {
         };
 
         #[allow(unused_imports)]
-        use $crate::helper::{ArgHandler, InternalFunction, generate_internal_arg_decl};
+        use $crate::{helper::*, type_handlers::*};
 
-        struct $args_struct_name {
+        struct Args {
             $( $arg_name: <$arg_handler_type as ArgHandler>::Parsed ),*
         }
 
-        struct $args_loc_struct_name {
+        struct ArgsAt {
             $(
                 #[allow(dead_code)]
                 $arg_name: <$arg_handler_type as ArgHandler>::FixedOptionality<RuntimeCodeRange>
             ),*
         }
 
-        fn parse_args(ctx: &Context, call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ValidatedFnCallArg>)
-            -> Result<($args_struct_name, $args_loc_struct_name), (RuntimeCodeRange, String)>
+        fn _parse_args(ctx: &Context, call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ValidatedFnCallArg>)
+            -> Result<(Args, ArgsAt), (RuntimeCodeRange, String)>
         {
             struct PlaceholderArgsAt {
                 $( $arg_name: Option<RuntimeCodeRange> ),*
@@ -295,7 +295,7 @@ macro_rules! define_internal_fn {
                 $( $arg_name: None ),*
             };
 
-            let parsed = $args_struct_name {
+            let parsed = Args {
                 $( $arg_name: {
                     let arg_handler: $arg_handler_type = $arg_handler_gen;
 
@@ -311,7 +311,7 @@ macro_rules! define_internal_fn {
                 } ),*
             };
 
-            let args_at = $args_loc_struct_name {
+            let args_at = ArgsAt {
                 $( $arg_name: <$arg_handler_type as ArgHandler>::min_unwrap(placeholder_args_at.$arg_name) ),*
             };
 
@@ -322,37 +322,46 @@ macro_rules! define_internal_fn {
             }
         }
 
-        fn run(call_data: InternalFnCallData) -> ExecResult<Option<LocatedValue>> {
+        fn _run(call_data: InternalFnCallData) -> ExecResult<Option<LocatedValue>> {
             let InternalFnCallData { call_at, args, ctx } = call_data;
 
-            let (args, args_at) = parse_args(ctx, call_at, args)
+            let (args, args_at) = _parse_args(ctx, call_at, args)
                 .map_err(|(at, err)| ctx.error(at, err))?;
 
-            fn wrapper() -> impl Fn(RuntimeCodeRange, $args_struct_name, $args_loc_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {
-                $( $( let $arg_type_alias: $arg_handler_type = $arg_handler_gen; )? )*
-                $( let $ret_type_var = $ret_type.unwrap(); )*
-
-                $run
-            }
-
-            #[allow(clippy::redundant_closure_call)]
-            wrapper()(call_at, args, args_at, ctx)
+            run().0
+                (call_at, args, args_at, ctx)
                 .map(|value| value.map(|value| LocatedValue::new(value, RuntimeCodeRange::Internal)))
         }
 
-        InternalFunction {
-            args: vec![
-                $({
-                    let arg: $arg_handler_type = $arg_handler_gen;
-                    generate_internal_arg_decl(arg)
-                }),*
-            ],
+        // fn _runner<F: Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>>>(
+        //     closure: F
+        // ) -> F {
+        //     closure
+        // }
 
-            run,
+        struct Runner(Box<dyn Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>>>);
 
-            ret_type: $ret_type,
-
-            name: $name
+        impl Runner {
+            fn new(inner: impl Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>> + 'static) -> Self {
+                Self(Box::new(inner))
+            }
         }
-    }};
+
+        pub fn build_fn() -> InternalFunction {
+            InternalFunction {
+                args: vec![
+                    $({
+                        let arg: $arg_handler_type = $arg_handler_gen;
+                        generate_internal_arg_decl(arg)
+                    }),*
+                ],
+
+                run: _run,
+
+                ret_type: $ret_type,
+
+                name: $name
+            }
+        }
+    };
 }
