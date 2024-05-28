@@ -30,11 +30,11 @@ pub fn program(
         let msnl = whitespaces();
 
         let block = char('{')
-            .critical("expected an opening brace '{'")
+            .critical_expectation()
             .ignore_then(msnl)
             .ignore_then(raw_block)
             .then_ignore(msnl)
-            .then_ignore(char('}').critical("expected a closing brace '}'"));
+            .then_ignore(char('}').critical_expectation());
 
         let possible_ident_char = choice((char('_'), alphanumeric()));
 
@@ -98,7 +98,7 @@ pub fn program(
                         .spanned()
                         .map(RuntimeEaten::Eaten)
                         .then_ignore(ms)
-                        .then_ignore(char(':').critical("expected a ':'"))
+                        .then_ignore(char(':').critical_expectation())
                         .then_ignore(msnl)
                         .then(
                             value_type
@@ -113,7 +113,7 @@ pub fn program(
                         .separated_by(char(',').padded()),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical("expected a closing brace '}'"))
+                .then_ignore(char('}').critical_expectation())
                 .map(SingleValueType::TypedStruct),
             just("struct")
                 .not_followed_by(possible_ident_char.clone())
@@ -403,7 +403,7 @@ pub fn program(
                         .clone()
                         .spanned()
                         .then_ignore(ms)
-                        .then_ignore(char(':').critical("expected a semicolon ':'"))
+                        .then_ignore(char(':').critical_expectation())
                         .then_ignore(msnl)
                         .then(expr.clone().spanned().critical("expected an expression"))
                         .separated_by(char(',').padded()),
@@ -494,11 +494,11 @@ pub fn program(
         )));
 
         let braces_expr_body = char('{')
-            .critical("expected an opening brace '{'")
+            .critical_expectation()
             .ignore_then(msnl)
             .ignore_then(expr.clone().map(Box::new).spanned())
             .then_ignore(msnl)
-            .then_ignore(char('}').critical("expected a closing brace '}'"));
+            .then_ignore(char('}').critical_expectation());
 
         let expr_inner_content = recursive(|expr_inner_content| {
             choice::<_, ExprInnerContent>((
@@ -563,20 +563,12 @@ pub fn program(
                 // Try / catch
                 just("try")
                     .ignore_then(s)
-                    // .ignore_then(
-                    //     char('(').critical("expected an opening parenthesis before function call"),
-                    // )
-                    // .ignore_then(msnl)
                     .ignore_then(
                         fn_call
                             .clone()
                             .spanned()
                             .critical("expected a function call"),
                     )
-                    // .then_ignore(msnl)
-                    // .then_ignore(
-                    //     char(')').critical("expected a closing parenthesis after function call"),
-                    // )
                     .then_ignore(s.critical("expected 'catch' keyword after function call"))
                     .then_ignore(
                         just("catch").critical("expected 'catch' keyword after function call"),
@@ -589,20 +581,12 @@ pub fn program(
                             .critical("expected a catch variable"),
                     )
                     .then_ignore(s.critical("expected a space"))
-                    // .then_ignore(
-                    //     char('(').critical("expected an opening parenthesis before expression"),
-                    // )
-                    // .then_ignore(msnl)
                     .then(
                         expr.clone()
                             .map(Box::new)
                             .spanned()
                             .critical("expected a catch expression"),
                     )
-                    // .then_ignore(msnl)
-                    // .then_ignore(
-                    //     char(')').critical("expected a closing parenthesis after expression"),
-                    // )
                     .map(|((fn_call, catch_var), catch_expr)| ExprInnerContent::Try {
                         fn_call,
                         catch_var,
@@ -1073,7 +1057,7 @@ pub fn program(
                         .critical("expected an expression to switch on"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical("expected an opening brace '{'"))
+                .then_ignore(char('{').critical_expectation())
                 .then_ignore(msnl)
                 .then(
                     just("case")
@@ -1089,7 +1073,7 @@ pub fn program(
                         .repeated_vec(),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical("expected a closing brace"))
+                .then_ignore(char('}').critical_expectation())
                 .map(|(expr, cases)| Instruction::Switch { expr, cases }),
             //
             // Function declaration
@@ -1207,7 +1191,7 @@ pub fn program(
             //
             just("include")
                 .ignore_then(s)
-                .ignore_then(char('"').critical("expected an opening quote (\")"))
+                .ignore_then(char('"').critical_expectation())
                 .ignore_then(
                     filter(|c| c != '"' && c != '\r' && c != '\n')
                         .repeated()
@@ -1217,7 +1201,7 @@ pub fn program(
                 )
                 .then_ignore(char('"').critical("expected a closing quote after the path (\")"))
                 .spanned()
-                .fallible_map(move |path| load_file(path.data, path.at.start.file_id))
+                .try_map(move |path| load_file(path.data, path.at.start.file_id))
                 .and_then(move |file| {
                     program.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
                 })
