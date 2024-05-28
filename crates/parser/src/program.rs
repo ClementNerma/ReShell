@@ -19,7 +19,7 @@ use crate::{
         FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue,
         MapDestructBinding, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall,
         SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
-        Value, ValueType, VarDeclType,
+        Value, ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1033,7 +1033,7 @@ pub fn program(
             .map(|(is_mut, name)| SingleVarDecl { name, is_mut });
 
         let var_decl_type = recursive(|var_decl_type| {
-            choice::<_, VarDeclType>((
+            choice::<_, VarDeconstruction>((
                 char('[')
                     .ignore_then(msnl)
                     .ignore_then(
@@ -1044,7 +1044,7 @@ pub fn program(
                     )
                     .then_ignore(msnl)
                     .then_ignore(char(']'))
-                    .map(VarDeclType::Tuple),
+                    .map(VarDeconstruction::Tuple),
                 char('{')
                     .ignore_then(msnl)
                     .ignore_then(
@@ -1070,8 +1070,8 @@ pub fn program(
                     )
                     .then_ignore(msnl)
                     .then_ignore(char('}'))
-                    .map(VarDeclType::MapOrStruct),
-                single_var_decl.map(VarDeclType::Single),
+                    .map(VarDeconstruction::MapOrStruct),
+                single_var_decl.map(VarDeconstruction::Single),
             ))
         });
 
