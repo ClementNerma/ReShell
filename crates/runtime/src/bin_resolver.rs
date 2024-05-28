@@ -49,6 +49,10 @@ impl BinariesResolver {
         self.entries = HashMap::new();
     }
 
+    pub fn path_dirs(&self) -> &Vec<String> {
+        &self.path_dirs
+    }
+
     pub fn entries(&self) -> &HashMap<String, PathBuf> {
         &self.entries
     }

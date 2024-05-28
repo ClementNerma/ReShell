@@ -1,11 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
-    sync::Arc,
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
+use reshell_runtime::{bin_resolver::BinariesResolver, context::Context};
 
 use crate::utils::{
     lazy_cell::LazyCell,
@@ -114,12 +115,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         followed_by: None,
         followed_by_nesting: None,
         style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-            let in_scope = ctx.visible_scopes().any(|scope| {
-                scope.content.fns.contains_key(matched) ||
-                scope.content.cmd_aliases.contains_key(matched)
-            });
-                
-            if in_scope || ctx.binaries_resolver().resolve_binary_path(matched).is_ok() {
+            if COMMANDS_CHECKER.lock().unwrap().check(ctx, matched) {
                 Style::new().fg(Color::Blue)
             } else {
                 Style::new().fg(Color::Red)
@@ -354,3 +350,43 @@ fn highlight(input: &str) -> StyledText {
     }
 }
 
+struct CommandsChecker {
+    for_path: Vec<String>,
+    entries: HashMap<String, bool>
+}
+
+impl CommandsChecker {
+    pub fn new() -> Self {
+        Self {
+            for_path: vec![],
+            entries: HashMap::new()
+        }
+    }
+
+    pub fn update(&mut self, bin_resolver: &mut BinariesResolver) {
+        if &self.for_path != bin_resolver.path_dirs() {
+            *self = Self {
+                for_path: bin_resolver.path_dirs().clone(),
+                entries: bin_resolver.entries().keys().map(|key| (key.clone(), true)).collect()
+            }
+        }
+    }
+
+    pub fn check(&mut self, ctx: &mut Context, name: &str) -> bool {
+        self.update(ctx.binaries_resolver());
+
+        if let Some(exists) = self.entries.get(name) {
+            return *exists;
+        }
+
+        let in_scope = ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name));
+
+        let exists = in_scope || ctx.binaries_resolver().resolve_binary_path(name).is_ok();
+
+        self.entries.insert(name.to_owned(), exists);
+
+        exists
+    }
+}
+
+static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> = LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));
