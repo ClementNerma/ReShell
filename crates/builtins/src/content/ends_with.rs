@@ -4,7 +4,7 @@ define_internal_fn!(
     "endsWith",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("self"),
+        string: RequiredArg<StringType> = Arg::method_self(),
         sub: RequiredArg<StringType> = Arg::positional("sub")
     )
 
