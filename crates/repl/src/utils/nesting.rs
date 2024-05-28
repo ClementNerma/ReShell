@@ -145,15 +145,17 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             '"' | '\'' => {
                 if let Some((opening_str, opening_offset)) = opened_strings.last().copied() {
                     if opened.last().copied() == Some((opening_str, opening_offset)) {
-                        push(
-                            &mut output,
-                            offset,
-                            1,
-                            NestingActionType::Closing { opening_offset },
-                        );
+                        if opening_str == char_as_str {
+                            push(
+                                &mut output,
+                                offset,
+                                1,
+                                NestingActionType::Closing { opening_offset },
+                            );
 
-                        opened.pop();
-                        opened_strings.pop();
+                            opened.pop();
+                            opened_strings.pop();
+                        }
 
                         continue;
                     }
