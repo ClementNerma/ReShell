@@ -417,13 +417,29 @@ fn exec_cmd(
         append_cmd_arg_as_string(arg, arg_at, &mut args_str, ctx)?;
     }
 
+    // Determine the command name (or path)
     let cmd_path = treat_cwd_raw(name, ctx)?;
 
+    // Resolve the command name to a binary's path
     let cmd_path = ctx
         .binaries_resolver()
         .resolve_binary_path(&cmd_path)
         .map_err(|err| ctx.error(name.at, err.to_string()))?;
 
+    // This instruction both canonicalizes AND simplifies the path (to avoid UNC like '\\?\C:\...' on Windows)
+    // This is required because the command path is transmitted as the program's first argument on most platforms,
+    // and some programs may use it to refer as themselves while in the same time not supporting UNC paths
+    let cmd_path = dunce::canonicalize(&cmd_path).map_err(|err: std::io::Error| {
+        ctx.error(
+            name.at,
+            format!(
+                "Failed to canonicalize binary path '{}': {err}",
+                cmd_path.display()
+            ),
+        )
+    })?;
+
+    // Actually run the command
     let child = Command::new(cmd_path)
         .envs(env_vars)
         .args(args_str)
