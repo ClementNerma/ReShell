@@ -11,47 +11,9 @@ use reshell_parser::{
 use crate::{
     cmd::{CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
     context::Context,
-    errors::{ExecErrorInfoType, ExecResult},
-    pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece},
+    pretty::{Colored, PrettyPrintable, PrettyPrintablePiece},
     values::{ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
-
-pub fn value_to_str(
-    value: &RuntimeValue,
-    at: impl Into<RuntimeCodeRange>,
-    ctx: &Context,
-) -> ExecResult<String> {
-    match value {
-        RuntimeValue::Bool(bool) => Ok(bool.to_string()),
-        RuntimeValue::Int(num) => Ok(num.to_string()),
-        RuntimeValue::Float(num) => Ok(num.to_string()),
-        RuntimeValue::String(str) => Ok(str.clone()),
-        RuntimeValue::Null
-        | RuntimeValue::List(_)
-        | RuntimeValue::Range { from: _, to: _ }
-        | RuntimeValue::Map(_)
-        | RuntimeValue::Struct(_)
-        | RuntimeValue::Function(_)
-        | RuntimeValue::Error(_)
-        | RuntimeValue::CmdCall { content_at: _ }
-        | RuntimeValue::ArgSpread(_)
-        | RuntimeValue::Custom(_) // TODO?
-        => Err(ctx
-            .error(
-                at,
-                format!(
-                    "cannot convert {} to a string",
-                    value
-                        .get_type()
-                        .render_colored(ctx, PrettyPrintOptions::inline())
-                ),
-            )
-            .with_info(
-                ExecErrorInfoType::Tip,
-                "this conversion happens because external commands can only take string-like arguments",
-            )),
-    }
-}
 
 impl PrettyPrintable for ValueType {
     fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece {
@@ -187,11 +149,11 @@ impl PrettyPrintable for RuntimeValue {
             ]),
 
             RuntimeValue::Error(err) => {
-                let ErrorValueContent { at, msg } = &**err;
+                let ErrorValueContent { at, data } = &**err;
 
                 PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic("error(", Color::Red),
-                    pretty_print_string(msg),
+                    data.generate_pretty_data(ctx),
                     PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
                     PrettyPrintablePiece::colored_atomic(
                         dbg_loc(*at, ctx.files_map()),

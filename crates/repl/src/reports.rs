@@ -28,7 +28,7 @@ impl ReportableError {
             ReportableError::Runtime(err, _) => match err.nature {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::Thrown { value: _ } => None,
+                | ExecErrorNature::Thrown { at: _, message: _ } => None,
 
                 ExecErrorNature::CommandFailedToStart { message: _ } => Some(1),
 
@@ -96,12 +96,13 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 exit_status: _,
             } => (err.at, "Command failed", message.clone()),
 
-            ExecErrorNature::Thrown { value } => (
+            ExecErrorNature::Thrown { at, message } => (
                 err.at,
-                "Function thrown",
+                "Thrown",
                 format!(
-                    "function thrown a value at {}",
-                    dbg_loc(value.from, files).bright_magenta()
+                    "thrown at {}: {}",
+                    dbg_loc(*at, files).bright_magenta(),
+                    message.bright_red()
                 ),
             ),
         },

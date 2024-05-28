@@ -8,23 +8,23 @@ crate::define_internal_fn!(
     "error",
 
     (
-        content: RequiredArg<StringType> = Arg::positional("content")
+        data: RequiredArg<AnyType> = Arg::positional("data")
     )
 
-    -> Some(RangeType::direct_underlying_type())
+    -> Some(ErrorType::direct_underlying_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|at, Args { content }, _, ctx| match at {
+    Runner::new(|at, Args { data }, _, ctx| match at {
         RuntimeCodeRange::Parsed(at) => {
             Ok(Some(RuntimeValue::Error(Box::new(ErrorValueContent {
                 at,
-                msg: content,
+                data,
             }))))
         }
 
         RuntimeCodeRange::Internal => {
-            Err(ctx.error(at, "cannot generate an error from an internal location"))
+            Err(ctx.throw(at, "cannot generate an error from an internal location"))
         }
     })
 }

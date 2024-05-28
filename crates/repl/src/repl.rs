@@ -221,7 +221,7 @@ pub fn start(
                         }
 
                         ExecErrorNature::ParsingErr(_)
-                        | ExecErrorNature::Thrown { value: _ }
+                        | ExecErrorNature::Thrown { at: _, message: _ }
                         | ExecErrorNature::Exit { code: _ }
                         | ExecErrorNature::CtrlC
                         | ExecErrorNature::Custom(_) => {}

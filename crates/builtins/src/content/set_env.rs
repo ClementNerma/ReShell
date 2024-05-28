@@ -22,7 +22,7 @@ fn run() -> Runner {
         if is_path_var {
             ctx.binaries_resolver()
                 .refresh()
-                .map_err(|err| ctx.error(at, err.to_string()))?;
+                .map_err(|err| ctx.throw(at, err.to_string()))?;
         }
 
         Ok(None)

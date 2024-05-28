@@ -52,7 +52,7 @@ fn run() -> Runner {
                         "brightWhite" => Color::BrightWhite,
                         _ => {
                             return Err(
-                                ctx.error(color_at.unwrap(), format!("unknown color '{color}'"))
+                                ctx.throw(color_at.unwrap(), format!("unknown color '{color}'"))
                             )
                         }
                     };

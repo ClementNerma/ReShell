@@ -22,7 +22,7 @@ fn run() -> Runner {
 
             None => match or_else {
                 Some(value) => Ok(Some(value.clone())),
-                None => Err(ctx.error(key_at, format!("key '{key}' was not found"))),
+                None => Err(ctx.throw(key_at, format!("key '{key}' was not found"))),
             },
         },
     )

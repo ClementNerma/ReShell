@@ -25,19 +25,19 @@ fn run() -> Runner {
         let out = match format {
             Some(format) => {
                 let format = format_description::parse(&format).map_err(|err| {
-                    ctx.error(
+                    ctx.throw(
                         format_at.unwrap(),
                         format!("Failed to parse date/time formatting: {err}"),
                     )
                 })?;
 
                 now.format(&format)
-                    .map_err(|err| ctx.error(at, format!("Failed to format date/time: {err}")))?
+                    .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?
             }
 
             None => now
                 .format(&Rfc2822)
-                .map_err(|err| ctx.error(at, format!("Failed to format date/time: {err}")))?,
+                .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?,
         };
 
         Ok(Some(RuntimeValue::String(out)))

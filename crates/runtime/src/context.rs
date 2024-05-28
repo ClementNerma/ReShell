@@ -340,6 +340,21 @@ impl Context {
         self.error(at, ExecErrorNature::Exit { code })
     }
 
+    /// Generate a throw error
+    pub fn throw(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        message: impl Into<String>,
+    ) -> Box<ExecError> {
+        self.error(
+            at,
+            ExecErrorNature::Thrown {
+                at: RuntimeCodeRange::Internal,
+                message: message.into(),
+            },
+        )
+    }
+
     /// Panic because of an internal error
     pub fn panic(&self, at: impl Into<RuntimeCodeRange>, message: impl AsRef<str>) -> ! {
         panic!(

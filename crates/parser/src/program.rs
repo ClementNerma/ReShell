@@ -1136,7 +1136,7 @@ pub fn program(
             //
             just("throw")
                 .ignore_then(s)
-                .ignore_then(expr.spanned())
+                .ignore_then(expr.spanned().critical("expected an expression to throw"))
                 .map(Instruction::Throw),
             //
             // Try/Catch

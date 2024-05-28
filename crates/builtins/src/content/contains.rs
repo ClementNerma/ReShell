@@ -21,7 +21,7 @@ fn run() -> Runner {
             match are_values_equal(item, &value) {
                 Ok(true) => return Ok(Some(RuntimeValue::Bool(true))),
                 Ok(false) => {}
-                Err(NotComparableTypes { reason }) => return Err(ctx.error(at, reason)),
+                Err(NotComparableTypes { reason }) => return Err(ctx.throw(at, reason)),
             }
         }
 

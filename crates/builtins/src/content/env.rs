@@ -23,7 +23,7 @@ fn run() -> Runner {
          },
          ctx| {
             let var_value = std::env::var_os(&var_name).ok_or_else(|| {
-                ctx.error(
+                ctx.throw(
                     var_name_at,
                     format!("environment variable '{var_name}' is not set"),
                 )
@@ -34,7 +34,7 @@ fn run() -> Runner {
             } else {
                 var_value
                 .to_str()
-                .ok_or_else(|| ctx.error(var_name_at, format!("environment variable '{var_name}' contains invalid UTF-8 characters: '{}'", var_value.to_string_lossy())))?
+                .ok_or_else(|| ctx.throw(var_name_at, format!("environment variable '{var_name}' contains invalid UTF-8 characters: '{}'", var_value.to_string_lossy())))?
                 .to_owned()
             };
 

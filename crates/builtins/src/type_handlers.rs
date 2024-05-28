@@ -77,10 +77,10 @@ declare_basic_type_handlers!(
         _ => Err("expected a range".to_owned())
     },
 
-    ErrorType (Error) = (CodeRange, String) => value: match value {
+    ErrorType (Error) = (CodeRange, RuntimeValue) => value: match value {
         RuntimeValue::Error(err) => {
-            let ErrorValueContent { at, msg } = *err;
-            Ok((at, msg.clone()))
+            let ErrorValueContent { at, data } = *err;
+            Ok((at, data.clone()))
         },
 
         _ => Err("expected an error".to_owned())

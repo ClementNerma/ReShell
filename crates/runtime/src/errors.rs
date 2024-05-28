@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use parsy::ParsingError;
 use reshell_parser::ast::RuntimeCodeRange;
 
-use crate::{context::CallStack, values::LocatedValue};
+use crate::context::CallStack;
 
 /// Result of an action that may have resulted in an execution error
 pub type ExecResult<T> = Result<T, Box<ExecError>>;
@@ -46,7 +46,10 @@ pub enum ExecErrorNature {
         exit_status: Option<i32>,
     },
     /// A value was thrown and stayed uncaught
-    Thrown { value: LocatedValue },
+    Thrown {
+        at: RuntimeCodeRange,
+        message: String,
+    },
     /// Program requested to exit
     Exit { code: Option<u8> },
     /// Interrupted by a Ctrl+C press

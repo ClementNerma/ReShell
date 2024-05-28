@@ -529,12 +529,26 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::Throw(expr) => {
-            let value = eval_expr(&expr.data, ctx)?;
+            let message = match eval_expr(&expr.data, ctx)? {
+                RuntimeValue::String(string) => string,
+                value => {
+                    return Err(ctx.error(
+                        expr.at,
+                        format!(
+                            "expected a string, found a {}",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
+            };
 
             return Err(ctx.error(
                 instr.at,
                 ExecErrorNature::Thrown {
-                    value: LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at)),
+                    at: RuntimeCodeRange::Parsed(instr.at),
+                    message,
                 },
             ));
         }
@@ -546,7 +560,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         } => {
             if let Err(err) = eval_fn_call(call, ctx) {
                 match err.nature {
-                    ExecErrorNature::Thrown { value } => {
+                    ExecErrorNature::Thrown { at, message } => {
                         let mut scope = ScopeContent::new();
 
                         scope.vars.insert(
@@ -554,7 +568,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             ScopeVar {
                                 name_at: RuntimeCodeRange::Parsed(catch_var.at),
                                 is_mut: false,
-                                value: GcCell::new(Some(value)),
+                                value: GcCell::new(Some(LocatedValue::new(
+                                    RuntimeValue::String(message),
+                                    at,
+                                ))),
                             },
                         );
 

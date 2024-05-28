@@ -16,14 +16,14 @@ define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { string }, ArgsAt { string: string_at }, ctx| {
         let json = serde_json::from_str(&string).map_err(|err| {
-            ctx.error(
+            ctx.throw(
                 string_at,
                 format!("Failed to parse input string as JSON: {err:?}"),
             )
         })?;
 
         let json = serde_json_to_value(json).map_err(|err| {
-            ctx.error(
+            ctx.throw(
                 string_at,
                 format!("Failed to parse input string as JSON: {err}",),
             )

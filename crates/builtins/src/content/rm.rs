@@ -23,7 +23,7 @@ fn run() -> Runner {
             let path = Path::new(&path);
 
             let file_type = path.metadata().map_err(|_| {
-                ctx.error(
+                ctx.throw(
                     path_at,
                     format!("provided path '{}' does not exist", path.display()),
                 )
@@ -31,7 +31,7 @@ fn run() -> Runner {
 
             let result = if file_type.is_dir() {
                 if !recursive {
-                    return Err(ctx.error(path_at, "provided path is a directory ; to remove it, use the '--recursive' / '-r' flag."));
+                    return Err(ctx.throw(path_at, "provided path is a directory ; to remove it, use the '--recursive' / '-r' flag."));
                 }
 
                 fs::remove_dir_all(path)

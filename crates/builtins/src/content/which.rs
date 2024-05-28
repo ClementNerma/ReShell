@@ -57,7 +57,7 @@ fn run() -> Runner {
                     Ok(None)
                 }
 
-                Err(err) => Err(ctx.error(command_at, err.to_string())),
+                Err(err) => Err(ctx.throw(command_at, err.to_string())),
             }
         },
     )
