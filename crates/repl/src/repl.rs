@@ -165,31 +165,29 @@ pub fn start(
                         && err.at.parsed_range()
                             == Some(program.data.content.data.instructions[0].at);
 
-                    match &err.nature {
-                        ExecErrorNature::CommandFailedToStart { message } => {
-                            // If we only run a single command (not more, no pipes, etc.) and it failed to start,
-                            // display a simpler error.
-                            if is_single_cmd_call {
-                                eprintln!("{} {message}", "ERROR:".bright_red());
+                    // If we only run a single command (not more, no pipes, etc.) and it failed to start or run,
+                    // display a simpler error.
+                    if is_single_cmd_call {
+                        match &err.nature {
+                            ExecErrorNature::CommandFailedToStart { message } => {
+                                eprintln!("{}", format!("ERROR: {message}").bright_red());
                                 continue;
                             }
-                        }
 
-                        ExecErrorNature::CommandFailed {
-                            message: _,
-                            exit_status: _,
-                        } => {
-                            // If we only run a single command (not more, no pipes, etc.) and it failed to start,
-                            // don't display any error
-                            continue;
-                        }
+                            ExecErrorNature::CommandFailed {
+                                message: _,
+                                exit_status: _,
+                            } => {
+                                continue;
+                            }
 
-                        ExecErrorNature::ParsingErr(_)
-                        | ExecErrorNature::CheckingErr(_)
-                        | ExecErrorNature::Thrown { at: _, message: _ }
-                        | ExecErrorNature::Exit { code: _ }
-                        | ExecErrorNature::CtrlC
-                        | ExecErrorNature::Custom(_) => {}
+                            ExecErrorNature::ParsingErr(_)
+                            | ExecErrorNature::CheckingErr(_)
+                            | ExecErrorNature::Thrown { at: _, message: _ }
+                            | ExecErrorNature::Exit { code: _ }
+                            | ExecErrorNature::CtrlC
+                            | ExecErrorNature::Custom(_) => {}
+                        }
                     }
                 }
 
