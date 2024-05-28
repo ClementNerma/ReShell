@@ -292,7 +292,7 @@ pub fn program() -> impl Parser<Program> {
                 .spanned()
                 .repeated_vec(),
             )
-            .then_ignore(char('"').critical("unexpected symbol"))
+            .then_ignore(char('"').critical("expected closing quote (\")"))
             .map(|pieces| ComputedString { pieces });
 
         let value = choice::<_, Value>((
