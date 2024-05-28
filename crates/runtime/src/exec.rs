@@ -18,7 +18,7 @@ use crate::{
     functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_props_access, PropAccessPolicy, PropAssignment},
+    props::{eval_props_access, PropAccessPolicy, PropAccessTailPolicy, PropAssignment},
     values::{
         are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeCmdAlias,
         RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
@@ -197,16 +197,17 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 eval_props_access(
                     &mut var.value.write(name.at, ctx)?.as_mut().unwrap().value,
                     prop_acc.iter(),
-                    match list_push {
-                        Some(_) => PropAccessPolicy::ExistingOnly,
-                        None => PropAccessPolicy::TrailingAccessMayNotExist,
-                    },
+                    PropAccessPolicy::Write(match list_push {
+                        Some(_) => PropAccessTailPolicy::ExistingOnly,
+                        None => PropAccessTailPolicy::TailMayNotExist,
+                    }),
                     ctx,
                     |left, ctx| match list_push {
                         None => {
                             match left {
-                                PropAssignment::Existing(existing) => *existing = assign_value,
-                                PropAssignment::ToBeCreated(entry) => {
+                                PropAssignment::ReadExisting(_) => unreachable!(),
+                                PropAssignment::WriteExisting(existing) => *existing = assign_value,
+                                PropAssignment::Create(entry) => {
                                     entry.insert(assign_value);
                                 }
                             }
@@ -215,7 +216,9 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         }
 
                         Some(list_push) => match left {
-                            PropAssignment::Existing(existing) => match existing {
+                            PropAssignment::ReadExisting(_) => unreachable!(),
+
+                            PropAssignment::WriteExisting(existing) => match existing {
                                 RuntimeValue::List(list) => {
                                     list.write(list_push.at, ctx)?.push(assign_value);
                                     Ok(())
@@ -236,7 +239,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                 }
                             },
 
-                            PropAssignment::ToBeCreated(_) => unreachable!(),
+                            PropAssignment::Create(_) => unreachable!(),
                         },
                     },
                 )??;

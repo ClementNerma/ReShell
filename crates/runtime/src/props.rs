@@ -12,8 +12,9 @@ use crate::{
 };
 
 pub enum PropAssignment<'c> {
-    Existing(&'c mut RuntimeValue),
-    ToBeCreated(VacantEntry<'c, String, RuntimeValue>),
+    ReadExisting(&'c RuntimeValue),
+    WriteExisting(&'c mut RuntimeValue),
+    Create(VacantEntry<'c, String, RuntimeValue>),
 }
 
 pub fn eval_props_access<'ast, 'c, T>(
@@ -24,7 +25,13 @@ pub fn eval_props_access<'ast, 'c, T>(
     finalize: impl FnOnce(PropAssignment, &mut Context) -> T,
 ) -> ExecResult<T> {
     if accesses.len() == 0 {
-        return Ok(finalize(PropAssignment::Existing(left), ctx));
+        return Ok(finalize(
+            match policy {
+                PropAccessPolicy::Read => PropAssignment::ReadExisting(left),
+                PropAccessPolicy::Write(_) => PropAssignment::WriteExisting(left),
+            },
+            ctx,
+        ));
     }
 
     let mut left = left.clone();
@@ -66,18 +73,22 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 }
                             },
 
-                            None => {
-                                // TODO: give either a reference or a mutable reference depending on what's asked
+                            None => match policy {
+                                PropAccessPolicy::Read => {
+                                    return Ok(finalize(PropAssignment::ReadExisting(value), ctx))
+                                }
 
-                                drop(items);
+                                PropAccessPolicy::Write(_) => {
+                                    drop(items);
 
-                                return Ok(finalize(
-                                    PropAssignment::Existing(
-                                        list.write(key_expr.at, ctx)?.get_mut(index).unwrap(),
-                                    ),
-                                    ctx,
-                                ));
-                            }
+                                    return Ok(finalize(
+                                        PropAssignment::WriteExisting(
+                                            list.write(key_expr.at, ctx)?.get_mut(index).unwrap(),
+                                        ),
+                                        ctx,
+                                    ));
+                                }
+                            },
                         },
 
                         None => {
@@ -104,42 +115,59 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
                     };
 
-                    let mut map = map.write(key_expr.at, ctx)?;
+                    let map_read = map.read(key_expr.at);
+                    let value = map_read.get(&key);
 
-                    match map.entry(key.clone()) {
-                        Entry::Occupied(mut entry) => match next_acc {
-                            Some(next_acc) => match entry.get().is_primitive() {
-                                false => left = entry.get().clone(),
-                                true => {
-                                    return Err(
-                                        ctx.error(next_acc.at, "left operand is a primitive")
-                                    )
-                                }
-                            },
+                    match (value, next_acc) {
+                        (Some(value), Some(next_acc)) => {
+                            if value.is_primitive() {
+                                return Err(ctx.error(next_acc.at, "left operand is a primitive"));
+                            } else {
+                                left = value.clone();
+                            }
+                        }
 
-                            None => {
-                                return Ok(finalize(PropAssignment::Existing(entry.get_mut()), ctx))
+                        (Some(value), None) => match policy {
+                            PropAccessPolicy::Read => {
+                                return Ok(finalize(PropAssignment::ReadExisting(value), ctx))
+                            }
+
+                            PropAccessPolicy::Write(_) => {
+                                drop(map_read);
+
+                                let mut map = map.write(key_expr.at, ctx)?;
+
+                                return Ok(finalize(
+                                    PropAssignment::WriteExisting(map.get_mut(&key).unwrap()),
+                                    ctx,
+                                ));
                             }
                         },
 
-                        Entry::Vacant(entry) => match next_acc {
-                            Some(next_acc) => {
+                        (None, Some(_)) => {
+                            return Err(ctx.error(key_expr.at, format!("key '{key}' was not found")))
+                        }
+
+                        (None, None) => match policy {
+                            PropAccessPolicy::Read
+                            | PropAccessPolicy::Write(PropAccessTailPolicy::ExistingOnly) => {
                                 return Err(
-                                    ctx.error(next_acc.at, format!("key '{key}' was not found"))
+                                    ctx.error(key_expr.at, format!("key '{key}' was not found"))
                                 )
                             }
 
-                            None => match policy {
-                                PropAccessPolicy::ExistingOnly => {
-                                    return Err(
-                                        ctx.error(acc.at, format!("key '{key}' was not found"))
-                                    )
-                                }
+                            PropAccessPolicy::Write(PropAccessTailPolicy::TailMayNotExist) => {
+                                drop(map_read);
 
-                                PropAccessPolicy::TrailingAccessMayNotExist => {
-                                    return Ok(finalize(PropAssignment::ToBeCreated(entry), ctx));
-                                }
-                            },
+                                let mut map = map.write(key_expr.at, ctx)?;
+
+                                let entry = match map.entry(key) {
+                                    Entry::Occupied(_) => unreachable!(),
+                                    Entry::Vacant(vacant) => vacant,
+                                };
+
+                                return Ok(finalize(PropAssignment::Create(entry), ctx));
+                            }
                         },
                     }
                 }
@@ -157,31 +185,41 @@ pub fn eval_props_access<'ast, 'c, T>(
             },
 
             PropAccessNature::Prop(prop) => match left {
-                RuntimeValue::Struct(content) => {
-                    let mut entries = content.write(prop.at, ctx)?;
+                RuntimeValue::Struct(obj) => {
+                    let obj_read = obj.read(prop.at);
 
-                    match entries.get_mut(&prop.data) {
-                        Some(value) => match next_acc {
-                            Some(next_acc) => match value.is_primitive() {
-                                false => left = value.clone(),
-                                true => {
-                                    return Err(
-                                        ctx.error(next_acc.at, "left operand is a primitive")
-                                    )
-                                }
-                            },
-                            None => return Ok(finalize(PropAssignment::Existing(value), ctx)),
-                        },
+                    let value = obj_read.get(&prop.data).ok_or_else(|| {
+                        ctx.error(
+                            prop.at,
+                            format!("member '{}' was not found in structure", prop.data),
+                        )
+                    })?;
 
-                        None => {
-                            return Err(ctx.error(
-                                prop.at,
-                                format!(
-                                    "property '{}' does not exist on the provided object",
-                                    prop.data
-                                ),
-                            ));
+                    match next_acc {
+                        Some(next_acc) => {
+                            if value.is_primitive() {
+                                return Err(ctx.error(next_acc.at, "left operand is a primitive"));
+                            } else {
+                                left = value.clone();
+                            }
                         }
+
+                        None => match policy {
+                            PropAccessPolicy::Read => {
+                                return Ok(finalize(PropAssignment::ReadExisting(value), ctx))
+                            }
+
+                            PropAccessPolicy::Write(_) => {
+                                drop(obj_read);
+
+                                let mut obj = obj.write(prop.at, ctx)?;
+
+                                return Ok(finalize(
+                                    PropAssignment::WriteExisting(obj.get_mut(&prop.data).unwrap()),
+                                    ctx,
+                                ));
+                            }
+                        },
                     }
                 }
 
@@ -204,6 +242,12 @@ pub fn eval_props_access<'ast, 'c, T>(
 
 #[derive(PartialEq, Eq)]
 pub enum PropAccessPolicy {
+    Read,
+    Write(PropAccessTailPolicy),
+}
+
+#[derive(PartialEq, Eq)]
+pub enum PropAccessTailPolicy {
     ExistingOnly,
-    TrailingAccessMayNotExist,
+    TailMayNotExist,
 }

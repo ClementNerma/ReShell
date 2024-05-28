@@ -211,11 +211,11 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
         left = eval_props_access(
             &mut left,
             [nature].into_iter(),
-            PropAccessPolicy::ExistingOnly,
+            PropAccessPolicy::Read,
             ctx,
             |d, _| match d {
-                PropAssignment::Existing(d) => d.clone(),
-                PropAssignment::ToBeCreated(_) => unreachable!(),
+                PropAssignment::ReadExisting(d) => d.clone(),
+                PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => unreachable!(),
             },
         )?;
     }
