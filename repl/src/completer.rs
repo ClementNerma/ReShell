@@ -1,11 +1,6 @@
-use std::path::PathBuf;
-
 use glob::glob;
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_runtime::{
-    cmd::pathify_cmd_raw_arg,
-    display::{dbg_fn_signature, readable_value_type},
-};
+use reshell_runtime::display::{dbg_fn_signature, readable_value_type};
 
 use crate::state::RUNTIME_CONTEXT;
 
@@ -13,7 +8,8 @@ pub static COMPLETION_MENU_NAME: &'static str = "completion_menu";
 
 pub fn create_completer() -> Box<dyn RlCompleter> {
     Box::new(Completer {
-        home_dir: dirs::home_dir(),
+        home_dir: dirs::home_dir()
+            .and_then(|home_dir| home_dir.to_str().map(|str| str.to_string())),
     })
 }
 
@@ -23,7 +19,7 @@ pub fn create_completion_menu() -> ReedlineMenu {
 }
 
 pub struct Completer {
-    home_dir: Option<PathBuf>,
+    home_dir: Option<String>,
 }
 
 impl RlCompleter for Completer {
@@ -41,6 +37,10 @@ impl RlCompleter for Completer {
             start: after_last_ws,
             end: after_last_ws + word.len(),
         };
+
+        if word == "~" {
+            return vec![];
+        }
 
         if word.starts_with('$') {
             let ctx = &RUNTIME_CONTEXT.read().unwrap();
@@ -86,13 +86,7 @@ impl RlCompleter for Completer {
                 .collect::<Vec<_>>();
         }
 
-        let Some(pathified) = pathify_cmd_raw_arg(word, self.home_dir.as_ref()) else {
-            return vec![];
-        };
-
-        let starts_with_slash = pathified.starts_with('/');
-
-        let mut search = pathified
+        let mut search = word
             .split(['/', '\\'])
             .filter(|segment| !segment.is_empty() && *segment != ".")
             .map(|segment| {
@@ -102,12 +96,25 @@ impl RlCompleter for Completer {
                     segment.to_string()
                 }
             })
-            .collect::<Vec<_>>()
-            .join("/");
+            .collect::<Vec<_>>();
 
-        if starts_with_slash {
-            search = format!("/{search}");
+        let starts_with_home_dir = if word.starts_with("~/") {
+            let Some(home_dir) = self.home_dir.as_ref() else {
+                return vec![];
+            };
+
+            search[0] = format!("{}", home_dir.trim_end_matches('/').to_string());
+
+            Some(home_dir)
+        } else {
+            None
+        };
+
+        if word.starts_with('/') {
+            search.insert(0, "/".to_string());
         }
+
+        let mut search = search.join("/");
 
         if search.is_empty() {
             search.push('*');
@@ -143,6 +150,13 @@ impl RlCompleter for Completer {
 
             if file_type.is_dir() {
                 path_str.push('/');
+            }
+
+            if let Some(home_dir) = starts_with_home_dir {
+                path_str = format!(
+                    "~/{}",
+                    path_str.strip_prefix(&format!("{home_dir}/")).unwrap()
+                )
             }
 
             out.push(Suggestion {
