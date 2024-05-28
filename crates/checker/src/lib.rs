@@ -581,19 +581,19 @@ fn check_single_op(single_op: &Eaten<SingleOp>, _: &mut State) -> CheckerResult 
 
 fn check_double_op(double_op: &Eaten<DoubleOp>, _: &mut State) -> CheckerResult {
     match &double_op.data {
-        DoubleOp::Add => Ok(()),
-        DoubleOp::Sub => Ok(()),
-        DoubleOp::Mul => Ok(()),
-        DoubleOp::Div => Ok(()),
-        DoubleOp::And => Ok(()),
-        DoubleOp::Or => Ok(()),
-        DoubleOp::Eq => Ok(()),
-        DoubleOp::Neq => Ok(()),
-        DoubleOp::Lt => Ok(()),
-        DoubleOp::Lte => Ok(()),
-        DoubleOp::Gt => Ok(()),
-        DoubleOp::Gte => Ok(()),
-        DoubleOp::NullFallback => Ok(()),
+        DoubleOp::Add
+        | DoubleOp::Sub
+        | DoubleOp::Mul
+        | DoubleOp::Div
+        | DoubleOp::And
+        | DoubleOp::Or
+        | DoubleOp::Eq
+        | DoubleOp::Neq
+        | DoubleOp::Lt
+        | DoubleOp::Lte
+        | DoubleOp::Gt
+        | DoubleOp::Gte
+        | DoubleOp::NullFallback => Ok(()),
     }
 }
 
