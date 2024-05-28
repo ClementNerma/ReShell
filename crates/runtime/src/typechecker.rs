@@ -129,9 +129,12 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Error, SingleValueType::Error) => true,
         (SingleValueType::Error, _) | (_, SingleValueType::Error) => false,
 
+        (SingleValueType::Custom(a), SingleValueType::Custom(b)) => a == b,
+        (SingleValueType::Custom(_), _) | (_, SingleValueType::Custom(_)) => false,
+
         (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
             check_fn_signature_equality(signature.data(), into.data(), ctx)
-        }
+        } // (SingleValueType::Function(_), _) | (_, SingleValueType::Function(_)) => false,
     }
 }
 

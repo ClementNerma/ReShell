@@ -1154,6 +1154,8 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
+
+        SingleValueType::Custom(_) => unreachable!(),
     }
 }
 

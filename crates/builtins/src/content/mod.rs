@@ -50,6 +50,7 @@ mod range;
 mod read_dir;
 mod read_file;
 mod reduce;
+mod regex;
 mod replace;
 mod reverse;
 mod rm;
@@ -141,6 +142,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::read_dir::build_fn(),
             self::read_file::build_fn(),
             self::reduce::build_fn(),
+            self::regex::build_fn(),
             self::replace::build_fn(),
             self::reverse::build_fn(),
             self::rm::build_fn(),

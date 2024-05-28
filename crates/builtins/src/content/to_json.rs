@@ -59,5 +59,6 @@ fn value_to_serde_json(value: RuntimeValue) -> Result<Value, &'static str> {
             .collect(),
         RuntimeValue::Function(_) => Err("cannot convert a function to JSON"),
         RuntimeValue::ArgSpread(_) => Err("cannot convert a spread to JSON"),
+        RuntimeValue::Custom(_) => Err("cannot convert a custom type to JSON"),
     }
 }

@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::rc::Rc;
 use std::{collections::HashMap, fmt::Debug};
 
@@ -13,6 +14,8 @@ use crate::cmd::CmdSingleArgResult;
 use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
 use crate::functions::ValidatedFnCallArg;
 use crate::gc::{GcOnceCell, GcReadOnlyCell};
+use crate::pretty::PrettyPrintable;
+use crate::size::ComputableSize;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 #[derive(Debug)]
@@ -98,6 +101,9 @@ pub enum RuntimeValue {
     Struct(GcCell<HashMap<String, RuntimeValue>>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
     ArgSpread(GcReadOnlyCell<Vec<CmdSingleArgResult>>),
+
+    // Custom value type
+    Custom(GcReadOnlyCell<dyn CustomValueType>),
 }
 
 impl RuntimeValue {
@@ -137,6 +143,7 @@ impl RuntimeValue {
             }
             RuntimeValue::Error(_) => SingleValueType::Error,
             RuntimeValue::ArgSpread(_) => SingleValueType::ArgSpread,
+            RuntimeValue::Custom(custom) => SingleValueType::Custom(custom.typename()),
         }
     }
 
@@ -151,11 +158,17 @@ impl RuntimeValue {
             | RuntimeValue::Error(_)
             | RuntimeValue::CmdCall { content_at: _ }
             | RuntimeValue::ArgSpread(_)
-            | RuntimeValue::Function(_) => false,
+            | RuntimeValue::Function(_)
+            | RuntimeValue::Custom(_) => false,
 
             RuntimeValue::List(_) | RuntimeValue::Map(_) | RuntimeValue::Struct(_) => true,
         }
     }
+}
+
+/// Custom value type
+pub trait CustomValueType: Any + Debug + PrettyPrintable + ComputableSize {
+    fn typename(&self) -> &'static str;
 }
 
 #[derive(Debug, Clone)]
@@ -183,27 +196,6 @@ pub fn are_values_equal(
     match (left, right) {
         (_, RuntimeValue::Null) => Ok(matches!(left, RuntimeValue::Null)),
         (RuntimeValue::Null, _) => Ok(matches!(right, RuntimeValue::Null)),
-
-        (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Err(NotComparableTypes {
-            reason: "cannot compare errors",
-        }),
-
-        (RuntimeValue::CmdCall { content_at: _ }, _)
-        | (_, RuntimeValue::CmdCall { content_at: _ }) => Err(NotComparableTypes {
-            reason: "cannot compare command calls",
-        }),
-
-        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => {
-            Err(NotComparableTypes {
-                reason: "cannot compare functions",
-            })
-        }
-
-        (RuntimeValue::ArgSpread(_), _) | (_, RuntimeValue::ArgSpread(_)) => {
-            Err(NotComparableTypes {
-                reason: "cannot compare arguments spreads",
-            })
-        }
 
         (RuntimeValue::Bool(a), RuntimeValue::Bool(b)) => Ok(a == b),
         (RuntimeValue::Bool(_), _) | (_, RuntimeValue::Bool(_)) => Ok(false),
@@ -269,7 +261,36 @@ pub fn are_values_equal(
                         Err(NotComparableTypes { reason: _ }) => false,
                     },
                 }))
-        } // (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
+        }
+        (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
+
+        (RuntimeValue::Error(_), RuntimeValue::Error(_)) => Err(NotComparableTypes {
+            reason: "cannot compare errors",
+        }),
+        (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Ok(false),
+
+        (RuntimeValue::CmdCall { content_at: _ }, RuntimeValue::CmdCall { content_at: _ }) => {
+            Err(NotComparableTypes {
+                reason: "cannot compare command calls",
+            })
+        }
+        (RuntimeValue::CmdCall { content_at: _ }, _)
+        | (_, RuntimeValue::CmdCall { content_at: _ }) => Ok(false),
+
+        (RuntimeValue::Function(_), RuntimeValue::Function(_)) => Err(NotComparableTypes {
+            reason: "cannot compare functions",
+        }),
+        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Ok(false),
+
+        (RuntimeValue::ArgSpread(_), RuntimeValue::ArgSpread(_)) => Err(NotComparableTypes {
+            reason: "cannot compare arguments spreads",
+        }),
+        (RuntimeValue::ArgSpread(_), _) | (_, RuntimeValue::ArgSpread(_)) => Ok(false),
+
+        (RuntimeValue::Custom(_), RuntimeValue::Custom(_)) => Err(NotComparableTypes {
+            reason: "cannot compare custom types",
+        }),
+        // (RuntimeValue::Custom(_), _) | (_, RuntimeValue::Custom(_)) => Ok(false),
     }
 }
 
