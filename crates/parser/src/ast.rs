@@ -2,29 +2,38 @@ use std::collections::HashMap;
 
 use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 
+/// A complete parsed program
 #[derive(Debug, Clone)]
 pub struct Program {
     pub content: Eaten<Block>,
 }
 
+/// A block (= set of instructions)
 #[derive(Debug, Clone)]
 pub struct Block {
     pub instructions: Vec<Eaten<Instruction>>,
+
+    /// Code range covered by this block
     pub code_range: CodeRange,
 }
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
+    // TODO: remove from AST
     Comment {
         content: Eaten<String>,
     },
 
+    /// Variable declaration
     DeclareVar {
         name: Eaten<String>,
-        mutable: Option<Eaten<()>>,
         init_expr: Option<Eaten<Expr>>,
+
+        /// Location of this item points to the "mut" keyword
+        mutable: Option<Eaten<()>>,
     },
 
+    /// Variable assignment
     AssignVar {
         name: Eaten<String>,
         prop_acc: Vec<Eaten<PropAccessNature>>,
@@ -32,6 +41,7 @@ pub enum Instruction {
         expr: Eaten<Expr>,
     },
 
+    /// 'if' conditional
     IfCond {
         cond: Eaten<Expr>,
         body: Eaten<Block>,
@@ -39,12 +49,14 @@ pub enum Instruction {
         els: Option<Eaten<Block>>,
     },
 
+    /// 'for' loop
     ForLoop {
         iter_var: Eaten<String>,
         iter_on: Eaten<Expr>,
         body: Eaten<Block>,
     },
 
+    /// Keyed 'for' loop
     ForLoopKeyed {
         key_iter_var: Eaten<String>,
         value_iter_var: Eaten<String>,
@@ -52,53 +64,67 @@ pub enum Instruction {
         body: Eaten<Block>,
     },
 
+    /// 'while' loop
     WhileLoop {
         cond: Eaten<Expr>,
         body: Eaten<Block>,
     },
 
+    /// 'continue' in a loop
     LoopContinue,
 
+    /// 'break' in a loop
     LoopBreak,
 
+    /// Switch statement
     Switch {
         expr: Eaten<Expr>,
         cases: Vec<SwitchCase>,
     },
 
+    /// Function declaration
     FnDecl {
         name: Eaten<String>,
         content: Function,
     },
 
+    /// Function return statement
     FnReturn {
         expr: Option<Eaten<Expr>>,
     },
 
+    /// Function throw statement
     Throw(Eaten<Expr>),
 
+    /// Try block
     Try {
         call: Eaten<FnCall>,
         catch_var: Eaten<String>,
         catch_body: Eaten<Block>,
     },
 
+    /// Command alias declaratin
     CmdAliasDecl {
         name: Eaten<String>,
         content: Eaten<SingleCmdCall>,
     },
 
+    /// Type alias declaration
     TypeAliasDecl {
         name: Eaten<String>,
         content: Eaten<ValueType>,
     },
 
-    BaseBlock(Eaten<Block>),
+    /// 'do' block
+    DoBlock(Eaten<Block>),
 
+    /// Function call
     FnCall(Eaten<FnCall>),
 
+    /// Command call
     CmdCall(Eaten<CmdCall>),
 
+    /// Imported program
     Imported(Eaten<Program>),
 }
 
@@ -461,7 +487,7 @@ pub enum RuntimeCodeRange {
 }
 
 impl RuntimeCodeRange {
-    pub fn real(&self) -> Option<CodeRange> {
+    pub fn parsed_range(&self) -> Option<CodeRange> {
         match self {
             RuntimeCodeRange::Parsed(range) => Some(*range),
             RuntimeCodeRange::Internal => None,

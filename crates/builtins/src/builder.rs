@@ -14,17 +14,20 @@ use reshell_runtime::{
 
 use super::{content::define_native_lib, helper::InternalFunction};
 
+/// Definition of the native library
 pub struct NativeLibDefinition {
     pub functions: Vec<InternalFunction>,
     pub vars: Vec<BuiltinVar>,
 }
 
+/// Definition a a native variable
 pub struct BuiltinVar {
     pub name: &'static str,
     pub is_mut: bool,
     pub init_value: RuntimeValue,
 }
 
+/// Build the content of the native library
 pub fn build_native_lib_content() -> ScopeContent {
     let NativeLibDefinition { functions, vars } = define_native_lib();
 

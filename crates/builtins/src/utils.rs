@@ -12,6 +12,7 @@ use reshell_runtime::{
 
 use crate::helper::Typing;
 
+/// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(
     args: Vec<(impl Into<String>, ValueType)>,
     ret_type: Option<ValueType>,
@@ -31,6 +32,13 @@ pub fn forge_basic_fn_signature(
     }
 }
 
+/// Call a function and perform all required checks to ensure
+/// both the arguments and the return type are valid
+///
+/// The `loc_val` parameter is used to indicate where the function value comes from.
+/// If the provided value is not a Function, an error will be returned.
+///
+/// This function returns the typechecked value returned by the called function (if any).
 pub fn call_fn_checked(
     loc_val: &LocatedValue,
     expected_signature: &FnSignature,
@@ -89,6 +97,9 @@ pub fn call_fn_checked(
     )
 }
 
+/// Parse a function's optional return value
+///
+/// This function uses a [`Typing`] parser to handle the provided value
 pub fn expect_returned_value<T>(
     value: Option<LocatedValue>,
     at: RuntimeCodeRange,

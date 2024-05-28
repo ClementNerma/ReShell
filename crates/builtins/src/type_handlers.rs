@@ -1,3 +1,8 @@
+//!
+//! This module defines and exposes *type handlers*, which are simple types that
+//! allow to convert and parse some of the scripting language's native types.
+//!
+
 use std::{collections::HashMap, fmt::Display, marker::PhantomData};
 
 use colored::Colorize;

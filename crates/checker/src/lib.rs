@@ -1,3 +1,11 @@
+//!
+//! ReShell's checker
+//!
+//! This crate exposes a [`check`] function which is fed a parsed [`Program`].
+//!
+//! It checks the program's validity and collects data used to accelerate the runtime.
+//!
+
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
@@ -27,7 +35,7 @@ pub use self::{
 
 use self::{
     errors::CheckerResult,
-    state::{ScopeType, State},
+    state::{SpecialScopeType, State},
 };
 
 pub fn check(
@@ -64,8 +72,7 @@ fn check_block_with(
 
     let mut scope = CheckerScope {
         code_range: RuntimeCodeRange::Parsed(*code_range),
-        deps: false,      // can be changed later on with "fill_scope"
-        scope_type: None, // can be changed later on with "fill_scope"
+        special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
         cmd_aliases: HashMap::new(),
@@ -93,7 +100,10 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
         code_range,
     } = &block.data;
 
-    assert_eq!(state.curr_scope().code_range.real().unwrap(), *code_range);
+    assert_eq!(
+        state.curr_scope().code_range.parsed_range().unwrap(),
+        *code_range
+    );
 
     for instr in instructions {
         match &instr.data {
@@ -114,12 +124,12 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
 
                 state
                     .collected
-                    .type_aliases
+                    .type_aliases_decl
                     .insert(name.at, content.clone());
 
                 state
                     .collected
-                    .type_aliases_decl
+                    .type_aliases_decl_by_scope
                     .entry(*code_range)
                     .or_default()
                     .insert(name.data.clone(), name.at);
@@ -266,7 +276,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         } => {
             check_expr(&iter_on.data, state)?;
             check_block_with(body, state, |scope| {
-                scope.scope_type = Some(ScopeType::Loop);
+                scope.special_scope_type = Some(SpecialScopeType::Loop);
 
                 scope.vars.insert(
                     iter_var.data.clone(),
@@ -287,7 +297,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             check_expr(&iter_on.data, state)?;
 
             check_block_with(body, state, |scope| {
-                scope.scope_type = Some(ScopeType::Loop);
+                scope.special_scope_type = Some(SpecialScopeType::Loop);
 
                 scope.vars.insert(
                     key_iter_var.data.clone(),
@@ -310,12 +320,15 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::WhileLoop { cond, body } => {
             check_expr(&cond.data, state)?;
             check_block_with(body, state, |scope| {
-                scope.scope_type = Some(ScopeType::Loop);
+                scope.special_scope_type = Some(SpecialScopeType::Loop);
             })?;
         }
 
         Instruction::LoopContinue => {
-            if !matches!(state.curr_scope_type(), Some(ScopeType::Loop)) {
+            if !matches!(
+                state.nearest_special_scope_type(),
+                Some(SpecialScopeType::Loop)
+            ) {
                 return Err(CheckerError::new(
                     instr.at,
                     "can only be used inside a loop",
@@ -324,7 +337,10 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::LoopBreak => {
-            if !matches!(state.curr_scope_type(), Some(ScopeType::Loop)) {
+            if !matches!(
+                state.nearest_special_scope_type(),
+                Some(SpecialScopeType::Loop)
+            ) {
                 return Err(CheckerError::new(
                     instr.at,
                     "can only be used inside a loop",
@@ -351,8 +367,8 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::FnReturn { expr } => {
             if !matches!(
-                state.curr_scope_type(),
-                Some(ScopeType::Function { args_at: _ })
+                state.nearest_special_scope_type(),
+                Some(SpecialScopeType::Function { args_at: _ })
             ) {
                 return Err(CheckerError::new(
                     instr.at,
@@ -393,8 +409,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
             state.push_scope(CheckerScope {
                 code_range: RuntimeCodeRange::Parsed(content.at),
-                deps: true,
-                scope_type: None,
+                special_scope_type: Some(SpecialScopeType::CmdAlias),
                 vars: HashMap::new(),
                 fns: HashMap::new(),
                 cmd_aliases: HashMap::new(),
@@ -405,7 +420,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
             state.pop_scope();
 
-            state.mark_cmd_alias_ready(name);
+            state.mark_cmd_alias_as_ready(name);
         }
 
         Instruction::TypeAliasDecl {
@@ -415,7 +430,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             // Already treated in first pass
         }
 
-        Instruction::BaseBlock(block) => check_block(block, state)?,
+        Instruction::DoBlock(block) => check_block(block, state)?,
 
         Instruction::FnCall(fn_call) => check_fn_call(fn_call, state)?,
 
@@ -442,8 +457,7 @@ fn check_expr_with(
 ) -> CheckerResult {
     let mut scope = CheckerScope {
         code_range: RuntimeCodeRange::Parsed(expr.at),
-        deps: false,      // can be changed later on with "fill_scope"
-        scope_type: None, // can be changed later on with "fill_scope"
+        special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
         cmd_aliases: HashMap::new(),
@@ -877,8 +891,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         .insert(body.data.code_range, HashSet::new());
 
     check_block_with(body, state, |scope| {
-        scope.deps = true;
-        scope.scope_type = Some(ScopeType::Function { args_at: args.at });
+        scope.special_scope_type = Some(SpecialScopeType::Function { args_at: args.at });
 
         for (name, var) in vars {
             scope.vars.insert(name, var);
