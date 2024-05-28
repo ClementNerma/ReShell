@@ -34,6 +34,7 @@ mod get;
 mod glob;
 mod human_size;
 mod inspect;
+mod is_empty;
 mod join;
 mod keys;
 mod len;
@@ -112,6 +113,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::glob::build_fn(),
         self::human_size::build_fn(),
         self::inspect::build_fn(),
+        self::is_empty::build_fn(),
         self::join::build_fn(),
         self::parse_json::build_fn(),
         self::len::build_fn(),

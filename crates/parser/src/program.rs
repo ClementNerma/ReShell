@@ -408,7 +408,7 @@ pub fn program(
                 .spanned()
                 .repeated_vec(),
             )
-            .then_ignore(char('"').critical("expected closing quote (\")"))
+            .then_ignore(char('"').critical_expectation())
             .map(|pieces| ComputedString { pieces });
 
         let value = choice::<_, Value>((

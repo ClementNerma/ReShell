@@ -5,13 +5,13 @@
 
 use std::{any::Any, collections::HashMap, fmt::Display, marker::PhantomData};
 
-use colored::Colorize;
 use parsy::CodeRange;
 use reshell_parser::ast::{
     FnSignature, RuntimeEaten, SingleValueType, StructTypeMember, ValueType,
 };
 
 use reshell_runtime::{
+    cmd::CmdSingleArgResult,
     gc::{GcCell, GcReadOnlyCell},
     values::{CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
 };
@@ -105,6 +105,11 @@ declare_basic_type_handlers!(
     UntypedStructType (UntypedStruct) = GcCell<HashMap<String, RuntimeValue>> => value: match value {
         RuntimeValue::Struct(members) => Ok(members),
         _ => Err("expected a struct".to_owned())
+    },
+
+    SpreadType (ArgSpread) = GcReadOnlyCell<Vec<CmdSingleArgResult>> => value: match value {
+        RuntimeValue::ArgSpread(spread) => Ok(spread),
+        _ => Err("expected an arg spread".to_owned())
     }
 );
 
@@ -398,117 +403,66 @@ impl<A: TypingDirectCreation, B: TypingDirectCreation> SingleTypingDirectCreatio
     }
 }
 
-pub struct Union2Type<A: SingleTyping, B: SingleTyping> {
-    a: A,
-    b: B,
-}
-
-impl<A: SingleTyping, B: SingleTyping> Union2Type<A, B> {
-    pub fn new(a: A, b: B) -> Self {
-        Self { a, b }
-    }
-}
-
-impl<A: SingleTyping, B: SingleTyping> Typing for Union2Type<A, B> {
-    fn underlying_type(&self) -> ValueType {
-        ValueType::Union(vec![
-            RuntimeEaten::Internal(self.a.underlying_single_type()),
-            RuntimeEaten::Internal(self.b.underlying_single_type()),
-        ])
-    }
-
-    type Parsed = Union2Result<A, B>;
-
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        match self.a.parse(value.clone()) {
-            Ok(value) => Ok(Union2Result::A(value)),
-            Err(a_err) => match self.b.parse(value) {
-                Ok(value) => Ok(Union2Result::B(value)),
-                Err(b_err) => Err(format!(
-                    "union error: {a_err} {} {b_err}",
-                    "/".bright_yellow()
-                )),
-            },
+macro_rules! declare_typed_union_hanlder {
+    ($handler_struct: ident ($($generic: ident),+) => $result_struct: ident) => {
+        pub struct $handler_struct<$($generic: SingleTyping),+> {
+            $(
+                #[allow(non_snake_case)]
+                $generic: $generic
+            ),+
         }
-    }
-}
 
-impl<A: SingleTypingDirectCreation, B: SingleTypingDirectCreation> TypingDirectCreation
-    for Union2Type<A, B>
-{
-    fn new_direct() -> Self {
-        Self::new(A::new_single_direct(), B::new_single_direct())
-    }
-}
-
-pub enum Union2Result<A: SingleTyping, B: SingleTyping> {
-    A(A::Parsed),
-    B(B::Parsed),
-}
-
-pub struct Union3Type<A: SingleTyping, B: SingleTyping, C: SingleTyping> {
-    a: A,
-    b: B,
-    c: C,
-}
-
-impl<A: SingleTyping, B: SingleTyping, C: SingleTyping> Union3Type<A, B, C> {
-    pub fn new(a: A, b: B, c: C) -> Self {
-        Self { a, b, c }
-    }
-}
-
-impl<A: SingleTyping, B: SingleTyping, C: SingleTyping> Typing for Union3Type<A, B, C> {
-    fn underlying_type(&self) -> ValueType {
-        ValueType::Union(vec![
-            RuntimeEaten::Internal(self.a.underlying_single_type()),
-            RuntimeEaten::Internal(self.b.underlying_single_type()),
-            RuntimeEaten::Internal(self.c.underlying_single_type()),
-        ])
-    }
-
-    type Parsed = Union3Result<A, B, C>;
-
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        match self.a.parse(value.clone()) {
-            Ok(value) => Ok(Union3Result::A(value)),
-            Err(a_err) => match self.b.parse(value.clone()) {
-                Ok(value) => Ok(Union3Result::B(value)),
-                Err(b_err) => match self.c.parse(value) {
-                    Ok(c) => Ok(Union3Result::C(c)),
-                    Err(c_err) => Err(format!(
-                        "union error: {a_err} {} {b_err} {} {c_err}",
-                        "/".bright_yellow(),
-                        "/".bright_yellow()
-                    )),
-                },
-            },
+        impl<$($generic: SingleTyping),+> $handler_struct<$($generic,)+> {
+            pub fn new($( #[allow(non_snake_case)] $generic: $generic ),+) -> Self {
+                Self { $($generic),+ }
+            }
         }
-    }
+
+        impl<$($generic: SingleTyping),+> Typing
+            for $handler_struct<$($generic,)+>
+        {
+            fn underlying_type(&self) -> ValueType {
+                ValueType::Union(vec![
+                    $( RuntimeEaten::Internal(self.$generic.underlying_single_type()) ),+
+                ])
+            }
+
+            type Parsed = $result_struct<$($generic,)+>;
+
+            fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+                $(
+                    match self.$generic.parse(value.clone()) {
+                        Ok(parsed) => return Ok($result_struct::$generic(parsed)),
+                        Err(err) => {
+                            // TODO
+                        }
+                    }
+                )+;
+
+                Err(format!("union error")) // TODO: more detailed message
+            }
+        }
+
+        impl<$($generic: SingleTypingDirectCreation),+> TypingDirectCreation for $handler_struct<$($generic,)+>
+        {
+            fn new_direct() -> Self {
+                Self::new(
+                    $($generic::new_direct()),+
+                )
+            }
+        }
+
+        pub enum $result_struct<$($generic: SingleTyping),+> {
+            $( $generic($generic::Parsed), )+
+        }
+    };
 }
 
-impl<
-        A: SingleTypingDirectCreation,
-        B: SingleTypingDirectCreation,
-        C: SingleTypingDirectCreation,
-    > TypingDirectCreation for Union3Type<A, B, C>
-{
-    fn new_direct() -> Self {
-        Self::new(
-            A::new_single_direct(),
-            B::new_single_direct(),
-            C::new_single_direct(),
-        )
-    }
-}
+declare_typed_union_hanlder!(Union2Type (A, B) => Union2Result);
+declare_typed_union_hanlder!(Union3Type (A, B, C) => Union3Result);
+declare_typed_union_hanlder!(Union4Type (A, B, C, D) => Union4Result);
 
-pub enum Union3Result<A: SingleTyping, B: SingleTyping, C: SingleTyping> {
-    A(A::Parsed),
-    B(B::Parsed),
-    C(C::Parsed),
-}
-
-macro_rules! declared_typed_struct_type_handler {
+macro_rules! declare_typed_struct_handler {
     ($( $struct: ident { $( $member: ident : $generic: ident ),+ } ),+ ) => {
         $(
             pub struct $struct<$($generic: Typing),+> {
@@ -563,7 +517,7 @@ macro_rules! declared_typed_struct_type_handler {
     }
 }
 
-declared_typed_struct_type_handler!(
+declare_typed_struct_handler!(
     TypedStruct1Type { a: A },
     TypedStruct3Type { a: A, b: B, c: C },
     TypedStruct4Type {
