@@ -109,7 +109,7 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 rule!(@group "in-expressions"),
                 
                 // Raw arguments
-                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$\\\\]+)" => [Green]),
+                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
                 // Strings
@@ -119,8 +119,11 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                         rule!(@group "commands")
                     ]),
 
+                    // Escaped characters
+                    rule!(@simple "(\\\\.)" => [Cyan]),
+
                     // Any other character
-                    rule!(@simple "(.+)" => [Green]),
+                    rule!(@simple "(.)" => [Green]),
                 ]),
 
                 // Function calls
