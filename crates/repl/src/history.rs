@@ -8,25 +8,25 @@ pub static HISTORY_MENU_NAME: &str = "history_menu";
 pub fn create_history(runtime_conf: &RuntimeConf) -> Box<dyn History> {
     let capacity = runtime_conf.history_capacity;
 
-    if !runtime_conf.history_enabled {
-        todo!("When #661 is merged");
-    }
+    let history = if runtime_conf.history_enabled {
+        match dirs::home_dir() {
+            Some(dir) => match FileBackedHistory::with_file(capacity, dir.join(".rsh_history")) {
+                Ok(history) => history,
+                Err(err) => {
+                    print_warn(&format!("Failed to use history file: {err}"));
+                    print_warn("History will not be saved for this session");
+                    FileBackedHistory::new(capacity)
+                }
+            },
 
-    let history = match dirs::home_dir() {
-        Some(dir) => match FileBackedHistory::with_file(capacity, dir.join(".rsh_history")) {
-            Ok(history) => history,
-            Err(err) => {
-                print_warn(&format!("Failed to use history file: {err}"));
+            None => {
+                print_warn("Failed to determine path to the home directory");
                 print_warn("History will not be saved for this session");
                 FileBackedHistory::new(capacity)
             }
-        },
-
-        None => {
-            print_warn("Failed to determine path to the home directory");
-            print_warn("History will not be saved for this session");
-            FileBackedHistory::new(capacity)
         }
+    } else {
+        FileBackedHistory::new(runtime_conf.history_capacity)
     };
 
     Box::new(history)
