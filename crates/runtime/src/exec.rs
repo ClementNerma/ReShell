@@ -97,6 +97,33 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
     } = block;
 
     // First pass: collect functions declaration
+    block_first_pass(instructions, block, ctx)?;
+
+    // Second pass: run instructions
+    let mut wandering_value = None;
+
+    for instr in instructions {
+        wandering_value = None;
+
+        match run_instr(instr, ctx)? {
+            Some(InstrRet::WanderingValue(value)) => {
+                wandering_value = Some(value);
+            }
+
+            Some(ret) => return Ok(Some(ret)),
+
+            None => {}
+        }
+    }
+
+    Ok(wandering_value.map(InstrRet::WanderingValue))
+}
+
+fn block_first_pass(
+    instructions: &[Eaten<Instruction>],
+    block: &Block,
+    ctx: &mut Context,
+) -> ExecResult<()> {
     for instr in instructions {
         // Handle any Ctrl+C press
         ctx.ensure_no_ctrl_c_press(instr.at)?;
@@ -169,28 +196,21 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                     });
             }
 
+            Instruction::Include(program) => {
+                let Program { content } = &program.data;
+                let Block {
+                    scope_id: _,
+                    instructions,
+                } = &content.data;
+
+                block_first_pass(instructions, block, ctx)?;
+            }
+
             _ => {}
         }
     }
 
-    // Second pass: run instructions
-    let mut wandering_value = None;
-
-    for instr in instructions {
-        wandering_value = None;
-
-        match run_instr(instr, ctx)? {
-            Some(InstrRet::WanderingValue(value)) => {
-                wandering_value = Some(value);
-            }
-
-            Some(ret) => return Ok(Some(ret)),
-
-            None => {}
-        }
-    }
-
-    Ok(wandering_value.map(InstrRet::WanderingValue))
+    Ok(())
 }
 
 pub(crate) fn run_body_with_deps(
