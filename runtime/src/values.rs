@@ -3,7 +3,7 @@ use std::{collections::HashMap, fmt::Debug};
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{Block, FnSignature, SingleValueType};
 
-use crate::{errors::ExecResult, scoping::Context};
+use crate::{context::Context, errors::ExecResult};
 
 #[derive(Debug, Clone)]
 pub struct RuntimeFnValue {

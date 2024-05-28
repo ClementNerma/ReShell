@@ -421,7 +421,7 @@ pub fn program() -> impl Parser<Program> {
         );
 
         let cmd_raw =
-            filter(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '/' || c == '.')
+            filter(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '/' || c == '.' || c == '~')
                 .repeated()
                 .at_least(1)
                 .collect_string();

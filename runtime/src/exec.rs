@@ -8,11 +8,11 @@ use reshell_parser::{
 
 use crate::{
     cmd::run_cmd,
+    context::{Context, Scope, ScopeFn, ScopeVar},
     display::readable_value_type,
     errors::ExecResult,
     expr::eval_expr,
     files_map::ScopableFilePath,
-    scoping::{Context, Scope, ScopeFn, ScopeVar},
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 

@@ -24,6 +24,20 @@ mod validator;
 fn main() {
     let args = cmd::Args::parse();
 
+    match dirs::home_dir() {
+        Some(home_dir) => {
+            if home_dir.is_dir() {
+            RUNTIME_CONTEXT.write().unwrap().set_home_dir(home_dir);
+            } else {
+                print_warn(&format!("Determined path to home directory was {} but it does not exist", home_dir.to_string_lossy().bright_magenta()));
+            }
+        }
+
+        None => {
+            print_warn("Failed to determine path to home directory");
+        }
+    }
+
     if let Some(file_path) = args.exec_file {
         if !file_path.exists() {
             fail("Error: provided file was not found");

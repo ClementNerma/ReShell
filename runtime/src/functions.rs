@@ -7,11 +7,11 @@ use reshell_parser::ast::{
 
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
+    context::{Context, ScopeVar},
     display::{readable_type, readable_value_type},
     errors::ExecResult,
     exec::{run_block, InstrRet},
     expr::eval_expr,
-    scoping::{Context, ScopeVar},
     typechecker::check_if_single_type_fits,
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
