@@ -259,9 +259,12 @@ fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<External
             })
             .collect(),
 
-        Err(_) => {
+        Err(err) => {
+            crate::reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
+            panic!();
+
             // TODO: find a way to display error
-            vec![]
+            // vec![]
         }
     }
 }
