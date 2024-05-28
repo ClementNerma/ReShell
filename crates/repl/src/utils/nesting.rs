@@ -153,7 +153,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                     }
                 }
 
-                ';' if !matches!(opened.last(), Some(("`", _))) => {
+                ';' | '|' if !matches!(opened.last(), Some(("`", _))) => {
                     push(&mut output, offset, 1, NestingActionType::CommandSeparator);
                 }
 
