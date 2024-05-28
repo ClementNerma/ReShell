@@ -257,7 +257,7 @@ pub struct InternalFunction {
 
 #[macro_export]
 macro_rules! define_internal_fn {
-    ($name: expr, $({ $(let $scoped_var: ident = $var_content: expr;)* },)? $args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident $(@ $arg_type_alias: ident)? : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr, $run: expr) => {{
+    ($name: expr, $args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident $(@ $arg_type_alias: ident)? : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr $(=> $ret_type_var: ident)?, $run: expr) => {{
         use std::collections::HashMap;
 
         use reshell_parser::ast::RuntimeCodeRange;
@@ -330,6 +330,7 @@ macro_rules! define_internal_fn {
 
             fn wrapper() -> impl Fn(RuntimeCodeRange, $args_struct_name, $args_loc_struct_name, &mut Context) -> ExecResult<Option<RuntimeValue>> {
                 $( $( let $arg_type_alias: $arg_handler_type = $arg_handler_gen; )? )*
+                $( let $ret_type_var = $ret_type.unwrap(); )*
 
                 $run
             }
