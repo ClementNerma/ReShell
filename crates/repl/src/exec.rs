@@ -1,5 +1,5 @@
 use parsy::{Eaten, FileId, Parser};
-use reshell_checker::CheckerOutput;
+use reshell_checker::output::CheckerOutput;
 use reshell_parser::{ast::Program, files::SourceFileLocation};
 use reshell_runtime::{context::Context, exec::run_program};
 

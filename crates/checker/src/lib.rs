@@ -13,6 +13,8 @@
 mod errors;
 mod state;
 
+pub mod output;
+
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
@@ -25,18 +27,9 @@ use reshell_parser::ast::{
     SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
-pub use self::{
-    errors::CheckerError,
-    state::{
-        CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
-        DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
-    },
-};
+pub use self::errors::CheckerError;
 
-use self::{
-    errors::CheckerResult,
-    state::{SpecialScopeType, State},
-};
+use self::{errors::CheckerResult, output::*, state::State};
 
 pub fn check(
     program: &Program,

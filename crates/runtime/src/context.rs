@@ -3,8 +3,11 @@ use std::{collections::HashMap, path::PathBuf, rc::Rc};
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, SourceFileID};
 use reshell_checker::{
-    long_flag_var_name, CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar,
-    Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+    long_flag_var_name,
+    output::{
+        CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
+        DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+    },
 };
 use reshell_parser::{
     ast::{
