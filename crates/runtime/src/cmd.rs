@@ -328,6 +328,7 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
             });
 
         let RuntimeCmdAlias {
+            name: _,
             name_declared_at: _,
             content: _,
             content_scope_id,

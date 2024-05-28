@@ -50,6 +50,7 @@ impl RuntimeFnSignature {
 #[derive(Debug, Clone)]
 pub struct RuntimeCmdAlias {
     pub name_declared_at: CodeRange,
+    pub name: String,
     pub content: Arc<Eaten<SingleCmdCall>>,
     pub content_scope_id: AstScopeId,
     pub parent_scopes: IndexSet<u64>,
