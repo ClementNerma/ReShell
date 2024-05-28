@@ -45,7 +45,6 @@ mod to_json;
 mod to_string;
 mod transform;
 mod typemakers;
-mod values;
 mod whereis;
 mod which;
 mod write_file;
@@ -98,7 +97,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::to_json::build_fn(),
         self::to_string::build_fn(),
         self::transform::build_fn(),
-        self::values::build_fn(),
         self::whereis::build_fn(),
         self::which::build_fn(),
         self::write_file::build_fn(),
