@@ -18,14 +18,14 @@ pub struct ExecError {
     /// Call stack
     pub call_stack: CallStack,
     /// Additional informations
-    pub infos: Vec<(ExecErrorInfoType, String)>,
+    pub infos: Vec<(ExecInfoType, String)>,
 }
 
 impl ExecError {
     /// Add an information to the error
     pub fn with_info(
         mut self: Box<Self>,
-        info_type: ExecErrorInfoType,
+        info_type: ExecInfoType,
         content: impl Into<String>,
     ) -> Box<Self> {
         self.infos.push((info_type, content.into()));
@@ -78,7 +78,7 @@ impl From<ParsingError> for ExecErrorNature {
 
 /// Error's additional information type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ExecErrorInfoType {
+pub enum ExecInfoType {
     Note,
     Tip,
 }

@@ -13,7 +13,7 @@ use reshell_parser::ast::{
 
 use crate::cmd::CmdSingleArgResult;
 use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
-use crate::errors::ExecErrorInfoType;
+use crate::errors::ExecInfoType;
 use crate::functions::ValidatedFnCallArg;
 use crate::gc::{GcOnceCell, GcReadOnlyCell};
 use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -335,7 +335,7 @@ pub fn value_to_str(
                 ),
             )
             .with_info(
-                ExecErrorInfoType::Tip,
+                ExecInfoType::Tip,
                 err_msg,
             )),
     }

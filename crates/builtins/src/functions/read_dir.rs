@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf};
 
-use reshell_runtime::{errors::ExecErrorInfoType, gc::GcCell};
+use reshell_runtime::{errors::ExecInfoType, gc::GcCell};
 
 crate::define_internal_fn!(
     //
@@ -64,7 +64,7 @@ fn run() -> Runner {
                                 ),
                             )
                             .with_info(
-                                ExecErrorInfoType::Tip,
+                                ExecInfoType::Tip,
                                 "you can use '--lossy' to get the string anyway",
                             )
                         })?

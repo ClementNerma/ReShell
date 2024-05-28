@@ -3,7 +3,7 @@ use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
 use regex::Regex;
 use reshell_runtime::{
     display::{dbg_loc, pretty_print_string},
-    errors::ExecErrorInfoType,
+    errors::ExecInfoType,
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintable, PrettyPrintablePiece},
     values::CustomValueType,
@@ -56,7 +56,7 @@ fn run() -> Runner {
                         return Err(ctx
                             .error(pattern_at, "failed to parse Pomsky regex")
                             .with_info(
-                                ExecErrorInfoType::Tip,
+                                ExecInfoType::Tip,
                                 // TODO: try to parse the regex as Pomsky to make the tip more precise
                                 "if you wrote a Pomsky regex, use the '--pomsky' flag",
                             ));

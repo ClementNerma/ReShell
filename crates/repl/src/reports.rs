@@ -11,7 +11,7 @@ use reshell_parser::{
 use reshell_runtime::{
     context::CallStackEntry,
     display::dbg_loc,
-    errors::{ExecError, ExecErrorInfoType, ExecErrorNature},
+    errors::{ExecError, ExecErrorNature, ExecInfoType},
 };
 
 #[derive(Debug)]
@@ -252,7 +252,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ReportableError::Parsing(_) => vec![],
         ReportableError::Checking(_) => {
             vec![(
-                ExecErrorInfoType::Note,
+                ExecInfoType::Note,
                 "Error was encountered before running the program".to_owned(),
             )]
         }
@@ -265,8 +265,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             format!(
                 "{}:",
                 match info_type {
-                    ExecErrorInfoType::Note => "note",
-                    ExecErrorInfoType::Tip => "tip",
+                    ExecInfoType::Note => "note",
+                    ExecInfoType::Tip => "tip",
                 }
             )
             .cyan()
