@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, FnArg, FnArgNames, FnCall, FnCallArg,
-    RuntimeCodeRange,
+    CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, FlagValueSeparator, FnArg, FnArgNames, FnCall,
+    FnCallArg, RuntimeCodeRange, RuntimeEaten, SingleValueType, ValueType,
 };
 
 use crate::{
@@ -160,7 +160,7 @@ fn parse_fn_call_args(
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
-    let call_args = flatten_fn_call_args(call_args, ctx)?;
+    let mut call_args = flatten_fn_call_args(call_args, ctx)?;
 
     let mut out = HashMap::<String, ValidatedFnCallArg>::new();
     let mut rest_args = None::<Vec<CmdSingleArgResult>>;
@@ -173,7 +173,20 @@ fn parse_fn_call_args(
         | FnArgNames::LongAndShortFlag { long: _, short: _ } => false,
     });
 
-    for (arg_result_at, arg_result) in call_args {
+    let mut value_on_hold = None::<(RuntimeCodeRange, CmdSingleArgResult)>;
+
+    loop {
+        let (arg_result_at, arg_result) = match value_on_hold.take() {
+            Some(value) => value,
+            None => {
+                if call_args.is_empty() {
+                    break;
+                }
+
+                call_args.pop().unwrap()
+            }
+        };
+
         if let Some(ref mut rest) = rest_args {
             // rest.push((arg_result_at, arg_result));
             rest.push(arg_result);
@@ -231,28 +244,44 @@ fn parse_fn_call_args(
                     Some(arg_value_result) => {
                         let FlagArgValueResult {
                             value: loc_val,
-                            value_sep: _,
+                            value_sep,
                         } = arg_value_result;
 
-                        if let Some(typ) = &matching_arg.typ {
-                            if !check_if_single_type_fits_type(
-                                &loc_val.value.get_type(),
-                                typ.data(),
-                                ctx,
-                            ) {
-                                return Err(ctx.error(
-                                    loc_val.from,
-                                    format!(
-                                        "type mismatch: expected {}, found {}",
-                                        loc_val
-                                            .value
-                                            .get_type()
-                                            .render_colored(ctx, PrettyPrintOptions::inline()),
-                                        typ.data()
-                                            .render_colored(ctx, PrettyPrintOptions::inline())
-                                    ),
-                                ));
-                            }
+                        let typ = match &matching_arg.typ {
+                            None => match value_sep {
+                                FlagValueSeparator::Space => {
+                                    value_on_hold =
+                                        Some((loc_val.from, CmdSingleArgResult::Basic(loc_val)));
+
+                                    continue;
+                                }
+
+                                FlagValueSeparator::Equal => {
+                                    &RuntimeEaten::Internal(ValueType::Single(
+                                        RuntimeEaten::Internal(SingleValueType::Bool),
+                                    ))
+                                }
+                            },
+
+                            Some(typ) => typ,
+                        };
+
+                        if !check_if_single_type_fits_type(
+                            &loc_val.value.get_type(),
+                            typ.data(),
+                            ctx,
+                        ) {
+                            return Err(ctx.error(
+                                loc_val.from,
+                                format!(
+                                    "type mismatch: expected {}, found {}",
+                                    loc_val
+                                        .value
+                                        .get_type()
+                                        .render_colored(ctx, PrettyPrintOptions::inline()),
+                                    typ.data().render_colored(ctx, PrettyPrintOptions::inline())
+                                ),
+                            ));
                         }
 
                         out.insert(
