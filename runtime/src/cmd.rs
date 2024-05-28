@@ -375,8 +375,8 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::VarName(name) => Ok(CmdArgResult::Single(
             ctx.get_visible_var(name)
                 .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
-                .read()
                 .value
+                .read()
                 .as_ref()
                 .ok_or_else(|| {
                     ctx.error(
@@ -400,10 +400,11 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::SpreadVar(var_name) => {
             let var = ctx
                 .get_visible_var(var_name)
-                .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
-                .read();
+                .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?;
 
-            let value = var.value.as_ref().ok_or_else(|| {
+            let var_value = var.value.read();
+
+            let value = var_value.as_ref().ok_or_else(|| {
                 ctx.error(
                     var_name.at,
                     "trying to use variable before it is assigned a value",

@@ -53,7 +53,7 @@ impl RlCompleter for Completer {
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
-                    description: Some(match &item.read().value {
+                    description: Some(match item.value.read().as_ref() {
                         Some(located_val) => located_val
                             .value
                             .get_type()

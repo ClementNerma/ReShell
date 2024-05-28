@@ -2,15 +2,25 @@ use std::{collections::HashMap, fmt::Debug};
 
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, MaybeEaten};
+use reshell_checker::Dependency;
 use reshell_parser::ast::{Block, FnSignature, SingleValueType, StructTypeMember, ValueType};
 
+use crate::context::{ScopeFn, ScopeVar};
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
+// TODO: this struct is ultra expensive to clone, put it between an Arc<> or something?
 #[derive(Debug, Clone)]
 pub struct RuntimeFnValue {
     pub signature: FnSignature,
     pub body: RuntimeFnBody,
     pub parent_scopes: IndexSet<u64>,
+    pub captured_deps: CapturedDependencies,
+}
+
+#[derive(Debug, Clone)]
+pub struct CapturedDependencies {
+    pub vars: HashMap<Dependency, ScopeVar>,
+    pub fns: HashMap<Dependency, ScopeFn>,
 }
 
 #[derive(Clone)]

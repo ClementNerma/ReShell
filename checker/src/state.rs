@@ -6,7 +6,7 @@ use parsy::{CodeRange, Eaten, FileId, Location};
 use crate::{errors::CheckerResult, CheckerError};
 
 pub struct State {
-    pub scopes: Vec<Scope>,
+    scopes: Vec<Scope>,
     pub fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
 }
 
@@ -18,6 +18,16 @@ impl State {
         }
     }
 
+    pub fn push_scope(&mut self, scope: Scope) {
+        if scope.is_fn_body {
+            let dup = self.fn_deps.insert(scope.code_range, IndexSet::new());
+
+            assert!(dup.is_none());
+        }
+
+        self.scopes.push(scope);
+    }
+
     pub fn curr_scope(&self) -> &Scope {
         self.scopes.last().unwrap()
     }
@@ -26,12 +36,12 @@ impl State {
         self.scopes.last_mut().unwrap()
     }
 
-    pub fn register_var_usage(&mut self, var: &Eaten<String>) -> CheckerResult {
-        self.register_var_usage_and_get(var).map(|_| ())
-    }
-
     fn current_function_scope(&self) -> Option<&Scope> {
         self.scopes.iter().rev().find(|scope| scope.is_fn_body)
+    }
+
+    pub fn register_var_usage(&mut self, var: &Eaten<String>) -> CheckerResult {
+        self.register_var_usage_and_get(var).map(|_| ())
     }
 
     pub fn register_var_usage_and_get(
@@ -62,9 +72,11 @@ impl State {
                 })?;
 
             if !var_declared_in_fn_scope {
+                let code_range = fn_scope.code_range;
+
                 self.fn_deps
-                    .entry(fn_scope.code_range)
-                    .or_default()
+                    .get_mut(&code_range)
+                    .unwrap()
                     .insert(Dependency {
                         name: var.data.clone(),
                         name_declared_at: declared_var.name_at,
@@ -101,9 +113,11 @@ impl State {
                 })?;
 
             if !var_declared_in_fn_scope {
+                let code_range = fn_scope.code_range;
+
                 self.fn_deps
-                    .entry(fn_scope.code_range)
-                    .or_default()
+                    .get_mut(&code_range)
+                    .unwrap()
                     .insert(Dependency {
                         name: func.data.clone(),
                         name_declared_at: declared_fn_at,
@@ -119,7 +133,7 @@ impl State {
 #[derive(Clone)]
 pub struct Scope {
     pub is_fn_body: bool,
-    pub code_range: CodeRange, /* block range */
+    pub code_range: CodeRange, /* for fns, body range */
     pub vars: HashMap<String, DeclaredVar>,
     pub fns: HashMap<String, CodeRange /* fn name at */>,
     pub types: HashSet<String>,
@@ -132,14 +146,14 @@ pub struct DeclaredVar {
     pub is_mut: bool,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Dependency {
     pub name: String,
     pub name_declared_at: CodeRange,
     pub dep_type: DependencyType,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum DependencyType {
     Variable,
     Function,

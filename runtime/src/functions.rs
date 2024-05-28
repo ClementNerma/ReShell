@@ -9,7 +9,7 @@ use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::ExecResult,
-    exec::{run_called_block, InstrRet, InstrRetType},
+    exec::{run_fn_body, InstrRet, InstrRetType},
     expr::eval_expr,
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -26,9 +26,9 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
             )
         })?;
 
-        let var = var.read();
+        let var_value = var.value.read();
 
-        let loc_val = var.value.as_ref().ok_or_else(|| {
+        let loc_val = var_value.as_ref().ok_or_else(|| {
             ctx.error(
                 call.data.name.at,
                 "calling variable before it is assigned a value",
@@ -78,17 +78,21 @@ pub fn call_fn_value(
             for (name, loc_value) in call_args {
                 scope_content.vars.insert(
                     name,
-                    GcCell::new(ScopeVar {
+                    ScopeVar {
                         // TODO: use function argument declaration instead of the value location!
                         declared_at: loc_value.from,
                         is_mut: false,
-                        value: Some(LocatedValue::new(loc_value.value, loc_value.from)),
-                    }),
+                        value: GcCell::new(Some(LocatedValue::new(
+                            loc_value.value,
+                            loc_value.from,
+                        ))),
+                    },
                 );
             }
 
-            let instr_ret = run_called_block(
+            let instr_ret = run_fn_body(
                 &body.data,
+                &func.captured_deps,
                 ctx,
                 scope_content,
                 func.parent_scopes.clone(),

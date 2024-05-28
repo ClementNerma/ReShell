@@ -2,15 +2,15 @@ use std::{collections::HashMap, path::PathBuf};
 
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId};
-use reshell_checker::{CheckerOutput, Dependency};
-use reshell_parser::ast::{SingleCmdCall, ValueType};
+use reshell_checker::{CheckerOutput, Dependency, DependencyType};
+use reshell_parser::ast::{Block, SingleCmdCall, ValueType};
 
 use crate::{
     errors::{ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
     gc::GcCell,
     native_lib::generate_native_lib,
-    values::{LocatedValue, RuntimeFnValue},
+    values::{CapturedDependencies, LocatedValue, RuntimeFnValue},
 };
 
 #[derive(Debug)]
@@ -21,6 +21,7 @@ pub struct Context {
     files_map: FilesMap,
     home_dir: Option<PathBuf>,
     fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
+    fn_deps_cleanup: HashMap<u64, u64>,
 }
 
 impl Context {
@@ -32,6 +33,7 @@ impl Context {
             files_map: FilesMap::new(),
             home_dir,
             fn_deps: IndexMap::new(),
+            fn_deps_cleanup: HashMap::new(),
         }
     }
 
@@ -78,7 +80,7 @@ impl Context {
         self.home_dir.as_ref()
     }
 
-    pub fn create_and_push_scope(&mut self, range: ScopeRange, content: ScopeContent) {
+    pub fn create_and_push_scope(&mut self, range: ScopeRange, content: ScopeContent) -> u64 {
         let id = self.generate_scope_id();
 
         let scope = Scope {
@@ -91,16 +93,45 @@ impl Context {
         };
 
         self.push_custom_scope(scope);
+
+        id
     }
 
-    pub fn create_and_push_called_scope(
+    pub fn create_and_push_fn_scope(
         &mut self,
         range: ScopeRange,
+        captured_deps: &CapturedDependencies,
         content: ScopeContent,
-        parent_scopes: IndexSet<u64>,
+        mut parent_scopes: IndexSet<u64>,
         call_stack_entry: CallStackEntry,
     ) {
+        let CapturedDependencies { vars, fns } = captured_deps;
+
+        let deps_scope_id = self.create_and_push_scope(
+            range,
+            ScopeContent {
+                vars: vars
+                    .iter()
+                    .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                    .collect(),
+
+                fns: fns
+                    .iter()
+                    .map(|(dep, value)| (dep.name.clone(), value.clone()))
+                    .collect(),
+
+                // TODO?
+                cmd_aliases: HashMap::new(),
+                // TODO?
+                types: HashMap::new(),
+            },
+        );
+
+        parent_scopes.insert(deps_scope_id);
+
         let id = self.generate_scope_id();
+
+        self.fn_deps_cleanup.insert(id, deps_scope_id);
 
         let mut call_stack = self.current_scope().call_stack.clone();
         call_stack.append(call_stack_entry);
@@ -150,6 +181,11 @@ impl Context {
 
     pub fn pop_scope(&mut self) {
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
+
+        if current_scope.call_stack_entry.is_some() {
+            let fn_deps_scope = self.fn_deps_cleanup.remove(&current_scope.id).unwrap();
+            self.scopes.remove(&fn_deps_scope).unwrap();
+        }
 
         let prev_scope = current_scope
             .call_stack_entry
@@ -209,9 +245,64 @@ impl Context {
         Ok(&func.value)
     }
 
-    pub fn get_visible_var<'s>(&'s self, name: &Eaten<String>) -> Option<&'s GcCell<ScopeVar>> {
+    pub fn get_visible_var<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeVar> {
         self.visible_scopes()
             .find_map(|scope| scope.content.vars.get(&name.data))
+    }
+
+    pub fn capture_deps(&self, fn_body: &Eaten<Block>) -> CapturedDependencies {
+        let mut captured_deps = CapturedDependencies {
+            vars: HashMap::new(),
+            fns: HashMap::new(),
+        };
+
+        let fn_body_at = fn_body.data.code_range;
+
+        let deps_list = self.fn_deps.get(&fn_body_at).expect(
+            "internal error: dependencies informations not found while constructing function value (this is a bug in the checker)"
+        );
+
+        for dep in deps_list {
+            let Dependency {
+                name,
+                name_declared_at,
+                dep_type,
+            } = dep;
+
+            match dep_type {
+                DependencyType::Variable => {
+                    let var = self
+                        .visible_scopes()
+                        .find_map(|scope| {
+                            scope
+                                .content
+                                .vars
+                                .get(name)
+                                .filter(|var| var.declared_at == *name_declared_at)
+                        })
+                        .expect("internal error: cannot find variable to capture (this is a bug in the checker)");
+
+                    captured_deps.vars.insert(dep.clone(), var.clone());
+                }
+
+                DependencyType::Function => {
+                    let func = self
+                        .visible_scopes()
+                        .find_map(|scope| {
+                            scope
+                                .content
+                                .fns
+                                .get(name)
+                                .filter(|func| func.declared_at == *name_declared_at)
+                        })
+                        .expect("internal error: cannot find variable to capture (this is a bug in the checker)");
+
+                    captured_deps.fns.insert(dep.clone(), func.clone());
+                }
+            };
+        }
+
+        captured_deps
     }
 }
 
@@ -252,7 +343,7 @@ pub enum ScopeRange {
 
 #[derive(Debug, Clone)]
 pub struct ScopeContent {
-    pub vars: HashMap<String, GcCell<ScopeVar>>,
+    pub vars: HashMap<String, ScopeVar>,
     pub fns: HashMap<String, ScopeFn>,
     pub cmd_aliases: HashMap<String, SingleCmdCall>,
     pub types: HashMap<String, ValueType>,
@@ -279,7 +370,7 @@ impl Default for ScopeContent {
 pub struct ScopeVar {
     pub declared_at: CodeRange,
     pub is_mut: bool,
-    pub value: Option<LocatedValue>,
+    pub value: GcCell<Option<LocatedValue>>,
 }
 
 #[derive(Debug, Clone)]

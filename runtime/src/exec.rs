@@ -15,8 +15,8 @@ use crate::{
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy},
     values::{
-        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
-        RuntimeValue,
+        are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeFnBody,
+        RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -74,8 +74,9 @@ fn run_block(
     Ok(instr_ret)
 }
 
-pub(crate) fn run_called_block(
+pub(crate) fn run_fn_body(
     block: &Block,
+    captured_deps: &CapturedDependencies,
     ctx: &mut Context,
     content: ScopeContent,
     parent_scopes: IndexSet<u64>,
@@ -86,8 +87,9 @@ pub(crate) fn run_called_block(
         code_range,
     } = block;
 
-    ctx.create_and_push_called_scope(
+    ctx.create_and_push_fn_scope(
         ScopeRange::CodeRange(*code_range),
+        captured_deps,
         content,
         parent_scopes,
         call_stack_entry,
@@ -137,11 +139,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
-                GcCell::new(ScopeVar {
+                ScopeVar {
                     declared_at: name.at,
                     is_mut: mutable.is_some(),
-                    value: init_value,
-                }),
+                    value: GcCell::new(init_value),
+                },
             );
         }
 
@@ -152,14 +154,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             expr,
         } => {
             // We can expect() thanks to the checker
-            let var = ctx.get_visible_var(name).cloned().expect("internal error: variable not alive (this is a bug either in the checker or in the garbage collector)");
+            let var = ctx.get_visible_var(name).cloned().unwrap_or_else(|| panic!("internal error: variable not alive (this is a bug either in the checker or in the garbage collector)\nDebug infos:\n> {name:?}"));
 
             // Same goes here
-            assert!(var.read().is_mut);
+            assert!(var.is_mut);
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
-            if var.read().value.is_none() {
+            if var.value.read().is_none() {
                 if let Some(first) = prop_acc.first() {
                     return Err(ctx.error(
                         first.at,
@@ -167,11 +169,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     ));
                 }
 
-                var.write().value = Some(LocatedValue::new(assign_value, expr.at));
+                *var.value.write() = Some(LocatedValue::new(assign_value, expr.at));
             } else {
                 eval_props_access(
                     // TODO: don't clone here?
-                    &mut var.write().value.as_mut().unwrap().value,
+                    &mut var.value.write().as_mut().unwrap().value,
                     prop_acc,
                     PropAccessPolicy::TrailingAccessMayNotExist,
                     ctx,
@@ -266,15 +268,15 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
-                            GcCell::new(ScopeVar {
+                            ScopeVar {
                                 declared_at: iter_var.at,
                                 is_mut: false,
-                                value: Some(LocatedValue::new(
+                                value: GcCell::new(Some(LocatedValue::new(
                                     // TODO: performance?
                                     item.clone(),
                                     iter_var.at,
-                                )),
-                            }),
+                                ))),
+                            },
                         );
 
                         if let Some(InstrRet {
@@ -293,14 +295,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
-                            GcCell::new(ScopeVar {
+                            ScopeVar {
                                 declared_at: iter_var.at,
                                 is_mut: false,
-                                value: Some(LocatedValue::new(
+                                value: GcCell::new(Some(LocatedValue::new(
                                     RuntimeValue::Int(i as i64),
                                     iter_var.at,
-                                )),
-                            }),
+                                ))),
+                            },
                         );
 
                         if let Some(InstrRet {
@@ -401,11 +403,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::FnDecl { name, content } => {
             let parent_scopes = ctx.generate_parent_scopes();
 
+            let captured_deps = ctx.capture_deps(&content.body);
+
             let fns = &mut ctx.current_scope_content_mut().fns;
 
-            if fns.contains_key(&name.data) {
-                return Err(ctx.error(name.at, "duplicate name declaration".to_string()));
-            }
+            // We can do this thanks to the checker
+            assert!(!fns.contains_key(&name.data));
 
             let Function { signature, body } = content;
 
@@ -417,6 +420,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         body: RuntimeFnBody::Block(body.clone()),
                         signature: signature.clone(),
                         parent_scopes,
+                        captured_deps,
                     }),
                 },
             );
@@ -454,11 +458,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                 scope.vars.insert(
                     catch_var.data.clone(),
-                    GcCell::new(ScopeVar {
+                    ScopeVar {
                         declared_at: catch_var.at,
                         is_mut: false,
-                        value: Some(LocatedValue { value, from }),
-                    }),
+                        value: GcCell::new(Some(LocatedValue { value, from })),
+                    },
                 );
 
                 run_block(&catch_body.data, ctx, scope)?;

@@ -322,8 +322,8 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         Value::Variable(name) => Ok(ctx
             .get_visible_var(name)
             .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
-            .read()
             .value
+            .read()
             .as_ref()
             .ok_or_else(|| {
                 ctx.error(
@@ -358,6 +358,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 // TODO: compute and store which values this references
                 body: RuntimeFnBody::Block(body.clone()),
                 parent_scopes: ctx.generate_parent_scopes(),
+                captured_deps: ctx.capture_deps(body),
             })))
         }
     }
@@ -399,8 +400,8 @@ fn eval_computed_string_piece(
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name)
                 .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
-                .read()
                 .value
+                .read()
                 .as_ref()
                 .ok_or_else(|| {
                     ctx.error(
