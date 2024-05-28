@@ -154,12 +154,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Command aliases
                 simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(=)", [Magenta, Blue, LightYellow]),
                 simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Magenta, Blue]),
-                
-                // // Argument names and structure keys
-                // simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]", [Red, LightYellow]),
-
-                // Commands separator
-                simple("(;)", [DarkGray]),
 
                 // Commands
                 include_group("commands"),
@@ -371,6 +365,8 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         closing_without_opening_style: Style::new().fg(White).on(Red),
 
         unclosed_style: Style::new().fg(White).on(Red),
+
+        command_separator_style: Style::new().fg(DarkGray)
     };
 
     Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
