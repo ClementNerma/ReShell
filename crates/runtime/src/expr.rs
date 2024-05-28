@@ -201,7 +201,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     let ExprInner {
         content,
         prop_acc,
-        method_calls,
+        pipes,
     } = &inner.data;
 
     let mut left = eval_expr_inner_content(&content.data, ctx)?;
@@ -228,7 +228,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     // TODO: cover "prop_acc" as well
     let mut left_loc = RuntimeCodeRange::Parsed(content.at);
 
-    for call in method_calls {
+    for call in pipes {
         let LocatedValue { value, from } =
             eval_piped_fn_call(call, Some(LocatedValue::new(left, left_loc)), ctx)?
                 .ok_or_else(|| ctx.error(call.at, "method call did not return a value"))?;

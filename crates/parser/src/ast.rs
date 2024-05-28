@@ -159,7 +159,7 @@ pub struct Expr {
 pub struct ExprInner {
     pub content: Eaten<ExprInnerContent>,
     pub prop_acc: Vec<Eaten<PropAccess>>,
-    pub method_calls: Vec<Eaten<FnCall>>,
+    pub pipes: Vec<Eaten<FnCall>>,
 }
 
 #[derive(Debug, Clone)]

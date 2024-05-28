@@ -599,12 +599,10 @@ impl ComputableSize for ExprInner {
         let Self {
             content,
             prop_acc,
-            method_calls,
+            pipes,
         } = self;
 
-        content.compute_heap_size()
-            + prop_acc.compute_heap_size()
-            + method_calls.compute_heap_size()
+        content.compute_heap_size() + prop_acc.compute_heap_size() + pipes.compute_heap_size()
     }
 }
 

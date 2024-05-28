@@ -641,10 +641,10 @@ pub fn program(
                     .ignore_then(fn_call.clone().spanned())
                     .separated_by(msnl),
             )
-            .map(|((content, prop_acc), method_calls)| ExprInner {
+            .map(|((content, prop_acc), pipes)| ExprInner {
                 content,
                 prop_acc,
-                method_calls,
+                pipes,
             });
 
         let expr_op = double_op
