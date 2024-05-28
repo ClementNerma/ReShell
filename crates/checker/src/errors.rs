@@ -2,6 +2,7 @@ use parsy::CodeRange;
 
 pub type CheckerResult<T = ()> = Result<T, CheckerError>;
 
+#[derive(Debug)]
 pub struct CheckerError {
     pub at: CodeRange,
     pub msg: String,

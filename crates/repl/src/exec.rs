@@ -1,12 +1,11 @@
-// TODO: if exec returns an error, reset the current scope's ID to the one just after the native lib's one
-// TODO: if exec returns an error instead of a popped scope, get the current scope from the ID mentioned above
-
 use once_cell::sync::OnceCell;
 use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    exec::run_program, files_map::ScopableFilePath, native_lib::generate_native_lib,
+    exec::{run_program, ProgramExitStatus},
+    files_map::ScopableFilePath,
+    native_lib::generate_native_lib,
 };
 
 use crate::{reports::ReportableError, state::RUNTIME_CONTEXT};
@@ -42,7 +41,7 @@ pub fn run_script(
     input: &str,
     file_path: ScopableFilePath,
     parser: &impl Parser<Program>,
-) -> Result<(), ReportableError> {
+) -> Result<ProgramExitStatus, ReportableError> {
     let (parsed, checker_output) = code_check_script(input, file_path, parser)?;
 
     let ctx = &mut RUNTIME_CONTEXT.write().unwrap();

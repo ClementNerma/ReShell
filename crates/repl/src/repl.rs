@@ -1,8 +1,9 @@
-use std::time::Instant;
+use std::{process::ExitCode, time::Instant};
 
 use reedline::{Reedline, Signal};
 use reshell_runtime::{
     errors::{ExecErrorContent, ExecResult},
+    exec::ProgramExitStatus,
     files_map::ScopableFilePath,
     native_lib::{render_prompt, LastCmdStatus, PromptRendering},
 };
@@ -17,7 +18,7 @@ use crate::{
     validator,
 };
 
-pub fn start() {
+pub fn start() -> Option<ExitCode> {
     let mut line_editor = Reedline::create()
         .with_history(history::create_history())
         .with_menu(history::create_history_menu())
@@ -53,7 +54,7 @@ pub fn start() {
         let input = match line_editor.read_line(&prompt) {
             Ok(Signal::Success(buffer)) => buffer,
             Ok(Signal::CtrlC) => continue,
-            Ok(Signal::CtrlD) => break,
+            Ok(Signal::CtrlD) => break None,
             Err(err) => {
                 eprintln!("> Failed to read line: {err}");
                 continue;
@@ -70,8 +71,16 @@ pub fn start() {
             &parser,
         );
 
-        if let Err(err) = &ret {
-            reports::print_error(err, RUNTIME_CONTEXT.read().unwrap().files_map());
+        match ret {
+            Ok(exit_status) => match exit_status {
+                ProgramExitStatus::Normal => {}
+                ProgramExitStatus::ExitRequested { code } => {
+                    return Some(ExitCode::from(code));
+                }
+            },
+            Err(ref err) => {
+                reports::print_error(err, RUNTIME_CONTEXT.read().unwrap().files_map());
+            }
         }
 
         last_cmd_status = Some(LastCmdStatus {

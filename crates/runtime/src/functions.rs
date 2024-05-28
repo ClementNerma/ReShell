@@ -102,6 +102,7 @@ pub fn call_fn_value(
                     }
                     InstrRetType::FnReturn(value) => value,
                     InstrRetType::Thrown(value) => return Ok(FnCallResult::Thrown(value)),
+                    InstrRetType::Exit => unreachable!(),
                 },
 
                 None => None,
@@ -413,22 +414,6 @@ fn is_type_bool(typ: &ValueType) -> bool {
     match typ {
         ValueType::Single(maybe_eaten) => matches!(maybe_eaten.data(), SingleValueType::Bool),
         ValueType::Union(_) => false,
-    }
-}
-
-pub fn fail_if_thrown(
-    call_result: FnCallResult,
-    ctx: &mut Context,
-) -> ExecResult<Option<LocatedValue>> {
-    match call_result {
-        FnCallResult::Success { returned } => Ok(returned),
-        FnCallResult::Thrown(LocatedValue { value, from }) => Err(ctx.error(
-            from,
-            format!(
-                "function call thrown a value: {}",
-                value.render_uncolored(ctx, PrettyPrintOptions::inline())
-            ),
-        )),
     }
 }
 

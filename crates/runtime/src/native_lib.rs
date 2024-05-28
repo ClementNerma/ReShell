@@ -10,6 +10,7 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
 
+use crate::functions::FnCallResult;
 use crate::{
     context::{
         CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar, NATIVE_LIB_SCOPE_ID,
@@ -17,7 +18,7 @@ use crate::{
     display::dbg_loc,
     errors::ExecResult,
     files_map::ScopableFilePath,
-    functions::{call_fn_value, fail_if_thrown, FnPossibleCallArgs},
+    functions::{call_fn_value, FnPossibleCallArgs},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_fn_equality,
@@ -398,15 +399,13 @@ pub fn generate_native_lib() -> Scope {
         native_fn!(detached (closure: Any [closure_at]) [ctx, at] {
             let fork = fork().map_err(|_| ctx.error(at, "failed to fork the process (unknown error occurred)"))?;
 
-            if let Fork::Child = fork {
-                call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: forge_internal_token(vec![]), ret_type: None }, vec![], ctx)?;
-
-                // TODO: exit don't call destructors,
-                // so return an indicator that the program must be terminated instead
-                std::process::exit(0);
+            match fork {
+                Fork::Child => {
+                    call_fn_checked(&LocatedValue::new(closure, closure_at), &FnSignature { args: forge_internal_token(vec![]), ret_type: None }, vec![], ctx)?;
+                    Err(ctx.exit(at, None))
+                },
+                Fork::Parent(_) => Ok(None)
             }
-
-            Ok(None)
         }),
         //
         // get PID of the current process
@@ -533,10 +532,10 @@ pub fn generate_native_lib() -> Scope {
         //
         // exit the program
         //
-        native_fn!(exit (code: Int) {
-            // TODO: exit don't call destructors,
-            // so return an indicator that the program must be terminated instead
-            std::process::exit(code as i32);
+        native_fn!(exit (code: Int) [ctx, at] {
+            // TODO: optional code
+            let code = u8::try_from(code).map_err(|_| ctx.error(at, format!("exit code must be 0-255, got {code}")))?;
+            Err(ctx.exit(at, Some(code)))
         }),
         //
         // report runtime stats
@@ -815,7 +814,16 @@ fn call_fn_checked(
         ctx,
     )?;
 
-    fail_if_thrown(ret, ctx)
+    match ret {
+        FnCallResult::Success { returned } => Ok(returned),
+        FnCallResult::Thrown(LocatedValue { value, from }) => Err(ctx.error(
+            from,
+            format!(
+                "function call thrown a value: {}",
+                value.render_uncolored(ctx, PrettyPrintOptions::inline())
+            ),
+        )),
+    }
 }
 
 #[derive(Debug)]

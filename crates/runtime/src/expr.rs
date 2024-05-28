@@ -10,11 +10,14 @@ use crate::{
     context::Context,
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
-    functions::{call_fn, fail_if_thrown},
+    functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy},
-    values::{are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{
+        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
+        RuntimeValue,
+    },
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
@@ -336,9 +339,19 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         Value::FnAsValue(name) => Ok(RuntimeValue::Function(
             ctx.get_visible_fn_value(name)?.clone(),
         )),
-        Value::FnCall(call) => Ok(fail_if_thrown(call_fn(call, ctx)?, ctx)?
-            .ok_or_else(|| ctx.error(value.at, "this function call didn't return any value"))?
-            .value),
+        Value::FnCall(call) => match call_fn(call, ctx)? {
+            FnCallResult::Success { returned } => match returned {
+                Some(loc) => Ok(loc.value),
+                None => Err(ctx.error(call.at, "function call did not return a value")),
+            },
+            FnCallResult::Thrown(LocatedValue { from, value }) => Err(ctx.error(
+                from,
+                format!(
+                    "function call thrown a value: {}",
+                    value.render_uncolored(ctx, PrettyPrintOptions::inline())
+                ),
+            )),
+        },
         Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.unwrap())),
         Value::CmdSuccess(call) => match run_cmd(call, ctx, false) {
             Ok(_) => Ok(RuntimeValue::Bool(true)),

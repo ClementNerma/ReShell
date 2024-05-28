@@ -9,9 +9,8 @@ use std::process::ExitCode;
 
 use clap::Parser as _;
 use colored::Colorize;
-use parsy::Parser;
-use reshell_parser::{ast::Program, program};
-use reshell_runtime::files_map::ScopableFilePath;
+use reshell_parser::program;
+use reshell_runtime::{exec::ProgramExitStatus, files_map::ScopableFilePath};
 
 use self::{exec::run_script, state::RUNTIME_CONTEXT};
 
@@ -75,7 +74,10 @@ fn inner_main() -> Result<ExitCode, &'static str> {
         };
 
         return match run_script(&content, ScopableFilePath::RealFile(file_path), &parser) {
-            Ok(_) => Ok(ExitCode::SUCCESS),
+            Ok(exit_status) => match exit_status {
+                ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
+                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code)),
+            },
             Err(err) => {
                 reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
                 Ok(ExitCode::FAILURE)
@@ -85,7 +87,10 @@ fn inner_main() -> Result<ExitCode, &'static str> {
 
     if let Some(input) = args.eval {
         return match run_script(&input, ScopableFilePath::InMemory("eval"), &parser) {
-            Ok(_) => Ok(ExitCode::SUCCESS),
+            Ok(exit_status) => match exit_status {
+                ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
+                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code)),
+            },
             Err(err) => {
                 reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
                 Ok(ExitCode::FAILURE)
@@ -94,58 +99,51 @@ fn inner_main() -> Result<ExitCode, &'static str> {
     }
 
     if !args.skip_init_script {
-        if let Err(()) = run_init_script(&parser) {
-            return Ok(ExitCode::FAILURE);
-        }
-    }
+        match dirs::home_dir() {
+            None => print_warn(
+                "Cannot run init script: failed to determine path to the user's home directory",
+            ),
 
-    repl::start();
+            Some(home_dir) => {
+                let init_file = home_dir.join(INIT_SCRIPT_FILE_NAME);
 
-    Ok(ExitCode::SUCCESS)
-}
+                if init_file.is_file() {
+                    match fs::read_to_string(&init_file) {
+                        Err(err) => {
+                            print_err(&format!(
+                                "Failed to read init script at path {}: {err}",
+                                init_file.to_string_lossy().bright_magenta()
+                            ));
 
-fn run_init_script(parser: &impl Parser<Program>) -> Result<(), ()> {
-    let Some(home_dir) = dirs::home_dir() else {
-        print_warn("Cannot run init script: failed to determine path to the user's home directory");
-        return Ok(());
-    };
+                            return Ok(ExitCode::FAILURE);
+                        }
 
-    let init_file = home_dir.join(INIT_SCRIPT_FILE_NAME);
+                        Ok(source) => {
+                            let init_script_result =
+                                run_script(&source, ScopableFilePath::RealFile(init_file), &parser);
 
-    if !init_file.exists() {
-        //  print_warn(&format!(
-        //     "Init script was not found at path {}",
-        //     init_file.to_string_lossy().bright_magenta(),
-        // ));
-        return Ok(());
-    }
-
-    if !init_file.is_file() {
-        print_err(&format!(
-            "Init script path ({}) exists but is not a file",
-            init_file.to_string_lossy().bright_magenta()
-        ));
-
-        return Ok(());
-    }
-
-    match fs::read_to_string(&init_file) {
-        Err(err) => {
-            print_err(&format!(
-                "Failed to read init script at path {}: {err}",
-                init_file.to_string_lossy().bright_magenta()
-            ));
-
-            Err(())
-        }
-
-        Ok(source) => match run_script(&source, ScopableFilePath::RealFile(init_file), parser) {
-            Ok(()) => Ok(()),
-            Err(err) => {
-                reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
-                Err(())
+                            match init_script_result {
+                                Ok(instr_ret) => match instr_ret {
+                                    ProgramExitStatus::Normal => {}
+                                    ProgramExitStatus::ExitRequested { code } => {
+                                        return Ok(ExitCode::from(code))
+                                    }
+                                },
+                                Err(err) => reports::print_error(
+                                    &err,
+                                    RUNTIME_CONTEXT.read().unwrap().files_map(),
+                                ),
+                            }
+                        }
+                    }
+                }
             }
-        },
+        }
+    }
+
+    match repl::start() {
+        Some(exit_code) => Ok(exit_code),
+        None => Ok(ExitCode::SUCCESS),
     }
 }
 
