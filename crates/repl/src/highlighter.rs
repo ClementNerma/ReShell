@@ -1,11 +1,38 @@
+use std::collections::HashMap;
+
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
-use crate::logic::{
-    nesting::{detect_nesting_actions, NestingAction, NestingActionType},
-    syntax_highlighter::SyntaxHighlighter,
-};
+use crate::syntax::{HighlightPiece, Highlighter as SyntaxHighlighter, Rule, RuleSet, SimpleRule};
+
+macro_rules! rule {
+    (@match $matches: expr => [$($style: ident),+]) => {{
+        Rule::Simple(SimpleRule {
+            matches: Regex::new($matches).unwrap(),
+            style: vec![$(Style::new().fg(Color::$style)),+],
+        })
+    }};
+
+    (@match $matches: expr => $style: ident) => {{
+        Rule::Simple(SimpleRule {
+            matches: Regex::new($matches).unwrap(),
+            style: vec![Style::new().fg(Color::$style)],
+        })
+    }};
+
+    (@nested $begin: expr => $beginStyle: ident, $end: expr => $endStyle: ident, $innerRules: expr) => {
+        Rule::Nested(NestingRule {
+            begin: rule!(@match $begin => $beginStyle),
+            end: rule!(@match $end => $endStyle),
+            inner_rules: $innerRules
+        })
+    };
+
+    (@group $name: expr) => {
+        Rule::Group($name.to_owned())
+    }
+}
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
@@ -20,128 +47,58 @@ impl RlHighlighter for Highlighter {
 }
 
 fn highlight(input: &str) -> StyledText {
-    let mut h = SyntaxHighlighter::new(input);
+    // TODO: lazify this
+    let rule_set = RuleSet {
+        groups: [
+            ("instructions", vec![
+                // Comments
+                rule!(@match "(#.*)$" => DarkGray),
+                // Keywords
+                rule!(@match "(?:^|\\n|;|\\{)\\s*(let|for|if|else|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta),
+                // Variable declaration
+                rule!(@match "(?:\\blet\\s+)(mut\\s+)([a-zA-Z_][a-zA-Z0-9_]+)\\b" => [Magenta, Red]),
+                // Constant declaration
+                rule!(@match "(?:\\blet\\s+)([a-zA-Z_][a-zA-Z0-9_]+)\\b" => Red),
+                // Loop
+                rule!(@match "\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]+)\\s+(in)\\s+" => [Magenta, Red, Magenta]),
+                // [Pending] Loop
+                rule!(@match "\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]+)\\b" => [Magenta, Red]),
+            ]),
+            ("in-expressions", vec![
+                // Types
+                rule!(@match "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta),
+                // Type aliases
+                rule!(@match "\\b([A-Z][a-zA-Z0-9_]*)\\b" => LightYellow),
+                // Booleans
+                rule!(@match "\\b(true|false)\\b" => LightYellow),
+                // The null value
+                rule!(@match "\\b(null)\\b" => LightYellow),
+                // Variables
+                rule!(@match "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red),
+                // Flags
+                rule!(@match "\\s(\\-[\\-a-zA-Z0-9_]*)" => LightYellow),
+                // Number
+                rule!(@match "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow),
+                // Symbols and operators
+                rule!(@match "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => LightYellow),
+            ],
+        )]
+        .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
+        rules: vec![rule!(@group "instructions")],
+    };
 
-    let nesting = detect_nesting_actions(input);
+    let pieces = SyntaxHighlighter::new(rule_set).highlight(input);
 
-    highlight_inner(input, &nesting, &mut h);
+    let mut out = StyledText::new();
 
-    macro_rules! highlight {
-        ($($regex: expr => $color: ident),+) => {
-            $(
-                h.regex(
-                    Regex::new($regex).unwrap(),
-                    &[Style::new().fg(Color::$color)],
-                );
-            )+
-        }
+    for piece in pieces {
+        let HighlightPiece { start, len, style } = piece;
+
+        out.push((
+            style.unwrap_or_else(Style::new),
+            input[start..start + len].to_owned(),
+        ));
     }
 
-    highlight!(
-        // comments
-        "(#.*)$" => DarkGray,
-
-        // flags
-        "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
-
-        // keywords
-        "(?:^|\\n|;|\\{)\\s*(let|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
-
-        // mut
-        "(?:\\blet\\s+)(mut)\\b" => Magenta,
-
-        // in
-        "(?:\\bfor\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+)(in)\\b" => Magenta,
-
-        // types
-        "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
-
-        // custom types
-        "\\b([A-Z][a-zA-Z0-9_]*)\\b" => LightYellow,
-
-        // booleans
-        "\\b(true|false)\\b" => LightYellow,
-
-        // null value
-        "\\b(null)\\b" => LightYellow,
-
-        // variables
-        "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-
-        // variables declaration
-        "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-
-        // loop iterator
-        "(?:^|\\n|\\s)for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-
-        // function arguments and struct fields
-        "(?:\\b|[^\\|]\\|\\s*|,\\s*)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?:[:,]|\\|[^\\|])" => Red,
-
-        // untyped function arguments (1)
-        "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
-
-        // untyped function arguments (2)
-        "(?:,|[a-zA-Z0-9_]\\s*\\()\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
-
-        // numbers
-        "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
-
-        // command markers
-        "(?:^|[\\{;]|\\$\\()\\s*(@raw|@var)\\b" => Magenta,
-
-        // command call
-        "(?:^|[\\{;]|\\$\\(|@raw|@var\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$\\s]+)(?:[\\s\\)]|\\n|$)" => LightBlue,
-
-        // function call
-        "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
-
-        // symbols and operators
-        "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue
-
-        // // raw arguments
-        // "(.)" => Green
-    );
-
-    h.finalize(Style::default())
-}
-
-fn highlight_inner(input: &str, nesting_actions: &[NestingAction], h: &mut SyntaxHighlighter) {
-    // if let Some(begin) = nesting_actions.iter().find(|a| {
-    //     matches!(a.action_type, NestingActionType::Opening)
-    //         && &input[a.offset..a.offset + a.len] == "$("
-    // }) {
-    //     todo!()
-    // }
-
-    for action in nesting_actions {
-        let NestingAction {
-            offset,
-            len,
-            action_type,
-        } = action;
-
-        let style = match action_type {
-            NestingActionType::Opening | NestingActionType::Closing { opening_offset: _ } => {
-                Style::new().fg(if &input[*offset..*offset + len] == "\"" {
-                    Color::Green
-                } else {
-                    Color::LightBlue
-                })
-            }
-
-            NestingActionType::Unclosed => Style::new().fg(Color::Red),
-
-            NestingActionType::ClosingWithoutOpening => {
-                Style::new().fg(Color::Red).on(Color::White)
-            }
-
-            NestingActionType::Escaping => Style::new().fg(Color::Cyan),
-
-            NestingActionType::InvalidEscape => Style::new().fg(Color::Red),
-
-            NestingActionType::StringPiece => Style::new().fg(Color::Green),
-        };
-
-        h.range(*offset, *len, style);
-    }
+    out
 }

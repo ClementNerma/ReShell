@@ -23,10 +23,10 @@ mod exec;
 mod highlighter;
 mod hinter;
 mod history;
-mod logic;
 mod prompt;
 mod repl;
 mod reports;
+mod syntax;
 mod validator;
 
 fn main() -> ExitCode {
