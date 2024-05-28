@@ -58,7 +58,7 @@ pub fn run_block(
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     for instr in &block.instructions {
-        if let Some(ret) = run_instr(&instr, ctx)? {
+        if let Some(ret) = run_instr(instr, ctx)? {
             return Ok(Some(ret));
         }
     }
@@ -76,7 +76,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             init_expr,
         } => {
             if ctx.current_scope().vars.contains_key(&name.data) {
-                return Err(ctx.error(name.at, format!("duplicate variable declaration")));
+                return Err(ctx.error(name.at, "duplicate variable declaration".to_string()));
             }
 
             let init_value = init_expr
@@ -275,7 +275,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             let fns = &mut ctx.current_scope_mut().fns;
 
             if fns.contains_key(&name.data) {
-                return Err(ctx.error(name.at, format!("duplicate name declaration")));
+                return Err(ctx.error(name.at, "duplicate name declaration".to_string()));
             }
 
             fns.insert(
@@ -311,7 +311,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             let aliases = &mut ctx.current_scope_mut().aliases;
 
             if aliases.contains_key(&name.data) {
-                return Err(ctx.error(name.at, format!("duplicate alias declaration")));
+                return Err(ctx.error(name.at, "duplicate alias declaration".to_string()));
             }
 
             aliases.insert(name.data.clone(), content.data.clone());
@@ -321,7 +321,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             let aliases = &mut ctx.current_scope_mut().types;
 
             if aliases.contains_key(&name.data) {
-                return Err(ctx.error(name.at, format!("duplicate type alias declaration")));
+                return Err(ctx.error(name.at, "duplicate type alias declaration".to_string()));
             }
 
             aliases.insert(name.data.clone(), content.data.clone());

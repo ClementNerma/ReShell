@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
@@ -25,7 +25,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<Loc
                     call.data.name.at,
                     format!(
                         "expected a function, found a {} instead",
-                        readable_value_type(&value, ctx)
+                        readable_value_type(value, ctx)
                     ),
                 ))
             }
@@ -146,7 +146,7 @@ fn parse_fn_call_args(
                         // TODO: support for "--flag=<value>" syntax?
 
                         if let Some((_, at)) = opened_flag {
-                            return Err(ctx.error(at, format!("value is missing for this flag")));
+                            return Err(ctx.error(at, "value is missing for this flag".to_string()));
                         }
 
                         let flag = if let Some(long_flag) = raw.data.strip_prefix("--") {
@@ -271,7 +271,7 @@ fn parse_fn_call_args(
                     call_arg_at,
                     format!(
                         "type mismatch for argument '{}': expected a {}, found a {}",
-                        fn_arg_var_name(&fn_arg),
+                        fn_arg_var_name(fn_arg),
                         readable_type(&expected_type.data, ctx),
                         readable_value_type(&arg_value, ctx)
                     ),
@@ -280,13 +280,13 @@ fn parse_fn_call_args(
         }
 
         args.insert(
-            fn_arg_var_name(&fn_arg),
+            fn_arg_var_name(fn_arg),
             LocatedValue::new(arg_value, call_arg_at),
         );
     }
 
     if let Some((_, at)) = opened_flag {
-        return Err(ctx.error(at, format!("value is missing for this flag")));
+        return Err(ctx.error(at, "value is missing for this flag".to_string()));
     }
 
     if let Some(arg) = positional_args.next() {
@@ -307,7 +307,7 @@ fn parse_fn_call_args(
     for flag in fn_args.iter().filter(|arg| arg.names.is_flag()) {
         let arg_name = fn_arg_var_name(flag);
 
-        if !args.contains_key(&arg_name) {
+        if let Entry::Vacant(e) = args.entry(arg_name) {
             let mut value = RuntimeValue::Null;
 
             if let Some(typ) = &flag.typ {
@@ -326,7 +326,7 @@ fn parse_fn_call_args(
                 value = RuntimeValue::Bool(false);
             }
 
-            args.insert(arg_name, LocatedValue::new(value, call_at));
+            e.insert(LocatedValue::new(value, call_at));
         }
     }
 

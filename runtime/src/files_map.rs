@@ -38,6 +38,12 @@ impl FilesMap {
     }
 }
 
+impl Default for FilesMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SourceFile {
     pub id: u64,

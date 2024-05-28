@@ -23,7 +23,7 @@ impl EditMode {
         line: &str,
         offset: usize,
     ) -> Vec<EditCommand> {
-        let right_char = line.chars().skip(offset).next();
+        let right_char = line.chars().nth(offset);
 
         if right_char == Some(opener) || (opener == closer && right_char == Some(closer)) {
             vec![EditCommand::MoveRight]

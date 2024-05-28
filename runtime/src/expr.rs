@@ -62,7 +62,7 @@ fn eval_double_op(
     ExprOp { op, with }: &ExprOp,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
-    let right = eval_expr_inner(&with, ctx)?;
+    let right = eval_expr_inner(with, ctx)?;
 
     let result = match op.data {
         DoubleOp::Add
@@ -100,14 +100,14 @@ fn eval_double_op(
             (RuntimeValue::Int(_), RuntimeValue::Float(_)) => {
                 return Err(ctx.error(
                     op.at,
-                    format!("left operand is an int but right operand is a float"),
+                    "left operand is an int but right operand is a float".to_string(),
                 ))
             }
 
             (RuntimeValue::Float(_), RuntimeValue::Int(_)) => {
                 return Err(ctx.error(
                     op.at,
-                    format!("left operand is a float but right operand is an int"),
+                    "left operand is a float but right operand is an int".to_string(),
                 ))
             }
 
@@ -366,12 +366,12 @@ pub fn eval_computed_string(
     value: &Eaten<ComputedString>,
     ctx: &mut Context,
 ) -> ExecResult<String> {
-    Ok(value
+    value
         .data
         .pieces
         .iter()
         .map(|piece| eval_computed_string_piece(piece, ctx))
-        .collect::<Result<String, _>>()?)
+        .collect::<Result<String, _>>()
 }
 
 fn eval_computed_string_piece(

@@ -35,7 +35,7 @@ pub fn readable_value_type(value: &RuntimeValue, ctx: &Context) -> Cow<'static, 
 
 pub fn readable_type(value_type: &ValueType, ctx: &Context) -> Cow<'static, str> {
     match value_type {
-        ValueType::Single(single) => readable_single_type(&single.data(), ctx).into(),
+        ValueType::Single(single) => readable_single_type(&single.data, ctx),
         ValueType::Union(types) => types
             .iter()
             .map(|typ| readable_single_type(&typ.data(), ctx))
@@ -56,22 +56,8 @@ pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<
         SingleValueType::List => "list".into(),
         SingleValueType::Range => "range".into(),
         SingleValueType::Map => "map".into(),
-        SingleValueType::UntypedStruct => "struct".into(),
-        SingleValueType::TypedStruct(members) => {
-            let mut args = vec![];
-
-            for member in members {
-                let StructTypeMember { name, typ } = &member.data();
-                args.push(format!(
-                    "{}: {}",
-                    name.data(),
-                    readable_type(&typ.data(), ctx)
-                ));
-            }
-
-            format!("struct {{ {} }}", args.join(", ")).into()
-        }
-        SingleValueType::Function(signature) => dbg_fn_signature(&signature, ctx).into(),
+        SingleValueType::Struct => "struct".into(),
+        SingleValueType::Function(signature) => dbg_fn_signature(signature, ctx).into(),
         SingleValueType::Error => "error".into(),
         SingleValueType::TypeAlias(name) => format!(
             "{} {}",
@@ -84,7 +70,7 @@ pub fn readable_single_type(value_type: &SingleValueType, ctx: &Context) -> Cow<
                     None
                 }) {
                 Some(typ) => format!("({})", readable_type(typ, ctx)),
-                None => format!("(unknown type alias)"),
+                None => "(unknown type alias)".to_string(),
             }
         )
         .into(),
@@ -168,7 +154,7 @@ pub fn dbg_loc(at: CodeRange, ctx: &Context) -> String {
         FileId::None => unreachable!(),
         FileId::Id(id) => {
             let Some(file) = ctx.files_map().get_file(id) else {
-                return format!("<unknown file @ offset {}>", at.start.offset).into();
+                return format!("<unknown file @ offset {}>", at.start.offset);
             };
 
             let bef = &file.content.as_str()[..at.start.offset];
@@ -177,7 +163,7 @@ pub fn dbg_loc(at: CodeRange, ctx: &Context) -> String {
 
             let after_last_nl = match bef.rfind('\n') {
                 Some(index) => &bef[index + 1..],
-                None => &bef,
+                None => bef,
             };
 
             let col = after_last_nl.chars().count() + 1;
@@ -194,7 +180,7 @@ pub fn dbg_loc(at: CodeRange, ctx: &Context) -> String {
         }
         FileId::Internal => "<internal>".into(),
         FileId::SourceLess { name } => match name {
-            Some(name) => format!("<source-less: {name}>").into(),
+            Some(name) => format!("<source-less: {name}>"),
             None => "<source-less>".into(),
         },
     }

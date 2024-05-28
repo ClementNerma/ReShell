@@ -36,7 +36,7 @@ impl<'a> HighlightList<'a> {
         self.push_untreated_bit(Style::default(), start);
 
         self.rendered
-            .push((style.clone(), self.source[start..end].to_string()));
+            .push((*style, self.source[start..end].to_string()));
 
         self.prev += at.len;
     }
@@ -70,7 +70,7 @@ impl<'a> HighlightList<'a> {
     }
 
     pub fn push_everything_until(&mut self, style: &Style, until: CodeRange) {
-        self.push_untreated_bit(style.clone(), until.start.offset);
+        self.push_untreated_bit(*style, until.start.offset);
     }
 
     fn push_untreated_bit(&mut self, style: Style, until: usize) {
@@ -78,7 +78,7 @@ impl<'a> HighlightList<'a> {
 
         if until > self.prev {
             self.rendered
-                .push((style.clone(), self.source[self.prev..until].to_string()));
+                .push((style, self.source[self.prev..until].to_string()));
         }
 
         self.prev = until;
