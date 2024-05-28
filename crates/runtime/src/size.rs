@@ -1,4 +1,4 @@
-use std::{collections::HashMap, mem::size_of_val, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location, SourceFileID};
@@ -27,7 +27,7 @@ pub trait ComputableSize {
     fn compute_heap_size(&self) -> usize;
 
     fn compute_total_size(&self) -> usize {
-        size_of_val(self) + self.compute_heap_size()
+        std::mem::size_of_val(self) + self.compute_heap_size()
     }
 }
 
@@ -351,7 +351,7 @@ impl ComputableSize for RuntimeFnBody {
     fn compute_heap_size(&self) -> usize {
         match self {
             RuntimeFnBody::Block(block) => block.compute_heap_size(),
-            RuntimeFnBody::Internal(internal) => size_of_val(internal),
+            RuntimeFnBody::Internal(internal) => std::mem::size_of_val(internal),
         }
     }
 }
@@ -870,23 +870,20 @@ impl ComputableSize for Program {
 
 impl ComputableSize for RuntimeValue {
     fn compute_heap_size(&self) -> usize {
-        size_of_val(self)
-            + match self {
-                RuntimeValue::Null => 0,
-                RuntimeValue::Bool(bool) => bool.compute_heap_size(),
-                RuntimeValue::Int(int) => int.compute_heap_size(),
-                RuntimeValue::Float(float) => float.compute_heap_size(),
-                RuntimeValue::String(string) => string.compute_heap_size(),
-                RuntimeValue::Range { from, to } => {
-                    from.compute_heap_size() + to.compute_heap_size()
-                }
-                RuntimeValue::Error(err) => err.compute_heap_size(),
-                RuntimeValue::List(values) => values.compute_heap_size(),
-                RuntimeValue::Map(map) => map.compute_heap_size(),
-                RuntimeValue::Struct(members) => members.compute_heap_size(),
-                RuntimeValue::Function(func) => func.compute_heap_size(),
-                RuntimeValue::ArgSpread(spread) => spread.compute_heap_size(),
-            }
+        match self {
+            RuntimeValue::Null => 0,
+            RuntimeValue::Bool(bool) => bool.compute_heap_size(),
+            RuntimeValue::Int(int) => int.compute_heap_size(),
+            RuntimeValue::Float(float) => float.compute_heap_size(),
+            RuntimeValue::String(string) => string.compute_heap_size(),
+            RuntimeValue::Range { from, to } => from.compute_heap_size() + to.compute_heap_size(),
+            RuntimeValue::Error(err) => err.compute_heap_size(),
+            RuntimeValue::List(values) => values.compute_heap_size(),
+            RuntimeValue::Map(map) => map.compute_heap_size(),
+            RuntimeValue::Struct(members) => members.compute_heap_size(),
+            RuntimeValue::Function(func) => func.compute_heap_size(),
+            RuntimeValue::ArgSpread(spread) => spread.compute_heap_size(),
+        }
     }
 }
 
