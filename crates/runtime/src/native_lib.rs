@@ -25,7 +25,10 @@ use crate::{
 };
 
 macro_rules! native_fn {
-    ($name: ident ( $($arg_name: ident $({ rest: $rest_type: ident })? $((--$arg_long: ident))? $((-$arg_short: ident))?: $arg_type: ident $([$arg_from: ident])?),* ) $([$ctx: ident $(, $at: ident)?])? $(-> ($ret_type: ident $(| $ret_other_type: ident)*))? $body: block) => {{
+    ($name: ident (
+        $($arg_name: ident $({ rest: $rest_type: ident })? $((--$arg_long: ident))? $((-$arg_short: ident))?: $arg_type: ident $([$arg_from: ident])?),*
+    ) $([$ctx: ident $(, $at: ident)?])? $(-> ($ret_type: ident $(| $ret_other_type: ident)*))? $body: block
+    ) => {{
         fn run(
             #[allow(unused_variables)]
             at: CodeRange,
@@ -131,9 +134,10 @@ macro_rules! extract_arg_from_type {
     ($arg: ident, List, $rest_type: ident) => {
         match $arg.value {
             RuntimeValue::List(items) => items
-                .into_iter()
+                .read()
+                .iter()
                 .map(|item| match item {
-                    RuntimeValue::$rest_type(value) => value,
+                    RuntimeValue::$rest_type(value) => value.clone(),
                     _ => unreachable!(),
                 })
                 .collect::<Vec<_>>(),
@@ -209,6 +213,13 @@ pub fn generate_native_lib() -> Scope {
         // print text + newline
         //
         native_fn!(println (text: String) {
+            println!("{text}");
+            Ok(None)
+        }),
+        //
+        // display text
+        //
+        native_fn!(echo (text: String) {
             println!("{text}");
             Ok(None)
         }),
@@ -577,30 +588,31 @@ pub fn generate_native_lib() -> Scope {
 
             Ok(None)
         }),
-        // //
-        // // create a directory
-        // //
-        // native_fn!(mkdir (paths { rest: String }: List, direct (-d): Bool, fail_if_exists (-f): Bool [f_at]) [ctx, at] {
-        //     let res = paths.iter().try_for_each(|path| {
-        //         let path = Path::new(&path);
+        //
+        // create a directory
+        //
+        native_fn!(mkdir (paths { rest: String }: List, direct (-d): Bool, fail_if_exists (-f): Bool [f_at]) [ctx, at] {
+            paths
+                .iter()
+                .try_for_each(|path| {
+                    let path = Path::new(&path);
 
-        //         if path.exists() {
-        //             if !path.is_dir() {
-        //                 Err(ctx.error(at, "path already exists and is not a directory"))
-        //             } else if fail_if_exists {
-        //                 Err(ctx.error(f_at, "path already exists"))
-        //             } else {
-        //                 Ok(())
-        //             }
-        //         } else if direct {
-        //             fs::create_dir(path).map_err(|err| ctx.error(at, format!("failed to create directory: {err}")))
-        //         } else {
-        //             fs::create_dir_all(path).map_err(|err| ctx.error(at, format!("failed to create directory: {err}")))
-        //         }
-        //     });
-
-        //     res.map(|_| None)
-        // }),
+                    if path.exists() {
+                        if !path.is_dir() {
+                            Err(ctx.error(at, "path already exists and is not a directory"))
+                        } else if fail_if_exists {
+                            Err(ctx.error(f_at, "path already exists"))
+                        } else {
+                            Ok(())
+                        }
+                    } else if direct {
+                        fs::create_dir(path).map_err(|err| ctx.error(at, format!("failed to create directory: {err}")))
+                    } else {
+                        fs::create_dir_all(path).map_err(|err| ctx.error(at, format!("failed to create directory: {err}")))
+                    }
+                })
+                .map(|_| None)
+        }),
     ];
 
     let native_vars = [
