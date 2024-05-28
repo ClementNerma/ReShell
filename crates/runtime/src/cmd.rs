@@ -704,6 +704,13 @@ pub fn eval_cmd_value_making_arg(
 
         CmdValueMakingArg::Closure(func) => (func.at, closure_to_value(&func.data, ctx)),
 
+        CmdValueMakingArg::InlineCmdCall(call) => (
+            call.at,
+            RuntimeValue::CmdCall {
+                content_at: call.at,
+            },
+        ),
+
         CmdValueMakingArg::CmdOutput(call) => {
             let cmd_result = run_cmd(
                 call,

@@ -998,11 +998,14 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
 
+        CmdValueMakingArg::InlineCmdCall(cmd_call) => check_cmd_call(cmd_call, state),
+
         CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
 
         CmdValueMakingArg::CmdComputedString(cc_str) => {
             check_cmd_computed_string(&cc_str.data, state)
         }
+
         CmdValueMakingArg::Closure(func) => check_function(&func.data, state),
     }
 }
@@ -1258,13 +1261,21 @@ fn check_fn_signature(
             is_rest,
         } = &checked_arg;
 
-       if let FnArg::Positional { name, is_optional, typ: _ } = arg {
-        if *is_optional {
-            had_optional = true;
-        } else if had_optional {
-            return Err(CheckerError::new(name.at().parsed_range().unwrap(), "cannot have a non-optional positional argument after an optional one"));
+        if let FnArg::Positional {
+            name,
+            is_optional,
+            typ: _,
+        } = arg
+        {
+            if *is_optional {
+                had_optional = true;
+            } else if had_optional {
+                return Err(CheckerError::new(
+                    name.at().parsed_range().unwrap(),
+                    "cannot have a non-optional positional argument after an optional one",
+                ));
+            }
         }
-       }
 
         if let Some(rest_arg_name_at) = rest_arg_name_at {
             return Err(CheckerError::new(

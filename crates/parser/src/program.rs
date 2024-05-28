@@ -449,6 +449,17 @@ pub fn program(
             .then_ignore(char('}').critical_expectation())
             .map(|(signature, body)| Function { signature, body });
 
+        let inline_cmd = just("@(")
+            .ignore_then(msnl)
+            .ignore_then(
+                cmd_call
+                    .clone()
+                    .spanned()
+                    .critical("expected a command call"),
+            )
+            .then_ignore(msnl)
+            .then_ignore(char(')').critical_expectation());
+
         let value = choice::<_, Value>((
             just("null").map(|_| Value::Null),
             // Literals
@@ -497,17 +508,7 @@ pub fn program(
             // Variables
             var_name.spanned().map(Value::Variable),
             // Commands
-            just("@(")
-                .ignore_then(msnl)
-                .ignore_then(
-                    cmd_call
-                        .clone()
-                        .spanned()
-                        .critical("expected a command call"),
-                )
-                .then_ignore(msnl)
-                .then_ignore(char(')').critical_expectation())
-                .map(Value::CmdCall),
+            inline_cmd.clone().map(Value::CmdCall),
             // Function as value
             char('@')
                 .ignore_then(ident.critical("expected a function name"))
@@ -797,6 +798,8 @@ pub fn program(
                 )
                 .then_ignore(char(')').critical("unclosed expression"))
                 .map(CmdValueMakingArg::ParenExpr),
+            // Inline command call
+            inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
             // Closures
             closure.clone().spanned().map(CmdValueMakingArg::Closure),
             // Raw argument (but not flags, which aren't value making arguments)
