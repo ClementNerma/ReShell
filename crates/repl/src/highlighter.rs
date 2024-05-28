@@ -4,6 +4,7 @@ use regex::Regex;
 
 use crate::syntax::{
     HighlightPiece, Highlighter as SyntaxHighlighter, NestingRule, Rule, RuleSet, SimpleRule,
+    ValidatedRuleSet,
 };
 
 macro_rules! rule {
@@ -61,7 +62,7 @@ fn highlight(input: &str) -> StyledText {
                 rule!(@simple "(#.*)$" => [DarkGray]),
                 // Variable declaration
                 rule!(@frac "\\b(let)\\b" => [Magenta],
-                            "\\s+(mut)\\b" => [Magenta],
+                            "(\\s+mut\\b|)" => [Magenta],
                             "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
                             "\\s*(=)\\s*" => [LightYellow]
                 ),
@@ -88,10 +89,9 @@ fn highlight(input: &str) -> StyledText {
                 // Expressions
                 rule!(@group "in-expressions"),
                 // Command names
-                // TODO: make "^" actually work!
                 rule!(@simple "(?:^|\\n)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
                 // Raw arguments
-                rule!(@simple "(?:^|\\n|\\s+)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
+                rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
                 // Types
@@ -104,6 +104,8 @@ fn highlight(input: &str) -> StyledText {
                 rule!(@simple "\\b(null)\\b" => [LightYellow]),
                 // Variables
                 rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
+                // Single variable identifier
+                rule!(@simple "(\\$)" => [Red]),
                 // Flags
                 rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
                 // Number
@@ -119,6 +121,8 @@ fn highlight(input: &str) -> StyledText {
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
         rules: vec![rule!(@group "instructions")],
     };
+
+    let rule_set = ValidatedRuleSet::validate(rule_set).unwrap();
 
     let pieces = SyntaxHighlighter::new(rule_set).highlight(input);
 
