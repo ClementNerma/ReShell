@@ -775,8 +775,6 @@ impl ComputableSize for Block {
 impl ComputableSize for Instruction {
     fn compute_heap_size(&self) -> usize {
         match self {
-            Instruction::Comment { content } => content.compute_heap_size(),
-
             Instruction::DeclareVar {
                 name,
                 init_expr,
