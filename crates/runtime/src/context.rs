@@ -304,11 +304,8 @@ impl Context {
     /// Prepare the current context to run a new program
     /// Requires the program to have already been checked
     pub fn prepare_for_new_program(&mut self, program: &Program, checker_output: CheckerOutput) {
-        // Ensure current scope is correct
-        assert_eq!(
-            self.current_scope, FIRST_SCOPE_ID,
-            "Failed to prepare for new program: context should be set to the first scope's ID"
-        );
+        // Reset scope
+        self.current_scope = FIRST_SCOPE_ID;
 
         // Clear the previous wandering value
         self.clear_wandering_value();
