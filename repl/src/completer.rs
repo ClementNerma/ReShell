@@ -128,7 +128,15 @@ impl RlCompleter for Completer {
 
         let starts_with_dot_slash = word.starts_with("./");
 
-        let mut out = Vec::with_capacity(5);
+        enum FileType {
+            Directory,
+            File,
+            Unknown,
+        }
+
+        let mut dirs = vec![];
+        let mut files = vec![];
+        let mut unknowns = vec![];
 
         for result in results {
             let Ok(path) = result else { return vec![] };
@@ -137,12 +145,12 @@ impl RlCompleter for Completer {
 
             let file_type = metadata.file_type();
 
-            let file_type_str = if file_type.is_file() {
-                "File"
-            } else if file_type.is_dir() {
-                "Directory"
+            let file_type_enum = if file_type.is_dir() {
+                FileType::Directory
+            } else if file_type.is_file() {
+                FileType::File
             } else {
-                "Unknown"
+                FileType::Unknown
             };
 
             // TODO: what to do about invalid UTF-8 paths?
@@ -159,19 +167,35 @@ impl RlCompleter for Completer {
                 )
             }
 
-            out.push(Suggestion {
+            let sugg = Suggestion {
                 value: if starts_with_dot_slash {
                     format!("./{path_str}")
                 } else {
                     path_str
                 },
-                description: Some(file_type_str.to_string()),
+                description: Some(
+                    match file_type_enum {
+                        FileType::Directory => "Dir",
+                        FileType::File => "File",
+                        FileType::Unknown => "?",
+                    }
+                    .to_string(),
+                ),
                 extra: None,
                 span,
                 append_whitespace: !file_type.is_dir(),
-            });
+            };
+
+            match file_type_enum {
+                FileType::Directory => dirs.push(sugg),
+                FileType::File => files.push(sugg),
+                FileType::Unknown => unknowns.push(sugg),
+            }
         }
 
-        out
+        dirs.append(&mut files);
+        dirs.append(&mut unknowns);
+
+        dirs
     }
 }
