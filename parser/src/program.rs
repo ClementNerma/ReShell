@@ -539,7 +539,7 @@ pub fn program() -> impl Parser<Program> {
 
         let cmd_raw = filter(|c|
             // The first part of the condition is to accelerate computation
-            !c.is_whitespace() && c != '(' && c != ')' && c != '[' && c != ']' && c != '{' && c != '}' && c != '<' && c != '>' && c != '=' && c != ';' && c != '!'
+            !c.is_whitespace() && c != '(' && c != ')' && c != '[' && c != ']' && c != '{' && c != '}' && c != '<' && c != '>' && c != '=' && c != ';' && c != '!' && c != '?'
         )
         .repeated()
         .at_least(1)
@@ -717,19 +717,23 @@ pub fn program() -> impl Parser<Program> {
             var_name
                 .spanned()
                 .then(prop_access_nature.spanned().repeated_vec())
+                .then(just("+[]").to(()).spanned().or_not())
                 .then_ignore(ms)
-                .then_ignore(char('='))
+                .then_ignore(char('=').critical("expected the assignment operator '='"))
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
                         .spanned()
                         .critical("expected an expression to assign"),
                 )
-                .map(|((name, prop_acc), expr)| Instruction::AssignVar {
-                    name,
-                    prop_acc,
-                    expr,
-                }),
+                .map(
+                    |(((name, prop_acc), list_push), expr)| Instruction::AssignVar {
+                        name,
+                        prop_acc,
+                        list_push,
+                        expr,
+                    },
+                ),
             //
             // Conditionals
             //

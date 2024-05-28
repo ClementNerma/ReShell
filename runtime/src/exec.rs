@@ -103,6 +103,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::AssignVar {
             name,
             prop_acc,
+            list_push,
             expr,
         } => {
             let Some(var) = ctx
@@ -138,15 +139,36 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                 let left = &mut ctx.get_var_mut(name).unwrap().value.as_mut().unwrap().value;
 
-                match eval_prop_access_suite(
+                let left = match eval_prop_access_suite(
                     left,
                     prop_acc.iter(),
                     suite,
                     PropAccessPolicy::ExistingOnly,
                 ) {
-                    Ok(left) => *left = assign_value,
+                    Ok(left) => left,
                     Err(err) => return Err(err(ctx)),
                 };
+
+                match list_push {
+                    None => *left = assign_value,
+                    Some(list_push) => match left {
+                        RuntimeValue::List(list) => {
+                            list.push(assign_value);
+                        }
+
+                        _ => {
+                            let left_type = readable_value_type(left);
+
+                            return Err(ctx.error(
+                                list_push.at,
+                                format!(
+                                    "cannot push a value as this is not a list but a {}",
+                                    left_type
+                                ),
+                            ));
+                        }
+                    },
+                }
             };
         }
 

@@ -46,8 +46,8 @@ fn highlight(input: &str) -> StyledText {
         ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
         ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
         ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
-        ("raw arguments") => "([^\\s\\(\\)\\[\\]\\{\\};=!<>]+)" => Green,
-        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\],;=!<>\\+\\-])" => DarkGray
+        ("raw arguments") => "([^\\s\\(\\)\\[\\]\\{\\};=!<>\\?]+)" => Green,
+        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\],;=!<>\\?\\+\\-])" => DarkGray
     );
 
     h.finalize(Style::default())
