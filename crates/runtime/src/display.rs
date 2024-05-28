@@ -208,7 +208,7 @@ impl PrettyPrintable for RuntimeValue {
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
                 sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color(")", Color::Blue),
+                end: Colored::with_color(")", Color::Magenta),
                 suffix: None,
             },
 
@@ -386,7 +386,7 @@ impl PrettyPrintable for CmdArgResult {
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
                 sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color(")", Color::Blue),
+                end: Colored::with_color(")", Color::Magenta),
                 suffix: None,
             },
         }
