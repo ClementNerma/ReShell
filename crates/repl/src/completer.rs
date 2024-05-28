@@ -99,9 +99,19 @@ pub fn generate_completions(
         return complete_fn_name(s_word, next_char, Some("@"), span, ctx);
     }
 
-    if (!after_space && !word.contains(['/', '\\']))
-        || line[..word_start].trim_end().ends_with(" |")
-    {
+    if line[..word_start].trim_end().ends_with(" |") {
+        let mut cmd_comp = build_cmd_completions(word, next_char, span)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
+        cmd_comp.extend(build_method_completions(word, next_char, None, span, ctx));
+
+        return sort_results(word, cmd_comp);
+    }
+
+    if !after_space && !word.contains(['/', '\\']) {
         let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
@@ -131,6 +141,43 @@ fn build_fn_completions<'a>(
         .flat_map(|scope| scope.fns.iter())
         .filter(move |(name, _)| name.to_lowercase().contains(&word))
         .map(move |(name, func)| {
+            (
+                name.clone(),
+                Suggestion {
+                    value: match add_prefix {
+                        Some(ref prefix) => format!("{prefix}{name}"),
+                        None => name.clone(),
+                    },
+                    description: Some(
+                        func.value
+                            .signature
+                            .inner()
+                            .render_colored(ctx, PrettyPrintOptions::inline()),
+                    ),
+                    extra: None,
+                    span,
+                    append_whitespace,
+                },
+            )
+        })
+}
+
+fn build_method_completions<'a>(
+    word: &str,
+    next_char: Option<char>,
+    add_prefix: Option<&str>,
+    span: Span,
+    ctx: &'a Context,
+) -> impl Iterator<Item = SortableSuggestion> + 'a {
+    let word = word.to_lowercase();
+    let add_prefix = add_prefix.map(str::to_owned);
+
+    let append_whitespace = next_char != Some(' ') && next_char != Some('(');
+
+    ctx.visible_scopes_content()
+        .flat_map(|scope| scope.methods.iter())
+        .filter(move |((name, _), _)| name.to_lowercase().contains(&word))
+        .map(move |((name, _), func)| {
             (
                 name.clone(),
                 Suggestion {
