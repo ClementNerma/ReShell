@@ -9,12 +9,12 @@ use clap::Parser as _;
 use colored::Colorize;
 use reshell_builtins::builder::build_native_lib_content;
 use reshell_parser::program;
-use reshell_runtime::{
-    conf::RuntimeConf, context::Context, exec::ProgramExitStatus, files_map::ScopableFilePath,
-};
+use reshell_runtime::errors::ExecErrorNature;
+use reshell_runtime::{conf::RuntimeConf, context::Context, files_map::ScopableFilePath};
 
 use self::cmd::Args;
 use self::exec::run_script;
+use self::reports::ReportableError;
 
 mod cmd;
 mod completer;
@@ -94,13 +94,10 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
             &parser,
             &mut ctx,
         ) {
-            Ok(exit_status) => match exit_status {
-                ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
-                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code.unwrap_or(0))),
-            },
+            Ok(()) => Ok(ExitCode::SUCCESS),
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
-                Ok(ExitCode::FAILURE)
+                Ok(loose_exit_code(err.exit_code().flatten()))
             }
         };
     }
@@ -112,13 +109,10 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
             &parser,
             &mut ctx,
         ) {
-            Ok(exit_status) => match exit_status {
-                ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
-                ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code.unwrap_or(0))),
-            },
+            Ok(()) => Ok(ExitCode::SUCCESS),
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
-                Ok(ExitCode::FAILURE)
+                Ok(loose_exit_code(err.exit_code().flatten()))
             }
         };
     }
@@ -153,14 +147,14 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
                                 &mut ctx,
                             );
 
-                            match init_script_result {
-                                Ok(instr_ret) => match instr_ret {
-                                    ProgramExitStatus::Normal => {}
-                                    ProgramExitStatus::ExitRequested { code } => {
-                                        return Ok(ExitCode::from(code.unwrap_or(0)))
+                            if let Err(err) = init_script_result {
+                                if let ReportableError::Runtime(err) = &err {
+                                    if let ExecErrorNature::Exit { code } = err.nature {
+                                        return Ok(loose_exit_code(code.map(i32::from)));
                                     }
-                                },
-                                Err(err) => reports::print_error(&err, ctx.files_map()),
+                                }
+
+                                reports::print_error(&err, ctx.files_map());
                             }
                         }
                     }
@@ -197,4 +191,14 @@ pub struct Timings {
     pub started: Instant,
     pub before_init_script: Instant,
     pub before_repl: Instant,
+}
+
+pub fn loose_exit_code(code: Option<i32>) -> ExitCode {
+    match code {
+        Some(code) => match u8::try_from(code) {
+            Ok(code) => ExitCode::from(code),
+            Err(_) => ExitCode::FAILURE,
+        },
+        None => ExitCode::FAILURE,
+    }
 }

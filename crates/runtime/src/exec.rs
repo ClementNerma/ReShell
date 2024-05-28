@@ -11,7 +11,7 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeVar, FIRST_SCOPE_ID,
     },
-    errors::{ExecErrorNature, ExecResult},
+    errors::ExecResult,
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
@@ -23,18 +23,11 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Copy)]
-#[must_use]
-pub enum ProgramExitStatus {
-    Normal,
-    ExitRequested { code: Option<u8> },
-}
-
 pub fn run_program(
     program: &Program,
     checker_output: CheckerOutput,
     ctx: &mut Context,
-) -> ExecResult<ProgramExitStatus> {
+) -> ExecResult<()> {
     let Program { content } = program;
 
     match program.content.at.start.file_id {
@@ -50,29 +43,14 @@ pub fn run_program(
 
     ctx.prepare_for_new_program(program, checker_output);
 
-    match run_block_in_current_scope(&content.data, ctx) {
-        Ok(instr_ret) => match instr_ret {
-            None => Ok(ProgramExitStatus::Normal),
-            Some(instr_ret) => {
-                Err(ctx.error(instr_ret.from, "this instruction can't be used here"))
-            }
-        },
+    let result = run_block_in_current_scope(&content.data, ctx).and_then(|result| match result {
+        None => Ok(()),
+        Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
+    });
 
-        Err(err) => {
-            ctx.reset_to_first_scope();
+    assert_eq!(ctx.current_scope().id, FIRST_SCOPE_ID);
 
-            match err.nature {
-                ExecErrorNature::Custom(_)
-                | ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::CommandFailed {
-                    message: _,
-                    exit_status: _,
-                } => Err(err),
-
-                ExecErrorNature::Exit { code } => Ok(ProgramExitStatus::ExitRequested { code }),
-            }
-        }
-    }
+    result
 }
 
 fn run_block(

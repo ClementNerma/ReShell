@@ -271,18 +271,10 @@ impl Context {
         );
     }
 
-    /// (Crate-private) Reset to the first scope after the current program entirely ends
-    pub(crate) fn reset_to_first_scope(&mut self) {
-        self.current_scope = FIRST_SCOPE_ID;
-    }
-
     /// Generate an error object
     /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
     /// Given an error is either critical or related to a function throwing a value, the allocation
     /// overhead is acceptable here
-    ///
-    /// NOTE: consuming an error requires to reset the scope to where the error is handled
-    /// Otherwise the context will stay in the scope the error was created in, which will cause problems
     pub fn error(
         &self,
         at: impl Into<RuntimeCodeRange>,
