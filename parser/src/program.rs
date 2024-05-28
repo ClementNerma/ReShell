@@ -493,7 +493,7 @@ pub fn program() -> impl Parser<Program> {
                 .map(CmdEnvVarValue::ComputedString),
             // Expression
             char('(')
-                .ignore_then(expr.clone().spanned())
+                .ignore_then(expr.clone().spanned().padded())
                 .then_ignore(
                     char(')').critical("unclosed expression (expected a closing parenthesis)"),
                 )
@@ -528,6 +528,7 @@ pub fn program() -> impl Parser<Program> {
                     cmd_call
                         .clone()
                         .spanned()
+                        .padded()
                         .critical("expected a command call"),
                 )
                 .then_ignore(
@@ -547,7 +548,12 @@ pub fn program() -> impl Parser<Program> {
                 .map(CmdArg::SpreadVar),
             // Parenthesis-wrapped expressions
             char('(')
-                .ignore_then(expr.clone().spanned().critical("expected an expression"))
+                .ignore_then(
+                    expr.clone()
+                        .spanned()
+                        .padded()
+                        .critical("expected an expression"),
+                )
                 .then_ignore(char(')').critical("unclosed expression"))
                 .map(CmdArg::ParenExpr),
             // Function as value
