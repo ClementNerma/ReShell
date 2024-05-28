@@ -763,5 +763,5 @@ fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> 
 }
 
 fn needs_escaping(c: char) -> bool {
-    c.is_whitespace() || DELIMITER_CHARS.contains(&c) || c == '\\'
+    c.is_whitespace() || DELIMITER_CHARS.contains(&c)
 }
