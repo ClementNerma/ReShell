@@ -183,6 +183,7 @@ impl Highlight for Eaten<Instruction> {
                 signature,
                 body,
             } => {
+                h.push_until(&KEYWORD, self.at, name.at);
                 h.push(&FN_NAME, name.at);
 
                 signature.highlight(h);
@@ -331,7 +332,7 @@ impl Highlight for SingleCmdCall {
         path.data.highlight(h);
 
         for arg in &args.data {
-            arg.data.highlight(h);
+            arg.highlight(h);
         }
     }
 }
@@ -365,13 +366,17 @@ impl Highlight for CmdPath {
     }
 }
 
-impl Highlight for CmdArg {
+impl Highlight for Eaten<CmdArg> {
     fn highlight(&self, h: &mut HighlightList) {
-        match self {
+        match &self.data {
             CmdArg::LiteralValue(lit_val) => lit_val.highlight(h),
             CmdArg::ComputedString(computed_str) => computed_str.highlight(h),
             CmdArg::CmdCall(call) => call.data.highlight(h),
-            CmdArg::ParenExpr(expr) => expr.data.highlight(h),
+            CmdArg::ParenExpr(expr) => {
+                h.push_until(&KEYWORD, self.at, expr.at);
+                expr.data.highlight(h);
+                h.push_remaining(&KEYWORD, self.at);
+            }
             CmdArg::VarName(name) => h.push(&VAR_NAME, name.at),
             CmdArg::FnAsValue(name) => h.push(&FN_NAME, name.at),
             CmdArg::Raw(raw) => h.push(&PATH, raw.at),
@@ -488,9 +493,18 @@ impl Highlight for Eaten<Value> {
             Value::Literal(lit_val) => lit_val.highlight(h),
             Value::ComputedString(computed_str) => computed_str.highlight(h),
             Value::List(list) => {
+                if list.is_empty() {
+                    h.push(&KEYWORD, self.at);
+                    return;
+                }
+
+                h.push_until(&KEYWORD, self.at, list.first().unwrap().at);
+
                 for item in list {
                     item.data.highlight(h);
                 }
+
+                h.push_remaining(&KEYWORD, self.at);
             }
             Value::Object(obj) => {
                 // TODO: find a way to highlight the names?
@@ -499,7 +513,7 @@ impl Highlight for Eaten<Value> {
                 }
             }
             Value::Variable(name) => h.push(&VAR_NAME, name.at),
-            Value::FnCall(call) => call.data.highlight(h),
+            Value::FnCall(call) => call.highlight(h),
             Value::CmdOutput(call) => call.data.highlight(h),
             Value::CmdSuccess(call) => call.data.highlight(h),
             Value::FnAsValue(name) => h.push(&FN_NAME, name.at),
@@ -521,14 +535,15 @@ impl Highlight for Eaten<LiteralValue> {
     }
 }
 
-impl Highlight for FnCall {
+impl Highlight for Eaten<FnCall> {
     fn highlight(&self, h: &mut HighlightList) {
-        let Self {
+        let FnCall {
             is_var_name: _,
             name,
             call_args,
-        } = self;
+        } = &self.data;
 
+        h.push_until(&KEYWORD, self.at, name.at);
         h.push(&VAR_NAME, name.at);
 
         for arg in &call_args.data {
@@ -541,7 +556,7 @@ impl Highlight for FnCallArg {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
             FnCallArg::Expr(expr) => expr.data.highlight(h),
-            FnCallArg::CmdArg(call) => call.data.highlight(h),
+            FnCallArg::CmdArg(call) => call.highlight(h),
         }
     }
 }
