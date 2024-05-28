@@ -114,7 +114,7 @@ pub enum Instruction {
     /// Command call
     CmdCall(Eaten<CmdCall>),
 
-    /// Imported program
+    /// Program inclusion
     Include(Eaten<Program>),
 }
 
