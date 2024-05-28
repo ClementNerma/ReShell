@@ -22,8 +22,8 @@ fn filter_type() -> RequiredArg<TypedFunctionType> {
         ArgNames::Positional("filter"),
         TypedFunctionType::new(forge_basic_fn_signature(
             vec![
-                ("index", ExactIntType::<usize>::direct_underlying_type()),
                 ("value", AnyType::direct_underlying_type()),
+                ("index", ExactIntType::<usize>::direct_underlying_type()),
             ],
             Some(BoolType::direct_underlying_type()),
         )),
@@ -48,10 +48,10 @@ fn run() -> Runner {
                     &filter,
                     filter_type().base_typing().signature(),
                     vec![
+                        value.clone(),
                         RuntimeValue::Int(index.try_into().expect(
                             "list contains too many elements to be represented by an integer",
                         )),
-                        value.clone(),
                     ],
                     ctx,
                 )?;
