@@ -1,4 +1,5 @@
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
+use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
 use reshell_runtime::{
     display::dbg_loc,
@@ -83,25 +84,25 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
     };
 
-    let msg = match call_stack {
-        None => msg,
-        Some(CallStack { history }) => format!(
-            "{msg}{}",
-            history
-                .iter()
-                .rev()
-                .map(
-                    |CallStackEntry {
-                         fn_called_at,
-                         previous_scope: _,
-                     }| {
-                        format!("\n| called at: {}", dbg_loc(*fn_called_at, files))
-                    }
-                )
-                .collect::<String>()
-                .fg(ariadne::Color::Blue)
-        ),
-    };
+    let mut msg = msg;
+
+    if let Some(CallStack { history }) = call_stack {
+        msg.push('\n');
+
+        for entry in history.iter().rev() {
+            let CallStackEntry {
+                fn_called_at,
+                previous_scope: _,
+            } = entry;
+
+            let entry_msg = format!(
+                "\n* Called at: {}",
+                dbg_loc(*fn_called_at, files).bright_magenta()
+            );
+
+            msg.push_str(&format!("{}", entry_msg.fg(ariadne::Color::Yellow)));
+        }
+    }
 
     let inner = Report::build(ReportKind::Error, display_file.clone(), offset)
         .with_label(

@@ -47,7 +47,7 @@ impl Context {
             in_file: self.current_scope().in_file_id(),
             source_file: self.current_source_file().cloned(),
             content: content.into(),
-            call_stack: self.call_stack(),
+            call_stack: self.produce_call_stack(),
         }
     }
 
@@ -63,12 +63,21 @@ impl Context {
         self.home_dir.as_ref()
     }
 
-    pub fn call_stack(&self) -> CallStack {
-        let history = self
-            .scopes
-            .values()
-            .filter_map(|scope| scope.call_stack_entry.clone())
-            .collect();
+    pub fn produce_call_stack(&self) -> CallStack {
+        let mut history = vec![];
+
+        let mut scope = self.current_scope();
+
+        loop {
+            if let Some(ref call_stack_entry) = scope.call_stack_entry {
+                history.push(call_stack_entry.clone());
+            }
+
+            match scope.parent_scopes.last() {
+                Some(parent_scope) => scope = self.scopes.get(parent_scope).unwrap(),
+                None => break,
+            }
+        }
 
         CallStack { history }
     }
