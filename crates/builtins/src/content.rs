@@ -2,11 +2,13 @@ use colored::Colorize;
 use terminal_size::{terminal_size, Width};
 
 use crate::{
+    builder::BuiltinVar,
     define_internal_fn,
     helper::{Arg, ArgTyping, ArgTypingDirectCreation, OptionalArg, RequiredArg},
     type_handlers::{
-        AnyType, DetachedListType, ExactIntType, FloatType, IntType, MapType, StringType,
-        Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type, UntypedStructType,
+        AnyType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType,
+        StringType, Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type,
+        UntypedStructType,
     },
 };
 
@@ -22,116 +24,139 @@ use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME, utils::fo
 pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
         functions: vec![
-            (
+            //
+            // Create a map
+            //
+            define_internal_fn!(
                 "map",
-                define_internal_fn!(
-                    Args [ArgsAt] (
-                        entries: OptionalArg<Union2Type<
-                            UntypedStructType,
-                            DetachedListType<Tuple2Type<StringType, AnyType>>
-                        >> =>
-                            Arg::positional("entries")
-                    ) ->
-                        Some(MapType::new_direct().underlying_type()),
 
-                    |_, Args { entries }, _, _| {
-                        let map = match entries {
-                            None => HashMap::new(),
-                            Some(entries) => match entries {
-                                Union2Result::A(obj) => obj.read().clone(),
-                                Union2Result::B(tuples) => tuples.into_iter().collect()
-                            }
-                        };
+                Args [ArgsAt] (
+                    entries: OptionalArg<Union2Type<
+                        UntypedStructType,
+                        DetachedListType<Tuple2Type<StringType, AnyType>>
+                    >> =>
+                        Arg::positional("entries")
+                ) ->
+                    Some(MapType::new_direct().underlying_type()),
 
-                        Ok(Some(RuntimeValue::Map(GcCell::new(map))))
-                    }
-                ),
+                |_, Args { entries }, _, _| {
+                    let map = match entries {
+                        None => HashMap::new(),
+                        Some(entries) => match entries {
+                            Union2Result::A(obj) => obj.read().clone(),
+                            Union2Result::B(tuples) => tuples.into_iter().collect()
+                        }
+                    };
+
+                    Ok(Some(RuntimeValue::Map(GcCell::new(map))))
+                }
             ),
-            (
+            //
+            // Exit the program
+            //
+            define_internal_fn!(
                 "exit",
-                define_internal_fn!(
-                    Args [ArgsAt] (
-                        code: OptionalArg<IntType> => Arg::positional("code")
-                    ) -> None,
 
-                    |at, Args { code }, ArgsAt { code: code_at }, ctx| {
-                        let code = code
-                            .map(|code|
-                                u8::try_from(code)
-                                    .map_err(|_| ctx.error(code_at.unwrap(), format!("code must be in 0..255, got {code}")))
-                            )
-                            .transpose()?;
+                Args [ArgsAt] (
+                    code: OptionalArg<IntType> => Arg::positional("code")
+                ) -> None,
 
-                        Err(ctx.exit(at, code))
-                    }
-                ),
+                |at, Args { code }, ArgsAt { code: code_at }, ctx| {
+                    let code = code
+                        .map(|code|
+                            u8::try_from(code)
+                                .map_err(|_| ctx.error(code_at.unwrap(), format!("code must be in 0..255, got {code}")))
+                        )
+                        .transpose()?;
+
+                    Err(ctx.exit(at, code))
+                }
             ),
-            (
+            define_internal_fn!(
                 "echo",
-                define_internal_fn!(
-                    Args [ArgsAt] (
-                        message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
-                    ) -> None,
 
-                    |_, Args { message }, _, _| {
-                        println!("{}", match message {
-                            Union3Result::A(string) => string,
-                            Union3Result::B(int) => int.to_string(),
-                            Union3Result::C(float) => float.to_string()
-                        });
+                Args [ArgsAt] (
+                    message: RequiredArg<Union3Type<StringType, IntType, FloatType>> => Arg::positional("message")
+                ) -> None,
 
-                        Ok(None)
-                    }
-                ),
+                |_, Args { message }, _, _| {
+                    println!("{}", match message {
+                        Union3Result::A(string) => string,
+                        Union3Result::B(int) => int.to_string(),
+                        Union3Result::C(float) => float.to_string()
+                    });
+
+                    Ok(None)
+                }
             ),
-            (
+            define_internal_fn!(
                 "dbg",
-                define_internal_fn!(
-                    Args [ArgsAt] (
-                        value: RequiredArg<AnyType> => Arg::positional("value"),
-                        tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
-                        max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
-                    ) -> None,
 
-                    |at, Args { value, tab_size, max_line_size }, _, ctx| {
-                        let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
+                Args [ArgsAt] (
+                    value: RequiredArg<AnyType> => Arg::positional("value"),
+                    tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
+                    max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
+                )
 
-                        println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
-                            pretty: true,
-                            line_prefix_size: at.chars().count(),
-                            max_line_size: max_line_size.or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width))).unwrap_or(30),
-                            tab_size: tab_size.unwrap_or(4)
-                        }));
+                -> None,
 
-                        Ok(None)
-                    }
-                ),
+                |at, Args { value, tab_size, max_line_size }, _, ctx| {
+                    let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
+
+                    println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
+                        pretty: true,
+                        line_prefix_size: at.chars().count(),
+                        max_line_size: max_line_size.or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width))).unwrap_or(30),
+                        tab_size: tab_size.unwrap_or(4)
+                    }));
+
+                    Ok(None)
+                }
             ),
-            (
+            define_internal_fn!(
                 "dbg-type",
-                define_internal_fn!(
-                    Args [ArgsAt] (
-                        value: RequiredArg<AnyType> => Arg::positional("value"),
-                        tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
-                        max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
-                    ) -> None,
 
-                    |at, Args { value, tab_size, max_line_size }, _, ctx| {
-                        let at = format!("dbg-type [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
+                Args [ArgsAt] (
+                    value: RequiredArg<AnyType> => Arg::positional("value"),
+                    tab_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("tab-size"),
+                    max_line_size: OptionalArg<ExactIntType<usize>> => Arg::long_flag("max-line-size")
+                )
 
-                        println!("{} {}", at.bright_magenta(), value.get_type().render_colored(ctx, PrettyPrintOptions {
-                            pretty: true,
-                            line_prefix_size: at.chars().count(),
-                            max_line_size: max_line_size.or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width))).unwrap_or(30),
-                            tab_size: tab_size.unwrap_or(4)
-                        }));
+                -> None,
 
-                        Ok(None)
-                    }
-                ),
+                |at, Args { value, tab_size, max_line_size }, _, ctx| {
+                    let at = format!("dbg-type [{}]:", dbg_loc(at, ctx.files_map()).bright_yellow());
+
+                    println!("{} {}", at.bright_magenta(), value.get_type().render_colored(ctx, PrettyPrintOptions {
+                        pretty: true,
+                        line_prefix_size: at.chars().count(),
+                        max_line_size: max_line_size.or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width))).unwrap_or(30),
+                        tab_size: tab_size.unwrap_or(4)
+                    }));
+
+                    Ok(None)
+                }
+
+            ),
+            define_internal_fn!(
+                "error",
+
+                Args [ArgsAt] (
+                    content: RequiredArg<StringType> => Arg::positional("content")
+                )
+
+                -> Some(ErrorType::new_direct().underlying_type()),
+
+                |at, Args { content }, _, _| {
+                    Ok(Some(RuntimeValue::Error { at, msg: content }))
+                }
             ),
         ],
 
-        vars: vec![(GEN_PROMPT_VAR_NAME, true, RuntimeValue::Null)],
+        vars: vec![BuiltinVar {
+            name: GEN_PROMPT_VAR_NAME,
+            is_mut: true,
+            init_value: RuntimeValue::Null,
+        }],
     }
 }

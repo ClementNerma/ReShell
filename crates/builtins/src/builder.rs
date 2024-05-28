@@ -19,8 +19,14 @@ use super::{
 };
 
 pub struct NativeLibDefinition {
-    pub functions: Vec<(&'static str, InternalFunction)>,
-    pub vars: Vec<(&'static str, bool, RuntimeValue)>,
+    pub functions: Vec<InternalFunction>,
+    pub vars: Vec<BuiltinVar>,
+}
+
+pub struct BuiltinVar {
+    pub name: &'static str,
+    pub is_mut: bool,
+    pub init_value: RuntimeValue,
 }
 
 pub fn build_native_lib_content() -> ScopeContent {
@@ -30,14 +36,12 @@ pub fn build_native_lib_content() -> ScopeContent {
         fns: functions
             .into_iter()
             .map(
-                |(
-                    name,
-                    InternalFunction {
-                        args,
-                        run,
-                        ret_type,
-                    },
-                )| {
+                |InternalFunction {
+                     name,
+                     args,
+                     run,
+                     ret_type,
+                 }| {
                     (
                         name.to_owned(),
                         ScopeFn {
@@ -60,16 +64,25 @@ pub fn build_native_lib_content() -> ScopeContent {
 
         vars: vars
             .into_iter()
-            .map(|(name, is_mut, value)| {
-                (
-                    name.to_owned(),
-                    ScopeVar {
-                        declared_at: forge_internal_loc(),
-                        is_mut,
-                        value: GcCell::new(Some(LocatedValue::new(value, forge_internal_loc()))),
-                    },
-                )
-            })
+            .map(
+                |BuiltinVar {
+                     name,
+                     is_mut,
+                     init_value,
+                 }| {
+                    (
+                        name.to_owned(),
+                        ScopeVar {
+                            declared_at: forge_internal_loc(),
+                            is_mut,
+                            value: GcCell::new(Some(LocatedValue::new(
+                                init_value,
+                                forge_internal_loc(),
+                            ))),
+                        },
+                    )
+                },
+            )
             .collect(),
 
         cmd_aliases: HashMap::new(),
