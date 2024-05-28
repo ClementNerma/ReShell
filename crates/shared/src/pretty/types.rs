@@ -1,16 +1,17 @@
 use colored::{Color, Colorize};
 
-use crate::context::Context;
-
 /// Trait enabling pretty-printing for custom types
 ///
 /// It will allow to generate configurable displayable data
 pub trait PrettyPrintable {
+    /// Data required for pretty-printing
+    type Context: ?Sized = ();
+
     /// Generate pretty-printing data for later processing
-    fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece;
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece;
 
     /// Render as an uncolored string
-    fn render_uncolored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
+    fn render_uncolored(&self, ctx: &Self::Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
         self.generate_pretty_data(ctx)
@@ -22,7 +23,7 @@ pub trait PrettyPrintable {
     }
 
     /// Render as a colored string (useful for terminal output)
-    fn render_colored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
+    fn render_colored(&self, ctx: &Self::Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
         self.generate_pretty_data(ctx)

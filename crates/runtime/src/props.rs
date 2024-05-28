@@ -7,14 +7,9 @@ use std::collections::hash_map::{Entry, VacantEntry};
 
 use parsy::Eaten;
 use reshell_parser::ast::PropAccessNature;
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{
-    context::Context,
-    errors::ExecResult,
-    expr::eval_expr,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-    values::RuntimeValue,
-};
+use crate::{context::Context, errors::ExecResult, expr::eval_expr, values::RuntimeValue};
 
 /// Evaluate a chain of properties access
 ///

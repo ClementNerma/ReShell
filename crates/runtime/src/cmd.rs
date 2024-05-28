@@ -12,6 +12,7 @@ use reshell_parser::ast::{
     CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
     FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     context::{Context, DepsScopeCreationData},
@@ -22,7 +23,6 @@ use crate::{
     },
     functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{value_to_str, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 

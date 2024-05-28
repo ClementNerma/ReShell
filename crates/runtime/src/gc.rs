@@ -3,10 +3,10 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use colored::Colorize;
 use reshell_parser::ast::RuntimeCodeRange;
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{context::Context, display::dbg_loc, errors::ExecResult};
+use crate::{context::Context, errors::ExecResult};
 
 // Garbage-collectable cell
 #[derive(Debug)]
@@ -51,7 +51,7 @@ impl<T> GcCell<T> {
                 at,
                 format!(
                     "Failed to write as parent value is currently borrowed from {}",
-                    dbg_loc(borrowed_at, ctx.files_map()).bright_magenta()
+                    borrowed_at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
                 ),
             )
         })

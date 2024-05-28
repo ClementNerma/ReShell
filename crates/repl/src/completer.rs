@@ -22,8 +22,8 @@ use reshell_parser::DELIMITER_CHARS;
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
     context::Context,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     repl::SHARED_CONTEXT,

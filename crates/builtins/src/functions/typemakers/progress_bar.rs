@@ -1,10 +1,7 @@
 use colored::Color;
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
-use reshell_runtime::{
-    gc::GcReadOnlyCell,
-    pretty::{PrettyPrintable, PrettyPrintablePiece},
-    values::CustomValueType,
-};
+use reshell_runtime::{gc::GcReadOnlyCell, values::CustomValueType};
+use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
 crate::define_internal_fn!(
     "progressBar",
@@ -97,7 +94,9 @@ impl CustomValueType for ProgressBarValue {
 }
 
 impl PrettyPrintable for ProgressBarValue {
-    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("progressBar(", Color::Magenta),
             PrettyPrintablePiece::colored_atomic("<internal>", Color::BrightBlack),

@@ -1,0 +1,260 @@
+//!
+//! This module implements pretty-printing for several types.
+//!
+
+use colored::Color;
+use parsy::{CodeRange, Eaten, FileId};
+use reshell_parser::{
+    ast::{
+        CmdFlagNameArg, FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
+        FnRestArg, FnSignature, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
+    },
+    files::{FilesMap, SourceFileLocation},
+};
+
+use crate::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece};
+
+pub trait TypeAliasStore {
+    fn get_type_alias_or_panic<'a>(&'a self, name: &Eaten<String>) -> &'a ValueType;
+}
+
+impl PrettyPrintable for ValueType {
+    type Context = dyn TypeAliasStore;
+
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+        match self {
+            Self::Single(single) => single.data().generate_pretty_data(ctx),
+
+            Self::Union(types) => PrettyPrintablePiece::List {
+                begin: Colored::empty(),
+                items: types
+                    .iter()
+                    .map(|typ| typ.data().generate_pretty_data(ctx))
+                    .collect(),
+                sep: Colored::with_color(" |", Color::Magenta),
+                end: Colored::empty(),
+                suffix: None,
+            },
+        }
+    }
+}
+
+impl PrettyPrintable for SingleValueType {
+    type Context = dyn TypeAliasStore;
+
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+        match self {
+            Self::Any => PrettyPrintablePiece::colored_atomic("any", Color::Magenta),
+            Self::Null => PrettyPrintablePiece::colored_atomic("null", Color::Magenta),
+            Self::Bool => PrettyPrintablePiece::colored_atomic("boolean", Color::Magenta),
+            Self::Int => PrettyPrintablePiece::colored_atomic("int", Color::Magenta),
+            Self::Float => PrettyPrintablePiece::colored_atomic("float", Color::Magenta),
+            Self::String => PrettyPrintablePiece::colored_atomic("string", Color::Magenta),
+            Self::List => PrettyPrintablePiece::colored_atomic("list", Color::Magenta),
+            Self::Range => PrettyPrintablePiece::colored_atomic("range", Color::Magenta),
+            Self::Map => PrettyPrintablePiece::colored_atomic("map", Color::Magenta),
+            Self::Error => PrettyPrintablePiece::colored_atomic("error", Color::Magenta),
+            Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
+            Self::CmdArg => PrettyPrintablePiece::colored_atomic("spread", Color::Magenta),
+            Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
+            Self::TypedStruct(members) => PrettyPrintablePiece::List {
+                begin: Colored::with_color("struct { ", Color::Magenta),
+                items: members
+                    .iter()
+                    .map(|member| {
+                        let StructTypeMember { name, typ } = member.data();
+
+                        PrettyPrintablePiece::Join(vec![
+                            PrettyPrintablePiece::colored_atomic(name.data().clone(), Color::Red),
+                            PrettyPrintablePiece::colored_atomic(": ", Color::BrightBlack),
+                            typ.data().generate_pretty_data(ctx),
+                        ])
+                    })
+                    .collect(),
+                sep: Colored::with_color(",", Color::BrightBlack),
+                end: Colored::with_color(" }", Color::Magenta),
+                suffix: None,
+            },
+            Self::Function(signature) => signature.data().generate_pretty_data(ctx),
+            Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Magenta),
+                PrettyPrintablePiece::colored_atomic(" ( ", Color::BrightGreen),
+                ctx.get_type_alias_or_panic(name).generate_pretty_data(ctx),
+                PrettyPrintablePiece::colored_atomic(" )", Color::BrightGreen),
+            ]),
+            Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta),
+        }
+    }
+}
+
+impl PrettyPrintable for RuntimeCodeRange {
+    type Context = FilesMap;
+
+    fn generate_pretty_data(&self, files_map: &Self::Context) -> PrettyPrintablePiece {
+        match self {
+            RuntimeCodeRange::Parsed(at) => at.generate_pretty_data(files_map),
+            RuntimeCodeRange::Internal(infos) => {
+                // TODO: improve with coloration
+                PrettyPrintablePiece::Atomic(Colored(format!("<internal location: {infos}>"), None))
+            }
+        }
+    }
+}
+
+impl PrettyPrintable for CodeRange {
+    type Context = FilesMap;
+
+    fn generate_pretty_data(&self, files_map: &Self::Context) -> PrettyPrintablePiece {
+        // TODO: improve with coloration
+        let output = match self.start.file_id {
+            FileId::None => unreachable!(),
+            FileId::SourceFile(id) => {
+                let Some(file) = files_map.get_file(id) else {
+                    return PrettyPrintablePiece::Atomic(Colored(
+                        format!("<unknown file @ offset {}>", self.start.offset),
+                        None,
+                    ));
+                };
+
+                let bef = &file.content.as_str()[..self.start.offset];
+
+                let line = bef.chars().filter(|c| *c == '\n').count() + 1;
+
+                let after_last_nl = match bef.rfind('\n') {
+                    Some(index) => &bef[index + 1..],
+                    None => bef,
+                };
+
+                let col = after_last_nl.chars().count() + 1;
+
+                format!(
+                    "{}:{}:{}",
+                    match &file.location {
+                        SourceFileLocation::CustomName(name) => format!("<{name}>"),
+                        SourceFileLocation::RealFile(path) => path.to_string_lossy().to_string(),
+                    },
+                    line,
+                    col
+                )
+            }
+
+            FileId::Internal => "<internal>".into(),
+
+            FileId::Custom(id) => format!("<custom: {id}>"),
+        };
+
+        PrettyPrintablePiece::Atomic(Colored(output, None))
+    }
+}
+
+impl PrettyPrintable for FnSignature {
+    type Context = dyn TypeAliasStore;
+
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+        let Self { args, ret_type } = self;
+
+        PrettyPrintablePiece::List {
+            begin: Colored::with_color("fn(", Color::BrightMagenta),
+            items: args
+                .data()
+                .iter()
+                .map(|item| item.generate_pretty_data(ctx))
+                .collect(),
+            sep: Colored::with_color(",", Color::Blue),
+            end: Colored::with_color(")", Color::BrightMagenta),
+            suffix: ret_type.as_ref().map(|ret_type| {
+                Box::new(PrettyPrintablePiece::Join(vec![
+                    PrettyPrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),
+                    ret_type.data().generate_pretty_data(ctx),
+                ]))
+            }),
+        }
+    }
+}
+
+impl PrettyPrintable for FnArg {
+    type Context = dyn TypeAliasStore;
+
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+        match self {
+            FnArg::Positional(FnPositionalArg {
+                name,
+                is_optional,
+                typ,
+            }) => {
+                let mut out = vec![PrettyPrintablePiece::colored_atomic(
+                    name.data(),
+                    Color::Red,
+                )];
+
+                if *is_optional {
+                    out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
+                }
+
+                if let Some(typ) = typ {
+                    out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
+                    out.push(typ.data().generate_pretty_data(ctx));
+                }
+
+                PrettyPrintablePiece::Join(out)
+            }
+
+            FnArg::PresenceFlag(FnPresenceFlagArg { names }) => PrettyPrintablePiece::Join(vec![
+                names.generate_pretty_data(&()),
+                PrettyPrintablePiece::colored_atomic("?", Color::White),
+            ]),
+
+            FnArg::NormalFlag(FnNormalFlagArg {
+                names,
+                is_optional,
+                typ,
+            }) => {
+                let mut out: Vec<PrettyPrintablePiece> = vec![names.generate_pretty_data(&())];
+
+                if *is_optional {
+                    out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
+                }
+
+                out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
+                out.push(typ.data().generate_pretty_data(ctx));
+
+                PrettyPrintablePiece::Join(out)
+            }
+
+            FnArg::Rest(FnRestArg { name }) => PrettyPrintablePiece::colored_atomic(
+                format!("...{}", name.data()),
+                Color::BrightYellow,
+            ),
+        }
+    }
+}
+
+impl PrettyPrintable for FnFlagArgNames {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
+        let str = match self {
+            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data()),
+            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data()),
+            FnFlagArgNames::LongAndShortFlag { long, short } => {
+                format!("--{} (-{})", long.data(), short.data())
+            }
+        };
+
+        PrettyPrintablePiece::colored_atomic(str, Color::BrightYellow)
+    }
+}
+
+impl PrettyPrintable for CmdFlagNameArg {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
+        let name = match self {
+            CmdFlagNameArg::Short(name) => format!("-{name}"),
+            CmdFlagNameArg::Long(name) => format!("--{name}"),
+            CmdFlagNameArg::LongNoConvert(name) => format!("--{name}"),
+        };
+
+        PrettyPrintablePiece::colored_atomic(name, Color::BrightYellow)
+    }
+}

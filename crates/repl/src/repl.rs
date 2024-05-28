@@ -24,11 +24,8 @@ use reshell_parser::{
     ast::{Instruction, Program},
     files::SourceFileLocation,
 };
-use reshell_runtime::{
-    context::Context,
-    errors::ExecErrorNature,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-};
+use reshell_runtime::{context::Context, errors::ExecErrorNature};
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     args::ExecArgs,

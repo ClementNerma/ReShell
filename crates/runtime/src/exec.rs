@@ -6,6 +6,7 @@ use reshell_parser::ast::{
     Block, ElsIf, Instruction, MapDestructBinding, Program, RuntimeCodeRange, SingleVarDecl,
     SwitchCase, VarDeconstruction,
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::{run_cmd, CmdExecParams},
@@ -17,7 +18,6 @@ use crate::{
     expr::eval_expr,
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
-    pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
     values::{
         are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypesErr,
