@@ -94,6 +94,7 @@ impl Context {
         files_map: FilesMap,
         native_lib_content: ScopeContent,
         take_ctrl_c_indicator: fn() -> bool,
+        home_dir: Option<PathBuf>,
     ) -> Self {
         let scopes_to_add = [
             Scope {
@@ -129,7 +130,7 @@ impl Context {
             current_scope: FIRST_SCOPE_ID,
             program_main_scope: None,
             files_map,
-            home_dir: conf.initial_home_dir.clone(),
+            home_dir,
             collected: CheckerOutput::empty(),
             wandering_value: None,
             long_flags_var_name: HashMap::new(),
@@ -162,12 +163,6 @@ impl Context {
         } else {
             Ok(())
         }
-    }
-
-    /// Set of change path to the current user's home directory
-    /// Used for tilde '~' expansion
-    pub fn set_home_dir(&mut self, home_dir: PathBuf) {
-        self.home_dir = Some(home_dir);
     }
 
     /// Get path of the current user's home directory

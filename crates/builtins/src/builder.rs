@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 
 use indexmap::IndexSet;
 use reshell_parser::ast::{FnSignature, RuntimeCodeRange, RuntimeEaten};
@@ -14,6 +14,11 @@ use reshell_runtime::{
 
 use super::{content::define_native_lib, helper::InternalFunction};
 
+/// Parameters of the native library
+pub struct NativeLibParams {
+    pub home_dir: Option<PathBuf>,
+}
+
 /// Definition of the native library
 pub struct NativeLibDefinition {
     pub functions: Vec<InternalFunction>,
@@ -28,8 +33,8 @@ pub struct BuiltinVar {
 }
 
 /// Build the content of the native library
-pub fn build_native_lib_content() -> ScopeContent {
-    let NativeLibDefinition { functions, vars } = define_native_lib();
+pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
+    let NativeLibDefinition { functions, vars } = define_native_lib(params);
 
     ScopeContent {
         fns: functions

@@ -932,14 +932,11 @@ impl ComputableSize for ErrorValueContent {
 impl ComputableSize for RuntimeConf {
     fn compute_heap_size(&self) -> usize {
         let Self {
-            initial_home_dir,
             call_stack_limit,
             history,
         } = self;
 
-        initial_home_dir.compute_heap_size()
-            + call_stack_limit.compute_heap_size()
-            + history.compute_heap_size()
+        call_stack_limit.compute_heap_size() + history.compute_heap_size()
     }
 }
 

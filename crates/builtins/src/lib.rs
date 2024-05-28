@@ -8,6 +8,7 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
+mod compat;
 mod content;
 mod errors;
 mod helper;

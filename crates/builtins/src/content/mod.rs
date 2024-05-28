@@ -18,6 +18,7 @@ mod env;
 mod error;
 mod exit;
 mod file_exists;
+mod filename;
 mod filter;
 mod find_str;
 mod fold;
@@ -34,6 +35,7 @@ mod ls;
 mod make_map;
 mod map;
 mod mkdir;
+mod parent_dir;
 mod path_exists;
 mod pop;
 mod prepend;
@@ -61,15 +63,20 @@ mod transform;
 mod values;
 mod write_file;
 
+use std::path::MAIN_SEPARATOR;
+
 use reshell_runtime::values::RuntimeValue;
 
 use crate::{
-    builder::{BuiltinVar, NativeLibDefinition},
+    builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
+    compat::PATH_VAR_SEP,
     prompt::GEN_PROMPT_VAR_NAME,
 };
 
 /// Generate definitions of the native library
-pub fn define_native_lib() -> NativeLibDefinition {
+pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
+    let NativeLibParams { home_dir } = params;
+
     NativeLibDefinition {
         functions: vec![
             // Collect function from individual modules
@@ -87,6 +94,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::error::build_fn(),
             self::exit::build_fn(),
             self::file_exists::build_fn(),
+            self::filename::build_fn(),
             self::fold::build_fn(),
             self::get::build_fn(),
             self::glob::build_fn(),
@@ -103,6 +111,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::keys::build_fn(),
             self::values::build_fn(),
             self::mkdir::build_fn(),
+            self::parent_dir::build_fn(),
             self::path_exists::build_fn(),
             self::transform::build_fn(),
             self::prepend::build_fn(),
@@ -138,6 +147,27 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 name: GEN_PROMPT_VAR_NAME,
                 is_mut: true,
                 init_value: RuntimeValue::Null,
+            },
+            // Platform-specific PATH variable separator
+            BuiltinVar {
+                name: "PATH_VAR_SEP",
+                is_mut: false,
+                init_value: RuntimeValue::String(PATH_VAR_SEP.to_string()),
+            },
+            // Platform-specific path separator
+            BuiltinVar {
+                name: "PATH_SEP",
+                is_mut: false,
+                init_value: RuntimeValue::String(MAIN_SEPARATOR.to_string()),
+            },
+            // Path to the current user's home directory
+            BuiltinVar {
+                name: "HOME",
+                is_mut: false,
+                init_value: match home_dir.and_then(|dir| dir.to_str().map(str::to_owned)) {
+                    Some(dir) => RuntimeValue::String(dir),
+                    None => RuntimeValue::Null,
+                },
             },
         ],
     }

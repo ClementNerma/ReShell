@@ -9,7 +9,7 @@ use std::{fs, time::Instant};
 use clap::Parser as _;
 use colored::Colorize;
 use parsy::FileId;
-use reshell_builtins::builder::build_native_lib_content;
+use reshell_builtins::builder::{build_native_lib_content, NativeLibParams};
 use reshell_parser::files::{FilesMap, SourceFileLocation};
 use reshell_parser::program;
 use reshell_runtime::errors::ExecErrorNature;
@@ -103,19 +103,9 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         Ok((SourceFileLocation::RealFile(path), content))
     }));
 
-    let mut ctx = Context::new(
-        // TODO: allow to configure through CLI
-        RuntimeConf::default(),
-        files_map.clone(),
-        build_native_lib_content(),
-        take_pending_ctrl_c_request,
-    );
-
     match &*HOME_DIR {
         Some(home_dir) => {
-            if home_dir.is_dir() {
-                ctx.set_home_dir(home_dir.clone());
-            } else {
+            if !home_dir.is_dir() {
                 print_warn(format!(
                     "Determined path to home directory was {} but it does not exist",
                     home_dir.to_string_lossy().bright_magenta()
@@ -127,6 +117,17 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             print_warn("Failed to determine path to home directory");
         }
     }
+
+    let mut ctx = Context::new(
+        // TODO: allow to configure through CLI
+        RuntimeConf::default(),
+        files_map.clone(),
+        build_native_lib_content(NativeLibParams {
+            home_dir: HOME_DIR.clone(),
+        }),
+        take_pending_ctrl_c_request,
+        HOME_DIR.clone(),
+    );
 
     let parser = program(move |path, relative| files_map.load_file(&path, relative));
 

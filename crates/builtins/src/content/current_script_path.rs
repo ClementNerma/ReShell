@@ -1,3 +1,5 @@
+use std::fs;
+
 use reshell_parser::files::SourceFileLocation;
 
 crate::define_internal_fn!(
@@ -19,7 +21,18 @@ fn run() -> Runner {
         let path = match source_file.location {
             SourceFileLocation::CustomName(_) => return Ok(Some(RuntimeValue::Null)),
 
-            SourceFileLocation::RealFile(path) => path,
+            SourceFileLocation::RealFile(path) => {
+                if path.is_absolute() {
+                    path
+                } else {
+                    fs::canonicalize(&path).map_err(|err| {
+                        ctx.error(
+                            at,
+                            format!("failed to canonicalize path '{}': {err}", path.display()),
+                        )
+                    })?
+                }
+            }
         };
 
         let Some(path) = path.to_str() else {
