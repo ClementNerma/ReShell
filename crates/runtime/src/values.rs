@@ -47,6 +47,7 @@ pub struct CapturedDependencies {
 
 #[derive(Clone)]
 pub enum RuntimeFnBody {
+    // TODO: put a GcCell here
     Block(Eaten<Block>),
     Internal(InternalFnBody),
 }

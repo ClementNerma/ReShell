@@ -266,7 +266,7 @@ impl PrettyPrintable for RuntimeValue {
                     ),
                     Color::Green,
                 ),
-                // TODO: printing "at" requires access to context in order to find the filename
+                // TODO: print "at" using provided context
                 PrintablePiece::colored_atomic(")", Color::Red),
             ]),
         }

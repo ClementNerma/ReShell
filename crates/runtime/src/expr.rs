@@ -208,7 +208,6 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
 
         // TODO: this may be slow for such a widely-used function
         left = eval_props_access(
-            // TODO: don't clone here
             &mut left,
             // TODO: don't clone here
             &[nature.clone()],
