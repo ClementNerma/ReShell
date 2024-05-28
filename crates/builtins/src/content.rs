@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use colored::Colorize;
 use terminal_size::{terminal_size, Width};
 
@@ -276,6 +278,32 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         .collect::<Result<_, _>>()?;
 
                     Ok(Some(RuntimeValue::List(GcCell::new(mapped))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Change the current directory
+                //
+
+                "cd",
+
+                Args [ArgsAt, ArgsTy] (
+                    path: RequiredArg<StringType> => Arg::positional("path")
+                )
+
+                -> None,
+
+                |_, Args { path }, ArgsAt { path: path_at }, _, ctx| {
+                    let path = Path::new(&path);
+
+                    if !path.is_dir() {
+                        return Err(ctx.error(path_at, format!("directory '{}' does not exist", path.display())))
+                    }
+
+                    std::env::set_current_dir(path)
+                        .map_err(|err| ctx.error(path_at, format!("failed to change current directory: {err}")))?;
+
+                    Ok(None)
                 }
             ),
             define_internal_fn!(
