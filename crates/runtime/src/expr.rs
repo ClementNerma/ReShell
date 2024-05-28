@@ -8,7 +8,7 @@ use reshell_parser::ast::{
 };
 
 use crate::{
-    cmd::run_cmd,
+    cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
     context::{Context, ScopeContent, ScopeVar},
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
@@ -417,7 +417,17 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             .map(|loc_val| loc_val.value)
             .ok_or_else(|| ctx.error(call.at, "function call did not return a value")),
 
-        Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap())),
+        Value::CmdOutput(call) => Ok(RuntimeValue::String(
+            run_cmd(
+                call,
+                ctx,
+                CmdExecParams {
+                    capture: Some(CmdPipeCapture::Stdout),
+                },
+            )?
+            .as_captured()
+            .unwrap(),
+        )),
 
         Value::CmdCall(call) => Ok(RuntimeValue::CmdCall {
             content_at: call.at,
@@ -496,7 +506,15 @@ fn eval_computed_string_piece(
         ComputedStringPiece::Expr(expr) => {
             Ok(value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx)?)
         }
-        ComputedStringPiece::CmdCall(call) => Ok(run_cmd(call, ctx, true)?.0.unwrap()),
+        ComputedStringPiece::CmdCall(call) => Ok(run_cmd(
+            call,
+            ctx,
+            CmdExecParams {
+                capture: Some(CmdPipeCapture::Stdout),
+            },
+        )?
+        .as_captured()
+        .unwrap()),
     }
 }
 
