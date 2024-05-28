@@ -331,14 +331,6 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
 
     let starts_with_dot_slash = word.starts_with("./") || word.starts_with(".\\");
 
-    #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-    enum FileType {
-        Symlink,
-        Directory,
-        File,
-        Unknown,
-    }
-
     let mut results = vec![];
 
     for path in paths {
@@ -347,16 +339,6 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
         };
 
         let file_type = metadata.file_type();
-
-        let file_type_enum = if file_type.is_dir() {
-            FileType::Directory
-        } else if file_type.is_file() {
-            FileType::File
-        } else if file_type.is_symlink() {
-            FileType::Symlink
-        } else {
-            FileType::Unknown
-        };
 
         // NOTE: Invalid UTF-8 paths will be displayed lossily (no other way to handle this)
         let mut path_str = path.to_string_lossy().to_string();
@@ -388,15 +370,7 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
             path_str,
             Suggestion {
                 value,
-                description: Some(
-                    match file_type_enum {
-                        FileType::Directory => "",
-                        FileType::File => "",
-                        FileType::Symlink => "Symlink",
-                        FileType::Unknown => "<Unkown filesystem item type>",
-                    }
-                    .to_string(),
-                ),
+                description: None,
                 extra: None,
                 span,
                 append_whitespace: !file_type.is_dir(),
