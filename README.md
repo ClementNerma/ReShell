@@ -18,6 +18,11 @@ _Versus NuShell:_ NuShell is a powerful shell designed as an alternative way to 
 * Prompt customization
 * Pretty error handling
 
+Some limitations:
+
+* Typing is dynamic, meaning there isn't ahead-of-time typechecking like NuShell
+* Strings are always valid UTF-8, which brings lots of advantages but will make dealing with some non-UTF-8 filenames more complicated or straight impossible
+
 ## Code sample
 
 ```
