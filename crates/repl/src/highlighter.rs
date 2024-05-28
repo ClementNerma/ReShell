@@ -103,9 +103,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     // Import all available colors for ease of use
     use Color::*;
 
-    // Match remaining invalid characters
-    let invalid_chars = || simple("([^\\s])", [Style::new().fg(White).on(Red)]);
-
     // Match method calls
     let method_call = || Rule::Simple(SimpleRule {
         matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
@@ -158,7 +155,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Commands separator
                 simple("(;)", [DarkGray]),
 
-                // Commands (contains invalid characters as well)
+                // Commands
                 include_group("commands"),
             ]),
             ("commands", vec![
@@ -241,10 +238,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 method_call(),
 
                 // Raw arguments
-                simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\|'\"\\$]+)", [Green]),
-
-                // Invalid characters
-                invalid_chars()
+                simple("(\\.+)", [Green]),
             ]),
             ("literal-strings", vec![
                 // Escaped characters
@@ -301,7 +295,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("([&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]|&&|\\|\\|)", [LightYellow]),
 
                 // Invalid characters
-                invalid_chars()
+                simple("([^\\s])", [Style::new().fg(White).on(Red)])
             ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
