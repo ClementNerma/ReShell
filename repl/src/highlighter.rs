@@ -157,7 +157,9 @@ impl Highlight for Eaten<Instruction> {
                 iter_on,
                 body,
             } => {
+                h.push_until(&KEYWORD, self.at, iter_var.at);
                 h.push(&VAR_NAME, iter_var.at);
+                h.push_everything_until(&KEYWORD, iter_on.at);
 
                 iter_on.data.highlight(h);
                 body.highlight(h);

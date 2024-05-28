@@ -1,13 +1,20 @@
+use std::path::PathBuf;
+
 use glob::glob;
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_runtime::display::{dbg_fn_signature, readable_value_type};
+use reshell_runtime::{
+    cmd::pathify_cmd_raw_arg,
+    display::{dbg_fn_signature, readable_value_type},
+};
 
 use crate::state::RUNTIME_CONTEXT;
 
 pub static COMPLETION_MENU_NAME: &'static str = "completion_menu";
 
 pub fn create_completer() -> Box<dyn RlCompleter> {
-    Box::new(Completer)
+    Box::new(Completer {
+        home_dir: dirs::home_dir(),
+    })
 }
 
 pub fn create_completion_menu() -> ReedlineMenu {
@@ -15,7 +22,9 @@ pub fn create_completion_menu() -> ReedlineMenu {
     ReedlineMenu::EngineCompleter(Box::new(menu))
 }
 
-pub struct Completer;
+pub struct Completer {
+    home_dir: Option<PathBuf>,
+}
 
 impl RlCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
@@ -77,7 +86,13 @@ impl RlCompleter for Completer {
                 .collect::<Vec<_>>();
         }
 
-        let mut search = word
+        let Some(pathified) = pathify_cmd_raw_arg(word, self.home_dir.as_ref()) else {
+            return vec![];
+        };
+
+        let starts_with_slash = pathified.starts_with('/');
+
+        let mut search = pathified
             .split(['/', '\\'])
             .filter(|segment| !segment.is_empty() && *segment != ".")
             .map(|segment| {
@@ -89,6 +104,10 @@ impl RlCompleter for Completer {
             })
             .collect::<Vec<_>>()
             .join("/");
+
+        if starts_with_slash {
+            search = format!("/{search}");
+        }
 
         if search.is_empty() {
             search.push('*');
