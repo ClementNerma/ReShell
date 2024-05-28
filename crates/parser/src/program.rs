@@ -344,8 +344,7 @@ pub fn program(
                     escapable_char.map(EscapableChar::original_char),
                     filter(|c| c != '\''),
                 ))
-                .repeated()
-                .collect_string(),
+                .repeated_custom::<String>(),
             )
             .then_ignore(char('\''));
 
