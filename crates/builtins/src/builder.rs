@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use indexmap::IndexSet;
 use reshell_parser::{
-    ast::{FnSignature, RuntimeCodeRange, RuntimeEaten},
+    ast::{FnSignature, RuntimeEaten, SingleValueType, ValueType},
     scope::NATIVE_LIB_AST_SCOPE_ID,
 };
 
@@ -17,8 +17,10 @@ use reshell_runtime::{
 
 use super::{content::define_native_lib, helper::InternalFunction};
 
-/// Name marker for the generator
-static INTERNAL_LOC: &str = "native library's builder";
+/// Create a [`RuntimeEaten`] data with internal location
+pub fn internal_runtime_eaten<T>(data: T) -> RuntimeEaten<T> {
+    RuntimeEaten::Internal(data, "native library's builder")
+}
 
 /// Parameters of the native library
 pub struct NativeLibParams {
@@ -37,6 +39,7 @@ pub struct BuiltinVar {
     pub name: &'static str,
     pub is_mut: bool,
     pub init_value: RuntimeValue,
+    pub enforced_type: Vec<SingleValueType>,
 }
 
 /// Build the content of the native library
@@ -63,15 +66,14 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     name.to_owned(),
                     ScopeFn {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
-                        name_at: RuntimeCodeRange::Internal(INTERNAL_LOC),
+                        name_at: internal_runtime_eaten(()).at(),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             is_method: false,
 
                             signature: RuntimeFnSignature::Owned(FnSignature {
-                                args: RuntimeEaten::Internal(args, INTERNAL_LOC),
-                                ret_type: ret_type.map(|ret_type| {
-                                    RuntimeEaten::Internal(Box::new(ret_type), INTERNAL_LOC)
-                                }),
+                                args: internal_runtime_eaten(args),
+                                ret_type: ret_type
+                                    .map(|ret_type| internal_runtime_eaten(Box::new(ret_type))),
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
@@ -94,17 +96,16 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
             let on_type = method_on_type.unwrap();
 
             map.entry(name.to_owned()).or_default().push(ScopeMethod {
-                name_at: RuntimeCodeRange::Internal(INTERNAL_LOC),
+                name_at: internal_runtime_eaten(()).at(),
                 decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                 on_type: GcReadOnlyCell::new(on_type),
                 value: GcReadOnlyCell::new(RuntimeFnValue {
                     is_method: true,
 
                     signature: RuntimeFnSignature::Owned(FnSignature {
-                        args: RuntimeEaten::Internal(args, INTERNAL_LOC),
-                        ret_type: ret_type.map(|ret_type| {
-                            RuntimeEaten::Internal(Box::new(ret_type), INTERNAL_LOC)
-                        }),
+                        args: internal_runtime_eaten(args),
+                        ret_type: ret_type
+                            .map(|ret_type| internal_runtime_eaten(Box::new(ret_type))),
                     }),
                     body: RuntimeFnBody::Internal(run),
                     parent_scopes: IndexSet::new(),
@@ -128,7 +129,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                 (
                     name.to_owned(),
                     ScopeVar {
-                        name_at: RuntimeCodeRange::Internal(INTERNAL_LOC),
+                        name_at: internal_runtime_eaten(()).at(),
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         is_mut,
                         enforced_type: match enforced_type.len() {
@@ -145,7 +146,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         },
                         value: GcCell::new(LocatedValue::new(
                             init_value,
-                            RuntimeCodeRange::Internal("native library's type generator"),
+                            internal_runtime_eaten(()).at(),
                         )),
                     },
                 )

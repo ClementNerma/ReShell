@@ -7,7 +7,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
+    builder::{internal_runtime_eaten, BuiltinVar, NativeLibDefinition, NativeLibParams},
     functions::native_functions,
     methods::native_methods,
     repl_fns::{
