@@ -399,6 +399,26 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
+                // split a string to produce a list
+                //
+
+                "split",
+
+                Args [ArgsAt] (
+                    string: RequiredArg<StringType> = Arg::positional("string"),
+                    sep: RequiredArg<StringType> = Arg::positional("sep")
+                )
+
+                -> Some(DetachedListType::<StringType>::direct_underlying_type()),
+
+                |_, Args { string, sep }, _, _| {
+                    let split = string.split(&sep).map(|piece| RuntimeValue::String(piece.to_owned())).collect();
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(split))))
+                }
+            ),
+            define_internal_fn!(
+                //
                 // join all strings in a list
                 //
 
@@ -417,22 +437,21 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
-                // split a string to produce a list
+                // replace substrings
                 //
 
-                "split",
+                "replace",
 
                 Args [ArgsAt] (
-                    string: RequiredArg<StringType> = Arg::positional("string"),
-                    sep: RequiredArg<StringType> = Arg::positional("sep")
+                    source: RequiredArg<StringType> = Arg::positional("source"),
+                    lookfor: RequiredArg<StringType> = Arg::positional("lookfor"),
+                    replacement: RequiredArg<StringType> = Arg::positional("replacement")
                 )
 
-                -> Some(DetachedListType::<StringType>::direct_underlying_type()),
+                -> Some(StringType::direct_underlying_type()),
 
-                |_, Args { string, sep }, _, _| {
-                    let split = string.split(&sep).map(|piece| RuntimeValue::String(piece.to_owned())).collect();
-
-                    Ok(Some(RuntimeValue::List(GcCell::new(split))))
+                |_, Args { source, lookfor, replacement }, _, _| {
+                    Ok(Some(RuntimeValue::String(source.replace(&lookfor, &replacement))))
                 }
             ),
             //
