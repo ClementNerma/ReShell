@@ -502,6 +502,8 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
 
         Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(
             GcReadOnlyCell::new(RuntimeFnValue {
+                is_method: false,
+
                 signature: RuntimeFnSignature::Shared(
                     ctx.get_fn_signature(signature).unwrap_or_else(|| {
                         ctx.panic(signature.at, "unregistered function signature")

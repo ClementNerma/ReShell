@@ -25,6 +25,7 @@ pub struct RuntimeFnValue {
     pub signature: RuntimeFnSignature,
     pub body: RuntimeFnBody,
     pub parent_scopes: IndexSet<u64>,
+    pub is_method: bool,
 
     /// Function's captured dependencies
     /// Uninit before the function's actual declaration point
