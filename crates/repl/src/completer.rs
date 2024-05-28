@@ -658,25 +658,25 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> CompletionMode {
     }
 }
 
+#[derive(Debug)]
 pub enum UnescapedSegment {
     VariableName(String),
     String(String),
 }
 
 fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
-    if !str.starts_with(['\'', '"']) {
-        return vec![UnescapedSegment::String(str.to_owned())];
-    }
-
     let mut out = vec![];
 
     let mut segment = String::new();
     let mut escaping = false;
     let mut reading_var_name = None::<String>;
 
-    let mut chars = str.chars().peekable().enumerate();
+    let opening_char = str.chars().next().filter(|c| *c == '\'' || *c == '"');
 
-    let (_, opening_char) = chars.next().unwrap();
+    let chars = str
+        .chars()
+        .enumerate()
+        .skip(if opening_char.is_some() { 1 } else { 0 });
 
     for (i, c) in chars {
         if escaping {
@@ -698,9 +698,9 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
 
         if c == '\\' {
             escaping = true;
-        } else if c == opening_char {
+        } else if opening_char == Some(c) {
             assert_eq!(i + 1, str.chars().count());
-        } else if c == '$' && opening_char == '"' {
+        } else if c == '$' && matches!(opening_char, Some('"') | None) {
             out.push(UnescapedSegment::String(segment));
             segment = String::new();
             reading_var_name = Some(String::new());
