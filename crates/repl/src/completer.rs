@@ -451,17 +451,20 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
 fn sort_results(input: &str, mut values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
     let input = input.replace(['*', '?'], "");
 
-    let input_lc = input.to_lowercase();
-
-    let matching_start = values
-        .iter()
-        .filter(|(value, _)| value.to_lowercase().starts_with(&input_lc))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    if matching_start.len() == 1 {
-        values = matching_start;
-    }
+    // Auto-select single value if only one is matching beginning
+    //
+    // let input_lc = input.to_lowercase();
+    //
+    //
+    // let matching_start = values
+    //     .iter()
+    //     .filter(|(value, _)| value.to_lowercase().starts_with(&input_lc))
+    //     .cloned()
+    //     .collect::<Vec<_>>();
+    //
+    // if matching_start.len() == 1 {
+    //     values = matching_start;
+    // }
 
     values.sort_by(|(a, _), (b, _)| {
         jaro_winkler_distance(&input, a)
