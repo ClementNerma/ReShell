@@ -40,7 +40,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::regex::matches::build_fn(),
         self::spread::is_empty::build_fn(),
         self::string::chars::build_fn(),
-        self::string::contains_str::build_fn(),
+        self::string::contains::build_fn(),
         self::string::ends_with::build_fn(),
         self::string::find_str::build_fn(),
         self::string::is_empty::build_fn(),

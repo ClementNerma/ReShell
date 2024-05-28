@@ -1,5 +1,5 @@
 pub mod chars;
-pub mod contains_str;
+pub mod contains;
 pub mod ends_with;
 pub mod find_str;
 pub mod is_empty;
