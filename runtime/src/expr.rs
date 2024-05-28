@@ -228,7 +228,15 @@ fn eval_expr_inner_content(
                 SingleOp::Neg => match right {
                     RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
                     // TODO: improve error message
-                    _ => Err(ctx.error(op.at, "right operand is not a boolean")),
+                    _ => Err(ctx.error(
+                        op.at,
+                        format!(
+                            "right operand should be a boolean, found a: {}",
+                            right
+                                .get_type()
+                                .render_colored(PrettyPrintOptions::inline())
+                        ),
+                    )),
                 },
             }
         }
