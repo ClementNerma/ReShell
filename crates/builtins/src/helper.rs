@@ -2,27 +2,43 @@ use reshell_parser::ast::{FnArg, FnFlagArgNames, RuntimeEaten, SingleValueType, 
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
-#[derive(Clone, Copy)]
+// #[derive(Clone)]
 pub enum ArgNames {
     Positional(&'static str),
     Flag(ArgFlagNames),
 }
 
-#[derive(Clone, Copy)]
+// #[derive(Clone)]
 pub enum ArgFlagNames {
     // Short(char),
-    Long(&'static str),
-    LongAndShort(&'static str, char),
+    Long(ArgLongFlagName),
+    LongAndShort(ArgLongFlagName, char),
+}
+
+pub struct ArgLongFlagName {
+    raw: &'static str,
+    var_name: String,
+}
+
+impl ArgLongFlagName {
+    fn new(raw: &'static str) -> Self {
+        Self {
+            raw,
+            var_name: long_flag_var_name(raw),
+        }
+    }
 }
 
 impl ArgNames {
-    pub fn static_name(&self) -> String {
+    pub fn var_name(&self) -> String {
         match self {
             ArgNames::Positional(name) => (*name).to_owned(),
             ArgNames::Flag(flag) => match flag {
                 // ArgFlagNames::Short(short) => short.to_string(),
-                ArgFlagNames::Long(long) => (*long).to_owned(),
-                ArgFlagNames::LongAndShort(long, _) => (*long).to_owned(),
+                ArgFlagNames::Long(ArgLongFlagName { raw: _, var_name }) => var_name.clone(),
+                ArgFlagNames::LongAndShort(ArgLongFlagName { raw: _, var_name }, _) => {
+                    var_name.clone()
+                }
             },
         }
     }
@@ -78,7 +94,7 @@ impl<T: SingleTypingDirectCreation> TypingDirectCreation for T {
 pub trait ArgHandler {
     fn is_optional(&self) -> bool;
     fn is_rest(&self) -> bool;
-    fn names(&self) -> ArgNames;
+    fn names(&self) -> &ArgNames;
 
     type FixedOptionality<Z>;
     fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z>;
@@ -124,11 +140,16 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
     }
 
     pub fn long_flag(long: &'static str) -> Self {
-        Self::direct(ArgNames::Flag(ArgFlagNames::Long(long)))
+        Self::direct(ArgNames::Flag(ArgFlagNames::Long(ArgLongFlagName::new(
+            long,
+        ))))
     }
 
     pub fn long_and_short_flag(long: &'static str, short: char) -> Self {
-        Self::direct(ArgNames::Flag(ArgFlagNames::LongAndShort(long, short)))
+        Self::direct(ArgNames::Flag(ArgFlagNames::LongAndShort(
+            ArgLongFlagName::new(long),
+            short,
+        )))
     }
 
     pub fn method_self() -> Self {
@@ -137,8 +158,8 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
 }
 
 impl<T: Typing> ArgHandler for Arg<false, T> {
-    fn names(&self) -> ArgNames {
-        self.names
+    fn names(&self) -> &ArgNames {
+        &self.names
     }
 
     fn is_optional(&self) -> bool {
@@ -172,8 +193,8 @@ impl<T: Typing> ArgHandler for Arg<false, T> {
 }
 
 impl<T: Typing> ArgHandler for Arg<true, T> {
-    fn names(&self) -> ArgNames {
-        self.names
+    fn names(&self) -> &ArgNames {
+        &self.names
     }
 
     fn is_optional(&self) -> bool {
@@ -212,7 +233,7 @@ pub(super) fn generate_internal_arg_decl<
 ) -> FnArg {
     match arg.names() {
         ArgNames::Positional(name) => FnArg::Positional {
-            name: RuntimeEaten::Internal(name.to_owned()),
+            name: RuntimeEaten::Internal((*name).to_owned()),
             is_optional: arg.is_optional(),
             typ: Some(RuntimeEaten::Internal(arg.base_typing().underlying_type())),
         },
@@ -224,12 +245,12 @@ pub(super) fn generate_internal_arg_decl<
                 // }
                 //
                 ArgFlagNames::Long(long) => {
-                    FnFlagArgNames::LongFlag(RuntimeEaten::Internal(long.to_owned()))
+                    FnFlagArgNames::LongFlag(RuntimeEaten::Internal(long.raw.to_owned()))
                 }
 
                 ArgFlagNames::LongAndShort(long, short) => FnFlagArgNames::LongAndShortFlag {
-                    long: RuntimeEaten::Internal(long.to_owned()),
-                    short: RuntimeEaten::Internal(short),
+                    long: RuntimeEaten::Internal(long.raw.to_owned()),
+                    short: RuntimeEaten::Internal(*short),
                 },
             };
 
@@ -246,6 +267,32 @@ pub(super) fn generate_internal_arg_decl<
             }
         }
     }
+}
+
+/// Compute the variable name for a long flag
+/// Converst a raw flag name to a valid (variable) identifier
+///
+/// Example: `push-with-lease` -> `pushWithLease`
+pub fn long_flag_var_name(name: &str) -> String {
+    let mut var_name = String::with_capacity(name.len());
+
+    let mut uppercase = false;
+
+    for char in name.chars() {
+        if char == '-' {
+            uppercase = true;
+        } else if uppercase {
+            uppercase = false;
+
+            for char in char.to_uppercase() {
+                var_name.push(char);
+            }
+        } else {
+            var_name.push(char);
+        }
+    }
+
+    var_name
 }
 
 pub struct InternalFunction {
@@ -299,7 +346,7 @@ macro_rules! define_internal_fn {
                 $( $arg_name: {
                     let arg_handler: $arg_handler_type = $arg_handler_gen;
 
-                    let arg = args.remove(&arg_handler.names().static_name());
+                    let arg = args.remove(&arg_handler.names().var_name());
 
                     if let Some(arg) = &arg {
                         placeholder_args_at.$arg_name = Some(arg.arg_value_at);
