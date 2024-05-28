@@ -354,7 +354,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 opening_style: Style::new().fg(LightYellow),
                 closing_style: Style::new().fg(LightYellow),
                 rules: vec![
-                    include_group("instructions")
+                    include_group("commands")
                 ]
             }),
         ]),
