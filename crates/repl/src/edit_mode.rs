@@ -7,10 +7,10 @@ use reedline::{
 use crate::{completer::COMPLETION_MENU_NAME, history::HISTORY_MENU_NAME};
 
 pub fn create_edit_mode() -> Box<dyn RlEditMode> {
-    Box::new(EditMode {})
+    Box::new(EditMode)
 }
 
-pub struct EditMode {}
+pub struct EditMode;
 
 impl RlEditMode for EditMode {
     fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
