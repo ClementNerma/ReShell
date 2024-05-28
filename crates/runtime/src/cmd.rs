@@ -296,13 +296,10 @@ fn eval_cmd_chain_el_content(
                 .envs(env_vars)
                 .args(args.clone())
                 .stdin(match children.last_mut() {
-                    Some((child, _)) => match pipe_type {
-                        Some(pipe_type) => match pipe_type.data {
-                            CmdPipeType::Stdout => Stdio::from(child.stdout.take().unwrap()),
-                            CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
-                            // CmdPipeType::Both => todo!(),
-                        },
-                        None => unreachable!(),
+                    Some((child, _)) => match pipe_type.unwrap().data {
+                        CmdPipeType::Stdout => Stdio::from(child.stdout.take().unwrap()),
+                        CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
+                        // CmdPipeType::Both => todo!(),
                     },
                     None => Stdio::inherit(),
                 })
