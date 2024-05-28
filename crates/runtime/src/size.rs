@@ -7,9 +7,7 @@ use std::{
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location, SourceFileID};
-use reshell_checker::{
-    CmdPathTargetType, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
-};
+use reshell_checker::{Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
@@ -1048,30 +1046,23 @@ impl ComputableSize for DevelopedSingleCmdCall {
     fn compute_heap_size(&self) -> usize {
         let Self {
             at,
-            final_cmd_path,
-            target_type,
+            is_function,
             developed_aliases,
         } = self;
 
         at.compute_heap_size()
-            + final_cmd_path.compute_heap_size()
-            + target_type.compute_heap_size()
+            + is_function.compute_heap_size()
             + developed_aliases.compute_heap_size()
     }
 }
 
 impl ComputableSize for DevelopedCmdAliasCall {
     fn compute_heap_size(&self) -> usize {
-        let Self { declared_name_at } = self;
-        declared_name_at.compute_heap_size()
-    }
-}
+        let Self {
+            content_at,
+            called_alias_name,
+        } = self;
 
-impl ComputableSize for CmdPathTargetType {
-    fn compute_heap_size(&self) -> usize {
-        match self {
-            CmdPathTargetType::Function => 0,
-            CmdPathTargetType::ExternalCommand => 0,
-        }
+        content_at.compute_heap_size() + called_alias_name.compute_heap_size()
     }
 }

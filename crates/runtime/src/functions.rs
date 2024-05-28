@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parsy::Eaten;
+use parsy::{Eaten, CodeRange};
 use reshell_parser::ast::{
     CmdFlagNameArg,  FnArg, FnCall, FnCallArg,
     FnFlagArgNames, RuntimeCodeRange, FlagValueSeparator,
@@ -459,29 +459,34 @@ fn flatten_fn_call_args(
 ) -> ExecResult<Vec<CmdSingleArgResult>> {
     let mut out = vec![];
 
+    let mut treat_call_type = |call_type: FnCallType| -> ExecResult<()> {
+        match call_type {
+            FnCallType::Normal => {
+                if is_method {
+                    return Err(ctx.error(call_at, "cannot call a method like a normal function"));
+                }
+            },
+
+            // Methods can be called through the value piping operator
+            FnCallType::Piped(piped) => {
+                out.push(CmdSingleArgResult::Basic(piped))
+            },
+
+            FnCallType::Method(left) => {
+                if !is_method {
+                    return Err(ctx.error(call_at, "cannot call a normal function like a method"));
+                }
+
+                out.push(CmdSingleArgResult::Basic(left))
+            },
+        }
+
+        Ok(())
+    };
+
     match call_args {
         FnPossibleCallArgs::Parsed { call_type, args: parsed } => {
-            match call_type {
-                FnCallType::Normal => {
-                    if is_method {
-                        return Err(ctx.error(call_at, "cannot call a method like a normal function"));
-                    }
-                },
-
-                FnCallType::Piped(piped) => {
-                    // Methods can be called through the value piping operator
-
-                    out.push(CmdSingleArgResult::Basic(piped))
-                },
-
-                FnCallType::Method(left) => {
-                    if !is_method {
-                        return Err(ctx.error(call_at, "cannot call a normal function like a method"));
-                    }
-
-                    out.push(CmdSingleArgResult::Basic(left))
-                },
-            }
+            treat_call_type(call_type)?;
 
             for parsed in &parsed.data {
                 match &parsed.data {
@@ -511,6 +516,19 @@ fn flatten_fn_call_args(
                             out.extend(items);
                         }
                     },
+                }
+            }
+        }
+
+        FnPossibleCallArgs::ParsedCmdArgs { call_type, args } => {
+            treat_call_type(call_type)?;
+            
+            for (arg_result, _) in args {
+                match arg_result {
+                    CmdArgResult::Single(single) => out.push(single),
+                    CmdArgResult::Spreaded(items) => {
+                        out.extend(items);
+                    }
                 }
             }
         }
@@ -626,10 +644,12 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
 
 pub enum FnPossibleCallArgs<'a> {
     Parsed { call_type: FnCallType, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
+    ParsedCmdArgs { call_type: FnCallType, args: Vec<(CmdArgResult, CodeRange)> },
     Internal(Vec<CmdArgResult>),
 }
 
 pub enum FnCallType {
+    // TODO: remove this
     Normal,
     Piped(LocatedValue),
     Method(LocatedValue)

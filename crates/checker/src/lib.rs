@@ -28,8 +28,8 @@ use reshell_parser::ast::{
 pub use self::{
     errors::CheckerError,
     state::{
-        CheckerOutput, CheckerScope, CmdPathTargetType, DeclaredCmdAlias, DeclaredFn, DeclaredVar,
-        Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+        CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
+        DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
 };
 
@@ -781,8 +781,6 @@ fn check_single_cmd_call(
 
     let mut developed_aliases = vec![];
 
-    let mut alias_final_path = None;
-
     let target_type = match &path.data {
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
         CmdPath::Expr(_) => CmdPathTargetType::Function,
@@ -805,7 +803,7 @@ fn check_single_cmd_call(
                 Some(target) => match target {
                     Target::CmdAlias(cmd_alias) => {
                         let DeclaredCmdAlias {
-                            name_at,
+                            name_at: _,
                             content_at,
                             is_ready,
                         } = cmd_alias;
@@ -818,7 +816,8 @@ fn check_single_cmd_call(
                         }
 
                         developed_aliases.push(DevelopedCmdAliasCall {
-                            declared_name_at: name_at,
+                            content_at,
+                            called_alias_name: name.clone(),
                         });
 
                         state.register_usage(name, DependencyType::CmdAlias)?;
@@ -826,11 +825,14 @@ fn check_single_cmd_call(
                         let alias_inner_call = state.collected.cmd_calls.get(&content_at);
                         let alias_inner_call = alias_inner_call.as_ref().unwrap();
 
-                        developed_aliases.extend(&alias_inner_call.developed_aliases);
+                        developed_aliases
+                            .extend(alias_inner_call.developed_aliases.iter().cloned());
 
-                        alias_final_path = Some(alias_inner_call.final_cmd_path.clone());
-
-                        alias_inner_call.target_type
+                        if alias_inner_call.is_function {
+                            CmdPathTargetType::Function
+                        } else {
+                            CmdPathTargetType::ExternalCommand
+                        }
                     }
 
                     Target::Function => CmdPathTargetType::Function,
@@ -845,12 +847,14 @@ fn check_single_cmd_call(
         check_cmd_arg(arg, state)?;
     }
 
-    state.collected.cmd_calls.insert(
-        single_cmd_call.at,
+    state.register_developed_single_cmd_call(
+        single_cmd_call,
         DevelopedSingleCmdCall {
-            at: path.at,
-            final_cmd_path: alias_final_path.unwrap_or_else(|| path.clone()),
-            target_type,
+            at: single_cmd_call.at,
+            is_function: match target_type {
+                CmdPathTargetType::Function => true,
+                CmdPathTargetType::ExternalCommand => false,
+            },
             developed_aliases,
         },
     );
@@ -1113,4 +1117,19 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     }
 
     Ok(())
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CmdPathTargetType {
+    Function,
+    ExternalCommand,
+}
+
+impl std::fmt::Display for CmdPathTargetType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CmdPathTargetType::Function => write!(f, "function"),
+            CmdPathTargetType::ExternalCommand => write!(f, "external command"),
+        }
+    }
 }

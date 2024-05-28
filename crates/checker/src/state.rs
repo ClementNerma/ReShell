@@ -1,13 +1,21 @@
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, rc::Rc};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody, CmdPath};
+use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody};
 
 use crate::{errors::CheckerResult, CheckerError};
 
+/// Checker's state
 pub struct State {
     scopes: Vec<CheckerScope>,
     pub collected: CheckerOutput,
+}
+
+/// Sharing type used to avoid cloning in the runtime
+type SharingType<T> = Rc<T>;
+
+fn shared<T>(value: T) -> SharingType<T> {
+    Rc::new(value)
 }
 
 /// Data returned by the checker in case of success
@@ -47,17 +55,17 @@ pub struct CheckerOutput {
     /// Signature of all functions and closures
     /// 
     /// Maps the signature's location to its content
-    pub fn_signatures: HashMap<CodeRange, Eaten<FnSignature>>,
+    pub fn_signatures: HashMap<CodeRange, SharingType<Eaten<FnSignature>>>,
 
     /// Body of all functions and closures
     /// 
     /// Maps the body's location to its content
-    pub fn_bodies: HashMap<CodeRange, Eaten<FunctionBody>>,
+    pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<FunctionBody>>>,
 
     /// List of command aliases
     /// 
     /// Maps the command alias' content token location to its content
-    pub cmd_aliases: HashMap<CodeRange, Eaten<SingleCmdCall>>,
+    pub cmd_aliases: HashMap<CodeRange, SharingType<Eaten<SingleCmdCall>>>,
 
     /// List of command calls
     ///
@@ -65,7 +73,7 @@ pub struct CheckerOutput {
     /// ahead of time
     /// 
     /// Maps the single command's token location to the expanded call
-    pub cmd_calls: HashMap<CodeRange, DevelopedSingleCmdCall>,
+    pub cmd_calls: HashMap<CodeRange, SharingType<DevelopedSingleCmdCall>>,
 }
 
 /// Developed command call
@@ -74,27 +82,21 @@ pub struct DevelopedSingleCmdCall {
     /// Location that can be found in the related [`Eaten::<SingleCmdCall>::at`]
     pub at: CodeRange,
 
-    /// Final command path
-    pub final_cmd_path: Eaten<CmdPath>,
-
-    /// Command call target type
-    pub target_type: CmdPathTargetType,
+    /// Is the target a function?
+    pub is_function: bool,
 
     /// Developed aliases
     pub developed_aliases: Vec<DevelopedCmdAliasCall>,
 }
 
 /// Developed command alias call
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct DevelopedCmdAliasCall {
-    /// Alias declaration's name's location ([`Eaten::<CmdPath>::at`])
-    pub declared_name_at: CodeRange,
-}
+    /// Alias content's location ([`Eaten::<SingleCmdCall>::at`])
+    pub content_at: CodeRange,
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CmdPathTargetType {
-    Function,
-    ExternalCommand,
+    /// Alias name
+    pub called_alias_name: Eaten<String>
 }
 
 impl State {
@@ -300,7 +302,7 @@ impl State {
 
     /// Register a command alias
     pub fn register_cmd_alias(&mut self, alias_content: Eaten<SingleCmdCall>) {
-        let dup = self.collected.cmd_aliases.insert(alias_content.at, alias_content);
+        let dup = self.collected.cmd_aliases.insert(alias_content.at, shared(alias_content));
         assert!(dup.is_none());
     }
 
@@ -321,7 +323,7 @@ impl State {
 
     /// Register a function's signature
     pub fn register_function_signature(&mut self, signature: Eaten<FnSignature>) {
-        let dup = self.collected.fn_signatures.insert(signature.at, signature);
+        let dup = self.collected.fn_signatures.insert(signature.at, shared(signature));
         assert!(dup.is_none());
     }
 
@@ -330,8 +332,16 @@ impl State {
         let dup = self
             .collected
             .fn_bodies
-            .insert(body.at, body);
+            .insert(body.at, shared(body));
 
+        assert!(dup.is_none());
+    }
+
+    /// Register a developed single command call
+    pub fn register_developed_single_cmd_call(&mut self, from: &Eaten<SingleCmdCall>, collected: DevelopedSingleCmdCall) {
+        assert!(from.at == collected.at);
+
+        let dup = self.collected.cmd_calls.insert(from.at, shared(collected));
         assert!(dup.is_none());
     }
 }
@@ -471,15 +481,6 @@ impl std::fmt::Display for DependencyType {
             DependencyType::Variable => write!(f, "variable"),
             DependencyType::Function => write!(f, "function"),
             DependencyType::CmdAlias => write!(f, "command alias"),
-        }
-    }
-}
-
-impl std::fmt::Display for CmdPathTargetType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CmdPathTargetType::Function => write!(f, "function"),
-            CmdPathTargetType::ExternalCommand => write!(f, "external command"),
         }
     }
 }

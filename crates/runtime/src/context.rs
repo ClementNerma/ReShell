@@ -8,7 +8,7 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, SourceFileID};
 use reshell_checker::{
     CheckerOutput, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredVar, Dependency,
-    DependencyType, DevelopedSingleCmdCall,
+    DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
 };
 use reshell_parser::{
     ast::{FnSignature, FunctionBody, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
@@ -104,7 +104,7 @@ pub struct Context {
     cmd_aliases: HashMap<CodeRange, Rc<Eaten<SingleCmdCall>>>,
 
     /// List of all command calls, developed by the checker
-    cmd_calls: HashMap<CodeRange, DevelopedSingleCmdCall>,
+    cmd_calls: HashMap<CodeRange, Rc<DevelopedSingleCmdCall>>,
 
     /// Value returned by the very last function or command call in a program
     /// that was not assigned or used as an argument
@@ -350,21 +350,9 @@ impl Context {
         self.type_aliases_decl_by_scope
             .extend(type_aliases_decl_by_scope);
         self.cmd_calls.extend(cmd_calls);
-
-        self.fn_signatures.extend(
-            fn_signatures
-                .into_iter()
-                .map(|(at, signature)| (at, Rc::new(signature))),
-        );
-
-        self.fn_bodies
-            .extend(fn_bodies.into_iter().map(|(at, body)| (at, Rc::new(body))));
-
-        self.cmd_aliases.extend(
-            cmd_aliases
-                .into_iter()
-                .map(|(at, body)| (at, Rc::new(body))),
-        );
+        self.fn_signatures.extend(fn_signatures);
+        self.fn_bodies.extend(fn_bodies);
+        self.cmd_aliases.extend(cmd_aliases);
     }
 
     /// (Internal) Reset to the program's main scope after execution
@@ -619,6 +607,38 @@ impl Context {
         self.cmd_aliases.get(&from.at).map(Rc::clone)
     }
 
+    /// Get a specific command alias' content from a developed version
+    /// Avoids cloning the entire (heavy) [`Eaten<SingleCmdCall>`]
+    pub fn get_developed_cmd_alias_content(
+        &self,
+        from: &DevelopedCmdAliasCall,
+    ) -> Rc<Eaten<SingleCmdCall>> {
+        match self.cmd_aliases.get(&from.content_at) {
+            Some(developed) => Rc::clone(developed),
+
+            None => self.panic(
+                from.content_at,
+                "command alias is missing (= bug in checker)",
+            ),
+        }
+    }
+
+    /// Get a specific command call's informations
+    /// Avoids cloning the entire (potentially heavy) [`DevelopedSingleCmdCall`]
+    pub fn get_developed_cmd_call(
+        &self,
+        from: &Eaten<SingleCmdCall>,
+    ) -> Rc<DevelopedSingleCmdCall> {
+        match self.cmd_calls.get(&from.at) {
+            Some(developed) => Rc::clone(developed),
+
+            None => self.panic(
+                from.at,
+                "developed command call data is missing (= bug in checker)",
+            ),
+        }
+    }
+
     /// (Crate-private)
     ///
     /// Capture all dependencies for an item used at a point in time
@@ -749,21 +769,9 @@ impl Context {
             type_aliases_decl: self.type_aliases_decl.clone(),
             type_aliases_usages: self.type_aliases_usages.clone(),
             type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
-            fn_signatures: self
-                .fn_signatures
-                .iter()
-                .map(|(key, value)| (*key, Eaten::clone(value)))
-                .collect(),
-            fn_bodies: self
-                .fn_bodies
-                .iter()
-                .map(|(key, value)| (*key, Eaten::clone(value)))
-                .collect(),
-            cmd_aliases: self
-                .cmd_aliases
-                .iter()
-                .map(|(key, value)| (*key, Eaten::clone(value)))
-                .collect(),
+            fn_signatures: self.fn_signatures.clone(),
+            fn_bodies: self.fn_bodies.clone(),
+            cmd_aliases: self.cmd_aliases.clone(),
         }
     }
 }
