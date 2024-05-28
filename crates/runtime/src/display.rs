@@ -36,7 +36,7 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
                 ),
             )
             .with_note(
-                "this happened because commands (not functions) can only take string-like arguments",
+                "this conversion happens because external commands can only take string-like arguments",
             )),
     }
 }
