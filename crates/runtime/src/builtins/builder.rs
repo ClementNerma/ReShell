@@ -209,10 +209,10 @@ fn generate_internal_arg_decl<
 
 pub struct ArgsDeclaration<T> {
     build_args_decl: fn() -> Vec<FnArg>,
-    parse_args: FnArsgParser<T>,
+    parse_args: FnArgsParser<T>,
 }
 
-type FnArsgParser<T> =
+type FnArgsParser<T> =
     fn(CodeRange, HashMap<Eaten<String>, RuntimeValue>) -> Result<T, (CodeRange, String)>;
 
 #[macro_export]
