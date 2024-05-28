@@ -266,18 +266,23 @@ impl<'h, 'str> Match<'h, 'str> {
         let mut capture_shift = 0;
 
         loop {
-            let cap = rule
+            let (regex_matched_at, cap) = rule
                 .matches
                 .captures_at(
                     &input[nesting_at..],
                     range.from - nesting_at + capture_shift,
                 )
-                .map(|captured| Self {
-                    nesting_at,
-                    start: captured.get(1).unwrap().start() + nesting_at,
-                    end: captured.get(captured.len() - 1).unwrap().end() + nesting_at,
-                    rule,
-                    _captured: captured,
+                .map(|captured| {
+                    (
+                        captured.get(0).unwrap().start() + nesting_at,
+                        Self {
+                            nesting_at,
+                            start: captured.get(1).unwrap().start() + nesting_at,
+                            end: captured.get(captured.len() - 1).unwrap().end() + nesting_at,
+                            rule,
+                            _captured: captured,
+                        },
+                    )
                 })?;
 
             if cap.end > range.from + range.len {
@@ -285,7 +290,7 @@ impl<'h, 'str> Match<'h, 'str> {
             }
 
             if let Some(preceded_by) = &rule.preceded_by {
-                if !preceded_by.is_match(&input[..range.from + capture_shift]) {
+                if !preceded_by.is_match(&input[..regex_matched_at]) {
                     return None;
                 }
             }
