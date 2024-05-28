@@ -15,6 +15,7 @@ mod error;
 mod exit;
 mod file_exists;
 mod glob;
+mod human_size;
 mod join;
 mod len;
 mod list_filter;
@@ -26,6 +27,7 @@ mod map_values;
 mod mkdir;
 mod path_exists;
 mod pop;
+mod print_runtime_stats;
 mod range;
 mod read_file;
 mod replace;
@@ -64,6 +66,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::exit::build_fn(),
             self::file_exists::build_fn(),
             self::glob::build_fn(),
+            self::human_size::build_fn(),
             self::join::build_fn(),
             self::len::build_fn(),
             self::list_filter::build_fn(),
@@ -75,6 +78,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::mkdir::build_fn(),
             self::path_exists::build_fn(),
             self::pop::build_fn(),
+            self::print_runtime_stats::build_fn(),
             self::range::build_fn(),
             self::read_file::build_fn(),
             self::replace::build_fn(),
