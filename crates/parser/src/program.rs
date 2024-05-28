@@ -256,7 +256,9 @@ pub fn program(
             // Presence flags
             fn_flag_arg_names
                 .then_ignore(msnl)
-                .then_ignore(char('?'))
+                .then_ignore(
+                    char('?').critical("expected either a '?' or a ':' marker after flag argument"),
+                )
                 .map(|names| FnArg::PresenceFlag(FnPresenceFlagArg { names })),
             // Rest
             just("...")
