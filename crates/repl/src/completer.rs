@@ -20,6 +20,7 @@ use reshell_runtime::{
 use crate::{
     repl::SHARED_CONTEXT,
     utils::{
+        cmd_pieces::{compute_command_pieces, CmdPiece},
         jaro_winkler::jaro_winkler_distance,
         path_globifier::{globify_path, GlobPathOut, GlobPathStartsWith},
     },
@@ -68,15 +69,24 @@ pub fn generate_completions(
     ctx: &mut Context,
     external_completer: Option<&ExternalCompleter>,
 ) -> Vec<Suggestion> {
-    let word_start = pos - find_breakpoint_backward(&line[..pos]);
-    let word_end = word_start + find_breakpoint_forward(&line[word_start..]);
+    let cmd_pieces = compute_command_pieces(&line[..pos]);
 
-    let word = &line[word_start..word_end];
+    let CmdPiece {
+        start: word_start,
+        content: word,
+    } = cmd_pieces.last().copied().unwrap_or(CmdPiece {
+        start: 0,
+        content: "",
+    });
+
+    let word_end = word_start + word.len();
 
     let span = Span {
         start: word_start,
         end: word_end,
     };
+
+    let word = &line[word_start..word_end];
 
     let after_space = word_start > 0
         && matches!(line[word_start - 1..].chars().next(), Some(c) if c.is_whitespace());
@@ -141,7 +151,10 @@ pub fn generate_completions(
 
     if after_space {
         if let Some(external_completer) = external_completer {
-            let completions = external_completer(line, ctx);
+            let cmd_start = cmd_pieces.first().map_or(0, |piece| piece.start);
+            let cmd = &line[cmd_start..pos];
+
+            let completions = external_completer(cmd, ctx);
 
             if !completions.is_empty() {
                 return completions
@@ -501,59 +514,6 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .chain(non_matching_start)
         .map(|(_, value)| value)
         .collect()
-}
-
-fn find_breakpoint_forward(str: &str) -> usize {
-    let mut escaping = false;
-    let mut offset = 0;
-
-    for c in str.chars() {
-        if c == '\r' || c == '\n' {
-            break;
-        }
-
-        offset += c.len_utf8();
-
-        if escaping {
-            escaping = false;
-        } else if c == '\\' {
-            escaping = true;
-        } else if needs_escaping(c) && c != '$' {
-            break;
-        }
-    }
-
-    offset
-}
-
-fn find_breakpoint_backward(str: &str) -> usize {
-    let chars = str.chars().rev().collect::<Vec<_>>();
-    let mut escaping = false;
-
-    for (i, c) in chars.iter().enumerate() {
-        if escaping {
-            escaping = false;
-            continue;
-        }
-
-        let mut prev_backslashes = 0;
-
-        for c in chars[i..].iter().skip(1) {
-            if *c == '\\' {
-                prev_backslashes += 1;
-            } else {
-                break;
-            }
-        }
-
-        if prev_backslashes % 2 != 0 {
-            escaping = true;
-        } else if c.is_whitespace() || (DELIMITER_CHARS.contains(c) && *c != '$') {
-            return i;
-        }
-    }
-
-    str.len()
 }
 
 fn unescape(str: &str) -> String {

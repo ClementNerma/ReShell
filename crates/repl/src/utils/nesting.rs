@@ -1,43 +1,59 @@
-pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
-    let register_content = |output: &mut Vec<NestingAction>, offset: usize| {
-        let from = output
-            .last()
-            .map(|action| action.offset + action.len)
-            .unwrap_or(0);
+#[derive(Debug)]
+pub struct NestingDetectionResult {
+    pub actions: Vec<NestingAction>,
+    pub final_nesting_level: usize,
+}
 
-        if from == offset {
-            return;
-        }
+pub fn detect_nesting_actions<'s>(input: &'s str) -> NestingDetectionResult {
+    let register_content =
+        |output: &mut Vec<NestingAction>, offset: usize, opened: &[(&str, usize)]| {
+            let from = output
+                .last()
+                .map(|action| action.offset + action.len)
+                .unwrap_or(0);
 
-        output.push(NestingAction {
-            action_type: NestingActionType::Content,
-            offset: from,
-            len: offset - from,
-        });
-    };
+            if from == offset {
+                return;
+            }
+
+            output.push(NestingAction {
+                action_type: NestingActionType::Content,
+                offset: from,
+                len: offset - from,
+                nesting_level: opened.len(),
+            });
+        };
 
     let push = |output: &mut Vec<NestingAction>,
+                opened: &[(&str, usize)],
                 offset: usize,
                 len: usize,
                 action_type: NestingActionType| {
-        register_content(output, offset);
-        output.push(NestingAction::new(offset, len, action_type));
+        register_content(output, offset, opened);
+
+        output.push(NestingAction {
+            offset,
+            len,
+            action_type,
+            nesting_level: opened.len(),
+        });
     };
 
     let open = |output: &mut Vec<NestingAction>,
                 opened: &mut Vec<(&'s str, usize)>,
                 offset: usize,
                 opening_str: &'s str| {
-        register_content(output, offset);
+        register_content(output, offset, opened);
         opened.push((opening_str, offset));
-        output.push(NestingAction::new(
+        output.push(NestingAction {
             offset,
-            opening_str.len(),
-            NestingActionType::Opening {
+            len: opening_str.len(),
+            action_type: NestingActionType::Opening {
                 typ: NestingOpeningType::try_from_str(opening_str).unwrap(),
                 matching_close: false,
             },
-        ));
+            nesting_level: opened.len() + 1,
+        });
     };
 
     let mut opened: Vec<(&str, usize)> = vec![];
@@ -81,6 +97,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 } else if char == '\'' {
                     push(
                         &mut output,
+                        &opened,
                         offset,
                         1,
                         NestingActionType::Closing {
@@ -115,6 +132,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 '"' => {
                     push(
                         &mut output,
+                        &opened,
                         offset,
                         1,
                         NestingActionType::Closing {
@@ -140,6 +158,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                     if let Some(("`", opening_offset)) = opened.last() {
                         push(
                             &mut output,
+                            &opened,
                             offset,
                             1,
                             NestingActionType::Closing {
@@ -154,7 +173,13 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 }
 
                 ';' | '|' if !matches!(opened.last(), Some(("`", _))) => {
-                    push(&mut output, offset, 1, NestingActionType::CommandSeparator);
+                    push(
+                        &mut output,
+                        &opened,
+                        offset,
+                        1,
+                        NestingActionType::CommandSeparator,
+                    );
                 }
 
                 '#' => commenting = true,
@@ -181,6 +206,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                         ) {
                             push(
                                 &mut output,
+                                &opened,
                                 offset,
                                 1,
                                 NestingActionType::Closing {
@@ -198,6 +224,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
                     push(
                         &mut output,
+                        &opened,
                         offset,
                         1,
                         NestingActionType::Closing {
@@ -208,7 +235,13 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
                 ' ' => {
                     if matches!(opened.last(), None | Some(("$(", _))) {
-                        push(&mut output, offset, 1, NestingActionType::ArgumentSeparator);
+                        push(
+                            &mut output,
+                            &opened,
+                            offset,
+                            1,
+                            NestingActionType::ArgumentSeparator,
+                        );
                     }
                 }
 
@@ -217,7 +250,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         }
     }
 
-    register_content(&mut output, input.len());
+    register_content(&mut output, input.len(), &opened);
 
     let mut prev = None;
 
@@ -238,7 +271,10 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         prev = Some(piece.offset + piece.len);
     }
 
-    output
+    NestingDetectionResult {
+        actions: output,
+        final_nesting_level: opened.len(),
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -246,16 +282,7 @@ pub struct NestingAction {
     pub offset: usize,
     pub len: usize,
     pub action_type: NestingActionType,
-}
-
-impl NestingAction {
-    pub fn new(offset: usize, len: usize, action_type: NestingActionType) -> Self {
-        Self {
-            offset,
-            len,
-            action_type,
-        }
-    }
+    pub nesting_level: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
