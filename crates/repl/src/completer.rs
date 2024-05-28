@@ -125,6 +125,7 @@ pub fn generate_completions(
     let CompletionMode {
         allow_files,
         allow_vars,
+        allow_cmds,
     } = match complete_special_instructions(&cmd_pieces, span) {
         InstructionCompletion::Specific(specific) => return specific,
         InstructionCompletion::Undefined(mode) => mode,
@@ -149,7 +150,7 @@ pub fn generate_completions(
         }
     }
 
-    if !after_space && !word.contains(['/', '\\', '\'', '"']) {
+    if (allow_cmds == Some(true) || after_space) && !word.contains(['/', '\\', '\'', '"']) {
         let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
@@ -530,6 +531,7 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
 struct CompletionMode {
     allow_files: bool,
     allow_vars: bool,
+    allow_cmds: Option<bool>,
 }
 
 impl Default for CompletionMode {
@@ -537,6 +539,17 @@ impl Default for CompletionMode {
         Self {
             allow_vars: true,
             allow_files: true,
+            allow_cmds: None,
+        }
+    }
+}
+
+impl CompletionMode {
+    fn full() -> Self {
+        Self {
+            allow_files: true,
+            allow_vars: true,
+            allow_cmds: Some(true),
         }
     }
 }
@@ -575,6 +588,7 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
             1 | 2 => InstructionCompletion::Undefined(CompletionMode {
                 allow_vars: true,
                 allow_files: false,
+                allow_cmds: Some(true),
             }),
 
             _ => InstructionCompletion::Undefined(CompletionMode::default()),
@@ -636,6 +650,7 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
                 InstructionCompletion::Undefined(CompletionMode {
                     allow_files: true,
                     allow_vars: false,
+                    allow_cmds: Some(false),
                 })
             }
 
@@ -645,17 +660,30 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece], span: Span) -> Instruc
 
         // TODO: improve this
         "let" => match cmd_pieces.len() {
-            1..=3 => InstructionCompletion::Undefined(CompletionMode {
+            1 => InstructionCompletion::Specific(vec![]),
+
+            2..=3 => InstructionCompletion::Undefined(CompletionMode {
                 allow_vars: true,
                 allow_files: false,
+                allow_cmds: Some(false),
             }),
 
-            _ => InstructionCompletion::Undefined(CompletionMode::default()),
+            _ => InstructionCompletion::Undefined(CompletionMode::full()),
         },
 
         // TODO: complete like usual but with "direct" stripped
         //       => and ignore aliases / functions
-        "direct" => InstructionCompletion::Undefined(CompletionMode::default()),
+        "direct" => match cmd_pieces.len() {
+            1 => InstructionCompletion::Specific(vec![]),
+
+            2 => InstructionCompletion::Undefined(CompletionMode {
+                allow_files: false,
+                allow_vars: false,
+                allow_cmds: Some(true),
+            }),
+
+            _ => InstructionCompletion::Undefined(CompletionMode::default()),
+        },
 
         // Not a special instruction
         _ => InstructionCompletion::Undefined(CompletionMode::default()),
