@@ -26,7 +26,7 @@ use reshell_parser::{
         ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, Program, PropAccess,
         PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        StructTypeMember, SwitchCase, Value, ValueType,
+        StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
     },
     scope::AstScopeId,
 };
@@ -376,9 +376,9 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             check_expr(&expr.data, state)?;
 
             for case in cases {
-                let SwitchCase { cond, body } = case;
+                let SwitchCase { matches, body } = case;
 
-                check_expr(&cond.data, state)?;
+                check_expr(&matches.data, state)?;
                 check_block(body, state)?;
             }
 
@@ -599,6 +599,17 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
 
             for elsif in elsif {
                 check_elsif_expr(elsif, state)?;
+            }
+
+            check_expr(&els.data, state)?;
+        }
+
+        ExprInnerContent::Switch { expr, cases, els } => {
+            check_expr(&expr.data, state)?;
+
+            for SwitchExprCase { matches, then } in cases {
+                check_expr(&matches.data, state)?;
+                check_expr(&then.data, state)?;
             }
 
             check_expr(&els.data, state)?;

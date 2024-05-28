@@ -135,7 +135,7 @@ pub struct ElsIf {
 
 #[derive(Debug, Clone)]
 pub struct SwitchCase {
-    pub cond: Eaten<Expr>,
+    pub matches: Eaten<Expr>,
     pub body: Eaten<Block>,
 }
 
@@ -173,6 +173,11 @@ pub enum ExprInnerContent {
         elsif: Vec<Eaten<ElsIfExpr>>,
         els: Eaten<Box<Expr>>,
     },
+    Switch {
+        expr: Eaten<Box<Expr>>,
+        cases: Vec<SwitchExprCase>,
+        els: Eaten<Box<Expr>>,
+    },
     Try {
         fn_call: Eaten<FnCall>,
         catch_var: Eaten<String>,
@@ -185,6 +190,12 @@ pub enum ExprInnerContent {
 pub struct ElsIfExpr {
     pub cond: Eaten<Box<Expr>>,
     pub body: Eaten<Box<Expr>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct SwitchExprCase {
+    pub matches: Eaten<Expr>,
+    pub then: Eaten<Expr>,
 }
 
 #[derive(Debug, Clone)]
