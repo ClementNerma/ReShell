@@ -16,6 +16,7 @@ use crate::{
     prompt::Prompt,
     reports::{self, ReportableError},
     state::{with_writable_rt_ctx, RUNTIME_CONTEXT},
+    validator,
 };
 
 pub fn start() {
@@ -24,7 +25,7 @@ pub fn start() {
         .with_menu(history::create_history_menu())
         .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())
-        // .with_validator(validator::create_validator())
+        .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
         .with_completer(completer::create_completer())
         .with_edit_mode(edit_mode::create_edit_mode())
