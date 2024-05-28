@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use indexmap::IndexSet;
 use reshell_parser::ast::FnSignature;
 
-use crate::{
+use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeVar},
     gc::{GcCell, GcReadOnlyCell},
     values::{

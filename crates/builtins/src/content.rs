@@ -2,14 +2,15 @@ use colored::Colorize;
 use terminal_size::{terminal_size, Width};
 
 use crate::{
-    builtins::{
-        helper::{Arg, ArgTyping, ArgTypingDirectCreation, OptionalArg, RequiredArg},
-        type_handlers::{
-            AnyType, DetachedListType, ExactIntType, FloatType, IntType, MapType, StringType,
-            Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type, UntypedStructType,
-        },
-    },
     define_internal_fn,
+    helper::{Arg, ArgTyping, ArgTypingDirectCreation, OptionalArg, RequiredArg},
+    type_handlers::{
+        AnyType, DetachedListType, ExactIntType, FloatType, IntType, MapType, StringType,
+        Tuple2Type, Union2Result, Union2Type, Union3Result, Union3Type, UntypedStructType,
+    },
+};
+
+use reshell_runtime::{
     display::dbg_loc,
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},

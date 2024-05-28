@@ -1,12 +1,12 @@
 [package]
-name = "reshell-runtime"
+name = "reshell-builtins"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 colored = "2.0.4"
-indexmap = "2.0.2"
+indexmap = "2.1.0"
 parsy = "0.2.11"
-rand = "0.8.5"
 reshell-parser = { path = "../parser" }
-reshell-checker = { path = "../checker" }
+reshell-runtime = { path = "../runtime" }
+terminal_size = "0.3.0"

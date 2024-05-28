@@ -2,20 +2,21 @@ use std::collections::HashMap;
 
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature};
 
-use crate::{
-    builtins::{
-        helper::{ArgTyping, ArgTypingDirectCreation},
-        type_handlers::{
-            BoolType, ExactIntType, IntType, NullType, StringType, TypedStruct1Type,
-            TypedStruct3Type, TypedStruct4Type, Union2Type,
-        },
-        utils::{call_fn_checked, forge_internal_token},
-    },
+use reshell_runtime::{
     context::Context,
     errors::ExecResult,
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::RuntimeValue,
+};
+
+use crate::{
+    helper::{ArgTyping, ArgTypingDirectCreation},
+    type_handlers::{
+        BoolType, ExactIntType, IntType, NullType, StringType, TypedStruct1Type, TypedStruct3Type,
+        TypedStruct4Type, Union2Type,
+    },
+    utils::{call_fn_checked, forge_internal_token},
 };
 
 pub static GEN_PROMPT_VAR_NAME: &str = "gen_prompt";

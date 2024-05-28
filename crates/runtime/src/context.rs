@@ -13,7 +13,7 @@ use crate::{
     gc::{GcCell, GcReadOnlyCell},
     values::{
         CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, 
-    }, builtins::builder::build_native_lib_content,
+    }, 
 };
 
 pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
@@ -37,13 +37,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn new(conf: RuntimeConf) -> Self {
+    pub fn new(conf: RuntimeConf, native_lib_content: ScopeContent) -> Self {
         let scopes_to_add = [
             Scope {
                 id: NATIVE_LIB_SCOPE_ID,
                 call_stack: CallStack::empty(),
                 call_stack_entry: None,
-                content: build_native_lib_content(),
+                content: native_lib_content,
                 parent_scopes: IndexSet::new(),
                 range: ScopeRange::SourceLess,
                 previous_scope: None,

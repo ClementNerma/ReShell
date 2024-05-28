@@ -1,3 +1,9 @@
 [workspace]
-members = ["crates/parser", "crates/checker", "crates/runtime", "crates/repl"]
+members = [
+    "crates/parser",
+    "crates/checker",
+    "crates/runtime",
+    "crates/repl",
+    "crates/builtins",
+]
 resolver = "2"
