@@ -80,9 +80,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(=)", [Magenta, Blue, LightYellow]),
                 simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Magenta, Blue]),
                 
-                // Keywords
-                simple("\\b(alias|fn|for|while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
-
                 // Argument names and structure keys
                 simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]", [Red, LightYellow]),
 
@@ -99,6 +96,12 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // @direct marker
                 simple("(@direct)\\b", [Magenta]),
 
+                // Flags
+                simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
+
+                // Keywords
+                simple("\\b(alias|fn|for|while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
+
                 // Command names
                 simple_preceded_by("(^\\s*|[\\|\\n;]\\s*|@direct\\s+)$", "([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
 
@@ -110,9 +113,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
                 // Numbers
                 simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
-
-                // Flags
-                simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
 
                 // Booleans
                 simple("\\b(true|false)\\b", [LightYellow]),
