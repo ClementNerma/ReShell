@@ -27,8 +27,10 @@ impl RlHighlighter for Highlighter {
         }
 
         highlight!(
-            ("keywords") => "\\b(let|mut|if|for|in|while|continue|break|fn|return|throw|alias|type|do)\\b" => Magenta,
-            ("types") => "\\b(any|null|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
+            ("keywords") => "\\b(let|mut|if|else|for|in|while|continue|break|fn|return|throw|alias|type|do)\\b" => Magenta,
+            ("types") => "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
+            ("booleans") => "\\b(true|false)\\b" => LightYellow,
+            ("null value") => "\\b(null)\\b" => LightYellow,
             ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
             ("loop iterator") => "(?:^|\\n|\\s)(?:for|let|mut)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
             ("function parameters and struct fields") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:" => Red,

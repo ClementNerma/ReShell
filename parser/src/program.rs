@@ -7,9 +7,9 @@ use parsy::{
 };
 
 use crate::ast::{
-    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ExprInnerContent, FnArg, FnArgNames,
-    FnCall, FnCallArg, FnSignature, PropAccess, PropAccessNature, SingleCmdCall, SingleValueType,
-    StructTypeMember, ValueType,
+    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, ExprInnerContent, FnArg,
+    FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess, PropAccessNature, SingleCmdCall,
+    SingleValueType, StructTypeMember, ValueType,
 };
 
 use super::ast::{
@@ -401,6 +401,29 @@ pub fn program() -> impl Parser<Program> {
             just("??").to(DoubleOp::NullFallback),
         ));
 
+        // let block_expr = char('{')
+        //     .critical("expected an opening brace '{'")
+        //     .ignore_then(msnl)
+        //     .ignore_then(raw_block.map(Box::new))
+        //     .then_ignore(msnl)
+        //     .then(
+        //         expr.clone()
+        //             .map(Box::new)
+        //             .spanned()
+
+        //             .critical("expected an expression"),
+        //     )
+        //     .then_ignore(msnl)
+        //     .then_ignore(char('}').critical("expected a closing brace '}'"))
+        //     .map(|(base, produce)| BlockExpr { base, produce });
+
+        let braces_expr_body = char('{')
+            .critical("expected an opening brace '{'")
+            .ignore_then(msnl)
+            .ignore_then(expr.clone().map(Box::new).spanned())
+            .then_ignore(msnl)
+            .then_ignore(char('}').critical("expected a closing brace '}'"));
+
         let expr_inner_content = recursive(|expr_inner_content| {
             choice::<_, ExprInnerContent>((
                 // Single operator (e.g. '!')
@@ -413,6 +436,53 @@ pub fn program() -> impl Parser<Program> {
                     .ignore_then(expr.clone().map(Box::new).spanned())
                     .then_ignore(char(')'))
                     .map(ExprInnerContent::ParenExpr),
+                // Ternaries
+                just("if")
+                    .ignore_then(s)
+                    .ignore_then(
+                        expr.clone()
+                            .map(Box::new)
+                            .spanned()
+                            .critical("expected a condition"),
+                    )
+                    .then_ignore(ms)
+                    .then(
+                        braces_expr_body
+                            .clone()
+                            .critical("expected a body for the condition"),
+                    )
+                    .then(
+                        msnl.ignore_then(just("else"))
+                            .ignore_then(s)
+                            .ignore_then(just("if"))
+                            .ignore_then(s)
+                            .ignore_then(
+                                expr.clone()
+                                    .map(Box::new)
+                                    .spanned()
+                                    .critical("expected a condition for the 'else if' statement"),
+                            )
+                            .then_ignore(ms)
+                            .then(braces_expr_body.clone())
+                            .map(|(cond, body)| ElsIfExpr { cond, body })
+                            .spanned()
+                            .repeated_vec()
+                            .then(
+                                msnl.ignore_then(just("else").critical("expected an 'else' block"))
+                                    .ignore_then(ms)
+                                    .ignore_then(
+                                        braces_expr_body
+                                            .clone()
+                                            .critical("expected a body for the 'else' block"),
+                                    ),
+                            ),
+                    )
+                    .map(|((cond, body), (elsif, els))| ExprInnerContent::Ternary {
+                        cond,
+                        body,
+                        elsif,
+                        els,
+                    }),
                 // Simple values
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))
