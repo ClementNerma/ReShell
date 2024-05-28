@@ -287,6 +287,9 @@ impl Context {
             "Failed to prepare for new program: context should be set to the first scope's ID"
         );
 
+        // Clear the previous wandering value
+        self.clear_wandering_value();
+
         // Update the current scope's range
         self.scopes.get_mut(&self.current_scope).unwrap().range =
             RuntimeCodeRange::CodeRange(program.content.at);

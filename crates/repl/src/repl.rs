@@ -6,7 +6,12 @@ use std::{
 
 use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
-use reshell_runtime::{context::Context, errors::ExecErrorNature, files_map::ScopableFilePath};
+use reshell_runtime::{
+    context::Context,
+    errors::ExecErrorNature,
+    files_map::ScopableFilePath,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
+};
 
 use crate::{
     completer::{self, CompletionData},
@@ -87,14 +92,25 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             ctx,
         );
 
-        if let Err(err) = &ret {
-            if let ReportableError::Runtime(err) = &err {
-                if let ExecErrorNature::Exit { code } = err.nature {
-                    return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
+        match &ret {
+            Ok(()) => {
+                if let Some(value) = ctx.take_wandering_value() {
+                    println!(
+                        "{}",
+                        value.render_colored(ctx, PrettyPrintOptions::inline())
+                    )
                 }
             }
 
-            reports::print_error(err, ctx.files_map());
+            Err(err) => {
+                if let ReportableError::Runtime(err) = &err {
+                    if let ExecErrorNature::Exit { code } = err.nature {
+                        return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
+                    }
+                }
+
+                reports::print_error(err, ctx.files_map());
+            }
         }
 
         last_cmd_status = Some(LastCmdStatus {

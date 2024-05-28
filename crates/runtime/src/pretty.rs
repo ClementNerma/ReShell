@@ -88,6 +88,15 @@ impl PrettyPrintOptions {
             line_prefix_size: 0,
         }
     }
+
+    pub fn multiline() -> Self {
+        Self {
+            pretty: true,
+            tab_size: 4,
+            max_line_size: 80,
+            line_prefix_size: 0,
+        }
+    }
 }
 
 impl PrintablePiece {
