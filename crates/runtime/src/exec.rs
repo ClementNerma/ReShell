@@ -133,6 +133,8 @@ pub(crate) fn run_body_with_deps(
 }
 
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
+    ctx.clear_wandering_value();
+
     match &instr.data {
         Instruction::Comment { content: _ } => {}
 
@@ -541,6 +543,23 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 }
             }
         }
+
+        Instruction::FnCall(call) => match call_fn(call, ctx)? {
+            FnCallResult::Success { returned } => {
+                if ctx.current_scope().id == FIRST_SCOPE_ID {
+                    if let Some(returned) = returned {
+                        ctx.set_wandering_value(returned.value);
+                    }
+                }
+            }
+
+            FnCallResult::Thrown(value) => {
+                return Ok(Some(InstrRet {
+                    from: call.at,
+                    typ: InstrRetType::Thrown(value),
+                }))
+            }
+        },
 
         Instruction::BaseBlock(block) => {
             run_block(&block.data, ctx, ScopeContent::new())?;

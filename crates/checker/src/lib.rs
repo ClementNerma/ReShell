@@ -351,6 +351,8 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::BaseBlock(block) => check_block(block, state)?,
 
+        Instruction::FnCall(fn_call) => check_fn_call(fn_call, state)?,
+
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
     }
 

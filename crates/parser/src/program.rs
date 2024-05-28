@@ -967,7 +967,12 @@ pub fn program() -> impl Parser<Program> {
             //
             just("try")
                 .ignore_then(s)
-                .ignore_then(fn_call.spanned().critical("expected a function call"))
+                .ignore_then(
+                    fn_call
+                        .clone()
+                        .spanned()
+                        .critical("expected a function call"),
+                )
                 .then_ignore(s.critical("expected a space followed by 'catch'"))
                 .then_ignore(just("catch").critical("expected the 'catch' keyword"))
                 .then_ignore(s.critical("expected a space followed by the catch variable"))
@@ -1027,6 +1032,10 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(ms)
                 .ignore_then(block.spanned())
                 .map(Instruction::BaseBlock),
+            //
+            // Function call
+            //
+            fn_call.spanned().map(Instruction::FnCall),
             //
             // Command calls
             //

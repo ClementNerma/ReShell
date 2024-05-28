@@ -451,6 +451,10 @@ impl Context {
         self.wandering_value = Some(value);
     }
 
+    pub fn clear_wandering_value(&mut self) {
+        self.wandering_value = None;
+    }
+
     pub fn take_wandering_value(&mut self) -> Option<RuntimeValue> {
         self.wandering_value.take()
     }
