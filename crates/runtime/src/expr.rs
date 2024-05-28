@@ -54,7 +54,7 @@ fn eval_expr_ref(
         }
 
         let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
-        let right = eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx)?;
+        let right = |ctx: &'_ mut Context| eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx);
 
         let result = apply_double_op(left, right, &expr_op.op, ctx)?;
 
@@ -66,9 +66,13 @@ fn eval_expr_ref(
     eval_expr_inner(inner, ctx)
 }
 
+/// Apply a double operator (which is an operator taking two operands)
+///
+/// The 'right' value is lazily evaluated, which allows short-circuiting in some scenarios
+/// e.g. if the left operand of an AND operator is `false`, we can short-circuit the right value
 fn apply_double_op(
     left: RuntimeValue,
-    right: RuntimeValue,
+    right: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
     op: &Eaten<DoubleOp>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
@@ -80,61 +84,65 @@ fn apply_double_op(
         | DoubleOp::Lt
         | DoubleOp::Lte
         | DoubleOp::Gt
-        | DoubleOp::Gte => match (&left, &right) {
-            (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match op.data {
-                DoubleOp::Add => RuntimeValue::Int(left + right),
-                DoubleOp::Sub => RuntimeValue::Int(left - right),
-                DoubleOp::Mul => RuntimeValue::Int(left * right),
-                DoubleOp::Div => RuntimeValue::Int(left / right),
-                DoubleOp::Lt => RuntimeValue::Bool(left < right),
-                DoubleOp::Lte => RuntimeValue::Bool(left <= right),
-                DoubleOp::Gt => RuntimeValue::Bool(left > right),
-                DoubleOp::Gte => RuntimeValue::Bool(left >= right),
-                _ => unreachable!(),
-            },
+        | DoubleOp::Gte => {
+            let right = right(ctx)?;
 
-            (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match op.data {
-                DoubleOp::Add => RuntimeValue::Float(left + right),
-                DoubleOp::Sub => RuntimeValue::Float(left - right),
-                DoubleOp::Mul => RuntimeValue::Float(left * right),
-                DoubleOp::Div => RuntimeValue::Float(left / right),
-                DoubleOp::Lt => RuntimeValue::Bool(left < right),
-                DoubleOp::Lte => RuntimeValue::Bool(left <= right),
-                DoubleOp::Gt => RuntimeValue::Bool(left > right),
-                DoubleOp::Gte => RuntimeValue::Bool(left >= right),
-                _ => unreachable!(),
-            },
+            match (&left, &right) {
+                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match op.data {
+                    DoubleOp::Add => RuntimeValue::Int(left + right),
+                    DoubleOp::Sub => RuntimeValue::Int(left - right),
+                    DoubleOp::Mul => RuntimeValue::Int(left * right),
+                    DoubleOp::Div => RuntimeValue::Int(left / right),
+                    DoubleOp::Lt => RuntimeValue::Bool(left < right),
+                    DoubleOp::Lte => RuntimeValue::Bool(left <= right),
+                    DoubleOp::Gt => RuntimeValue::Bool(left > right),
+                    DoubleOp::Gte => RuntimeValue::Bool(left >= right),
+                    _ => unreachable!(),
+                },
 
-            (RuntimeValue::Int(_), RuntimeValue::Float(_)) => {
-                return Err(ctx.error(
-                    op.at,
-                    "left operand is an int but right operand is a float".to_string(),
-                ))
+                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match op.data {
+                    DoubleOp::Add => RuntimeValue::Float(left + right),
+                    DoubleOp::Sub => RuntimeValue::Float(left - right),
+                    DoubleOp::Mul => RuntimeValue::Float(left * right),
+                    DoubleOp::Div => RuntimeValue::Float(left / right),
+                    DoubleOp::Lt => RuntimeValue::Bool(left < right),
+                    DoubleOp::Lte => RuntimeValue::Bool(left <= right),
+                    DoubleOp::Gt => RuntimeValue::Bool(left > right),
+                    DoubleOp::Gte => RuntimeValue::Bool(left >= right),
+                    _ => unreachable!(),
+                },
+
+                (RuntimeValue::Int(_), RuntimeValue::Float(_)) => {
+                    return Err(ctx.error(
+                        op.at,
+                        "left operand is an int but right operand is a float".to_string(),
+                    ))
+                }
+
+                (RuntimeValue::Float(_), RuntimeValue::Int(_)) => {
+                    return Err(ctx.error(
+                        op.at,
+                        "left operand is a float but right operand is an int".to_string(),
+                    ))
+                }
+
+                (_, _) => {
+                    return Err(ctx.error(
+                        op.at,
+                        format!(
+                            "cannot apply this operator on a pair of {} and {}",
+                            left.get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline()),
+                            right
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
             }
+        }
 
-            (RuntimeValue::Float(_), RuntimeValue::Int(_)) => {
-                return Err(ctx.error(
-                    op.at,
-                    "left operand is a float but right operand is an int".to_string(),
-                ))
-            }
-
-            (_, _) => {
-                return Err(ctx.error(
-                    op.at,
-                    format!(
-                        "cannot apply this operator on a pair of {} and {}",
-                        left.get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
-                        right
-                            .get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
-                    ),
-                ))
-            }
-        },
-
-        DoubleOp::And | DoubleOp::Or => {
+        DoubleOp::And => {
             let RuntimeValue::Bool(left) = left else {
                 return Err(ctx.error(
                     op.at,
@@ -145,6 +153,12 @@ fn apply_double_op(
                     ),
                 ));
             };
+
+            if !left {
+                return Ok(RuntimeValue::Bool(false));
+            }
+
+            let right = right(ctx)?;
 
             let RuntimeValue::Bool(right) = right else {
                 return Err(ctx.error(
@@ -158,14 +172,45 @@ fn apply_double_op(
                 ));
             };
 
-            match op.data {
-                DoubleOp::And => RuntimeValue::Bool(left && right),
-                DoubleOp::Or => RuntimeValue::Bool(left || right),
-                _ => unreachable!(),
+            RuntimeValue::Bool(right)
+        }
+
+        DoubleOp::Or => {
+            let RuntimeValue::Bool(left) = left else {
+                return Err(ctx.error(
+                    op.at,
+                    format!(
+                        "left operand is not a boolean but a {}",
+                        left.get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline())
+                    ),
+                ));
+            };
+
+            if left {
+                return Ok(RuntimeValue::Bool(true));
             }
+
+            let right = right(ctx)?;
+
+            let RuntimeValue::Bool(right) = right else {
+                return Err(ctx.error(
+                    op.at,
+                    format!(
+                        "right operand is not a boolean but a {}",
+                        right
+                            .get_type()
+                            .render_colored(ctx, PrettyPrintOptions::inline())
+                    ),
+                ));
+            };
+
+            RuntimeValue::Bool(right)
         }
 
         DoubleOp::Eq | DoubleOp::Neq => {
+            let right = right(ctx)?;
+
             let cmp =
                 are_values_equal(&left, &right).map_err(|NotComparableTypes { reason }| {
                     ctx.error(
@@ -186,7 +231,7 @@ fn apply_double_op(
 
         DoubleOp::NullFallback => {
             if matches!(left, RuntimeValue::Null) {
-                right
+                right(ctx)?
             } else {
                 left
             }
