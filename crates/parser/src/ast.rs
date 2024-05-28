@@ -285,7 +285,7 @@ pub enum SingleValueType {
     Function(RuntimeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
     CmdCall,
-    ArgSpread,
+    CmdArg,
     // TODO: parsable?
     Custom(&'static str),
 }

@@ -100,6 +100,7 @@ pub enum RuntimeValue {
     Range { from: i64, to: i64 },
     Error(Box<ErrorValueContent>),
     CmdCall { content_at: CodeRange },
+    CmdArg(Box<CmdSingleArgResult>),
 
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
@@ -107,7 +108,6 @@ pub enum RuntimeValue {
     Map(GcCell<HashMap<String, RuntimeValue>>),
     Struct(GcCell<HashMap<String, RuntimeValue>>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
-    ArgSpread(GcReadOnlyCell<Vec<CmdSingleArgResult>>),
 
     // Custom value type
     Custom(GcReadOnlyCell<Box<dyn CustomValueType>>),
@@ -158,7 +158,7 @@ impl RuntimeValue {
                 })
             }
             RuntimeValue::Error(_) => SingleValueType::Error,
-            RuntimeValue::ArgSpread(_) => SingleValueType::ArgSpread,
+            RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
             RuntimeValue::Custom(custom) => SingleValueType::Custom(custom.typename()),
         }
     }
@@ -173,7 +173,7 @@ impl RuntimeValue {
             | RuntimeValue::Range { from: _, to: _ }
             | RuntimeValue::Error(_)
             | RuntimeValue::CmdCall { content_at: _ }
-            | RuntimeValue::ArgSpread(_)
+            | RuntimeValue::CmdArg(_)
             | RuntimeValue::Function(_)
             | RuntimeValue::Custom(_) => false,
 
@@ -302,10 +302,10 @@ pub fn are_values_equal(
         }),
         (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Ok(false),
 
-        (RuntimeValue::ArgSpread(_), RuntimeValue::ArgSpread(_)) => Err(NotComparableTypes {
-            reason: "cannot compare arguments spreads",
+        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypes {
+            reason: "cannot compare value arguments",
         }),
-        (RuntimeValue::ArgSpread(_), _) | (_, RuntimeValue::ArgSpread(_)) => Ok(false),
+        (RuntimeValue::CmdArg(_), _) | (_, RuntimeValue::CmdArg(_)) => Ok(false),
 
         (RuntimeValue::Custom(_), RuntimeValue::Custom(_)) => Err(NotComparableTypes {
             reason: "cannot compare custom types",
@@ -337,7 +337,7 @@ pub fn value_to_str(
         | RuntimeValue::Function(_)
         | RuntimeValue::Error(_)
         | RuntimeValue::CmdCall { content_at: _ }
-        | RuntimeValue::ArgSpread(_)
+        | RuntimeValue::CmdArg(_)
         | RuntimeValue::Custom(_) // TODO?
         => Err(ctx
             .error(

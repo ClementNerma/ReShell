@@ -50,7 +50,7 @@ impl PrettyPrintable for SingleValueType {
             Self::Map => PrettyPrintablePiece::colored_atomic("map", Color::Magenta),
             Self::Error => PrettyPrintablePiece::colored_atomic("error", Color::Magenta),
             Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
-            Self::ArgSpread => PrettyPrintablePiece::colored_atomic("spread", Color::Magenta),
+            Self::CmdArg => PrettyPrintablePiece::colored_atomic("spread", Color::Magenta),
             Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
             Self::TypedStruct(members) => PrettyPrintablePiece::List {
                 begin: Colored::with_color("struct { ", Color::Magenta),
@@ -165,6 +165,8 @@ impl PrettyPrintable for RuntimeValue {
                 ])
             }
 
+            RuntimeValue::CmdArg(arg) => arg.generate_pretty_data(ctx),
+
             RuntimeValue::CmdCall { content_at } => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("@{", Color::Magenta),
                 PrettyPrintablePiece::colored_atomic(
@@ -173,17 +175,6 @@ impl PrettyPrintable for RuntimeValue {
                 ),
                 PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
             ]),
-
-            RuntimeValue::ArgSpread(items) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("spread(", Color::Magenta),
-                items: items
-                    .iter()
-                    .map(|item| item.generate_pretty_data(ctx))
-                    .collect(),
-                sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color(")", Color::Magenta),
-                suffix: None,
-            },
 
             RuntimeValue::List(list) => PrettyPrintablePiece::List {
                 begin: Colored::with_color("[", Color::Blue),

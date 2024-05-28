@@ -497,7 +497,13 @@ fn parse_fn_call_args(
                     ValidatedFnCallArg {
                         decl_name_at: fn_arg_var_at(arg),
                         arg_value_at: call_at,
-                        value: RuntimeValue::ArgSpread(GcReadOnlyCell::new(rest_args)),
+                        value: RuntimeValue::List(GcCell::new(
+                            rest_args
+                                .into_iter()
+                                .map(Box::new)
+                                .map(RuntimeValue::CmdArg)
+                                .collect(),
+                        )),
                     },
                 );
 

@@ -105,8 +105,8 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Map, SingleValueType::Map) => true,
         (SingleValueType::Map, _) | (_, SingleValueType::Map) => false,
 
-        (SingleValueType::ArgSpread, SingleValueType::ArgSpread) => true,
-        (SingleValueType::ArgSpread, _) | (_, SingleValueType::ArgSpread) => false,
+        (SingleValueType::CmdArg, SingleValueType::CmdArg) => true,
+        (SingleValueType::CmdArg, _) | (_, SingleValueType::CmdArg) => false,
 
         (SingleValueType::UntypedStruct, SingleValueType::UntypedStruct) => true,
         (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => true,
