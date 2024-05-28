@@ -24,9 +24,10 @@ use reshell_parser::{
         CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
         ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
-        FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, Program, PropAccess,
-        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
+        FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding,
+        Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+        SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
+        Value, ValueType, VarDeclType,
     },
     scope::AstScopeId,
 };
@@ -223,26 +224,65 @@ fn block_first_pass(
 
 fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
     match &instr.data {
-        Instruction::DeclareVar {
-            name,
-            mutable,
-            init_expr,
-        } => {
+        Instruction::DeclareVar { names, init_expr } => {
             // if state.curr_scope().vars.contains_key(&name.data) {
             //     return Err(CheckerError::new(name.at, "duplicate variable declaration"));
             // }
 
             check_expr(&init_expr.data, state)?;
 
-            let curr_scope_id = state.curr_scope().id;
+            fn insert_var(decl: &SingleVarDecl, state: &mut State) {
+                let SingleVarDecl { name, is_mut } = decl;
 
-            state.curr_scope_mut().vars.insert(
-                name.data.clone(),
-                DeclaredVar {
-                    scope_id: curr_scope_id,
-                    is_mut: mutable.is_some(),
-                },
-            );
+                let scope_id = state.curr_scope().id;
+
+                state.curr_scope_mut().vars.insert(
+                    name.data.clone(),
+                    DeclaredVar {
+                        scope_id,
+                        is_mut: is_mut.is_some(),
+                    },
+                );
+            }
+
+            fn insert_vars(names: &VarDeclType, state: &mut State) {
+                match names {
+                    VarDeclType::Single(single) => insert_var(single, state),
+                    VarDeclType::Tuple(vars) => {
+                        for vars in vars {
+                            insert_vars(&vars.data, state);
+                        }
+                    }
+
+                    VarDeclType::MapOrStruct(vars) => {
+                        for (name, from) in vars {
+                            match from {
+                                Some(MapDestructBinding::BindTo(alias)) => {
+                                    insert_var(
+                                        &SingleVarDecl {
+                                            name: alias.clone(),
+                                            is_mut: name.data.is_mut,
+                                        },
+                                        state,
+                                    );
+                                }
+
+                                Some(MapDestructBinding::Destruct(destruct)) => {
+                                    insert_vars(&destruct.data, state);
+                                }
+
+                                None => {
+                                    insert_var(&name.data, state);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // TODO: detect duplicate identifiers (deeply nested) -> use a HashSet<> for that
+
+            insert_vars(&names.data, state);
         }
 
         Instruction::AssignVar {

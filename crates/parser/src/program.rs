@@ -16,9 +16,10 @@ use crate::{
         CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
         EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
         ExprInnerDirectChaining, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
-        FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, Program,
-        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
+        FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue,
+        MapDestructBinding, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall,
+        SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
+        Value, ValueType, VarDeclType,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -991,6 +992,58 @@ pub fn program(
 
         let scope_id_gen_bis = scope_id_gen.clone();
 
+        let single_var_decl = just("mut")
+            .to(())
+            .not_followed_by(possible_ident_char)
+            .then_ignore(s.critical("expected a whitespace after 'mut' keyword"))
+            .spanned()
+            .or_not()
+            .then(ident.spanned())
+            .map(|(is_mut, name)| SingleVarDecl { name, is_mut });
+
+        let var_decl_type = recursive(|var_decl_type| {
+            choice::<_, VarDeclType>((
+                char('[')
+                    .ignore_then(msnl)
+                    .ignore_then(
+                        var_decl_type
+                            .clone()
+                            .spanned()
+                            .separated_by(char(',').padded_by(msnl)),
+                    )
+                    .then_ignore(msnl)
+                    .then_ignore(char(']'))
+                    .map(VarDeclType::Tuple),
+                char('{')
+                    .ignore_then(msnl)
+                    .ignore_then(
+                        single_var_decl
+                            .spanned()
+                            .then(
+                                char(':')
+                                    .ignore_then(msnl)
+                                    .ignore_then(
+                                        choice::<_, MapDestructBinding>((
+                                            ident.spanned().map(MapDestructBinding::BindTo),
+                                            var_decl_type
+                                                .clone()
+                                                .spanned()
+                                                .map(Box::new)
+                                                .map(MapDestructBinding::Destruct),
+                                        ))
+                                        .critical("expected a sub-declaration"),
+                                    )
+                                    .or_not(),
+                            )
+                            .separated_by(char(',').padded_by(msnl)),
+                    )
+                    .then_ignore(msnl)
+                    .then_ignore(char('}'))
+                    .map(VarDeclType::MapOrStruct),
+                single_var_decl.map(VarDeclType::Single),
+            ))
+        });
+
         let instr = choice::<_, Instruction>((
             //
             // Variables declaration
@@ -998,13 +1051,10 @@ pub fn program(
             just("let")
                 .then_ignore(s)
                 .ignore_then(
-                    just("mut")
-                        .not_followed_by(possible_ident_char)
-                        .then_ignore(s.critical("expected a whitespace after 'mut' keyword"))
+                    var_decl_type
                         .spanned()
-                        .or_not(),
+                        .critical("expected a valid variable declaration"),
                 )
-                .then(ident.spanned().critical("expected a variable name"))
                 .then(
                     ms.ignore_then(char('=').critical_expectation())
                         .ignore_then(msnl)
@@ -1014,11 +1064,7 @@ pub fn program(
                                 .critical("expected an expression to assign"),
                         ),
                 )
-                .map(|((mutable, name), init_expr)| Instruction::DeclareVar {
-                    mutable: mutable.map(|tok| tok.replace(())),
-                    name,
-                    init_expr,
-                }),
+                .map(|(names, init_expr)| Instruction::DeclareVar { names, init_expr }),
             //
             // Variables assignment
             //
