@@ -486,7 +486,7 @@ fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
         shift = pos + 1;
     }
 
-    if shift + 1 < string.len() {
+    if shift < string.len() {
         pieces.push(PrettyPrintablePiece::colored_atomic(
             string[shift..].to_owned(),
             Color::BrightGreen,
