@@ -697,14 +697,10 @@ pub fn program(
 
         let cmd_computed_string = not(just("->")).ignore_then(
             choice::<_, CmdComputedStringPiece>((
-                // Escaped
-                char('\\')
-                    .ignore_then(any_char())
-                    .map(CmdComputedStringPiece::Escaped),
                 // Expressions
                 var_name.spanned().map(CmdComputedStringPiece::Variable),
                 // Literal character suites
-                filter(|c| c != '\\' && !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+                filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
                     .repeated()
                     .at_least(1)
                     .collect_string()
