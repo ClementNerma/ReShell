@@ -1,7 +1,5 @@
 use std::{
-    cell::RefCell,
     collections::{HashMap, HashSet},
-    rc::Rc,
     sync::LazyLock,
 };
 
@@ -23,6 +21,7 @@ use crate::{
         Value, ValueType,
     },
     files::SourceFile,
+    scope::ScopeIdGenerator,
 };
 
 pub fn program(
@@ -41,7 +40,7 @@ pub fn program(
 
     let msnl = silent_choice((comment, filter(|c| c.is_whitespace()))).repeated();
 
-    let block_id = Rc::new(RefCell::new(0));
+    let scope_id_gen = ScopeIdGenerator::new();
 
     let raw_block = recursive::<Block, _>(move |raw_block| {
         let s = whitespaces().no_newline().at_least_one();
@@ -416,6 +415,8 @@ pub fn program(
             .then_ignore(char('"').critical_expectation())
             .map(|pieces| ComputedString { pieces });
 
+        let scope_id_gen_bis = scope_id_gen.clone();
+
         let value = choice::<_, Value>((
             just("null").map(|_| Value::Null),
             // Literals
@@ -513,7 +514,12 @@ pub fn program(
                         lookahead(char('{'))
                             .ignore_then(block.clone().spanned())
                             .map(FunctionBody::Block),
-                        expr.clone().map(Box::new).spanned().map(FunctionBody::Expr),
+                        expr.clone().map(Box::new).spanned().map(move |content| {
+                            FunctionBody::Expr {
+                                content,
+                                scope_id: scope_id_gen_bis.gen(),
+                            }
+                        }),
                     ))
                     .critical("expected a function body")
                     .spanned(),
@@ -547,6 +553,8 @@ pub fn program(
             .then_ignore(char('}').critical_expectation());
 
         let expr_inner_direct_chaining = late::<ExprInnerDirectChaining>();
+
+        let scope_id_gen_bis = scope_id_gen.clone();
 
         let expr_inner_content = recursive(|expr_inner_content| {
             choice::<_, ExprInnerContent>((
@@ -637,11 +645,14 @@ pub fn program(
                             .spanned()
                             .critical("expected a catch expression"),
                     )
-                    .map(|((fn_call, catch_var), catch_expr)| ExprInnerContent::Try {
-                        fn_call,
-                        catch_var,
-                        catch_expr,
-                    }),
+                    .map(
+                        move |((fn_call, catch_var), catch_expr)| ExprInnerContent::Try {
+                            fn_call,
+                            catch_var,
+                            catch_expr,
+                            catch_expr_scope_id: scope_id_gen_bis.gen(),
+                        },
+                    ),
                 // Simple values
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))
@@ -918,6 +929,8 @@ pub fn program(
                 .map(|(base, pipes)| CmdCall { base, pipes }),
         );
 
+        let scope_id_gen_bis = scope_id_gen.clone();
+
         let instr = choice::<_, Instruction>((
             //
             // Variables declaration
@@ -1188,7 +1201,7 @@ pub fn program(
                 )
                 .then_ignore(ms)
                 .then(block.clone().spanned().critical("expected a block"))
-                .map(|((call, catch_var), catch_body)| Instruction::Try {
+                .map(move |((call, catch_var), catch_body)| Instruction::Try {
                     call,
                     catch_var,
                     catch_body,
@@ -1212,7 +1225,11 @@ pub fn program(
                         .spanned()
                         .critical("expected a command call to alias"),
                 )
-                .map(|(name, content)| Instruction::CmdAliasDecl { name, content }),
+                .map(move |(name, content)| Instruction::CmdAliasDecl {
+                    name,
+                    content_scope_id: scope_id_gen_bis.gen(),
+                    content,
+                }),
             //
             // Type aliases
             //
@@ -1267,19 +1284,14 @@ pub fn program(
         );
 
         // Raw block
-        let block_id = Rc::clone(&block_id);
+        let scope_id_gen_bis = scope_id_gen.clone();
 
         instr
             .padded_by(msnl)
             .repeated_vec()
-            .map(move |instructions| {
-                let mut id = block_id.borrow_mut();
-                *id += 1;
-
-                Block {
-                    id: *id,
-                    instructions,
-                }
+            .map(move |instructions| Block {
+                scope_id: scope_id_gen_bis.gen(),
+                instructions,
             })
     });
 
