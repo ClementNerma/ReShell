@@ -12,11 +12,12 @@ use crate::{
     errors::ExecResult,
     exec::{run_block, InstrRet, InstrRetType},
     expr::eval_expr,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_if_single_type_fits,
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
-pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
+pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResult> {
     let func = if call.data.is_var_name {
         match &ctx.get_var_value(&call.data.name)? {
             RuntimeValue::Function(ref func) => func.clone(),
@@ -47,10 +48,10 @@ pub fn call_fn_value(
     func: &RuntimeFnValue,
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
-) -> ExecResult<Option<LocatedValue>> {
+) -> ExecResult<FnCallResult> {
     let call_args = parse_fn_call_args(call_at, call_args, &func.signature.args, ctx)?;
 
-    let ret = match &func.body {
+    let returned = match &func.body {
         RuntimeFnBody::Block(body) => {
             let mut fn_scope = ctx.create_scope();
 
@@ -75,7 +76,7 @@ pub fn call_fn_value(
                         return Err(ctx.error(from, "not in a loop"))
                     }
                     InstrRetType::FnReturn(value) => value,
-                    InstrRetType::Throwed(_) => todo!(),
+                    InstrRetType::Throwed(value) => return Ok(FnCallResult::Thrown(value)),
                 },
 
                 None => None,
@@ -86,7 +87,7 @@ pub fn call_fn_value(
     };
 
     if let Some(ret_type) = &func.signature.ret_type {
-        let Some(ret_val) = &ret else {
+        let Some(ret_val) = &returned else {
             return Err(ctx.error(
                 call_at,
                 format!(
@@ -108,7 +109,7 @@ pub fn call_fn_value(
         }
     }
 
-    Ok(ret)
+    Ok(FnCallResult::Success { returned })
 }
 
 fn parse_fn_call_args(
@@ -379,6 +380,22 @@ fn is_type_bool(typ: &ValueType) -> bool {
     }
 }
 
+pub fn fail_if_thrown(
+    call_result: FnCallResult,
+    ctx: &mut Context,
+) -> ExecResult<Option<LocatedValue>> {
+    match call_result {
+        FnCallResult::Success { returned } => Ok(returned),
+        FnCallResult::Thrown(LocatedValue { value, from }) => Err(ctx.error(
+            from,
+            format!(
+                "function call thrown a value: {}",
+                value.render(PrettyPrintOptions::inline())
+            ),
+        )),
+    }
+}
+
 pub enum FnPossibleCallArgs<'a> {
     Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
     Direct {
@@ -390,4 +407,9 @@ pub enum FnPossibleCallArgs<'a> {
 pub enum FnPossibleCallArg<'a> {
     Parsed(&'a FnCallArg),
     Direct(&'a LocatedValue),
+}
+
+pub enum FnCallResult {
+    Success { returned: Option<LocatedValue> },
+    Thrown(LocatedValue),
 }

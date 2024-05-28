@@ -11,7 +11,7 @@ use crate::{
     context::Context,
     display::{readable_value_type, value_to_str},
     errors::{ExecErrorContent, ExecResult},
-    functions::call_fn,
+    functions::{call_fn, fail_if_thrown},
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
     values::{are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
@@ -281,7 +281,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         }
         Value::Variable(name) => ctx.get_var_value(name).map(|value| value.clone()),
         Value::FnAsValue(name) => Ok(RuntimeValue::Function(ctx.get_fn_value(name)?.clone())),
-        Value::FnCall(call) => Ok(call_fn(call, ctx)?
+        Value::FnCall(call) => Ok(fail_if_thrown(call_fn(call, ctx)?, ctx)?
             .ok_or_else(|| ctx.error(value.at, "this function call didn't return any value"))?
             .value),
         Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.unwrap())),
