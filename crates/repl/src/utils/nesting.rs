@@ -85,13 +85,6 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             '\\' => match opened.last() {
                 Some(("\"", _)) => {
                     escaping = Some((char_as_str, offset));
-                    push(
-                        &mut output,
-                        &mut opened,
-                        offset,
-                        1,
-                        NestingActionType::Escaping,
-                    );
                 }
 
                 _ => push(
