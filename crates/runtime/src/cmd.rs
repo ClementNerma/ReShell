@@ -103,7 +103,7 @@ pub fn run_cmd(
             )?;
 
             if i + 1 < chain_len && last_return_value.is_none() {
-                return Err(ctx.error(call_at, "this function call did not return a value"));
+                return Err(ctx.error(call_at, "piped function did not return a value"));
             }
         }
 

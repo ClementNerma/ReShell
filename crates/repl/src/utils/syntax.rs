@@ -226,6 +226,16 @@ fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<
             continue;
         }
 
+        if let Some(prev) = matched.get(i).map(|m| m.start + m.len) {
+            if captured.start() > prev {
+                out.push(HighlightPiece {
+                    start: prev,
+                    len: captured.start() - prev,
+                    style: None,
+                });
+            }
+        }
+
         out.push(HighlightPiece {
             start: captured.start(),
             len: captured.len(),
