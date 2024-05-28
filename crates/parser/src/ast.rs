@@ -380,7 +380,7 @@ pub struct CmdCall {
 
 #[derive(Debug, Clone)]
 pub enum CmdCallBase {
-    Expr(Eaten<Box<Expr>>),
+    OutputOf(Eaten<SingleCmdCall>),
     SingleCmdCall(Eaten<SingleCmdCall>),
 }
 

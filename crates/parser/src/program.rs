@@ -1013,10 +1013,10 @@ pub fn program(
             });
 
         let cmd_call_base = choice::<_, CmdCallBase>((
-            just("expr")
+            just("output")
                 .ignore_then(s)
-                .ignore_then(expr.clone().map(Box::new).spanned())
-                .map(CmdCallBase::Expr),
+                .ignore_then(single_cmd_call.clone().spanned())
+                .map(CmdCallBase::OutputOf),
             single_cmd_call
                 .clone()
                 .spanned()

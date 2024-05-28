@@ -54,12 +54,31 @@ pub fn run_cmd(
     let CmdCall { base, pipes } = &call.data;
 
     let (base, from_value) = match base {
-        CmdCallBase::Expr(expr) => {
-            let value = eval_expr(&expr.data, ctx)?;
-            (
-                None,
-                Some(LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))),
-            )
+        CmdCallBase::OutputOf(cmd_call) => {
+            // TODO: cache this
+            let cmd_call = cmd_call.forge_here(CmdCall {
+                base: CmdCallBase::SingleCmdCall(cmd_call.clone()),
+                pipes: vec![],
+            });
+
+            let output = run_cmd(
+                &cmd_call,
+                ctx,
+                CmdExecParams {
+                    capture: Some(CmdPipeCapture::Stdout),
+                },
+            )?;
+
+            match output {
+                CmdExecResult::Returned(_) | CmdExecResult::None => unreachable!(),
+                CmdExecResult::Captured(captured) => (
+                    None,
+                    Some(LocatedValue::new(
+                        RuntimeValue::String(captured),
+                        RuntimeCodeRange::Parsed(cmd_call.at),
+                    )),
+                ),
+            }
         }
 
         CmdCallBase::SingleCmdCall(cmd_call) => (Some(cmd_call), None),
