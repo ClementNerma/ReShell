@@ -19,6 +19,7 @@ mod exit;
 mod file_exists;
 mod filter;
 mod find_str;
+mod fold;
 mod glob;
 mod human_size;
 mod join;
@@ -34,6 +35,7 @@ mod print_runtime_stats;
 mod range;
 mod read_dir;
 mod read_file;
+mod reduce;
 mod replace;
 mod reverse;
 mod rm;
@@ -75,6 +77,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::error::build_fn(),
             self::exit::build_fn(),
             self::file_exists::build_fn(),
+            self::fold::build_fn(),
             self::glob::build_fn(),
             self::human_size::build_fn(),
             self::join::build_fn(),
@@ -93,6 +96,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::range::build_fn(),
             self::read_dir::build_fn(),
             self::read_file::build_fn(),
+            self::reduce::build_fn(),
             self::replace::build_fn(),
             self::reverse::build_fn(),
             self::rm::build_fn(),
