@@ -203,7 +203,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                         } else {
                             Color::Red
                         };
-            
+
                         vec![Style::new().fg(color)]
                     }))
                 }),
@@ -228,7 +228,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                             Color::Red
                         };
 
-                        vec![Style::new().fg(color)]
+                        vec![Style::new().fg(Color::LightYellow), Style::new().fg(color)]
                     }))
                 }),
 
