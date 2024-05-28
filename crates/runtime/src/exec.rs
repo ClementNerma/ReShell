@@ -11,9 +11,9 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeVar, FIRST_SCOPE_ID,
     },
-    errors::ExecResult,
+    errors::{ExecErrorNature, ExecResult},
     expr::eval_expr,
-    functions::{call_fn, FnCallResult},
+    functions::eval_fn_call,
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAccessTailPolicy, PropAssignment},
@@ -65,11 +65,11 @@ fn run_block(
 
     ctx.create_and_push_scope(RuntimeCodeRange::CodeRange(*code_range), content);
 
-    let ret = run_block_in_current_scope(block, ctx)?;
+    let result = run_block_in_current_scope(block, ctx);
 
     ctx.pop_scope();
 
-    Ok(ret)
+    result
 }
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
@@ -108,11 +108,11 @@ pub(crate) fn run_body_with_deps(
         call_stack_entry,
     );
 
-    let instr_ret = run_block_in_current_scope(block, ctx)?;
+    let result = run_block_in_current_scope(block, ctx);
 
     ctx.pop_scope();
 
-    Ok(instr_ret)
+    result
 }
 
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
@@ -537,23 +537,27 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             call,
             catch_var,
             catch_body,
-        } => match call_fn(call, ctx)? {
-            FnCallResult::Success { returned: _ } => {}
-            FnCallResult::Thrown(LocatedValue { value, from }) => {
-                let mut scope = ScopeContent::new();
+        } => {
+            if let Err(err) = eval_fn_call(call, ctx) {
+                match err.nature {
+                    ExecErrorNature::Thrown { value } => {
+                        let mut scope = ScopeContent::new();
 
-                scope.vars.insert(
-                    catch_var.data.clone(),
-                    ScopeVar {
-                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
-                        is_mut: false,
-                        value: GcCell::new(Some(LocatedValue { value, from })),
-                    },
-                );
+                        scope.vars.insert(
+                            catch_var.data.clone(),
+                            ScopeVar {
+                                name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                                is_mut: false,
+                                value: GcCell::new(Some(value)),
+                            },
+                        );
 
-                run_block(&catch_body.data, ctx, scope)?;
+                        run_block(&catch_body.data, ctx, scope)?;
+                    }
+                    _ => return Err(err),
+                }
             }
-        },
+        }
 
         Instruction::CmdAliasDecl { name, content } => {
             // We can do this thanks to the checker
@@ -603,22 +607,15 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         }
 
-        Instruction::FnCall(call) => match call_fn(call, ctx)? {
-            FnCallResult::Success { returned } => {
-                if ctx.current_scope().id == FIRST_SCOPE_ID {
-                    if let Some(returned) = returned {
-                        ctx.set_wandering_value(returned.value);
-                    }
+        Instruction::FnCall(call) => {
+            let returned = eval_fn_call(call, ctx)?;
+
+            if ctx.current_scope().id == FIRST_SCOPE_ID {
+                if let Some(returned) = returned {
+                    ctx.set_wandering_value(returned.value);
                 }
             }
-
-            FnCallResult::Thrown(value) => {
-                return Ok(Some(InstrRet {
-                    from: call.at,
-                    typ: InstrRetType::Thrown(value),
-                }))
-            }
-        },
+        }
 
         Instruction::BaseBlock(block) => {
             run_block(&block.data, ctx, ScopeContent::new())?;

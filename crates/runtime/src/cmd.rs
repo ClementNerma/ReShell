@@ -15,7 +15,7 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
-    functions::{call_fn, call_fn_value, FnCallResult, FnPossibleCallArgs},
+    functions::{call_fn_value, eval_fn_call, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{LocatedValue, RuntimeCmdAlias, RuntimeValue},
@@ -72,130 +72,23 @@ pub fn run_cmd(
             );
         }
 
-        match content {
-            CmdChainElContent::NonCmd(call) => {
-                // for now (TODO)
-                assert!(!pipe_types.iter().any(|pipe_type| pipe_type.is_some()));
-
-                let NonCmdCall {
-                    at,
-                    nature,
-                    call_args,
-                } = call;
-
-                let result = match nature {
-                    NonCmdCallNature::Function { is_var_name, name } => {
-                        // TODO: handle non-success cases (e.g. Thrown)
-                        call_fn(
-                            &Eaten::ate(
-                                at,
-                                FnCall {
-                                    is_var_name,
-                                    name,
-                                    call_args,
-                                },
-                            ),
-                            ctx,
-                        )?
-                    }
-
-                    NonCmdCallNature::Expr(expr) => {
-                        let result = eval_expr(&expr.data, ctx)?;
-
-                        let func = match result {
-                            RuntimeValue::Function(func) => func,
-
-                            _ => {
-                                return Err(ctx.error(
-                                    expr.at,
-                                    format!(
-                                        "expected a function, got a {}",
-                                        result
-                                            .get_type()
-                                            .render_colored(ctx, PrettyPrintOptions::inline())
-                                    ),
-                                ));
-                            }
-                        };
-
-                        call_fn_value(
-                            RuntimeCodeRange::CodeRange(at),
-                            &func,
-                            FnPossibleCallArgs::Parsed(&call_args),
-                            ctx,
-                        )?
-                    }
-                };
-
-                match result {
-                    FnCallResult::Success { returned } => {
-                        if let Some(returned) = returned {
-                            // Only if there is no function to run afterwards
-                            if next_pipe_type.is_none() {
-                                last_return_value = Some(returned);
-                            }
-                        }
-                    }
-
-                    FnCallResult::Thrown(_) => todo!(),
-                }
-            }
-
-            CmdChainElContent::Cmd(item) => {
-                let CmdCallEl {
-                    path,
-                    env_vars,
-                    args,
-                    at,
-                } = item;
-
-                let cmd_path = treat_cwd_raw(&path, ctx)?;
-
-                let child = Command::new(&cmd_path)
-                    .envs(env_vars)
-                    .args(args.clone())
-                    .stdin(match children.last_mut() {
-                        Some((child, _)) => match pipe_type {
-                            Some(pipe_type) => match pipe_type.data {
-                                CmdPipeType::Stdout => Stdio::from(child.stdout.take().unwrap()),
-                                CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
-                                // CmdPipeType::Both => todo!(),
-                            },
-                            None => unreachable!(),
-                        },
-                        None => Stdio::inherit(),
-                    })
-                    .stdout(
-                        if capture_stdout || next_pipe_type == Some(CmdPipeType::Stdout) {
-                            // println!("(piped) {}", name.data);
-                            Stdio::piped()
-                        } else {
-                            // println!("(inherit) {}", name.data);
-                            Stdio::inherit()
-                        },
-                    )
-                    .stderr(if next_pipe_type == Some(CmdPipeType::Stderr) {
-                        Stdio::piped()
-                    } else {
-                        Stdio::inherit()
-                    })
-                    .spawn()
-                    .map_err(|err| {
-                        ctx.error(
-                            path.at,
-                            ExecErrorNature::CommandFailed {
-                                message: format!("failed to start command '{}': {err}", path.data),
-                                exit_status: None,
-                            },
-                        )
-                    })?;
-
-                children.push((child, at));
-            }
-        }
+        let result = eval_cmd_chain_el_content(
+            content,
+            pipe_type,
+            next_pipe_type,
+            capture_stdout,
+            &mut children,
+            ctx,
+        );
 
         for _ in 0..aliases_deps_scopes_len {
             ctx.pop_scope();
+        }
+
+        if let Some(value) = result? {
+            if next_pipe_type.is_none() {
+                last_return_value = Some(value);
+            }
         }
     }
 
@@ -330,6 +223,123 @@ fn single_call_to_chain_el(
             .map(|_| ctx.pop_scope_and_get_deps().unwrap())
             .collect(),
     })
+}
+
+fn eval_cmd_chain_el_content(
+    content: CmdChainElContent,
+    pipe_type: Option<Eaten<CmdPipeType>>,
+    next_pipe_type: Option<CmdPipeType>,
+    capture_stdout: bool,
+    children: &mut Vec<(Child, CodeRange)>,
+    ctx: &mut Context,
+) -> ExecResult<Option<LocatedValue>> {
+    match content {
+        CmdChainElContent::NonCmd(call) => {
+            let NonCmdCall {
+                at,
+                nature,
+                call_args,
+            } = call;
+
+            match nature {
+                NonCmdCallNature::Function { is_var_name, name } => {
+                    // TODO: handle non-success cases (e.g. Thrown)
+                    eval_fn_call(
+                        &Eaten::ate(
+                            at,
+                            FnCall {
+                                is_var_name,
+                                name,
+                                call_args,
+                            },
+                        ),
+                        ctx,
+                    )
+                }
+
+                NonCmdCallNature::Expr(expr) => {
+                    let result = eval_expr(&expr.data, ctx)?;
+
+                    let func = match result {
+                        RuntimeValue::Function(func) => func,
+
+                        _ => {
+                            return Err(ctx.error(
+                                expr.at,
+                                format!(
+                                    "expected a function, got a {}",
+                                    result
+                                        .get_type()
+                                        .render_colored(ctx, PrettyPrintOptions::inline())
+                                ),
+                            ));
+                        }
+                    };
+
+                    call_fn_value(
+                        RuntimeCodeRange::CodeRange(at),
+                        &func,
+                        FnPossibleCallArgs::Parsed(&call_args),
+                        ctx,
+                    )
+                }
+            }
+        }
+
+        CmdChainElContent::Cmd(item) => {
+            let CmdCallEl {
+                path,
+                env_vars,
+                args,
+                at,
+            } = item;
+
+            let cmd_path = treat_cwd_raw(&path, ctx)?;
+
+            let child = Command::new(cmd_path)
+                .envs(env_vars)
+                .args(args.clone())
+                .stdin(match children.last_mut() {
+                    Some((child, _)) => match pipe_type {
+                        Some(pipe_type) => match pipe_type.data {
+                            CmdPipeType::Stdout => Stdio::from(child.stdout.take().unwrap()),
+                            CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
+                            // CmdPipeType::Both => todo!(),
+                        },
+                        None => unreachable!(),
+                    },
+                    None => Stdio::inherit(),
+                })
+                .stdout(
+                    if capture_stdout || next_pipe_type == Some(CmdPipeType::Stdout) {
+                        // println!("(piped) {}", name.data);
+                        Stdio::piped()
+                    } else {
+                        // println!("(inherit) {}", name.data);
+                        Stdio::inherit()
+                    },
+                )
+                .stderr(if next_pipe_type == Some(CmdPipeType::Stderr) {
+                    Stdio::piped()
+                } else {
+                    Stdio::inherit()
+                })
+                .spawn()
+                .map_err(|err| {
+                    ctx.error(
+                        path.at,
+                        ExecErrorNature::CommandFailed {
+                            message: format!("failed to start command '{}': {err}", path.data),
+                            exit_status: None,
+                        },
+                    )
+                })?;
+
+            children.push((child, at));
+
+            Ok(None)
+        }
+    }
 }
 
 #[derive(Debug)]

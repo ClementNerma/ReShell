@@ -97,7 +97,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
             Ok(()) => Ok(ExitCode::SUCCESS),
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
-                Ok(loose_exit_code(err.exit_code().flatten()))
+                Ok(loose_exit_code(err.exit_code()))
             }
         };
     }
@@ -112,7 +112,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
             Ok(()) => Ok(ExitCode::SUCCESS),
             Err(err) => {
                 reports::print_error(&err, ctx.files_map());
-                Ok(loose_exit_code(err.exit_code().flatten()))
+                Ok(loose_exit_code(err.exit_code()))
             }
         };
     }

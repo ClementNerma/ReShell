@@ -49,6 +49,10 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
         let prompt_rendering = match render_prompt(ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
+                if let ExecErrorNature::Exit { code } = err.nature {
+                    return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
+                }
+
                 reports::print_error(&ReportableError::Runtime(err), ctx.files_map());
                 PromptRendering::default()
             }
@@ -99,14 +103,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
             duration_ms: start.elapsed().as_millis(),
-            exit_code: ret.err().and_then(|err| {
-                err.exit_code().map(|code| {
-                    code.unwrap_or(
-                        // NOTE: fallback exit code
-                        1,
-                    )
-                })
-            }),
+            exit_code: ret.err().and_then(|err| err.exit_code()),
         });
     }
 }

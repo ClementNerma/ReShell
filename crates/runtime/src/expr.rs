@@ -12,13 +12,13 @@ use crate::{
     context::{Context, ScopeContent, ScopeVar},
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
-    functions::{call_fn, FnCallResult},
+    functions::eval_fn_call,
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
-        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnSignature,
-        RuntimeFnValue, RuntimeValue,
+        are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
+        RuntimeValue,
     },
 };
 
@@ -302,31 +302,35 @@ fn eval_expr_inner_content(
             fn_call,
             catch_var,
             catch_expr,
-        } => match call_fn(fn_call, ctx)? {
-            FnCallResult::Success { returned } => returned
+        } => match eval_fn_call(fn_call, ctx) {
+            Ok(returned) => returned
                 .ok_or_else(|| ctx.error(fn_call.at, "function did not return a value"))
                 .map(|loc_val| loc_val.value),
 
-            FnCallResult::Thrown(thrown) => {
-                let mut scope = ScopeContent::new();
+            Err(err) => match err.nature {
+                ExecErrorNature::Thrown { value } => {
+                    let mut scope = ScopeContent::new();
 
-                scope.vars.insert(
-                    catch_var.data.clone(),
-                    ScopeVar {
-                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
-                        is_mut: false,
-                        value: GcCell::new(Some(thrown)),
-                    },
-                );
+                    scope.vars.insert(
+                        catch_var.data.clone(),
+                        ScopeVar {
+                            name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                            is_mut: false,
+                            value: GcCell::new(Some(value)),
+                        },
+                    );
 
-                ctx.create_and_push_scope(RuntimeCodeRange::CodeRange(catch_expr.at), scope);
+                    ctx.create_and_push_scope(RuntimeCodeRange::CodeRange(catch_expr.at), scope);
 
-                let result = eval_expr(&catch_expr.data, ctx)?;
+                    let result = eval_expr(&catch_expr.data, ctx);
 
-                ctx.pop_scope();
+                    ctx.pop_scope();
 
-                Ok(result)
-            }
+                    result
+                }
+
+                _ => Err(err),
+            },
         },
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
@@ -336,16 +340,20 @@ fn eval_expr_inner_content(
 fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     match &value.data {
         Value::Null => Ok(RuntimeValue::Null),
+
         Value::Literal(lit) => Ok(eval_literal_value(&lit.data)),
+
         Value::ComputedString(computed_str) => {
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)
         }
+
         Value::List(values) => Ok(RuntimeValue::List(GcCell::new(
             values
                 .iter()
                 .map(|expr| eval_expr(&expr.data, ctx))
                 .collect::<Result<Vec<_>, _>>()?,
         ))),
+
         Value::Struct(obj) => {
             let members = obj
                 .iter()
@@ -354,6 +362,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
 
             Ok(RuntimeValue::Struct(GcCell::new(members)))
         }
+
         Value::Variable(name) => Ok(ctx
             .get_visible_var(name)
             .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
@@ -368,30 +377,17 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             })?
             .value
             .clone()),
+
         Value::FnAsValue(name) => Ok(RuntimeValue::Function(
             ctx.get_visible_fn_value(name)?.clone(),
         )),
-        Value::FnCall(call) => match call_fn(call, ctx)? {
-            FnCallResult::Success { returned } => match returned {
-                Some(loc) => Ok(loc.value),
-                None => Err(ctx.error(call.at, "function call did not return a value")),
-            },
-            FnCallResult::Thrown(LocatedValue { from, value }) => Err(ctx.error(
-                match from {
-                    RuntimeCodeRange::CodeRange(from) => from,
-                    RuntimeCodeRange::Internal => {
-                        return Err(
-                            ctx.error(call.at, "internal error: native function thrown a value")
-                        )
-                    }
-                },
-                format!(
-                    "function call thrown a value: {}",
-                    value.render_uncolored(ctx, PrettyPrintOptions::inline())
-                ),
-            )),
-        },
+
+        Value::FnCall(call) => eval_fn_call(call, ctx)?
+            .map(|loc_val| loc_val.value)
+            .ok_or_else(|| ctx.error(call.at, "function call did not return a value")),
+
         Value::CmdOutput(call) => Ok(RuntimeValue::String(run_cmd(call, ctx, true)?.0.unwrap())),
+
         Value::CmdSuccess(call) => match run_cmd(call, ctx, false) {
             Ok(_) => Ok(RuntimeValue::Bool(true)),
             Err(err) => match err.nature {
@@ -410,6 +406,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 }
             },
         },
+
         Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(
             GcReadOnlyCell::new(RuntimeFnValue {
                 signature: RuntimeFnSignature::Shared(

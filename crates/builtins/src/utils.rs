@@ -5,7 +5,7 @@ use reshell_parser::ast::{
 use reshell_runtime::{
     context::Context,
     errors::ExecResult,
-    functions::{call_fn_value, FnCallResult, FnPossibleCallArgs},
+    functions::{call_fn_value, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_fn_signature_equality,
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
@@ -72,7 +72,7 @@ pub fn call_fn_checked(
         ));
     }
 
-    let ret = call_fn_value(
+    call_fn_value(
         RuntimeCodeRange::Internal,
         func,
         FnPossibleCallArgs::Internal(
@@ -81,16 +81,5 @@ pub fn call_fn_checked(
                 .collect(),
         ),
         ctx,
-    )?;
-
-    match ret {
-        FnCallResult::Success { returned } => Ok(returned),
-        FnCallResult::Thrown(LocatedValue { value, from }) => Err(ctx.error(
-            from,
-            format!(
-                "function call thrown a value: {}",
-                value.render_uncolored(ctx, PrettyPrintOptions::inline())
-            ),
-        )),
-    }
+    )
 }
