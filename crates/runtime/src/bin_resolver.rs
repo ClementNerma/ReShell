@@ -139,6 +139,7 @@ impl BinariesResolver {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum PathParsingError {
     PathVariableNotSet,
     PathContainsInvalidUtf8,
