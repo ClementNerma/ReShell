@@ -198,21 +198,9 @@ fn parse_fn_call_args(
 
     let mut value_on_hold = None::<CmdSingleArgResult>;
 
-    'iter: loop {
-        let arg_result = match value_on_hold.take() {
-            Some(value) => value,
-            None => {
-                if call_args.is_empty() {
-                    break;
-                }
-
-                call_args.pop().unwrap()
-            }
-        };
-
+    'iter: while let Some(arg_result) = value_on_hold.take().or_else(|| call_args.pop()) {
         if let Some(ref mut rest) = rest_args {
             rest.push(arg_result);
-
             continue;
         }
 

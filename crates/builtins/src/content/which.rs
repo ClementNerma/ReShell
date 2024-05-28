@@ -1,4 +1,3 @@
-use colored::Colorize;
 use reshell_runtime::{
     context::ScopeContent,
     display::dbg_loc,
@@ -34,8 +33,7 @@ fn run() -> Runner {
 
                 if let Some(func) = fns.get(&command) {
                     println!(
-                        "command '{command}': function declared at {} => {}",
-                        dbg_loc(func.name_at, ctx.files_map()).bright_magenta(),
+                        "{}",
                         func.value.render_colored(ctx, PrettyPrintOptions::inline())
                     );
 
@@ -44,8 +42,8 @@ fn run() -> Runner {
 
                 if let Some(cmd_alias) = cmd_aliases.get(&command) {
                     println!(
-                        "command '{command}': alias declared at {}",
-                        dbg_loc(cmd_alias.value.name_declared_at, ctx.files_map()).bright_magenta()
+                        "alias declared at {}",
+                        dbg_loc(cmd_alias.value.name_declared_at, ctx.files_map())
                     );
 
                     return Ok(None);

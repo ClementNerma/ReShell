@@ -754,7 +754,7 @@ pub fn program(
                 .map(CmdFlagNameArg::Short),
         ))
         .followed_by(silent_choice((
-            filter(move |c| dchars.contains(&c)),
+            filter(move |c| c.is_whitespace() || dchars.contains(&c)),
             char('='),
             end(),
         )));
@@ -824,7 +824,7 @@ pub fn program(
                 .not_followed_by(cmd_raw)
                 .map(CmdArg::RestSeparator),
             // Spread
-            just("$...")
+            just("...$")
                 .ignore_then(ident.spanned().critical("expected a variable to spread"))
                 .map(CmdArg::SpreadVar),
             // Value-making
