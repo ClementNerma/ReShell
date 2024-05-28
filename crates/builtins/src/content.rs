@@ -56,23 +56,6 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
-                // Exit the program (optionally with an error code)
-                //
-
-                "exit",
-
-                Args [ArgsAt, ArgsTy] (
-                    code: OptionalArg<ExactIntType<u8>> => Arg::positional("code")
-                )
-
-                -> None,
-
-                |at, Args { code }, _, _, ctx| {
-                    Err(ctx.exit(at, code))
-                }
-            ),
-            define_internal_fn!(
-                //
                 // Display a message
                 //
 
@@ -293,6 +276,23 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         .collect::<Result<_, _>>()?;
 
                     Ok(Some(RuntimeValue::List(GcCell::new(mapped))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Exit the program (optionally with an error code)
+                //
+
+                "exit",
+
+                Args [ArgsAt, ArgsTy] (
+                    code: OptionalArg<ExactIntType<u8>> => Arg::positional("code")
+                )
+
+                -> None,
+
+                |at, Args { code }, _, _, ctx| {
+                    Err(ctx.exit(at, code))
                 }
             ),
         ],
