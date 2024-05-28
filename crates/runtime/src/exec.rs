@@ -687,6 +687,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
         }
 
+        Instruction::Expr(expr) => {
+            let value = eval_expr(&expr.data, ctx)?;
+
+            if ctx.current_scope().id == ctx.program_main_scope().unwrap() {
+                ctx.set_wandering_value(value);
+            }
+        }
+
         Instruction::Include(program) => {
             let Program { content } = &program.data;
 

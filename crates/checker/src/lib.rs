@@ -541,6 +541,8 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
+        Instruction::Expr(expr) => check_expr(&expr.data, state)?,
+
         Instruction::Include(program) => {
             let Program { content } = &program.data;
             let Block {
@@ -956,16 +958,12 @@ fn check_single_cmd_call(
     let target_type = match &path.data {
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
         CmdPath::Method(_) => CmdPathTargetType::Function,
-        CmdPath::ComputedString(_) => CmdPathTargetType::ExternalCommand,
-        CmdPath::CmdRawString(name) => match name.data.only_literal() {
-            Some(lit) => find_if_cmd_or_fn(
-                &name.forge_here(lit.to_owned()),
-                &mut developed_aliases,
-                state,
-            )?,
 
-            None => CmdPathTargetType::ExternalCommand,
-        },
+        CmdPath::Literal(name) => find_if_cmd_or_fn(
+            &name.forge_here(name.data.to_owned()),
+            &mut developed_aliases,
+            state,
+        )?,
     };
 
     for arg in &args.data {

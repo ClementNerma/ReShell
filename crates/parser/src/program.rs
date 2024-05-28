@@ -847,13 +847,25 @@ pub fn program(
                 .map(CmdPath::Direct),
             // Method
             char('.').ignore_then(ident.spanned()).map(CmdPath::Method),
-            // Computed string
-            computed_string
-                .clone()
+            // Command name
+            filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+                .repeated()
+                .at_least(1)
+                .followed_by(choice((
+                    end(),
+                    filter(|c| {
+                        c.is_whitespace()
+                            || c == ';'
+                            || c == '|'
+                            || c == '#'
+                            || c == ')'
+                            || c == '}'
+                    })
+                    .to(()),
+                )))
+                .collect_string()
                 .spanned()
-                .map(CmdPath::ComputedString),
-            // Command computable string
-            cmd_raw_string.spanned().map(CmdPath::CmdRawString),
+                .map(CmdPath::Literal),
         ));
 
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
@@ -1440,6 +1452,9 @@ pub fn program(
             // Command calls
             //
             cmd_call.spanned().map(Instruction::CmdCall),
+            //
+            // Expressions
+            expr.spanned().map(Instruction::Expr),
         ))
         .spanned()
         .then_ignore(ms)
