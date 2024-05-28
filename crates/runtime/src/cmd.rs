@@ -77,12 +77,12 @@ pub fn run_cmd(
         .collect::<Vec<_>>();
 
     // TODO: optimize (this should only be an assertion)
-    let chain_has_fn_call = chain.iter().any(|(cmd_data, _)| match cmd_data.target {
-        EvaluatedCmdTarget::ExternalCommand(_) => false,
-        EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => true,
+    let only_cmd_calls = chain.iter().any(|(cmd_data, _)| match cmd_data.target {
+        EvaluatedCmdTarget::ExternalCommand(_) => true,
+        EvaluatedCmdTarget::Method(_) | EvaluatedCmdTarget::Function(_) => false,
     });
 
-    if chain_has_fn_call {
+    if !only_cmd_calls {
         if capture.is_some() {
             return Err(ctx.error(call.at, "only external commands' output can be captured"));
         }
