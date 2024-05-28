@@ -21,7 +21,7 @@ impl Default for RuntimeConf {
 pub struct HistoryConf {
     pub enabled: bool,
     pub custom_location: Option<PathBuf>,
-    pub capacity: usize,
+    // pub capacity: usize,
 }
 
 impl Default for HistoryConf {
@@ -29,7 +29,7 @@ impl Default for HistoryConf {
         Self {
             enabled: true,
             custom_location: None,
-            capacity: 100_000,
+            // capacity: 100_000,
         }
     }
 }
