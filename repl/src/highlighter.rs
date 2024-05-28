@@ -46,9 +46,8 @@ fn highlight(input: &str) -> StyledText {
     }
 
     macro_rules! highlight {
-            ($(($category: expr) => $regex: expr => $color: ident),+) => {
+            ($($regex: expr => $color: ident),+) => {
                 $(
-                    // $category
                     h.regex(
                         Regex::new($regex).unwrap(),
                         &[Style::new().fg(Color::$color)],
@@ -58,26 +57,71 @@ fn highlight(input: &str) -> StyledText {
         }
 
     highlight!(
-        ("comments") => "(#.*)$" => DarkGray,
-        ("flags") => "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
-        ("keywords") => "(?:^|\\n|;|\\{)\\s*(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
-        ("in") => "(?:\\bfor\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+)(in)\\b" => Magenta,
-        ("types") => "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
-        ("booleans") => "\\b(true|false)\\b" => LightYellow,
-        ("null value") => "\\b(null)\\b" => LightYellow,
-        ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("variables declaration") => "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("loop iterator") => "(?:^|\\n|\\s)for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("function arguments and struct fields") => "(?:\\b|[^\\|]\\|\\s*|,\\s*)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?:[:,]|\\|[^\\|])" => Red,
-        ("untyped function arguments (1)") => "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
-        ("untyped function arguments (2)") => "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
-        ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
-        ("raw command marker") => "(?:^|[\\{;]|\\$\\()\\s*(@raw)\\b" => Magenta,
-        ("command") => "(?:^|[\\{;]|\\$\\(|@raw\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$]+)\\b" => LightBlue,
-        ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
-        ("command expression opening") => "\\s(\\$)\\(" => Red,
-        ("symbols and operators") => "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue,
-        ("raw arguments") => "(.)" => Green
+        // comments
+        "(#.*)$" => DarkGray,
+
+        // flags
+        "\\s(\\-[\\-a-zA-Z0-9_]*)" => Yellow,
+
+        // keywords
+        "(?:^|\\n|;|\\{)\\s*(let|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta,
+
+        // mut
+        "(?:\\blet\\s+)(mut)\\b" => Magenta,
+
+        // in
+        "(?:\\bfor\\s+[a-zA-Z_][a-zA-Z0-9_]*\\s+)(in)\\b" => Magenta,
+
+        // types
+        "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
+
+        // custom types
+        "\\b([A-Z][a-zA-Z0-9_]*)\\b" => LightYellow,
+
+        // booleans
+        "\\b(true|false)\\b" => LightYellow,
+
+        // null value
+        "\\b(null)\\b" => LightYellow,
+
+        // variables
+        "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+
+        // variables declaration
+        "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+
+        // loop iterator
+        "(?:^|\\n|\\s)for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
+
+        // function arguments and struct fields
+        "(?:\\b|[^\\|]\\|\\s*|,\\s*)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?:[:,]|\\|[^\\|])" => Red,
+
+        // untyped function arguments (1)
+        "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
+
+        // untyped function arguments (2)
+        "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
+
+        // numbers
+        "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
+
+        // command markers
+        "(?:^|[\\{;]|\\$\\()\\s*(@raw|@callVar)\\b" => Magenta,
+
+        // command call
+        "(?:^|[\\{;]|\\$\\(|@raw|@callVar\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$]+)\\b" => LightBlue,
+
+        // function calls
+        "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
+
+        // command expression opening
+        "\\s(\\$)\\(" => Red,
+
+        // symbols and operators
+        "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue,
+
+        // raw arguments
+        "(.)" => Green
     );
 
     h.finalize(Style::default())
