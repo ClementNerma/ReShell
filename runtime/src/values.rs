@@ -41,7 +41,9 @@ pub enum RuntimeValue {
     String(String),
     List(Vec<RuntimeValue>),
     Range { from: usize, to: usize },
+    // TODO: replace with an IndexMap
     Map(BTreeMap<String, RuntimeValue>),
+    // TODO: replace with an IndexMap
     Struct(BTreeMap<String, RuntimeValue>),
     Function(RuntimeFnValue),
     Error { at: CodeRange, msg: String },
