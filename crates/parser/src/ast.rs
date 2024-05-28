@@ -359,7 +359,7 @@ pub enum CmdArg {
 pub enum CmdValueMakingArg {
     LiteralValue(Eaten<LiteralValue>),
     ComputedString(Eaten<ComputedString>),
-    CmdCall(Eaten<CmdCall>),
+    CmdOutput(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
     VarName(Eaten<String>),
     Raw(Eaten<String>),

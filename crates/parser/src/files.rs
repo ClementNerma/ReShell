@@ -63,10 +63,6 @@ impl FilesMap {
     pub fn get_file(&self, id: SourceFileID) -> Option<SourceFile> {
         self.0.read().unwrap().map.get(&id).cloned()
     }
-
-    pub fn with_inner<T>(&self, func: impl FnOnce(&FilesMapInner) -> T) -> T {
-        func(&self.0.read().unwrap())
-    }
 }
 
 impl Debug for FilesMap {

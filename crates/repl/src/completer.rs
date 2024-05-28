@@ -176,17 +176,13 @@ fn build_cmd_completions(
         .to_str()
         .ok_or("PATH variable contains is not a valid UTF-8 string")?;
 
-    let current_dir = std::env::current_dir()?;
-
-    let path_dirs = [current_dir.to_str()]
-        .into_iter()
-        .flatten()
-        .chain(path.split(PATH_VAR_SEP).filter(|entry| !entry.is_empty()));
+    let path_dirs = path.split(PATH_VAR_SEP).filter(|entry| !entry.is_empty());
 
     let delimiter_chars = delimiter_chars();
 
     let append_whitespace = next_char != Some(' ');
 
+    let mut indexed = HashSet::new();
     let mut results = Vec::<(String, Suggestion)>::new();
 
     for dir in path_dirs {
@@ -221,42 +217,28 @@ fn build_cmd_completions(
 
             match TARGET_FAMILY {
                 TargetFamily::Windows => {
-                    let Some((filename, ext)) = item_name_lc.rsplit_once('.') else {
+                    let Some((_, ext)) = item_name_lc.rsplit_once('.') else {
                         continue;
                     };
 
-                    let exe_exts = ["bat", "cmd", "exe"];
-
-                    if !exe_exts.contains(&ext) {
+                    if ext != "bat" && ext != "cmd" && ext != "exe" {
                         continue;
                     }
 
-                    let possible_names = [filename.to_owned()]
-                        .into_iter()
-                        .chain(
-                            ["bat", "cmd", "exe"]
-                                .into_iter()
-                                .map(|ext| format!("{filename}.{ext}")),
-                        )
-                        .collect::<HashSet<_>>();
-
-                    if results
-                        .iter()
-                        .any(|(other, _)| possible_names.contains(other))
-                    {
+                    if !indexed.insert(item_name.to_owned()) {
                         continue;
                     }
                 }
 
                 TargetFamily::Unix => {
-                    if results.iter().any(|(other, _)| &item_name_lc == other) {
+                    if !indexed.insert(item_name_lc) {
                         continue;
                     }
                 }
             }
 
             results.push((
-                item_name_lc,
+                item_name.to_owned(),
                 Suggestion {
                     value: escape_raw(item_name, &delimiter_chars).into_owned(),
                     description: None,

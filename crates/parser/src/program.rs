@@ -782,7 +782,7 @@ pub fn program(
                 .then_ignore(
                     char(')').critical("unclosed command call (expected a closing parenthesis)"),
                 )
-                .map(CmdValueMakingArg::CmdCall),
+                .map(CmdValueMakingArg::CmdOutput),
             // Parenthesis-wrapped expressions
             char('(')
                 .ignore_then(

@@ -13,7 +13,7 @@ use crate::{
     context::Context,
     errors::{ExecErrorInfoType, ExecResult},
     pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece},
-    values::{ErrorValueContent, RuntimeFnBody, RuntimeValue},
+    values::{ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
 pub fn value_to_str(
@@ -286,17 +286,23 @@ impl PrettyPrintable for RuntimeValue {
                 suffix: None,
             },
 
-            RuntimeValue::Function(func) => PrettyPrintablePiece::Join(vec![
-                func.signature.inner().generate_pretty_data(ctx),
-                PrettyPrintablePiece::colored_atomic(
-                    match func.body {
-                        RuntimeFnBody::Block(_) => " { ... }",
-                        RuntimeFnBody::Internal(_) => " { /* internal code */ }",
-                    },
-                    Color::BrightBlack,
-                ),
-            ]),
+            RuntimeValue::Function(func) => func.generate_pretty_data(ctx),
         }
+    }
+}
+
+impl PrettyPrintable for RuntimeFnValue {
+    fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece {
+        PrettyPrintablePiece::Join(vec![
+            self.signature.inner().generate_pretty_data(ctx),
+            PrettyPrintablePiece::colored_atomic(
+                match self.body {
+                    RuntimeFnBody::Block(_) => " { ... }",
+                    RuntimeFnBody::Internal(_) => " { /* internal code */ }",
+                },
+                Color::BrightBlack,
+            ),
+        ])
     }
 }
 
@@ -455,11 +461,7 @@ impl PrettyPrintable for CmdFlagNameArg {
 }
 
 fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
-    let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
-        '"'.to_owned(),
-        Color::BrightGreen,
-    )];
-
+    let mut pieces = vec![];
     let mut shift = 0;
 
     while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '"']) {

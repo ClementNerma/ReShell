@@ -624,7 +624,7 @@ pub fn eval_cmd_value_making_arg(
 
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
-        CmdValueMakingArg::CmdCall(call) => {
+        CmdValueMakingArg::CmdOutput(call) => {
             let cmd_result = run_cmd(
                 call,
                 ctx,

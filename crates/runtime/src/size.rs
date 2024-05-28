@@ -20,7 +20,7 @@ use reshell_parser::{
         PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
         SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
     },
-    files::{FilesMap, FilesMapInner, SourceFile, SourceFileLocation},
+    files::{SourceFile, SourceFileLocation},
 };
 
 use crate::{
@@ -546,7 +546,7 @@ impl ComputableSize for CmdValueMakingArg {
         match self {
             CmdValueMakingArg::LiteralValue(lit) => lit.compute_heap_size(),
             CmdValueMakingArg::ComputedString(c_str) => c_str.compute_heap_size(),
-            CmdValueMakingArg::CmdCall(cmd_call) => cmd_call.compute_heap_size(),
+            CmdValueMakingArg::CmdOutput(cmd_call) => cmd_call.compute_heap_size(),
             CmdValueMakingArg::ParenExpr(expr) => expr.compute_heap_size(),
             CmdValueMakingArg::VarName(var_name) => var_name.compute_heap_size(),
             CmdValueMakingArg::Raw(raw) => raw.compute_heap_size(),
@@ -1009,23 +1009,6 @@ impl ComputableSize for CallStackEntry {
     }
 }
 
-impl ComputableSize for FilesMap {
-    fn compute_heap_size(&self) -> usize {
-        self.with_inner(|inner| {
-            let FilesMapInner {
-                counter,
-                file_loader: _,
-                map,
-            } = inner;
-
-            // NOTE: file_loader is not accounted for as we cannot compute the size of a
-            // `Box<dyn ...>`
-
-            counter.compute_heap_size() + map.compute_heap_size()
-        })
-    }
-}
-
 impl ComputableSize for SourceFile {
     fn compute_heap_size(&self) -> usize {
         let Self {
@@ -1103,14 +1086,13 @@ impl ComputableSize for ContextCreationParams {
             runtime_conf,
             take_ctrl_c_indicator,
             on_dir_jump,
-            files_map,
+            files_map: _,
             home_dir,
         } = self;
 
         runtime_conf.compute_heap_size()
             + take_ctrl_c_indicator.compute_heap_size()
             + on_dir_jump.compute_heap_size()
-            + files_map.compute_heap_size()
             + home_dir.compute_heap_size()
     }
 }

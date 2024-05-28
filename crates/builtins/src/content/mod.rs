@@ -70,6 +70,7 @@ mod term_rows;
 mod transform;
 mod trim;
 mod values;
+mod which;
 mod write_file;
 
 use std::path::MAIN_SEPARATOR;
@@ -157,6 +158,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
             self::trim::build_fn(),
+            self::which::build_fn(),
             self::write_file::build_fn(),
         ],
 
