@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, FileId};
+use parsy::{Eaten, FileId};
 use reshell_checker::CheckerOutput;
 use reshell_parser::ast::{Block, ElsIf, Instruction, Program, RuntimeCodeRange, SwitchCase};
 
@@ -43,9 +43,11 @@ pub fn run_program(
 
     ctx.prepare_for_new_program(program, checker_output);
 
-    let result = run_block_in_current_scope(&content.data, ctx).and_then(|result| match result {
-        None => Ok(()),
-        Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
+    let result = run_block_in_current_scope(&content.data, ctx).map(|result| match result {
+        None => (),
+        Some(_) => {
+            unreachable!("internal error: this instruction shouldn't have been allowed to run here")
+        }
     });
 
     assert_eq!(ctx.current_scope().id, FIRST_SCOPE_ID);
@@ -299,10 +301,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     );
 
                     if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
-                        let InstrRet { typ, from: _ } = ret;
-
-                        if matches!(typ, InstrRetType::BreakLoop) {
-                            break;
+                        match ret {
+                            InstrRet::ContinueLoop => {}
+                            InstrRet::BreakLoop => break,
+                            InstrRet::FnReturn(value) => {
+                                return Ok(Some(InstrRet::FnReturn(value)))
+                            }
                         }
                     }
                 }
@@ -325,10 +329,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     );
 
                     if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
-                        let InstrRet { typ, from: _ } = ret;
-
-                        if matches!(typ, InstrRetType::BreakLoop) {
-                            break;
+                        match ret {
+                            InstrRet::ContinueLoop => {}
+                            InstrRet::BreakLoop => break,
+                            InstrRet::FnReturn(value) => {
+                                return Ok(Some(InstrRet::FnReturn(value)))
+                            }
                         }
                     }
                 }
@@ -396,10 +402,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 );
 
                 if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
-                    let InstrRet { typ, from: _ } = ret;
-
-                    if matches!(typ, InstrRetType::BreakLoop) {
-                        break;
+                    match ret {
+                        InstrRet::ContinueLoop => {}
+                        InstrRet::BreakLoop => break,
+                        InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
                     }
                 }
             }
@@ -425,27 +431,17 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             }
 
             if let Some(ret) = run_block(&body.data, ctx, ScopeContent::new())? {
-                let InstrRet { typ, from: _ } = ret;
-
-                if matches!(typ, InstrRetType::BreakLoop) {
-                    break;
+                match ret {
+                    InstrRet::ContinueLoop => {}
+                    InstrRet::BreakLoop => break,
+                    InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
                 }
             }
         },
 
-        Instruction::LoopContinue => {
-            return Ok(Some(InstrRet {
-                from: instr.at,
-                typ: InstrRetType::ContinueLoop,
-            }))
-        }
+        Instruction::LoopContinue => return Ok(Some(InstrRet::ContinueLoop)),
 
-        Instruction::LoopBreak => {
-            return Ok(Some(InstrRet {
-                from: instr.at,
-                typ: InstrRetType::BreakLoop,
-            }))
-        }
+        Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
 
         Instruction::Switch { expr, cases } => {
             let switch_on = eval_expr(&expr.data, ctx)?;
@@ -509,28 +505,26 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::FnReturn { expr } => {
-            return Ok(Some(InstrRet {
-                from: instr.at,
-                typ: InstrRetType::FnReturn(
-                    expr.as_ref()
-                        .map(|expr| {
-                            eval_expr(&expr.data, ctx).map(|value| {
-                                LocatedValue::new(value, RuntimeCodeRange::CodeRange(expr.at))
-                            })
+            return Ok(Some(InstrRet::FnReturn(
+                expr.as_ref()
+                    .map(|expr| {
+                        eval_expr(&expr.data, ctx).map(|value| {
+                            LocatedValue::new(value, RuntimeCodeRange::CodeRange(expr.at))
                         })
-                        .transpose()?,
-                ),
-            }))
+                    })
+                    .transpose()?,
+            )))
         }
 
         Instruction::Throw(expr) => {
-            return Ok(Some(InstrRet {
-                from: instr.at,
-                typ: InstrRetType::Thrown(LocatedValue::new(
-                    eval_expr(&expr.data, ctx)?,
-                    RuntimeCodeRange::CodeRange(expr.at),
-                )),
-            }));
+            let value = eval_expr(&expr.data, ctx)?;
+
+            return Err(ctx.error(
+                instr.at,
+                ExecErrorNature::Thrown {
+                    value: LocatedValue::new(value, RuntimeCodeRange::CodeRange(expr.at)),
+                },
+            ));
         }
 
         Instruction::Try {
@@ -625,17 +619,9 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
     Ok(None)
 }
 
-#[derive(Debug)]
-pub struct InstrRet {
-    pub typ: InstrRetType,
-    pub from: CodeRange,
-}
-
 #[derive(Debug, Clone)]
-pub enum InstrRetType {
+pub enum InstrRet {
     ContinueLoop,
     BreakLoop,
     FnReturn(Option<LocatedValue>),
-    Thrown(LocatedValue),
-    Exit,
 }
