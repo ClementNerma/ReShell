@@ -773,30 +773,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
-name = "repl"
-version = "0.1.0"
-dependencies = [
- "annotate-snippets",
- "clap",
- "colored",
- "crossterm",
- "ctrlc",
- "dirs",
- "dunce",
- "glob",
- "indexmap",
- "nu-ansi-term",
- "parsy",
- "rand",
- "reedline",
- "regex",
- "reshell-builtins",
- "reshell-checker",
- "reshell-parser",
- "reshell-runtime",
-]
-
-[[package]]
 name = "reshell-builtins"
 version = "0.1.0"
 dependencies = [
@@ -830,6 +806,30 @@ name = "reshell-parser"
 version = "0.1.0"
 dependencies = [
  "parsy",
+]
+
+[[package]]
+name = "reshell-repl"
+version = "0.1.0"
+dependencies = [
+ "annotate-snippets",
+ "clap",
+ "colored",
+ "crossterm",
+ "ctrlc",
+ "dirs",
+ "dunce",
+ "glob",
+ "indexmap",
+ "nu-ansi-term",
+ "parsy",
+ "rand",
+ "reedline",
+ "regex",
+ "reshell-builtins",
+ "reshell-checker",
+ "reshell-parser",
+ "reshell-runtime",
 ]
 
 [[package]]
