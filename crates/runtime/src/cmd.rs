@@ -54,28 +54,33 @@ pub fn run_cmd(
             .get(i + 1)
             .and_then(|pipe_type| pipe_type.map(|pipe_type| pipe_type.data));
 
-        match item {
-            CmdChainElContent::NonCmd(call, deps_scope) => {
+        let CmdChainEl {
+            content,
+            aliases_deps_scopes,
+        } = item;
+
+        let aliases_deps_scopes_len = aliases_deps_scopes.len();
+
+        for alias_dep_scope in aliases_deps_scopes {
+            ctx.create_and_push_scope_with_deps(
+                RuntimeCodeRange::CodeRange(call.at),
+                DepsScopeCreationData::Retrieved(alias_dep_scope),
+                ScopeContent::new(),
+                ctx.generate_parent_scopes_list(),
+                None,
+            );
+        }
+
+        match content {
+            CmdChainElContent::NonCmd(call) => {
                 // for now (TODO)
                 assert!(!pipe_types.iter().any(|pipe_type| pipe_type.is_some()));
-
-                let has_deps_scope = deps_scope.is_some();
 
                 let NonCmdCall {
                     at,
                     nature,
                     call_args,
                 } = call;
-
-                if let Some(deps_scope) = deps_scope {
-                    ctx.create_and_push_scope_with_deps(
-                        RuntimeCodeRange::CodeRange(call.at),
-                        DepsScopeCreationData::Retrieved(deps_scope),
-                        ScopeContent::new(),
-                        ctx.generate_parent_scopes_list(),
-                        None,
-                    );
-                }
 
                 let result = match nature {
                     NonCmdCallNature::Function { is_var_name, name } => {
@@ -133,10 +138,6 @@ pub fn run_cmd(
 
                     FnCallResult::Thrown(_) => todo!(),
                 }
-
-                if has_deps_scope {
-                    ctx.pop_scope();
-                }
             }
 
             CmdChainElContent::Cmd(item) => {
@@ -191,6 +192,10 @@ pub fn run_cmd(
                 children.push((child, at));
             }
         }
+
+        for _ in 0..aliases_deps_scopes_len {
+            ctx.pop_scope();
+        }
     }
 
     let mut last_output = None;
@@ -244,11 +249,8 @@ pub fn run_cmd(
 fn single_call_to_chain_el(
     call: &Eaten<SingleCmdCall>,
     ctx: &mut Context,
-) -> ExecResult<CmdChainElContent> {
-    let inner = |call: &Eaten<SingleCmdCall>,
-                 popped: Option<&mut bool>,
-                 ctx: &mut Context|
-     -> ExecResult<CmdChainElContent> {
+) -> ExecResult<CmdChainEl> {
+    let inner = |call: &Eaten<SingleCmdCall>, ctx: &mut Context| -> ExecResult<CmdChainElContent> {
         let SingleCmdCall {
             env_vars,
             path,
@@ -256,13 +258,7 @@ fn single_call_to_chain_el(
         } = &call.data;
 
         if let Some(call) = check_if_cmd_is_fn(call, ctx)? {
-            return Ok(CmdChainElContent::NonCmd(
-                call,
-                popped.map(|popped| {
-                    *popped = true;
-                    ctx.pop_scope_and_get_deps().unwrap()
-                }),
-            ));
+            return Ok(CmdChainElContent::NonCmd(call));
         }
 
         let mut eval_env_vars = HashMap::with_capacity(env_vars.data.len());
@@ -302,24 +298,20 @@ fn single_call_to_chain_el(
         }))
     };
 
-    let (call, from_alias) = match develop_aliases(call, ctx) {
-        Some((call, from_alias)) => (Cow::Owned(call), Some(from_alias)),
-        None => (Cow::Borrowed(call), None),
+    let (call, cmd_aliases) = match develop_aliases(call, ctx) {
+        Some((call, cmd_aliases)) => (Cow::Owned(call), cmd_aliases),
+        None => (Cow::Borrowed(call), vec![]),
     };
 
-    let mut popped = if from_alias.is_some() {
-        Some(false)
-    } else {
-        None
-    };
+    let cmd_aliases_len = cmd_aliases.len();
 
-    if let Some(from_alias) = from_alias {
+    for cmd_alias in cmd_aliases {
         let RuntimeCmdAlias {
             name_declared_at,
             alias_content: _,
             parent_scopes,
             captured_deps,
-        } = from_alias;
+        } = cmd_alias;
 
         ctx.create_and_push_scope_with_deps(
             RuntimeCodeRange::CodeRange(name_declared_at),
@@ -328,22 +320,27 @@ fn single_call_to_chain_el(
             ScopeContent::new(),
             parent_scopes,
             None,
-        )
+        );
     }
 
-    let result = inner(&call, popped.as_mut(), ctx);
+    inner(&call, ctx).map(|content| CmdChainEl {
+        content,
+        aliases_deps_scopes: (0..cmd_aliases_len)
+            .map(|_| ctx.pop_scope_and_get_deps().unwrap())
+            .collect(),
+    })
+}
 
-    if popped == Some(false) {
-        ctx.pop_scope();
-    }
-
-    result
+#[derive(Debug)]
+struct CmdChainEl {
+    content: CmdChainElContent,
+    aliases_deps_scopes: Vec<ScopeContent>,
 }
 
 #[derive(Debug)]
 enum CmdChainElContent {
     Cmd(CmdCallEl),
-    NonCmd(NonCmdCall, Option<ScopeContent>),
+    NonCmd(NonCmdCall),
 }
 
 #[derive(Debug)]
@@ -381,34 +378,48 @@ fn compute_env_var_value(value: &CmdEnvVarValue, ctx: &mut Context) -> ExecResul
 fn develop_aliases(
     call: &Eaten<SingleCmdCall>,
     ctx: &mut Context,
-) -> Option<(Eaten<SingleCmdCall>, RuntimeCmdAlias)> {
-    let cmd_path = match &call.data.path.data {
-        CmdPath::RawString(raw) => raw,
-        CmdPath::ComputedString(_) | CmdPath::Expr(_) | CmdPath::Direct(_) => return None,
-    };
+) -> Option<(Eaten<SingleCmdCall>, Vec<RuntimeCmdAlias>)> {
+    let mut developed_call = Cow::Borrowed(call);
+    let mut aliases = vec![];
 
-    let cmd_alias = ctx
-        .visible_scopes()
-        .find_map(|scope| scope.cmd_aliases.get(&cmd_path.data))?;
+    while let Some(cmd_path) = match &developed_call.data.path.data {
+        CmdPath::RawString(raw) => Some(raw),
+        CmdPath::ComputedString(_) | CmdPath::Expr(_) | CmdPath::Direct(_) => None,
+    } {
+        let Some(cmd_alias) = ctx
+            .visible_scopes()
+            .find_map(|scope| scope.cmd_aliases.get(&cmd_path.data))
+        else {
+            break;
+        };
 
-    let mut call = call.clone();
+        let mut call = developed_call.into_owned();
 
-    let SingleCmdCall {
-        env_vars,
-        path,
-        args,
-    } = &*cmd_alias.alias_content;
+        let SingleCmdCall {
+            env_vars,
+            path,
+            args,
+        } = &*cmd_alias.alias_content;
 
-    call.data.path.change_value(path.data.clone());
+        call.data.path.change_value(path.data.clone());
 
-    call.data
-        .env_vars
-        .data
-        .splice(0..0, env_vars.data.iter().cloned());
+        call.data
+            .env_vars
+            .data
+            .splice(0..0, env_vars.data.iter().cloned());
 
-    call.data.args.data.splice(0..0, args.data.iter().cloned());
+        call.data.args.data.splice(0..0, args.data.iter().cloned());
 
-    Some((call, cmd_alias.clone()))
+        // TODO: avoid cloning (use a [`GcReadOnlyCell`])
+        aliases.push(cmd_alias.clone());
+
+        developed_call = Cow::Owned(call);
+    }
+
+    match developed_call {
+        Cow::Borrowed(_) => None,
+        Cow::Owned(call) => Some((call, aliases)),
+    }
 }
 
 fn check_if_cmd_is_fn(
@@ -452,6 +463,7 @@ fn check_if_cmd_is_fn(
                 }))
             }
         },
+
         CmdPath::Expr(expr) => {
             if !env_vars.data.is_empty() {
                 return Err(ctx.error(
@@ -482,9 +494,11 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::LiteralValue(lit_val) => {
             Ok(CmdArgResult::Single(eval_literal_value(&lit_val.data)))
         }
+
         CmdArg::ComputedString(computed_str) => Ok(CmdArgResult::Single(
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?,
         )),
+
         CmdArg::VarName(name) => Ok(CmdArgResult::Single(
             ctx.get_visible_var(name)
                 .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
@@ -500,16 +514,21 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 .value
                 .clone(),
         )),
+
         CmdArg::FnAsValue(name) => Ok(CmdArgResult::Single(RuntimeValue::Function(
             ctx.get_visible_fn_value(name)?.clone(),
         ))),
+
         CmdArg::ParenExpr(expr) => Ok(CmdArgResult::Single(eval_expr(&expr.data, ctx)?)),
+
         CmdArg::CmdCall(call) => Ok(CmdArgResult::Single(RuntimeValue::String(
             run_cmd(call, ctx, true)?.0.unwrap(),
         ))),
+
         CmdArg::Raw(raw) => Ok(CmdArgResult::Single(RuntimeValue::String(treat_cwd_raw(
             raw, ctx,
         )?))),
+
         CmdArg::SpreadVar(var_name) => {
             let var = ctx
                 .get_visible_var(var_name)
@@ -538,6 +557,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             };
 
             let items = items.read(var_name.at).iter().cloned().collect();
+
             Ok(CmdArgResult::Spreaded(items))
         }
     }
