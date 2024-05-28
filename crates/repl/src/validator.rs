@@ -1,6 +1,6 @@
 use reedline::{ValidationResult, Validator as RlValidator};
 
-use crate::utils::nesting::detect_nesting_actions;
+use crate::utils::nesting::{detect_nesting_actions, NestingAction, NestingActionType};
 
 pub fn create_validator() -> Box<dyn RlValidator> {
     Box::new(Validator)
@@ -14,8 +14,21 @@ pub struct Validator;
 
 impl RlValidator for Validator {
     fn validate(&self, line: &str) -> ValidationResult {
+        // Check for line continuation backslashes
         if line.trim_end().ends_with(" \\")
-            || detect_nesting_actions(line, false).final_nesting_level > 0
+        // And for unclosed nestings
+            || detect_nesting_actions(line, false).iter().any(|action| {
+                matches!(
+                    action,
+                    NestingAction {
+                        action_type: NestingActionType::Opening {
+                            typ: _,
+                            matching_close: false
+                        },
+                        ..
+                    }
+                )
+            })
         {
             ValidationResult::Incomplete
         } else {
