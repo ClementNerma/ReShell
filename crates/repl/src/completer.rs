@@ -149,7 +149,6 @@ pub fn generate_completions(
             };
         }
 
-        // TODO: complete only inside expressions
         if let Some(s_word) = word.strip_prefix('@') {
             return sort_results(
                 word,
