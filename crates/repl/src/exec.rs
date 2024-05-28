@@ -2,7 +2,7 @@ use parsy::{FileId, Parser};
 use reshell_parser::{ast::Program, files::SourceFileLocation};
 use reshell_runtime::{context::Context, exec::run_program};
 
-use crate::{cmd::ExecArgs, reports::ReportableError};
+use crate::{args::ExecArgs, reports::ReportableError};
 
 pub fn run_script(
     input: &str,

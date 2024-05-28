@@ -19,7 +19,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    cmd::ExecArgs,
+    args::ExecArgs,
     completer::{self, generate_completions, CompletionContext},
     edit_mode,
     exec::run_script,

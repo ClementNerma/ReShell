@@ -8,7 +8,7 @@ pub struct Args {
     pub exec_file: Option<PathBuf>,
 
     #[clap(
-        short,
+        short = 'c',
         long,
         help = "Run a command and exit",
         conflicts_with = "exec_file"
