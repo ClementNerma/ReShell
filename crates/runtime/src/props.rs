@@ -6,7 +6,7 @@ use reshell_parser::ast::PropAccessNature;
 use crate::{
     context::Context,
     errors::ExecResult,
-    expr::eval_expr,
+    expr::{eval_expr, VOID_EXPR_ERR},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::RuntimeValue,
 };
@@ -44,7 +44,9 @@ pub fn eval_props_access<'ast, 'c, T>(
         match &acc.data {
             PropAccessNature::Key(key_expr) => match left {
                 RuntimeValue::List(list) => {
-                    let index = match eval_expr(&key_expr.data, ctx)? {
+                    let index = match eval_expr(&key_expr.data, ctx)?
+                        .ok_or_else(|| ctx.error(key_expr.at, VOID_EXPR_ERR))?
+                    {
                         RuntimeValue::Int(index) => usize::try_from(index).map_err(|_| {
                             ctx.error(key_expr.at, format!("got a negative index: {index}"))
                         })?,
@@ -102,7 +104,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                 }
 
                 RuntimeValue::Map(map) => {
-                    let key = match eval_expr(&key_expr.data, ctx)? {
+                    let key = match eval_expr(&key_expr.data, ctx)?.ok_or_else(|| ctx.error(key_expr.at, VOID_EXPR_ERR))? {
                         RuntimeValue::String(key) => key,
                         value => {
                             return Err(ctx.error(
