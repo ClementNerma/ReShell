@@ -421,9 +421,10 @@ impl CommandsChecker {
         }
 
         let exists = match name.strip_prefix('.') {
-            Some(name) => ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)),
-            None => {
-                if ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.cmd_aliases.contains_key(name)) {
+            Some(name) if !name.starts_with(['/','\\']) => ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)),
+
+            Some(_) | None => {
+                if !name.starts_with(['/', '\\']) && ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.cmd_aliases.contains_key(name)) {
                     return true;
                 }
 
