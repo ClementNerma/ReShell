@@ -77,7 +77,7 @@ pub fn render_prompt(
                 ),
                 (
                     "duration_ms".to_string(),
-                    RuntimeValue::Int(duration_ms as i64),
+                    RuntimeValue::Int(i64::try_from(duration_ms).unwrap_or(i64::MAX)),
                 ),
             ])))
         }

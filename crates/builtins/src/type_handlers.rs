@@ -78,7 +78,7 @@ declare_basic_types!(
         _ => Err("expected a string".to_owned())
     },
 
-    RangeType (Range) = (usize, usize) => value: match value {
+    RangeType (Range) = (i64, i64) => value: match value {
         RuntimeValue::Range { from, to } => Ok((from, to)),
         _ => Err("expected a range".to_owned())
     },

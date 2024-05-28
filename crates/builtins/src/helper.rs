@@ -10,7 +10,7 @@ pub enum ArgNames {
 
 #[derive(Clone, Copy)]
 pub enum ArgFlagNames {
-    Short(char),
+    // Short(char),
     Long(&'static str),
     LongAndShort(&'static str, char),
 }
@@ -20,7 +20,7 @@ impl ArgNames {
         match self {
             ArgNames::Positional(name) => (*name).to_owned(),
             ArgNames::Flag(flag) => match flag {
-                ArgFlagNames::Short(short) => short.to_string(),
+                // ArgFlagNames::Short(short) => short.to_string(),
                 ArgFlagNames::Long(long) => (*long).to_owned(),
                 ArgFlagNames::LongAndShort(long, _) => (*long).to_owned(),
             },
@@ -108,10 +108,10 @@ impl<const OPTIONAL: bool, T: Typing> Arg<OPTIONAL, T> {
         }
     }
 
-    pub fn rest(mut self) -> Self {
-        self.is_rest = true;
-        self
-    }
+    // pub fn rest(mut self) -> Self {
+    //     self.is_rest = true;
+    //     self
+    // }
 }
 
 impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
@@ -123,9 +123,9 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
         Self::direct(ArgNames::Positional(name))
     }
 
-    pub fn short_flag(short: char) -> Self {
-        Self::direct(ArgNames::Flag(ArgFlagNames::Short(short)))
-    }
+    // pub fn short_flag(short: char) -> Self {
+    //     Self::direct(ArgNames::Flag(ArgFlagNames::Short(short)))
+    // }
 
     pub fn long_flag(long: &'static str) -> Self {
         Self::direct(ArgNames::Flag(ArgFlagNames::Long(long)))
@@ -219,10 +219,10 @@ pub(super) fn generate_internal_arg_decl<
 
         ArgNames::Flag(flag) => {
             let names = match flag {
-                ArgFlagNames::Short(short) => {
-                    FnFlagArgNames::ShortFlag(RuntimeEaten::Internal(short))
-                }
-
+                // ArgFlagNames::Short(short) => {
+                //     FnFlagArgNames::ShortFlag(RuntimeEaten::Internal(short))
+                // }
+                //
                 ArgFlagNames::Long(long) => {
                     FnFlagArgNames::LongFlag(RuntimeEaten::Internal(long.to_owned()))
                 }

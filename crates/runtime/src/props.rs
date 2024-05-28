@@ -45,7 +45,9 @@ pub fn eval_props_access<'ast, 'c, T>(
             PropAccessNature::Key(key_expr) => match left {
                 RuntimeValue::List(list) => {
                     let index = match eval_expr(&key_expr.data, ctx)? {
-                        RuntimeValue::Int(index) => index as usize,
+                        RuntimeValue::Int(index) => usize::try_from(index).map_err(|_| {
+                            ctx.error(key_expr.at, format!("got a negative index: {index}"))
+                        })?,
 
                         value => {
                             return Err(ctx.error(
