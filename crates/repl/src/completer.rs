@@ -722,12 +722,13 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
     out
 }
 
-fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> {
+fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
     if !str
         .chars()
+        .chain(prefix.unwrap_or_default().chars())
         .any(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c))
     {
-        match untouched_prefix {
+        match prefix {
             Some(prefix) => Cow::Owned(format!("{prefix}{str}")),
             None => Cow::Borrowed(str),
         }
@@ -741,7 +742,7 @@ fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> 
 
         escaped.push('"');
 
-        if let Some(prefix) = untouched_prefix {
+        if let Some(prefix) = prefix {
             escaped.push_str(prefix);
         }
 
@@ -762,6 +763,10 @@ fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> 
     else {
         let mut escaped = String::with_capacity(str.len());
         escaped.push('\'');
+
+        if let Some(prefix) = prefix {
+            escaped.push_str(prefix);
+        }
 
         for c in str.chars() {
             if c == '\'' || c == '\\' {
