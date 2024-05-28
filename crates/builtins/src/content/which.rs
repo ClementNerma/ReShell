@@ -53,6 +53,7 @@ fn run() -> Runner {
             match ctx.binaries_resolver().resolve_binary_path(&command) {
                 Ok(path) => {
                     println!("external command located at: {}", path.display());
+
                     Ok(None)
                 }
 
