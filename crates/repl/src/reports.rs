@@ -172,11 +172,15 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let nature = format!("{}", nature.bright_red());
 
-    // NOTE: we add a space at the end as this library
-    // doesns't support end offsets
-    // (= offset after the source's last character)
-    // TODO: do that for the line the error occurs one (and only that one)
     let mut source = source_file.content;
+
+    // NOTE: we add a space at the end of the error's line
+    // as the reporting library doesn't support displaying
+    // offsets after a line's last character
+    if offset == source.len() || source[offset..].starts_with('\n') {
+        source.insert(offset, ' ');
+    }
+
     source.push(' ');
 
     let snippet = Snippet {
