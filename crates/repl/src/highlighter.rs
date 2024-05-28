@@ -112,6 +112,20 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 rule!(@simple "([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Green]),
             ]),
             ("in-expressions", vec![
+                // Strings
+                rule!(@nested "(\")" => Green, "(\")" => Green, vec![
+                    // Commands
+                    rule!(@nested "(?:^|[^\\\\])(\\$\\()" => Blue, "(\\))" => Blue, vec![
+                        rule!(@group "commands")
+                    ]),
+
+                    // Any other character
+                    rule!(@simple "(.+)" => [Green]),
+                ]),
+
+                // Function calls
+                rule!(@simple "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => [Blue]),
+
                 // Types
                 rule!(@simple "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => [Magenta]),
 
@@ -138,17 +152,6 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
 
                 // Symbols and operators
                 rule!(@simple "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => [LightYellow]),
-
-                // Strings
-                rule!(@nested "(\")" => Green, "(\")" => Green, vec![
-                    // Commands
-                    rule!(@nested "(?:^|[^\\\\])(\\$\\()" => Blue, "(\\))" => Blue, vec![
-                        rule!(@group "commands")
-                    ]),
-
-                    // Any other character
-                    rule!(@simple "(.+)" => [Green]),
-                ])
             ],
         )]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
