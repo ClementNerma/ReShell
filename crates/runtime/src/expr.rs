@@ -442,6 +442,7 @@ fn eval_expr_inner_content(
                             name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             decl_scope_id: *catch_expr_scope_id,
                             is_mut: false,
+                            enforced_type: None,
                             value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::String(message),
                                 at,

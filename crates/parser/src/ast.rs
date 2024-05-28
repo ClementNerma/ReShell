@@ -143,6 +143,9 @@ pub struct SingleVarDecl {
 
     /// Location of this item points to the "mut" keyword
     pub is_mut: Option<Eaten<()>>,
+
+    /// Enforced type
+    pub enforced_type: Option<ValueType>,
 }
 
 #[derive(Debug, Clone)]

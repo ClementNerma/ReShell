@@ -257,7 +257,15 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 idents: &mut HashSet<String>,
                 state: &mut State,
             ) -> CheckerResult {
-                let SingleVarDecl { name, is_mut } = decl;
+                let SingleVarDecl {
+                    name,
+                    enforced_type,
+                    is_mut,
+                } = decl;
+
+                if let Some(enforced_type) = enforced_type {
+                    check_value_type(enforced_type, state)?;
+                }
 
                 if !idents.insert(name.data.clone()) {
                     return Err(CheckerError::new(
@@ -304,6 +312,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                                         &SingleVarDecl {
                                             name: alias.clone(),
                                             is_mut: name.data.is_mut,
+                                            enforced_type: None,
                                         },
                                         idents,
                                         state,

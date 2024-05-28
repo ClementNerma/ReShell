@@ -1093,7 +1093,21 @@ pub fn program(
             .spanned()
             .or_not()
             .then(ident.spanned())
-            .map(|(is_mut, name)| SingleVarDecl { name, is_mut });
+            .then(
+                ms.ignore_then(char(':'))
+                    .ignore_then(ms)
+                    .ignore_then(
+                        value_type
+                            .clone()
+                            .critical("expected a type after semicolon"),
+                    )
+                    .or_not(),
+            )
+            .map(|((is_mut, name), enforced_type)| SingleVarDecl {
+                name,
+                is_mut,
+                enforced_type,
+            });
 
         let var_decl_type = recursive(|var_decl_type| {
             choice::<_, VarDeconstruction>((
@@ -1112,6 +1126,7 @@ pub fn program(
                     .ignore_then(msnl)
                     .ignore_then(
                         single_var_decl
+                            .clone()
                             .spanned()
                             .then(
                                 char(':')

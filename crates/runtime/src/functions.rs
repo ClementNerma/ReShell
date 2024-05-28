@@ -106,6 +106,7 @@ pub fn call_fn_value(
                         name_at: decl_name_at,
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
+                        enforced_type: None,
                         value: GcCell::new(LocatedValue::new(value, arg_value_at)),
                     },
                 );

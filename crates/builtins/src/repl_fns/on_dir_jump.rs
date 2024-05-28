@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use reshell_parser::ast::RuntimeCodeRange;
+use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, values::RuntimeValue};
 
 use crate::{
@@ -35,19 +35,22 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
 
     if matches!(on_dir_jump_fn.value, RuntimeValue::Null) {
         return Ok(());
-    }
-
-    let expected_signature = forge_basic_fn_signature(
-        vec![("new_current_dir", StringType::direct_underlying_type())],
-        None,
-    );
+    };
 
     call_fn_checked(
         &on_dir_jump_fn,
-        &expected_signature,
+        &dir_jump_handler_signature(),
         vec![RuntimeValue::String(new_current_dir.to_owned())],
         ctx,
     )?;
 
     Ok(())
+}
+
+/// Generate prompt rendering function's signature
+pub fn dir_jump_handler_signature() -> FnSignature {
+    forge_basic_fn_signature(
+        vec![("new_current_dir", StringType::direct_underlying_type())],
+        None,
+    )
 }

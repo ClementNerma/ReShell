@@ -122,6 +122,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     name,
                     is_mut,
                     init_value,
+                    mut enforced_type,
                 } = var;
 
                 (
@@ -130,6 +131,18 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         name_at: RuntimeCodeRange::Internal(INTERNAL_LOC),
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         is_mut,
+                        enforced_type: match enforced_type.len() {
+                            0 => None,
+                            1 => Some(ValueType::Single(internal_runtime_eaten(
+                                enforced_type.remove(0),
+                            ))),
+                            _ => Some(ValueType::Union(
+                                enforced_type
+                                    .into_iter()
+                                    .map(internal_runtime_eaten)
+                                    .collect(),
+                            )),
+                        },
                         value: GcCell::new(LocatedValue::new(
                             init_value,
                             RuntimeCodeRange::Internal("native library's type generator"),

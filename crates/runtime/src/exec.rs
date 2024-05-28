@@ -19,6 +19,7 @@ use crate::{
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
+    typechecker::check_if_value_fits_type,
     values::{
         are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypesErr,
         RuntimeCmdAlias, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
@@ -241,6 +242,23 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
+            if prop_acc.is_empty() && list_push.is_none() {
+                if let Some(enforced_type) = &var.enforced_type {
+                    if !check_if_value_fits_type(&assign_value, enforced_type, ctx) {
+                        return Err(
+                            ctx.error(
+                                expr.at,
+                                format!(
+                                    "variable has enforced type {}, but tried to assign a value of type: {}",
+                                    enforced_type.render_colored(ctx, PrettyPrintOptions::inline()),
+                                    assign_value.compute_type().render_colored(ctx, PrettyPrintOptions::inline())
+                                )
+                            )
+                        );
+                    }
+                }
+            }
+
             eval_props_access(
                 &mut var.value.write(name.at, ctx)?.value,
                 prop_acc.iter(),
@@ -362,6 +380,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                 name_at: RuntimeCodeRange::Parsed(iter_on.at),
                                 decl_scope_id: body.data.scope_id,
                                 is_mut: false,
+                                enforced_type: None,
                                 value: GcCell::new(LocatedValue::new(
                                     item.clone(),
                                     RuntimeCodeRange::Parsed(iter_var.at),
@@ -392,6 +411,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                 name_at: RuntimeCodeRange::Parsed(iter_var.at),
                                 decl_scope_id: body.data.scope_id,
                                 is_mut: false,
+                                enforced_type: None,
                                 value: GcCell::new(LocatedValue::new(
                                     RuntimeValue::Int(i),
                                     RuntimeCodeRange::Parsed(iter_var.at),
@@ -458,6 +478,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
+                        enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
                             RuntimeValue::String(key.clone()),
                             RuntimeCodeRange::Parsed(key_iter_var.at),
@@ -471,6 +492,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
+                        enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
                             value.clone(),
                             RuntimeCodeRange::Parsed(value_iter_var.at),
@@ -655,6 +677,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             decl_scope_id: catch_body.data.scope_id,
                             is_mut: false,
+                            enforced_type: None,
                             value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::String(message),
                                 at,
@@ -752,7 +775,9 @@ fn declare_vars(
     ctx: &mut Context,
 ) -> ExecResult<()> {
     match &names.data {
-        VarDeconstruction::Single(single) => declare_var(single, value, value_at, ctx),
+        VarDeconstruction::Single(single) => {
+            declare_var(single, value, value_at, ctx)?;
+        }
 
         VarDeconstruction::Tuple(members) => {
             let list = match value {
@@ -820,7 +845,7 @@ fn declare_vars(
                             )
                         })?;
 
-                        declare_var(&decl.data, value.clone(), value_at, ctx);
+                        declare_var(&decl.data, value.clone(), value_at, ctx)?;
                     }
 
                     Some(MapDestructBinding::BindTo(alias)) => {
@@ -832,11 +857,12 @@ fn declare_vars(
                             &SingleVarDecl {
                                 name: alias.clone(),
                                 is_mut: decl.data.is_mut,
+                                enforced_type: None,
                             },
                             value.clone(),
                             value_at,
                             ctx,
-                        );
+                        )?;
                     }
 
                     Some(MapDestructBinding::Destruct(destruct)) => {
@@ -862,8 +888,27 @@ fn declare_var(
     value: RuntimeValue,
     value_at: CodeRange,
     ctx: &mut Context,
-) {
-    let SingleVarDecl { name, is_mut } = single;
+) -> ExecResult<()> {
+    let SingleVarDecl {
+        name,
+        is_mut,
+        enforced_type,
+    } = single;
+
+    if let Some(enforced_type) = enforced_type {
+        if !check_if_value_fits_type(&value, enforced_type, ctx) {
+            return Err(ctx.error(
+                value_at,
+                format!(
+                    "variable has enforced type {}, but tried to assign a value of type: {}",
+                    enforced_type.render_colored(ctx, PrettyPrintOptions::inline()),
+                    value
+                        .compute_type()
+                        .render_colored(ctx, PrettyPrintOptions::inline())
+                ),
+            ));
+        }
+    }
 
     let decl_scope_id = ctx.current_scope().ast_scope_id;
 
@@ -872,10 +917,13 @@ fn declare_var(
         ScopeVar {
             name_at: RuntimeCodeRange::Parsed(name.at),
             decl_scope_id,
+            enforced_type: enforced_type.clone(),
             is_mut: is_mut.is_some(),
             value: GcCell::new(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at))),
         },
     );
+
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
