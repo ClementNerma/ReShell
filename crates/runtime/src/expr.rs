@@ -436,7 +436,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 ),
 
                 parent_scopes: ctx.generate_parent_scopes_list(),
-                captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.data.code_range)),
+                captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at)),
             }),
         )),
     }

@@ -48,7 +48,7 @@ pub fn check(
     let mut state = State::new();
     state.push_scope(native_lib_scope);
 
-    first_scope.code_range = RuntimeCodeRange::Parsed(content.data.code_range);
+    first_scope.code_range = RuntimeCodeRange::Parsed(content.at);
     state.push_scope(first_scope);
 
     check_block_without_push(&program.content, &mut state)?;
@@ -65,13 +65,8 @@ fn check_block_with(
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
-    let Block {
-        instructions: _,
-        code_range,
-    } = &block.data;
-
     let mut scope = CheckerScope {
-        code_range: RuntimeCodeRange::Parsed(*code_range),
+        code_range: RuntimeCodeRange::Parsed(block.at),
         special_scope_type: None, // can be changed later on with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
@@ -95,14 +90,11 @@ fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerR
 }
 
 fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
-    let Block {
-        instructions,
-        code_range,
-    } = &block.data;
+    let Block { instructions } = &block.data;
 
     assert_eq!(
         state.curr_scope().code_range.parsed_range().unwrap(),
-        *code_range
+        block.at
     );
 
     for instr in instructions {
@@ -130,7 +122,7 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                 state
                     .collected
                     .type_aliases_decl_by_scope
-                    .entry(*code_range)
+                    .entry(block.at)
                     .or_default()
                     .insert(name.data.clone(), name.at);
             }
@@ -916,10 +908,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
     }
 
-    state
-        .collected
-        .deps
-        .insert(body.data.code_range, HashSet::new());
+    state.collected.deps.insert(body.at, HashSet::new());
 
     check_block_with(body, state, |scope| {
         scope.special_scope_type = Some(SpecialScopeType::Function { args_at: args.at });

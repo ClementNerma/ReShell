@@ -111,7 +111,7 @@ pub fn call_fn_value(
             };
 
             let instr_ret = run_body_with_deps(
-                &body.data,
+                body,
                 captured_deps.clone(),
                 ctx,
                 scope_content,

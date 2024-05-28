@@ -751,11 +751,8 @@ impl ComputableSize for ElsIfExpr {
 
 impl ComputableSize for Block {
     fn compute_heap_size(&self) -> usize {
-        let Self {
-            instructions,
-            code_range,
-        } = self;
-        instructions.compute_heap_size() + code_range.compute_heap_size()
+        let Self { instructions } = self;
+        instructions.compute_heap_size()
     }
 }
 
