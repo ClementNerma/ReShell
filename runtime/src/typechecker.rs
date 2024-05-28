@@ -8,10 +8,10 @@ pub fn check_if_type_fits(
     ctx: &Context,
 ) -> ExecResult<bool> {
     match value_type {
-        ValueType::Single(single_type) => check_if_single_type_fits(&single_type.data(), into, ctx),
+        ValueType::Single(single_type) => check_if_single_type_fits(single_type.data(), into, ctx),
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits(&typ.data, into, ctx)? {
+                if check_if_single_type_fits(typ.data(), into, ctx)? {
                     return Ok(true);
                 }
             }
@@ -28,12 +28,12 @@ pub fn check_if_single_type_fits(
 ) -> ExecResult<bool> {
     match into {
         ValueType::Single(single) => {
-            check_if_single_type_fits_single(value_type, &single.data(), ctx)
+            check_if_single_type_fits_single(value_type, single.data(), ctx)
         }
 
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits_single(value_type, &typ.data, ctx)? {
+                if check_if_single_type_fits_single(value_type, typ.data(), ctx)? {
                     return Ok(true);
                 }
             }
@@ -112,7 +112,7 @@ pub fn check_if_single_type_fits_single(
                 {
                     None => return Ok(false),
                     Some(member) => {
-                        if !check_if_type_fits(&member.data().typ.data(), &typ.data(), ctx)? {
+                        if !check_if_type_fits(member.data().typ.data(), typ.data(), ctx)? {
                             return Ok(false);
                         }
                     }

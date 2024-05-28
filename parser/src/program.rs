@@ -818,12 +818,7 @@ pub fn program() -> impl Parser<Program> {
                 .then_ignore(ms)
                 .then_ignore(char('=').critical("expected an assignment operator (=)"))
                 .then_ignore(ms)
-                .then(
-                    value_type
-                        .clone()
-                        .spanned()
-                        .critical("expected a type to alias"),
-                )
+                .then(value_type.spanned().critical("expected a type to alias"))
                 .map(|(name, content)| Instruction::TypeAliasDecl { name, content }),
             //
             // Base blocks
