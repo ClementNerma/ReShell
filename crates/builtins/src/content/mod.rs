@@ -31,6 +31,7 @@ mod path_exists;
 mod pop;
 mod print_runtime_stats;
 mod range;
+mod read_dir;
 mod read_file;
 mod replace;
 mod reverse;
@@ -38,7 +39,9 @@ mod rm;
 mod set_env;
 mod size_of;
 mod slice;
+mod sort;
 mod split;
+mod string_pos;
 mod struct_to_map;
 mod substr;
 mod take;
@@ -85,6 +88,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::approx_int_div::build_fn(),
             self::print_runtime_stats::build_fn(),
             self::range::build_fn(),
+            self::read_dir::build_fn(),
             self::read_file::build_fn(),
             self::replace::build_fn(),
             self::reverse::build_fn(),
@@ -92,7 +96,9 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::set_env::build_fn(),
             self::size_of::build_fn(),
             self::slice::build_fn(),
+            self::sort::build_fn(),
             self::split::build_fn(),
+            self::string_pos::build_fn(),
             self::struct_to_map::build_fn(),
             self::substr::build_fn(),
             self::take::build_fn(),
