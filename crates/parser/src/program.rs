@@ -387,7 +387,18 @@ pub fn program(
                 choice::<_, ComputedStringPiece>((
                     // Escaped
                     escapable_char.map(ComputedStringPiece::Escaped),
-                    // Expressions
+                    // Command calls
+                    just("$(")
+                        .ignore_then(
+                            cmd_call
+                                .clone()
+                                .spanned()
+                                .padded_by(msnl)
+                                .critical("expected a command call"),
+                        )
+                        .then_ignore(char(')').critical_expectation())
+                        .map(ComputedStringPiece::CmdCall),
+                    // Variables
                     char('$')
                         .ignore_then(ident.critical("expected an identifier after '$' symbol (did you want to escape it with a backslash?)"))
                         .spanned()
@@ -402,17 +413,6 @@ pub fn program(
                         )
                         .then_ignore(char('`').critical_expectation())
                         .map(ComputedStringPiece::Expr),
-                    // Command calls
-                    just("$(")
-                        .ignore_then(
-                            cmd_call
-                                .clone()
-                                .spanned()
-                                .padded_by(msnl)
-                                .critical("expected a command call"),
-                        )
-                        .then_ignore(char(')').critical_expectation())
-                        .map(ComputedStringPiece::CmdCall),
                     // Literal character suites
                     filter(|c| c != '"' && c != '$' && c != '`' && c != '\\')
                         .repeated()
