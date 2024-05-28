@@ -297,6 +297,7 @@ fn complete_var_name(
 
 fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
     let mut failed = false;
+    let mut start_var = None;
 
     let word = VAR_IN_PATH_REGEX.replace_all(word, |cap: &Captures<'_>| {
         let var_name = cap.get(1).unwrap().as_str();
@@ -312,6 +313,10 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
 
                     _ => break,
                 };
+
+                if cap.get(0).unwrap().start() == 0 {
+                    start_var = Some((cap.get(1).unwrap().as_str().to_owned(), value.clone()));
+                }
 
                 return value;
             }
@@ -412,10 +417,20 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
             path_str.clone()
         };
 
+        let value = match &start_var {
+            Some((var_name, var_value)) => {
+                let stripped_path = path_str.strip_prefix(var_value.as_str()).unwrap();
+
+                format!("${var_name}{}", escape_raw(stripped_path))
+            }
+
+            None => escape_raw(&path).into_owned(),
+        };
+
         results.push((
             path_str,
             Suggestion {
-                value: escape_raw(&path).into_owned(),
+                value,
                 description: None,
                 extra: None,
                 span,
