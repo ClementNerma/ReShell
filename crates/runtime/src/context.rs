@@ -13,8 +13,7 @@ use crate::{
     gc::{GcCell, GcReadOnlyCell},
     values::{
         CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, 
-    },
-    builtins::content::build_native_lib_content,
+    }, builtins::builder::build_native_lib_content,
 };
 
 pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
@@ -364,7 +363,7 @@ impl Context {
     }
 
     pub fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
-        let mut captured_deps = CapturedDependencies::new();
+        let mut captured_deps = CapturedDependencies::default();
 
         let deps_list = self.deps.get(&body_content_at).expect(
             "internal error: dependencies informations not found while constructing value (this is a bug in the checker)"

@@ -87,7 +87,7 @@ macro_rules! native_fn {
                     },
                     body: RuntimeFnBody::Internal(run),
                     parent_scopes: IndexSet::new(),
-                    captured_deps: CapturedDependencies::new()
+                    captured_deps: CapturedDependencies::default()
                 }),
             }
         )

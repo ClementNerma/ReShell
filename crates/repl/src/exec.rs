@@ -3,7 +3,7 @@ use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    builtins::content::build_native_lib_content,
+    builtins::builder::build_native_lib_content,
     context::{Context, ScopeRange},
     exec::{run_program, ProgramExitStatus},
     files_map::ScopableFilePath,
