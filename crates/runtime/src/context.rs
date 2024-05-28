@@ -18,6 +18,7 @@ use reshell_parser::{
 };
 
 use crate::{
+    bin_resolver::BinariesResolver,
     conf::RuntimeConf,
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
@@ -39,6 +40,9 @@ pub static FIRST_SCOPE_ID: u64 = 1;
 pub struct Context {
     /// Context configuration
     conf: ContextCreationParams,
+
+    /// Binaries resolver
+    bin_resolver: BinariesResolver,
 
     /// Auto-incremented scopes ID counter
     /// When a counter is created, this is increased and assigned to the new scope
@@ -80,7 +84,11 @@ pub struct Context {
 impl Context {
     /// Create a new context (runtime state)
     /// The native library's content can be generated using the dedicated crate
-    pub fn new(conf: ContextCreationParams, native_lib_content: ScopeContent) -> Self {
+    pub fn new(
+        conf: ContextCreationParams,
+        bin_resolver: BinariesResolver,
+        native_lib_content: ScopeContent,
+    ) -> Self {
         let scopes_to_add = [
             Scope {
                 id: NATIVE_LIB_SCOPE_ID,
@@ -111,6 +119,7 @@ impl Context {
         Self {
             scopes_id_counter: FIRST_SCOPE_ID,
             scopes,
+            bin_resolver,
             deps_scopes: HashMap::new(),
             current_scope: FIRST_SCOPE_ID,
             program_main_scope: None,
@@ -161,6 +170,11 @@ impl Context {
     /// Get the current program's main scope ID
     pub fn program_main_scope(&self) -> Option<u64> {
         self.program_main_scope
+    }
+
+    /// Access the binaries resolver
+    pub fn binaries_resolver(&mut self) -> &mut BinariesResolver {
+        &mut self.bin_resolver
     }
 
     /// Get the  list of all scopes visible by the current one
@@ -918,6 +932,7 @@ impl ComputableSize for Context {
             collected,
             long_flags_var_name,
             wandering_value,
+            bin_resolver: _,
         } = self;
 
         conf.compute_heap_size()

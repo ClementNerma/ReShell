@@ -50,7 +50,14 @@ fn run() -> Runner {
                 }
             }
 
-            Err(ctx.error(command_at, format!("command '{command}' was not found")))
+            match ctx.binaries_resolver().resolve_binary_path(&command) {
+                Ok(path) => {
+                    println!("external command located at: {}", path.display());
+                    Ok(None)
+                }
+
+                Err(err) => Err(ctx.error(command_at, err.to_string())),
+            }
         },
     )
 }

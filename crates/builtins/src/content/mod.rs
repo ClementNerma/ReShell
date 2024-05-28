@@ -75,11 +75,10 @@ mod write_file;
 
 use std::path::MAIN_SEPARATOR;
 
-use reshell_runtime::values::RuntimeValue;
+use reshell_runtime::{compat::PATH_VAR_SEP, values::RuntimeValue};
 
 use crate::{
     builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
-    compat::PATH_VAR_SEP,
     on_dir_jump::ON_DIR_JUMP_VAR_NAME,
     prompt::GEN_PROMPT_VAR_NAME,
 };

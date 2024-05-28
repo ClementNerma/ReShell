@@ -14,6 +14,7 @@ use reshell_builtins::on_dir_jump::trigger_directory_jump_event;
 use reshell_parser::ast::RuntimeCodeRange;
 use reshell_parser::files::{FilesMap, SourceFileLocation};
 use reshell_parser::program;
+use reshell_runtime::bin_resolver::BinariesResolver;
 use reshell_runtime::context::ContextCreationParams;
 use reshell_runtime::errors::{ExecErrorNature, ExecResult};
 use reshell_runtime::{conf::RuntimeConf, context::Context};
@@ -25,7 +26,6 @@ use self::reports::ReportableError;
 use self::utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
 
 mod cmd;
-mod compat;
 mod completer;
 mod edit_mode;
 mod exec;
@@ -122,6 +122,11 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         }
     }
 
+    let bin_resolver = BinariesResolver::new().unwrap_or_else(|err| {
+        print_err(format!("{err}"));
+        BinariesResolver::empty()
+    });
+
     let mut ctx = Context::new(
         ContextCreationParams {
             // TODO: allow to configure through CLI
@@ -131,6 +136,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             home_dir: HOME_DIR.clone(),
             on_dir_jump,
         },
+        bin_resolver,
         build_native_lib_content(NativeLibParams {
             home_dir: HOME_DIR.clone(),
         }),
