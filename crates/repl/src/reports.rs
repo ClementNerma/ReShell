@@ -190,9 +190,9 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         footer: vec![],
         slices: vec![Slice {
             source: &source,
-            line_start: 1, // TODO
+            line_start: 1,
             origin: Some(&display_file),
-            fold: true, // ?
+            fold: true,
             annotations: vec![SourceAnnotation {
                 label: &msg,
                 annotation_type: AnnotationType::Error,
