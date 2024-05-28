@@ -50,14 +50,27 @@ fn run() -> Runner {
                 }
             };
 
-            let read_dir = fs::read_dir(&reading_dir)
-                .map_err(|err| ctx.throw(at, format!("Failed to read directory: {err}")))?;
+            let read_dir = fs::read_dir(&reading_dir).map_err(|err| {
+                ctx.throw(
+                    at,
+                    format!(
+                        "Failed to read directory '{}': {err}",
+                        reading_dir.display()
+                    ),
+                )
+            })?;
 
             let mut items = vec![];
 
             for item in read_dir {
                 let item = item.map_err(|err| {
-                    ctx.throw(at, format!("Failed to read directory entry: {err}"))
+                    ctx.throw(
+                        at,
+                        format!(
+                            "Failed to read directory entry '{}': {err}",
+                            reading_dir.display()
+                        ),
+                    )
                 })?;
 
                 let path = if full_path {
