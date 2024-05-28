@@ -1,6 +1,6 @@
 use parsy::{FileId, Parser};
 use reshell_parser::{ast::Program, files::SourceFileLocation};
-use reshell_runtime::{context::Context, exec::run_program};
+use reshell_runtime::{context::Context, exec::run_program, values::LocatedValue};
 
 use crate::{args::ExecArgs, reports::ReportableError};
 
@@ -11,7 +11,7 @@ pub fn run_script(
     parser: &impl Parser<Program>,
     exec_args: ExecArgs,
     ctx: &mut Context,
-) -> Result<(), ReportableError> {
+) -> Result<Option<LocatedValue>, ReportableError> {
     let ExecArgs {
         print_ast,
         only_check: _, // TODO

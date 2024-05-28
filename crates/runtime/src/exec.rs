@@ -25,7 +25,10 @@ use crate::{
     },
 };
 
-pub fn run_program(program: &Eaten<Program>, ctx: &mut Context) -> ExecResult<()> {
+pub fn run_program(
+    program: &Eaten<Program>,
+    ctx: &mut Context,
+) -> ExecResult<Option<LocatedValue>> {
     // Reset Ctrl+C requests
     ctx.reset_ctrl_c_press_indicator();
 
@@ -51,7 +54,14 @@ pub fn run_program(program: &Eaten<Program>, ctx: &mut Context) -> ExecResult<()
     run_block_in_current_scope(&content.data, ctx).map(|result| match result {
         None => {
             ctx.reset_to_program_main_scope();
+            None
         }
+
+        Some(InstrRet::WanderingValue(value)) => {
+            ctx.reset_to_program_main_scope();
+            Some(value)
+        }
+
         Some(_) => ctx.panic(
             content.at,
             "this instruction shouldn't have been allowed to run here",
@@ -165,13 +175,23 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
     }
 
     // Second pass: run instructions
+    let mut wandering_value = None;
+
     for instr in instructions {
-        if let Some(ret) = run_instr(instr, ctx)? {
-            return Ok(Some(ret));
+        wandering_value = None;
+
+        match run_instr(instr, ctx)? {
+            Some(InstrRet::WanderingValue(value)) => {
+                wandering_value = Some(value);
+            }
+
+            Some(ret) => return Ok(Some(ret)),
+
+            None => {}
         }
     }
 
-    Ok(None)
+    Ok(wandering_value.map(InstrRet::WanderingValue))
 }
 
 pub(crate) fn run_body_with_deps(
@@ -198,11 +218,7 @@ pub(crate) fn run_body_with_deps(
 }
 
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
-    ctx.clear_wandering_value();
-
-    let can_set_wandering_value = ctx.current_scope().id == ctx.program_main_scope().unwrap();
-
-    match &instr.data {
+    let instr_ret = match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             // assert!(
             //     !ctx.current_scope().content.vars.contains_key(&name.data),
@@ -210,6 +226,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             // );
 
             declare_vars(names, eval_expr(&init_expr.data, ctx)?, init_expr.at, ctx)?;
+
+            None
         }
 
         Instruction::AssignVar {
@@ -276,6 +294,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             )??;
 
             var.value.write(name.at, ctx)?.from = RuntimeCodeRange::Parsed(expr.at);
+
+            None
         }
 
         Instruction::IfCond {
@@ -325,82 +345,88 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 }
             }
 
-            return Ok(ret.flatten());
+            ret.flatten()
         }
 
         Instruction::ForLoop {
             iter_var,
             iter_on,
             body,
-        } => match eval_expr(&iter_on.data, ctx)? {
-            RuntimeValue::List(list) => {
-                for item in list.read(iter_on.at).iter() {
-                    let mut loop_scope = ScopeContent::new();
+        } => {
+            match eval_expr(&iter_on.data, ctx)? {
+                RuntimeValue::List(list) => {
+                    for item in list.read(iter_on.at).iter() {
+                        let mut loop_scope = ScopeContent::new();
 
-                    loop_scope.vars.insert(
-                        iter_var.data.clone(),
-                        ScopeVar {
-                            decl_scope_id: body.data.scope_id,
-                            is_mut: false,
-                            value: GcCell::new(LocatedValue::new(
-                                item.clone(),
-                                RuntimeCodeRange::Parsed(iter_var.at),
-                            )),
-                        },
-                    );
+                        loop_scope.vars.insert(
+                            iter_var.data.clone(),
+                            ScopeVar {
+                                decl_scope_id: body.data.scope_id,
+                                is_mut: false,
+                                value: GcCell::new(LocatedValue::new(
+                                    item.clone(),
+                                    RuntimeCodeRange::Parsed(iter_var.at),
+                                )),
+                            },
+                        );
 
-                    if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
-                        match ret {
-                            InstrRet::ContinueLoop => {}
-                            InstrRet::BreakLoop => break,
-                            InstrRet::FnReturn(value) => {
-                                return Ok(Some(InstrRet::FnReturn(value)))
+                        if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
+                            match ret {
+                                InstrRet::ContinueLoop => {}
+                                InstrRet::BreakLoop => break,
+                                InstrRet::FnReturn(value) => {
+                                    return Ok(Some(InstrRet::FnReturn(value)))
+                                }
+                                InstrRet::WanderingValue(_) => {}
                             }
                         }
                     }
                 }
-            }
 
-            RuntimeValue::Range { from, to } => {
-                for i in from..=to {
-                    let mut loop_scope = ScopeContent::new();
+                RuntimeValue::Range { from, to } => {
+                    for i in from..=to {
+                        let mut loop_scope = ScopeContent::new();
 
-                    loop_scope.vars.insert(
-                        iter_var.data.clone(),
-                        ScopeVar {
-                            decl_scope_id: body.data.scope_id,
-                            is_mut: false,
-                            value: GcCell::new(LocatedValue::new(
-                                RuntimeValue::Int(i),
-                                RuntimeCodeRange::Parsed(iter_var.at),
-                            )),
-                        },
-                    );
+                        loop_scope.vars.insert(
+                            iter_var.data.clone(),
+                            ScopeVar {
+                                decl_scope_id: body.data.scope_id,
+                                is_mut: false,
+                                value: GcCell::new(LocatedValue::new(
+                                    RuntimeValue::Int(i),
+                                    RuntimeCodeRange::Parsed(iter_var.at),
+                                )),
+                            },
+                        );
 
-                    if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
-                        match ret {
-                            InstrRet::ContinueLoop => {}
-                            InstrRet::BreakLoop => break,
-                            InstrRet::FnReturn(value) => {
-                                return Ok(Some(InstrRet::FnReturn(value)))
+                        if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
+                            match ret {
+                                InstrRet::ContinueLoop => {}
+                                InstrRet::BreakLoop => break,
+                                InstrRet::FnReturn(value) => {
+                                    return Ok(Some(InstrRet::FnReturn(value)))
+                                }
+                                InstrRet::WanderingValue(_) => {}
                             }
                         }
                     }
                 }
+
+                value => {
+                    return Err(ctx.error(
+                        iter_on.at,
+                        format!(
+                            "expected a list or range to iterate on, found a {} instead",
+                            value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ))
+                }
             }
 
-            value => {
-                return Err(ctx.error(
-                    iter_on.at,
-                    format!(
-                        "expected a list or range to iterate on, found a {} instead",
-                        value
-                            .get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
-                    ),
-                ))
-            }
-        },
+            None
+        }
 
         Instruction::ForLoopKeyed {
             key_iter_var,
@@ -455,14 +481,17 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         InstrRet::ContinueLoop => {}
                         InstrRet::BreakLoop => break,
                         InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
+                        InstrRet::WanderingValue(_) => {}
                     }
                 }
             }
+
+            None
         }
 
-        Instruction::WhileLoop { cond, body } => loop {
-            let cond_val =
-                match eval_expr(&cond.data, ctx)? {
+        Instruction::WhileLoop { cond, body } => {
+            loop {
+                let cond_val = match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
                     value => {
                         return Err(ctx.error(
@@ -475,18 +504,22 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     }
                 };
 
-            if !cond_val {
-                break;
-            }
+                if !cond_val {
+                    break;
+                }
 
-            if let Some(ret) = run_block(body, ctx, None)? {
-                match ret {
-                    InstrRet::ContinueLoop => {}
-                    InstrRet::BreakLoop => break,
-                    InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
+                if let Some(ret) = run_block(body, ctx, None)? {
+                    match ret {
+                        InstrRet::ContinueLoop => {}
+                        InstrRet::BreakLoop => break,
+                        InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
+                        InstrRet::WanderingValue(_) => {}
+                    }
                 }
             }
-        },
+
+            None
+        }
 
         Instruction::LoopContinue => return Ok(Some(InstrRet::ContinueLoop)),
 
@@ -494,8 +527,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
         Instruction::Switch { expr, cases, els } => {
             let switch_on = eval_expr(&expr.data, ctx)?;
-
-            let mut matched = false;
 
             for SwitchCase { matches, body } in cases {
                 let case_value = eval_expr(&matches.data, ctx)?;
@@ -518,17 +549,15 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 )?;
 
                 if cmp {
-                    matched = true;
-                    run_block(body, ctx, None)?;
-                    break;
+                    return run_block(body, ctx, None);
                 }
             }
 
-            if !matched {
-                if let Some(els) = els {
-                    run_block(els, ctx, None)?;
-                }
+            if let Some(els) = els {
+                return run_block(els, ctx, None);
             }
+
+            None
         }
 
         Instruction::FnDecl { name, content } => {
@@ -542,6 +571,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 .captured_deps
                 .init(captured_deps)
                 .unwrap();
+
+            None
         }
 
         Instruction::MethodDecl {
@@ -559,20 +590,20 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 .captured_deps
                 .init(captured_deps)
                 .unwrap();
+
+            None
         }
 
-        Instruction::FnReturn { expr } => {
-            return Ok(Some(InstrRet::FnReturn(
-                expr.as_ref()
-                    .map(|expr| {
-                        Ok::<_, Box<ExecError>>(LocatedValue::new(
-                            eval_expr(&expr.data, ctx)?,
-                            RuntimeCodeRange::Parsed(expr.at),
-                        ))
-                    })
-                    .transpose()?,
-            )))
-        }
+        Instruction::FnReturn { expr } => Some(InstrRet::FnReturn(
+            expr.as_ref()
+                .map(|expr| {
+                    Ok::<_, Box<ExecError>>(LocatedValue::new(
+                        eval_expr(&expr.data, ctx)?,
+                        RuntimeCodeRange::Parsed(expr.at),
+                    ))
+                })
+                .transpose()?,
+        )),
 
         Instruction::Throw(expr) => {
             let message = match eval_expr(&expr.data, ctx)? {
@@ -603,30 +634,31 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             call,
             catch_var,
             catch_body,
-        } => {
-            if let Err(err) = eval_fn_call(call, None, ctx) {
-                match err.nature {
-                    ExecErrorNature::Thrown { at, message } => {
-                        let mut scope = ScopeContent::new();
+        } => match eval_fn_call(call, None, ctx) {
+            Ok(result) => result.map(InstrRet::WanderingValue),
 
-                        scope.vars.insert(
-                            catch_var.data.clone(),
-                            ScopeVar {
-                                decl_scope_id: catch_body.data.scope_id,
-                                is_mut: false,
-                                value: GcCell::new(LocatedValue::new(
-                                    RuntimeValue::String(message),
-                                    at,
-                                )),
-                            },
-                        );
+            Err(err) => match err.nature {
+                ExecErrorNature::Thrown { at, message } => {
+                    let mut scope = ScopeContent::new();
 
-                        run_block(catch_body, ctx, Some(scope))?;
-                    }
-                    _ => return Err(err),
+                    scope.vars.insert(
+                        catch_var.data.clone(),
+                        ScopeVar {
+                            decl_scope_id: catch_body.data.scope_id,
+                            is_mut: false,
+                            value: GcCell::new(LocatedValue::new(
+                                RuntimeValue::String(message),
+                                at,
+                            )),
+                        },
+                    );
+
+                    return run_block(catch_body, ctx, Some(scope));
                 }
-            }
-        }
+
+                _ => return Err(err),
+            },
+        },
 
         Instruction::CmdAliasDecl {
             name,
@@ -666,6 +698,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     }),
                 },
             );
+
+            None
         }
 
         Instruction::TypeAliasDecl {
@@ -673,44 +707,38 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             content: _,
         } => {
             // Nothing to do here as this was already put inside context before
+
+            None
         }
 
-        Instruction::DoBlock(block) => {
-            let result = run_block(block, ctx, None)?;
-
-            if can_set_wandering_value {
-                if let Some(InstrRet::FnReturn(Some(last_return_value))) = result {
-                    ctx.set_wandering_value(last_return_value.value);
-                }
-            }
-        }
+        Instruction::DoBlock(block) => run_block(block, ctx, None)?,
 
         Instruction::CmdCall(call) => {
             let cmd_result = run_cmd(call, ctx, CmdExecParams { capture: None })?;
 
-            if can_set_wandering_value {
-                if let Some(Some(last_return_value)) = cmd_result.as_returned() {
-                    ctx.set_wandering_value(last_return_value.value);
-                }
-            }
+            cmd_result
+                .as_returned()
+                .flatten()
+                .map(InstrRet::WanderingValue)
         }
 
         Instruction::Expr(expr) => {
             let value = eval_expr(&expr.data, ctx)?;
 
-            if can_set_wandering_value {
-                ctx.set_wandering_value(value);
-            }
+            Some(InstrRet::WanderingValue(LocatedValue::new(
+                value,
+                RuntimeCodeRange::Parsed(expr.at),
+            )))
         }
 
         Instruction::Include(program) => {
             let Program { content } = &program.data;
 
-            run_block_in_current_scope(&content.data, ctx)?;
+            return run_block_in_current_scope(&content.data, ctx);
         }
-    }
+    };
 
-    Ok(None)
+    Ok(instr_ret)
 }
 
 fn declare_vars(
@@ -850,4 +878,5 @@ pub enum InstrRet {
     ContinueLoop,
     BreakLoop,
     FnReturn(Option<LocatedValue>),
+    WanderingValue(LocatedValue),
 }
