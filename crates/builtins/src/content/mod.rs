@@ -8,12 +8,15 @@ mod approx_int_div;
 mod cd;
 mod chars;
 mod clone;
+mod contains;
+mod contains_str;
 mod current_dir;
 mod current_script_path;
 mod dbg;
 mod dbg_type;
 mod dir_exists;
 mod echo;
+mod ends_with;
 mod env;
 mod error;
 mod exit;
@@ -52,6 +55,7 @@ mod size_of;
 mod slice;
 mod sort;
 mod split;
+mod starts_with;
 mod stringify;
 mod struct_to_map;
 mod substr;
@@ -60,6 +64,7 @@ mod take;
 mod term_cols;
 mod term_rows;
 mod transform;
+mod trim;
 mod values;
 mod write_file;
 
@@ -84,12 +89,15 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::cd::build_fn(),
             self::chars::build_fn(),
             self::clone::build_fn(),
+            self::contains::build_fn(),
+            self::contains_str::build_fn(),
             self::current_dir::build_fn(),
             self::current_script_path::build_fn(),
             self::dbg::build_fn(),
             self::dbg_type::build_fn(),
             self::dir_exists::build_fn(),
             self::echo::build_fn(),
+            self::ends_with::build_fn(),
             self::env::build_fn(),
             self::error::build_fn(),
             self::exit::build_fn(),
@@ -105,11 +113,11 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::len::build_fn(),
             self::lines::build_fn(),
             self::filter::build_fn(),
-            self::map::build_fn(),
             self::ls::build_fn(),
-            self::make_map::build_fn(),
             self::keys::build_fn(),
             self::values::build_fn(),
+            self::make_map::build_fn(),
+            self::map::build_fn(),
             self::mkdir::build_fn(),
             self::parent_dir::build_fn(),
             self::path_exists::build_fn(),
@@ -130,6 +138,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::slice::build_fn(),
             self::sort::build_fn(),
             self::split::build_fn(),
+            self::starts_with::build_fn(),
             self::stringify::build_fn(),
             self::find_str::build_fn(),
             self::struct_to_map::build_fn(),
@@ -138,6 +147,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::take::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
+            self::trim::build_fn(),
             self::write_file::build_fn(),
         ],
 

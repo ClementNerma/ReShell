@@ -175,7 +175,7 @@ impl ComputableSize for SourceFileID {
 impl<T: ComputableSize> ComputableSize for GcCell<T> {
     fn compute_heap_size(&self) -> usize {
         // TODO: this doesn't take content of Rc<RefCell<>> into account!
-        self.with_ref(|val| val.compute_total_size())
+        self.read_promise_no_write().compute_heap_size()
     }
 }
 

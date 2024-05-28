@@ -13,7 +13,7 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { map, key }, ArgsAt { key: key_at, .. }, ctx| {
-        match map.with_ref(|map| map.get(&key).cloned()) {
+        match map.read_promise_no_write().get(&key) {
             Some(value) => Ok(Some(value.clone())),
 
             None => Err(ctx.error(key_at, format!("key '{key}' was not found"))),

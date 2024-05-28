@@ -112,21 +112,20 @@ impl RuntimeValue {
             RuntimeValue::List(_) => SingleValueType::List,
             RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
             RuntimeValue::Map(_) => SingleValueType::Map,
-            RuntimeValue::Struct(members) => {
-                SingleValueType::TypedStruct(members.with_ref(|members| {
-                    members
-                        .iter()
-                        .map(|(name, value)| {
-                            RuntimeEaten::Internal(StructTypeMember {
-                                name: RuntimeEaten::Internal(name.clone()),
-                                typ: RuntimeEaten::Internal(ValueType::Single(
-                                    RuntimeEaten::Internal(value.get_type()),
-                                )),
-                            })
+            RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
+                members
+                    .read_promise_no_write()
+                    .iter()
+                    .map(|(name, value)| {
+                        RuntimeEaten::Internal(StructTypeMember {
+                            name: RuntimeEaten::Internal(name.clone()),
+                            typ: RuntimeEaten::Internal(ValueType::Single(RuntimeEaten::Internal(
+                                value.get_type(),
+                            ))),
                         })
-                        .collect()
-                }))
-            }
+                    })
+                    .collect(),
+            ),
             RuntimeValue::Function(content) => {
                 // TODO: performance (use already collected data from checker?)
                 SingleValueType::Function(match &content.signature {
@@ -218,14 +217,16 @@ pub fn are_values_equal(
         (RuntimeValue::String(a), RuntimeValue::String(b)) => Ok(a == b),
         (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Ok(false),
 
-        (RuntimeValue::List(a), RuntimeValue::List(b)) => Ok(a.with_ref(|a| {
-            b.with_ref(|b| {
-                a.len() == b.len()
-                    && a.iter()
-                        .zip(b.iter())
-                        .all(|(a, b)| are_values_equal(a, b).unwrap_or(false))
-            })
-        })),
+        (RuntimeValue::List(a), RuntimeValue::List(b)) => {
+            let a = a.read_promise_no_write();
+            let b = b.read_promise_no_write();
+
+            Ok(a.len() == b.len()
+                && a.iter()
+                    .zip(b.iter())
+                    .all(|(a, b)| are_values_equal(a, b).unwrap_or(false)))
+        }
+
         (RuntimeValue::List(_), _) | (_, RuntimeValue::List(_)) => Ok(false),
 
         (
@@ -241,33 +242,34 @@ pub fn are_values_equal(
         (RuntimeValue::Range { from: _, to: _ }, _)
         | (_, RuntimeValue::Range { from: _, to: _ }) => Ok(false),
 
-        (RuntimeValue::Map(a), RuntimeValue::Map(b)) => Ok(a.with_ref(|a| {
-            b.with_ref(|b| {
-                a.len() == b.len()
-                    && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
-                        None => false,
-                        Some(b_value) => match are_values_equal(a_value, b_value) {
-                            Ok(equal) => equal,
-                            Err(NotComparableTypes { reason: _ }) => false,
-                        },
-                    })
-            })
-        })),
+        (RuntimeValue::Map(a), RuntimeValue::Map(b)) => {
+            let a = a.read_promise_no_write();
+            let b = b.read_promise_no_write();
+
+            Ok(a.len() == b.len()
+                && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
+                    None => false,
+                    Some(b_value) => match are_values_equal(a_value, b_value) {
+                        Ok(equal) => equal,
+                        Err(NotComparableTypes { reason: _ }) => false,
+                    },
+                }))
+        }
         (RuntimeValue::Map(_), _) | (_, RuntimeValue::Map(_)) => Ok(false),
 
-        (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => Ok(a.with_ref(|a| {
-            b.with_ref(|b| {
-                a.len() == b.len()
-                    && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
-                        None => false,
-                        Some(b_value) => match are_values_equal(a_value, b_value) {
-                            Ok(equal) => equal,
-                            Err(NotComparableTypes { reason: _ }) => false,
-                        },
-                    })
-            })
-        })),
-        // (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
+        (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => {
+            let a = a.read_promise_no_write();
+            let b = b.read_promise_no_write();
+
+            Ok(a.len() == b.len()
+                && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
+                    None => false,
+                    Some(b_value) => match are_values_equal(a_value, b_value) {
+                        Ok(equal) => equal,
+                        Err(NotComparableTypes { reason: _ }) => false,
+                    },
+                }))
+        } // (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
     }
 }
 
