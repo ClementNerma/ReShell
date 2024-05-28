@@ -57,8 +57,8 @@ fn check_block_with(
     } = &block.data;
 
     let mut scope = Scope {
-        is_fn_body: false, // can be changed with "fill_scope"
         code_range: *code_range,
+        fn_args_at: None, // can be changed with "fill_scope"
         vars: HashMap::new(),
         fns: HashMap::new(),
         types: HashSet::new(),
@@ -527,7 +527,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     let mut vars = HashMap::new();
 
-    for arg in args {
+    for arg in &args.data {
         let FnArg {
             names,
             is_optional: _,
@@ -556,7 +556,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     }
 
     check_block_with(body, state, |scope| {
-        scope.is_fn_body = true;
+        scope.fn_args_at = Some(args.at);
 
         for (name, var) in vars {
             scope.vars.insert(name, var);

@@ -19,7 +19,7 @@ impl State {
     }
 
     pub fn push_scope(&mut self, scope: Scope) {
-        if scope.is_fn_body {
+        if scope.fn_args_at.is_some() {
             let dup = self.fn_deps.insert(scope.code_range, IndexSet::new());
 
             assert!(dup.is_none());
@@ -40,8 +40,11 @@ impl State {
         self.scopes.last_mut().unwrap()
     }
 
-    fn current_function_scope(&self) -> Option<&Scope> {
-        self.scopes.iter().rev().find(|scope| scope.is_fn_body)
+    fn current_function_scope(&self) -> Option<(&Scope, CodeRange)> {
+        self.scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.fn_args_at.map(|fn_args_at| (scope, fn_args_at)))
     }
 
     pub fn register_var_usage(&mut self, var: &Eaten<String>) -> CheckerResult {
@@ -64,7 +67,7 @@ impl State {
             return Ok(declared_var);
         }
 
-        if let Some(fn_scope) = self.current_function_scope() {
+        if let Some((fn_scope, fn_args_at)) = self.current_function_scope() {
             let var_declared_in_fn_scope = fn_scope
                 .code_range
                 .contains(declared_var.name_at)
@@ -75,18 +78,33 @@ impl State {
                     )
                 })?;
 
-            if !var_declared_in_fn_scope {
-                let code_range = fn_scope.code_range;
-
-                self.fn_deps
-                    .get_mut(&code_range)
-                    .unwrap()
-                    .insert(Dependency {
-                        name: var.data.clone(),
-                        name_declared_at: declared_var.name_at,
-                        dep_type: DependencyType::Variable,
-                    });
+            if var_declared_in_fn_scope {
+                return Ok(declared_var);
             }
+
+            let var_declared_in_fn_args = fn_args_at
+                .contains(declared_var.name_at)
+                .map_err(|err| {
+                    CheckerError::new(
+                        CodeRange::new(Location { file_id: var.at.start.file_id, offset: 0 }, 0),
+                        format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
+                    )
+                })?;
+
+            if var_declared_in_fn_args {
+                return Ok(declared_var);
+            }
+
+            let code_range = fn_scope.code_range;
+
+            self.fn_deps
+                .get_mut(&code_range)
+                .unwrap()
+                .insert(Dependency {
+                    name: var.data.clone(),
+                    name_declared_at: declared_var.name_at,
+                    dep_type: DependencyType::Variable,
+                });
         }
 
         Ok(declared_var)
@@ -105,8 +123,8 @@ impl State {
             return Ok(());
         }
 
-        if let Some(fn_scope) = self.current_function_scope() {
-            let var_declared_in_fn_scope = fn_scope
+        if let Some((fn_scope, fn_args_at)) = self.current_function_scope() {
+            let fn_declared_in_fn_scope = fn_scope
                 .code_range
                 .contains(declared_fn_at)
                 .map_err(|err| {
@@ -116,18 +134,33 @@ impl State {
                     )
                 })?;
 
-            if !var_declared_in_fn_scope {
-                let code_range = fn_scope.code_range;
-
-                self.fn_deps
-                    .get_mut(&code_range)
-                    .unwrap()
-                    .insert(Dependency {
-                        name: func.data.clone(),
-                        name_declared_at: declared_fn_at,
-                        dep_type: DependencyType::Function,
-                    });
+            if fn_declared_in_fn_scope {
+                return Ok(());
             }
+
+            let fn_declared_in_fn_args = fn_args_at
+                .contains(declared_fn_at)
+                .map_err(|err| {
+                    CheckerError::new(
+                        CodeRange::new(Location { file_id: declared_fn_at.start.file_id, offset: 0 }, 0),
+                        format!("only source-backed files can be used (detected during var usage analysis): {err:?}"),
+                    )
+                })?;
+
+            if fn_declared_in_fn_args {
+                return Ok(());
+            }
+
+            let code_range = fn_scope.code_range;
+
+            self.fn_deps
+                .get_mut(&code_range)
+                .unwrap()
+                .insert(Dependency {
+                    name: func.data.clone(),
+                    name_declared_at: declared_fn_at,
+                    dep_type: DependencyType::Function,
+                });
         }
 
         Ok(())
@@ -136,8 +169,8 @@ impl State {
 
 #[derive(Clone)]
 pub struct Scope {
-    pub is_fn_body: bool,
-    pub code_range: CodeRange, /* for fns, body range */
+    pub code_range: CodeRange,         /* for fns, body range */
+    pub fn_args_at: Option<CodeRange>, /* fns only */
     pub vars: HashMap<String, DeclaredVar>,
     pub fns: HashMap<String, CodeRange /* fn name at */>,
     pub types: HashSet<String>,
