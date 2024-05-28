@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parsy::Eaten;
+use parsy::{Eaten, MaybeEaten};
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -355,28 +355,6 @@ impl FnArgNames {
             FnArgNames::ShortFlag(_) => None,
             FnArgNames::LongFlag(flag) => Some(flag),
             FnArgNames::LongAndShortFlag { long, short: _ } => Some(long),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum MaybeEaten<T> {
-    Eaten(Eaten<T>),
-    Raw(T),
-}
-
-impl<T> MaybeEaten<T> {
-    pub fn data(&self) -> &T {
-        match &self {
-            Self::Eaten(eaten) => &eaten.data,
-            Self::Raw(raw) => raw,
-        }
-    }
-
-    pub fn eaten(&self) -> Option<&Eaten<T>> {
-        match self {
-            MaybeEaten::Eaten(eaten) => Some(eaten),
-            MaybeEaten::Raw(_) => None,
         }
     }
 }

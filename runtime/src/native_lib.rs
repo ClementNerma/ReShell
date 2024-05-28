@@ -4,8 +4,8 @@ use std::{collections::HashMap, env::VarError, path::Path};
 
 use fork::{fork, Fork};
 use glob::glob;
-use parsy::{CodeRange, Eaten, FileId, Location, Parser};
-use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, MaybeEaten, SingleValueType, ValueType};
+use parsy::{CodeRange, Eaten, FileId, Location, MaybeEaten, Parser};
+use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
 use reshell_parser::program;
 
 use crate::context::{Context, Scope, ScopeFn, ScopeVar};

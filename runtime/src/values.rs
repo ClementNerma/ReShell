@@ -1,9 +1,7 @@
 use std::{collections::HashMap, fmt::Debug};
 
-use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::{
-    Block, FnSignature, MaybeEaten, SingleValueType, StructTypeMember, ValueType,
-};
+use parsy::{CodeRange, Eaten, MaybeEaten};
+use reshell_parser::ast::{Block, FnSignature, SingleValueType, StructTypeMember, ValueType};
 
 use crate::{context::Context, errors::ExecResult};
 
