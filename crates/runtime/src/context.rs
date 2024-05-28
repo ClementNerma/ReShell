@@ -152,6 +152,7 @@ impl Context {
             content: content.into(),
             call_stack: current_scope.call_stack.clone(),
             scope_range: current_scope.range,
+            note: None // can be changed with .with_note()
         }
     }
 

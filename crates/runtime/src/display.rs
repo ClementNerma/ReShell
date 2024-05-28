@@ -24,16 +24,20 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
         | RuntimeValue::Map(_)
         | RuntimeValue::Struct(_)
         | RuntimeValue::Function(_)
-        | RuntimeValue::Error { at: _, msg: _ } => Err(ctx.error(
-            at,
-            // TODO: colorization problem here (end of string is white)
-            format!(
-                "cannot convert a {} to a string",
-                value
-                    .get_type()
-                    .render_colored(ctx, PrettyPrintOptions::inline())
-            ),
-        )),
+        | RuntimeValue::Error { at: _, msg: _ } => Err(ctx
+            .error(
+                at,
+                // TODO: colorization problem here (end of string is white)
+                format!(
+                    "cannot convert a {} to a string",
+                    value
+                        .get_type()
+                        .render_colored(ctx, PrettyPrintOptions::inline())
+                ),
+            )
+            .with_note(
+                "this happened because commands (not functions) can only take string-like arguments",
+            )),
     }
 }
 
