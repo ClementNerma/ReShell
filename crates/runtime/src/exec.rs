@@ -8,7 +8,8 @@ use reshell_parser::ast::{Block, ElsIf, Function, Instruction, Program, SwitchCa
 use crate::{
     cmd::run_cmd,
     context::{
-        CallStackEntry, Context, DepsScopeCreationData, ScopeContent, ScopeFn, ScopeRange, ScopeVar,
+        CallStackEntry, Context, DepsScopeCreationData, ScopeContent, ScopeFn, ScopeRange,
+        ScopeVar, FIRST_SCOPE_ID,
     },
     errors::ExecResult,
     expr::eval_expr,
@@ -532,7 +533,13 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::CmdCall(call) => {
-            run_cmd(call, ctx, false)?;
+            let (_, last_return_value) = run_cmd(call, ctx, false)?;
+
+            if ctx.current_scope().id == FIRST_SCOPE_ID {
+                if let Some(last_return_value) = last_return_value {
+                    ctx.set_wandering_value(last_return_value.value);
+                }
+            }
         }
 
         Instruction::BaseBlock(block) => {
