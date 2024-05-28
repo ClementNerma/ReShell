@@ -47,7 +47,18 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
     let mut segments = vec![];
 
     let (level, pos, mut from) = match beg {
-        Some((pos, level)) => (level, pos, actions[pos].offset),
+        Some((pos, level)) => {
+            if pos == actions.len() {
+                let start = actions[pos - 1].offset + actions[pos - 1].len;
+
+                return vec![CmdPiece {
+                    start,
+                    content: &input[start..],
+                }];
+            }
+
+            (level, pos, actions[pos].offset)
+        }
         None => (0, 0, 0),
     };
 
