@@ -8,7 +8,10 @@ use std::{
 use colored::Colorize;
 use parsy::Parser;
 use reedline::{Reedline, Signal};
-use reshell_builtins::repl_fns::prompt::{render_prompt, LastCmdStatus, PromptRendering};
+use reshell_builtins::repl_fns::{
+    completer::generate_completions,
+    prompt::{render_prompt, LastCmdStatus, PromptRendering},
+};
 use reshell_parser::{
     ast::{Instruction, Program},
     files::SourceFileLocation,
@@ -21,7 +24,8 @@ use reshell_runtime::{
 
 use crate::{
     args::ExecArgs,
-    completer, edit_mode,
+    completer::{self, ExternalCompleter, ExternalCompletion},
+    edit_mode,
     exec::run_script,
     highlighter::{self, COMMANDS_CHECKER},
     hinter, history,
@@ -37,6 +41,25 @@ pub fn start(
     timings: Timings,
     show_timings: bool,
 ) -> Result<Option<ExitCode>, Box<dyn Error>> {
+    // Prepare completions generator
+    let comp_gen: ExternalCompleter =
+        Box::new(move |line, ctx| match generate_completions(line, ctx) {
+            Ok(None) => vec![],
+
+            Ok(Some(completions)) => completions
+                .into_iter()
+                .map(|(raw_string, description)| ExternalCompletion {
+                    raw_string,
+                    description,
+                })
+                .collect(),
+
+            Err(_) => {
+                // TODO: find a way to display error
+                vec![]
+            }
+        });
+
     // Create a line editor
     let mut line_editor = Reedline::create()
         .with_history(history::create_history(ctx.runtime_conf()))
@@ -45,7 +68,7 @@ pub fn start(
         .with_hinter(hinter::create_hinter())
         .with_validator(validator::create_validator())
         .with_menu(completer::create_completion_menu())
-        .with_completer(completer::create_completer())
+        .with_completer(completer::create_completer(Some(comp_gen)))
         .with_edit_mode(edit_mode::create_edit_mode())
         .with_quick_completions(true)
         .with_partial_completions(true);
