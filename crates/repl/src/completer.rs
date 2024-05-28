@@ -399,6 +399,10 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
             ))
             .into_owned(),
 
+            Some(GlobPathStartsWith::CurrentDir) => {
+                escape_raw(&format!(".{MAIN_SEPARATOR}{path_str}")).into_owned()
+            }
+
             None => escape_raw(&path_str).into_owned(),
         };
 
