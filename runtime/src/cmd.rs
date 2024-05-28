@@ -381,7 +381,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                         "expected a list to spread, found a {}",
                         value
                             .get_type()
-                            .render_colored(PrettyPrintOptions::inline())
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ));
             };

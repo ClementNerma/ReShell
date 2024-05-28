@@ -205,7 +205,7 @@ pub fn generate_native_lib() -> Scope {
             // TODO: disable color if we're not in a terminal
             let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
 
-            println!("{} {}", at.bright_magenta(), value.render_colored(PrettyPrintOptions {
+            println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
                 pretty: true,
                 line_prefix_size: at.chars().count(),
                 max_line_size: match terminal_size() {
@@ -603,7 +603,7 @@ pub fn render_prompt(
                 ret_val
                     .value
                     .get_type()
-                    .render_colored(PrettyPrintOptions::inline())
+                    .render_colored(ctx, PrettyPrintOptions::inline())
             ),
         ));
     };
@@ -624,7 +624,7 @@ pub fn render_prompt(
                         RuntimeValue::String(string) => Some(string.clone()),
                         value => return Err(ctx.error(
                             $from_at,
-                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), value.get_type().render_colored(PrettyPrintOptions::inline()))
+                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), value.get_type().render_colored(ctx, PrettyPrintOptions::inline()))
                         ))
                     }
                 };
@@ -658,10 +658,10 @@ fn call_fn_checked(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    expected_signature.render_uncolored(PrettyPrintOptions::inline()),
+                    expected_signature.render_colored(ctx, PrettyPrintOptions::inline()),
                     value
                         .get_type()
-                        .render_colored(PrettyPrintOptions::inline())
+                        .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             ))
         }
@@ -672,11 +672,11 @@ fn call_fn_checked(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                expected_signature.render_uncolored(PrettyPrintOptions::inline()),
+                expected_signature.render_colored(ctx, PrettyPrintOptions::inline()),
                 loc_val
                     .value
                     .get_type()
-                    .render_colored(PrettyPrintOptions::inline())
+                    .render_colored(ctx, PrettyPrintOptions::inline())
             ),
         ));
     }

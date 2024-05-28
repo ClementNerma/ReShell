@@ -155,10 +155,16 @@ impl Context {
             .flat_map(|scope| scope.content.aliases.iter())
     }
 
-    pub fn all_type_aliases(&self) -> impl Iterator<Item = (&String, &ValueType)> {
+    // pub fn all_type_aliases(&self) -> impl Iterator<Item = (&String, &ValueType)> {
+    //     self.visible_scopes()
+    //         .rev()
+    //         .flat_map(|scope| scope.content.types.iter())
+    // }
+
+    pub fn get_exact_type_alias<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ValueType> {
         self.visible_scopes()
             .rev()
-            .flat_map(|scope| scope.content.types.iter())
+            .find_map(|scope| scope.content.types.get(&name.data))
     }
 
     pub fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
