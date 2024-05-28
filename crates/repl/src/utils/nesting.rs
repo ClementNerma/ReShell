@@ -8,10 +8,28 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
     let mut last_char: Option<(&str, usize)> = None;
     let mut prev_char: Option<(&str, usize)> = None;
 
+    let register_content = |output: &mut Vec<NestingAction>, offset: usize| {
+        let from = output
+            .last()
+            .map(|action| action.offset + action.len)
+            .unwrap_or(0);
+
+        if from == offset {
+            return;
+        }
+
+        output.push(NestingAction {
+            action_type: NestingActionType::Content,
+            offset: from,
+            len: offset - from,
+        });
+    };
+
     let push = |output: &mut Vec<NestingAction>,
                 offset: usize,
                 len: usize,
                 action_type: NestingActionType| {
+        register_content(output, offset);
         output.push(NestingAction::new(offset, len, action_type));
     };
 
@@ -19,6 +37,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 opened: &mut Vec<(&'s str, usize)>,
                 offset: usize,
                 opening_str: &'s str| {
+        register_content(output, offset);
         opened.push((opening_str, offset));
         output.push(NestingAction::new(
             offset,
@@ -115,7 +134,6 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 }
 
                 open(&mut output, &mut opened, offset, char_as_str);
-
                 opened_strings.push((char_as_str, offset));
             }
 
@@ -123,13 +141,53 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         }
     }
 
-    for (str, offset) in opened {
-        output.push(NestingAction::new(
-            offset,
-            str.len(),
-            NestingActionType::Unclosed,
+    for (_, offset) in opened {
+        let unclosed = output
+            .iter_mut()
+            .find(|piece| piece.offset == offset)
+            .unwrap();
+
+        assert!(matches!(
+            unclosed.action_type,
+            NestingActionType::Opening(_)
         ));
+
+        match unclosed.action_type {
+            NestingActionType::Opening(typ) => {
+                unclosed.action_type = NestingActionType::Unclosed(typ);
+            }
+
+            _ => unreachable!(),
+        }
     }
+
+    register_content(&mut output, input.len());
+
+    // Validate results
+    let mut openings = 0;
+
+    for (i, piece) in output.iter().enumerate() {
+        match piece.action_type {
+            NestingActionType::Opening(_) => {
+                openings += 1;
+            }
+            NestingActionType::Closing { opening_offset: _ } => {
+                openings -= 1;
+            }
+            NestingActionType::Unclosed(_) => {}
+            NestingActionType::ClosingWithoutOpening => {}
+            NestingActionType::Content => {}
+        };
+
+        if i == 0 {
+            assert!(piece.offset == 0);
+        } else {
+            let prev = output.get(i - 1).unwrap();
+            assert!(piece.offset == prev.offset + prev.len);
+        }
+    }
+
+    assert!(openings == 0);
 
     output
 }
@@ -151,15 +209,16 @@ impl NestingAction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum NestingActionType {
     Opening(NestingOpeningType),
+    Unclosed(NestingOpeningType),
     Closing { opening_offset: usize },
-    Unclosed,
     ClosingWithoutOpening,
+    Content,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum NestingOpeningType {
     Block,
     List,

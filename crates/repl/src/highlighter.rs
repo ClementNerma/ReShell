@@ -1,14 +1,14 @@
-use std::sync::Arc;
+use std::{sync::Arc, collections::HashMap};
 
 use nu_ansi_term::{Color, Style};
 use once_cell::sync::Lazy;
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
-use crate::utils::syntax::{
-    HighlightPiece, Highlighter as SyntaxHighlighter, NestingRule, Rule, RuleSet, SimpleRule,
-    ValidatedRuleSet,
-};
+use crate::utils::{syntax::{
+    HighlightPiece, Rule, RuleSet, SimpleRule,
+    ValidatedRuleSet, compute_highlight_pieces, NestedContentRules,
+}, nesting::NestingOpeningType};
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
@@ -42,11 +42,6 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
     /// Create a group inclusion rule
     fn include_group(name: &'static str) -> Rule {
         Rule::Group(name.to_owned())
-    }
-
-    /// Create a nested rule
-    fn nested(begin: SimpleRule, end: SimpleRule, inner_rules: Vec<Rule>) -> Rule {
-        Rule::Nested(NestingRule { begin, end, inner_rules })
     }
     
     // Import all available colors for ease of use
@@ -107,44 +102,17 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Single variable marker
                 simple("(\\$)", [Red]),
 
-                // Expressions
-                include_group("expressions"),
-
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
             ]),
             ("strings", vec![
-                // Strings
-                nested(
-                    simple_rule("(?:^|[^\\\\])(\")", [Green]),
-                    simple_rule("(?:^|[^\\\\])(\")", [Green]),
-                    vec![
-                        // Commands
-                        nested(
-                            simple_rule("(?:^|[^\\\\])(\\$\\()", [Blue]),
-                            simple_rule("(\\))", [Blue]),
-                            vec![ include_group("commands") ]
-                        ),
+                // Escaped characters
+                simple("(\\\\.)", [Cyan]),
 
-                        // Commands
-                        nested(
-                            simple_rule("(?:^|[^\\\\])(\\$\\{)", [Blue]),
-                            simple_rule("(\\})", [Blue]),
-                            vec![ include_group("expressions") ]
-                        ),
-
-                        // Escaped characters
-                        simple("(\\\\.)", [Cyan]),
-
-                        // Any other character
-                        simple("(.)", [Green]),
-                    ]
-                )
+                // Any other character
+                simple("(.)", [Green]),
             ]),
             ("expressions", vec![
-                // Strings
-                include_group("strings"),
-
                 // Function calls
                 simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(", [Blue]),
 
@@ -178,26 +146,76 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
 
-        rules: vec![
+        nested_content_rules: HashMap::from([
+            (NestingOpeningType::Block, NestedContentRules {
+                opening_style: Style::new().fg(DarkGray),
+                closing_style: Style::new().fg(DarkGray),
+                rules: vec![
+                    include_group("instructions")
+                ]
+            }),
+
+            (NestingOpeningType::List, NestedContentRules {
+                opening_style: Style::new().fg(Magenta),
+                closing_style: Style::new().fg(Magenta),
+                rules: vec![
+                    include_group("expressions")
+                ]
+            }),
+
+            (NestingOpeningType::ExprWithParen, NestedContentRules {
+                opening_style: Style::new().fg(Blue),
+                closing_style: Style::new().fg(Blue),
+                rules: vec![
+                    include_group("expressions")
+                ]
+            }),
+
+            (NestingOpeningType::String, NestedContentRules {
+                opening_style: Style::new().fg(Green),
+                closing_style: Style::new().fg(Green),
+                rules: vec![
+                    include_group("strings")
+                ]
+            }),
+
+            (NestingOpeningType::ExprInString, NestedContentRules {
+                opening_style: Style::new().fg(Blue),
+                closing_style: Style::new().fg(Blue),
+                rules: vec![
+                    include_group("expressions")
+                ]
+            }),
+
+            (NestingOpeningType::CmdCallInString, NestedContentRules {
+                opening_style: Style::new().fg(LightYellow),
+                closing_style: Style::new().fg(LightYellow),
+                rules: vec![
+                    include_group("instructions")
+                ]
+            }),
+        ]),
+
+        non_nested_content_rules: vec![
             include_group("instructions")
         ],
+
+        closing_without_opening_style: Style::new().fg(White).on(Red),
+
+        unclosed_style: Style::new().fg(White).on(Red)
     };
 
     Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
 });
 
 fn highlight(input: &str) -> StyledText {
-    let pieces = SyntaxHighlighter::new(&RULE_SET).highlight(input);
-
-    // TODO: highlight unclosed (override existing highlight pieces)
-
     let mut out = StyledText::new();
 
-    for piece in pieces {
+    for piece in compute_highlight_pieces(input, &RULE_SET) {
         let HighlightPiece { start, len, style } = piece;
 
         out.push((
-            style.unwrap_or_else(Style::new),
+            style.unwrap_or_default(),
             input[start..start + len].to_owned(),
         ));
     }
