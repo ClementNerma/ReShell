@@ -4,6 +4,7 @@
 // TEMPORARY
 #![allow(clippy::result_large_err)]
 
+pub mod builtins;
 pub mod cmd;
 pub mod conf;
 pub mod context;
@@ -14,7 +15,6 @@ pub mod expr;
 pub mod files_map;
 pub mod functions;
 pub mod gc;
-pub mod native_lib;
 pub mod pretty;
 pub mod props;
 pub mod typechecker;

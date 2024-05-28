@@ -6,11 +6,11 @@ use std::{
 
 use reedline::{Reedline, Signal};
 use reshell_runtime::{
+    builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering},
     context::Context,
     errors::ExecErrorContent,
     exec::ProgramExitStatus,
     files_map::ScopableFilePath,
-    native_lib::{render_prompt, LastCmdStatus, PromptRendering},
 };
 
 use crate::{

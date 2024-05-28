@@ -87,11 +87,7 @@ macro_rules! native_fn {
                     },
                     body: RuntimeFnBody::Internal(run),
                     parent_scopes: IndexSet::new(),
-                    captured_deps: CapturedDependencies {
-                        vars: HashMap::new(),
-                        fns: HashMap::new(),
-                        cmd_aliases: HashMap::new()
-                    }
+                    captured_deps: CapturedDependencies::new()
                 }),
             }
         )

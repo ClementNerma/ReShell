@@ -156,7 +156,7 @@ pub fn check_fn_equality(
         }
 
         match (&arg.names, &cmp_arg.names) {
-            (FnArgNames::NotFlag(_), FnArgNames::NotFlag(_)) => {}
+            (FnArgNames::Positional(_), FnArgNames::Positional(_)) => {}
             (FnArgNames::ShortFlag(_), FnArgNames::ShortFlag(_)) => {}
             (FnArgNames::LongFlag(_), FnArgNames::LongFlag(_)) => {}
             (
@@ -164,7 +164,7 @@ pub fn check_fn_equality(
                 FnArgNames::LongAndShortFlag { long: _, short: _ },
             ) => {}
 
-            (FnArgNames::NotFlag(_), _) | (_, FnArgNames::NotFlag(_)) => return Ok(false),
+            (FnArgNames::Positional(_), _) | (_, FnArgNames::Positional(_)) => return Ok(false),
             (FnArgNames::ShortFlag(_), _) | (_, FnArgNames::ShortFlag(_)) => return Ok(false),
             (FnArgNames::LongFlag(_), _) | (_, FnArgNames::LongFlag(_)) => return Ok(false),
         }

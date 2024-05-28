@@ -340,7 +340,7 @@ pub struct FnArg {
 
 #[derive(Debug, Clone)]
 pub enum FnArgNames {
-    NotFlag(Eaten<String>),
+    Positional(Eaten<String>),
     ShortFlag(Eaten<char>),
     LongFlag(Eaten<String>),
     LongAndShortFlag {

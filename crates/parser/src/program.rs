@@ -169,7 +169,7 @@ pub fn program() -> impl Parser<Program> {
             // Long flag only
             fn_arg_short_flag.map(FnArgNames::ShortFlag),
             // No flag
-            ident.clone().spanned().map(FnArgNames::NotFlag),
+            ident.clone().spanned().map(FnArgNames::Positional),
         ));
 
         let fn_arg = just("...")
