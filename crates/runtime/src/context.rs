@@ -154,10 +154,10 @@ impl Context {
         self.current_scope = FIRST_SCOPE_ID;
     }
 
-    pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
+    pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> Box<ExecError> {
         let current_scope = self.current_scope();
 
-        ExecError {
+        Box::new(ExecError {
             has_exit_code: None, // may be changed afterwards
             at,
             in_file: current_scope.in_file_id(),
@@ -166,10 +166,10 @@ impl Context {
             call_stack: current_scope.call_stack.clone(),
             scope_range: current_scope.range,
             note: None // can be changed with .with_note()
-        }
+        })
     }
 
-    pub fn exit(&self, at: CodeRange, code: Option<u8>) -> ExecError {
+    pub fn exit(&self, at: CodeRange, code: Option<u8>) -> Box<ExecError> {
         let mut err = self.error(at, "<program requested exit>");
         err.has_exit_code = Some(code.unwrap_or(0));
         err

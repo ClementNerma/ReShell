@@ -1,8 +1,6 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
-// TEMPORARY
-#![allow(clippy::result_large_err)]
 
 pub mod builtins;
 pub mod cmd;
