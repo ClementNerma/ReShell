@@ -1,30 +1,36 @@
-use std::collections::HashMap;
-
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
-use crate::syntax::{HighlightPiece, Highlighter as SyntaxHighlighter, Rule, RuleSet, SimpleRule};
+use crate::syntax::{
+    HighlightPiece, Highlighter as SyntaxHighlighter, NestingRule, Rule, RuleSet, SimpleRule,
+};
 
 macro_rules! rule {
-    (@match $matches: expr => [$($style: ident),+]) => {{
-        Rule::Simple(SimpleRule {
+    (_simple $matches: expr => [$($style: ident),+]) => {{
+        SimpleRule {
             matches: Regex::new($matches).unwrap(),
             style: vec![$(Style::new().fg(Color::$style)),+],
-        })
+        }
     }};
 
-    (@match $matches: expr => $style: ident) => {{
-        Rule::Simple(SimpleRule {
-            matches: Regex::new($matches).unwrap(),
-            style: vec![Style::new().fg(Color::$style)],
-        })
+    (@simple $matches: expr => [$($style: ident),+]) => {{
+        Rule::Simple(rule!(_simple $matches => [$($style),+]))
+    }};
+
+    (@frac $matches: expr => [$($style: ident),+], $($fol_matches: expr => [$($fol_style: ident),+]),+) => {{
+        Rule::Progressive(
+            rule!(_simple $matches => [$($style),+]),
+            vec![
+                $( rule!(_simple $fol_matches => [$($fol_style),+]) ),+
+            ]
+        )
     }};
 
     (@nested $begin: expr => $beginStyle: ident, $end: expr => $endStyle: ident, $innerRules: expr) => {
         Rule::Nested(NestingRule {
-            begin: rule!(@match $begin => $beginStyle),
-            end: rule!(@match $end => $endStyle),
+            begin: rule!(_simple $begin => [$beginStyle]),
+            end: rule!(_simple $end => [$endStyle]),
             inner_rules: $innerRules
         })
     };
@@ -52,35 +58,59 @@ fn highlight(input: &str) -> StyledText {
         groups: [
             ("instructions", vec![
                 // Comments
-                rule!(@match "(#.*)$" => DarkGray),
-                // Keywords
-                rule!(@match "(?:^|\\n|;|\\{)\\s*(let|for|if|else|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b" => Magenta),
+                rule!(@simple "(#.*)$" => [DarkGray]),
                 // Variable declaration
-                rule!(@match "(?:\\blet\\s+)(mut\\s+)([a-zA-Z_][a-zA-Z0-9_]+)\\b" => [Magenta, Red]),
-                // Constant declaration
-                rule!(@match "(?:\\blet\\s+)([a-zA-Z_][a-zA-Z0-9_]+)\\b" => Red),
-                // Loop
-                rule!(@match "\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]+)\\s+(in)\\s+" => [Magenta, Red, Magenta]),
-                // [Pending] Loop
-                rule!(@match "\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]+)\\b" => [Magenta, Red]),
+                rule!(@frac "\\b(let)\\b" => [Magenta],
+                            "\\s+(mut)\\b" => [Magenta],
+                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
+                            "\\s*(=)\\s*" => [LightYellow]
+                ),
+                // Variable assignment
+                rule!(@frac "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
+                            "\\s*(=)" => [LightYellow]
+                ),
+                // For loop
+                rule!(@frac "\\b(for)\\b" => [Magenta],
+                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red],
+                            "\\s+(in)\\b" => [Magenta]
+                ),
+                // Function declaration
+                rule!(@frac "\\b(fn)\\b" => [Magenta],
+                            "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Blue]
+                ),
+                // Command alias
+                rule!(@frac "\\b(alias)\\b" => [Magenta],
+                            "\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b" => [Blue],
+                            "\\s*(=)" => [LightYellow]
+                ),
+                // Expressions
+                rule!(@group "in-expressions"),
+                // Keywords
+                rule!(@simple "\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b" => [Magenta]),
+                // Command names
+                rule!(@simple "\\b([a-zA-Z0-9_-]+)\\b" => [Blue])
             ]),
             ("in-expressions", vec![
                 // Types
-                rule!(@match "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta),
+                rule!(@simple "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => [Magenta]),
                 // Type aliases
-                rule!(@match "\\b([A-Z][a-zA-Z0-9_]*)\\b" => LightYellow),
+                rule!(@simple "\\b([A-Z][a-zA-Z0-9_]*)\\b" => [LightYellow]),
                 // Booleans
-                rule!(@match "\\b(true|false)\\b" => LightYellow),
+                rule!(@simple "\\b(true|false)\\b" => [LightYellow]),
                 // The null value
-                rule!(@match "\\b(null)\\b" => LightYellow),
+                rule!(@simple "\\b(null)\\b" => [LightYellow]),
                 // Variables
-                rule!(@match "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red),
+                rule!(@simple "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => [Red]),
                 // Flags
-                rule!(@match "\\s(\\-[\\-a-zA-Z0-9_]*)" => LightYellow),
+                rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
                 // Number
-                rule!(@match "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow),
+                rule!(@simple "\\b(\\d+(?:\\.\\d+)?)\\b" => [LightYellow]),
                 // Symbols and operators
-                rule!(@match "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => LightYellow),
+                rule!(@simple "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => [LightYellow]),
+                // Strings
+                rule!(@nested "(\")" => Green, "(\")" => Green, vec![
+                    // TODO
+                ])
             ],
         )]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
