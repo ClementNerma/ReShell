@@ -412,7 +412,7 @@ fn parse_fn_call_args(
             },
             ParsedFnCallArg {
                 decl_name_at: fn_arg_var_at(rest_arg),
-                // TODO: improve (track positions in "opened_rest")
+                // NOTE: imprecise due to arguments coming from either actual code or generated data
                 arg_value_at: call_at,
                 value: RuntimeValue::List(GcCell::new(match opened_rest {
                     Some(list) => list,
