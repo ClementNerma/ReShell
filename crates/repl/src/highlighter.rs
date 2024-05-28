@@ -117,6 +117,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
                 // Numbers
                 simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
+
+                // Booleans
+                simple("\\b(true|false)\\b", [LightYellow]),
                 
                 // Pipes
                 progressive([
