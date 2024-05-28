@@ -307,8 +307,6 @@ fn eval_expr_inner_content(
             right,
             right_chainings,
         } => {
-            // TODO: deduplicate code from "eval_expr_inner" :(
-
             let mut right_val = eval_expr_inner_content(&right.data, ctx)?;
 
             let right_at = RuntimeCodeRange::Parsed(right.at);

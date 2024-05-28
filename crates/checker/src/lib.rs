@@ -334,8 +334,6 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 Ok(())
             }
 
-            // TODO: detect duplicate identifiers (deeply nested) -> use a HashSet<> for that
-
             insert_vars(&names.data, &mut HashSet::new(), state)?;
         }
 
