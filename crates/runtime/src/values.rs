@@ -12,13 +12,14 @@ use reshell_parser::ast::{
 };
 use reshell_parser::scope::AstScopeId;
 
-use crate::cmd::CmdSingleArgResult;
-use crate::context::{ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar};
-use crate::errors::ExecInfoType;
-use crate::functions::ValidatedFnCallArg;
-use crate::gc::{GcOnceCell, GcReadOnlyCell};
-use crate::pretty::{PrettyPrintOptions, PrettyPrintable};
-use crate::{context::Context, errors::ExecResult, gc::GcCell};
+use crate::{
+    cmd::CmdSingleArgResult,
+    context::{Context, ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar},
+    errors::{ExecInfoType, ExecResult},
+    functions::ValidatedFnCallArg,
+    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
+    pretty::{PrettyPrintOptions, PrettyPrintable},
+};
 
 #[derive(Debug)]
 pub struct RuntimeFnValue {
