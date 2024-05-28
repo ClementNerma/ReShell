@@ -187,7 +187,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 *var.value.write() = Some(LocatedValue::new(assign_value, expr.at));
             } else {
                 eval_props_access(
-                    // TODO: don't clone here?
                     &mut var.value.write().as_mut().unwrap().value,
                     prop_acc,
                     PropAccessPolicy::TrailingAccessMayNotExist,
