@@ -923,7 +923,7 @@ pub fn program(
                 .then(
                     choice((
                         s
-                            // Flags must be exlucded, otherwise '-a -b'
+                            // Flags must be excluded, otherwise '-a -b'
                             // would have '-b' considered as the value for '-a'
                             .not_followed_by(char('-'))
                             // Same thing goes for rest arguments
