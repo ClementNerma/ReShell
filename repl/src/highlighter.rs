@@ -95,7 +95,7 @@ impl Highlight for Instruction {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
             Instruction::Comment { content } => {
-                h.comment(content);
+                h.comment(content.at);
             }
 
             Instruction::Include(path) => {
@@ -107,7 +107,7 @@ impl Highlight for Instruction {
                 mutable: _,
                 init_expr,
             } => {
-                h.var_name(name);
+                h.var_name(name.at);
 
                 if let Some(init_expr) = init_expr {
                     init_expr.data.highlight(h);
@@ -115,7 +115,7 @@ impl Highlight for Instruction {
             }
 
             Instruction::AssignVar { name, expr } => {
-                h.var_name(name);
+                h.var_name(name.at);
                 expr.data.highlight(h);
             }
 
@@ -142,7 +142,7 @@ impl Highlight for Instruction {
                 iter_on,
                 body,
             } => {
-                h.var_name(iter_var);
+                h.var_name(iter_var.at);
 
                 iter_on.data.highlight(h);
                 body.data.highlight(h);
@@ -168,7 +168,7 @@ impl Highlight for Instruction {
                 signature,
                 body,
             } => {
-                h.fn_name(name);
+                h.fn_name(name.at);
 
                 signature.highlight(h);
                 body.data.highlight(h);
@@ -244,7 +244,7 @@ impl Highlight for FnArg {
 impl Highlight for FnArgNames {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
-            FnArgNames::NotFlag(name) => h.var_name(name),
+            FnArgNames::NotFlag(name) => h.var_name(name.at),
             FnArgNames::ShortFlag(flag) => h.flag(flag.at),
             FnArgNames::LongFlag(flag) => h.flag(flag.at),
             FnArgNames::LongAndShortFlag { long, short } => {
@@ -355,10 +355,10 @@ impl Highlight for CmdArg {
             CmdArg::ComputedString(computed_str) => computed_str.highlight(h),
             CmdArg::CmdCall(call) => call.data.highlight(h),
             CmdArg::ParenExpr(expr) => expr.data.highlight(h),
-            CmdArg::VarName(name) => h.var_name(name),
-            CmdArg::FnAsValue(name) => h.fn_name(name),
+            CmdArg::VarName(name) => h.var_name(name.at),
+            CmdArg::FnAsValue(name) => h.fn_name(name.at),
             CmdArg::Raw(raw) => h.path(raw.at),
-            CmdArg::SpreadVar(name) => h.var_name(name), // TODO: change?
+            CmdArg::SpreadVar(name) => h.var_name(name.at), // TODO: change?
         }
     }
 }
@@ -386,7 +386,7 @@ impl Highlight for ComputedStringPiece {
         match self {
             ComputedStringPiece::Literal(lit) => h.string(lit.at),
             ComputedStringPiece::Escaped(escaped) => h.escaped_char(escaped.at),
-            ComputedStringPiece::Variable(name) => h.var_name(name),
+            ComputedStringPiece::Variable(name) => h.var_name(name.at),
             ComputedStringPiece::Expr(expr) => expr.data.highlight(h),
             ComputedStringPiece::CmdCall(call) => call.data.highlight(h),
         }
@@ -472,11 +472,11 @@ impl Highlight for Eaten<Value> {
                     expr.data.highlight(h);
                 }
             }
-            Value::Variable(name) => h.var_name(name),
+            Value::Variable(name) => h.var_name(name.at),
             Value::FnCall(call) => call.data.highlight(h),
             Value::CmdOutput(call) => call.data.highlight(h),
             Value::CmdSuccess(call) => call.data.highlight(h),
-            Value::FnAsValue(name) => h.fn_name(name),
+            Value::FnAsValue(name) => h.fn_name(name.at),
             Value::Closure { signature, body } => {
                 signature.highlight(h);
                 body.data.highlight(h);
@@ -503,7 +503,7 @@ impl Highlight for FnCall {
             call_args,
         } = self;
 
-        h.var_name(name);
+        h.var_name(name.at);
 
         for arg in &call_args.data {
             arg.highlight(h);
