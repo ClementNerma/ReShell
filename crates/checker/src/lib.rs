@@ -1157,9 +1157,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             is_optional: _,
             typ,
         }) => {
-            if let Some(typ) = typ {
-                check_value_type(typ.data(), state)?;
-            }
+            check_value_type(typ.data(), state)?;
 
             (name.data().clone(), name.at(), None, false)
         }
@@ -1187,9 +1185,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             is_optional: _,
             typ,
         }) => {
-            if let Some(typ) = typ {
-                check_value_type(typ.data(), state)?;
-            }
+            check_value_type(typ.data(), state)?;
 
             match names {
                 FnFlagArgNames::ShortFlag(short) => {

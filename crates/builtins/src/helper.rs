@@ -250,10 +250,10 @@ pub(super) fn generate_internal_arg_decl<
                         "native library's arguments declaration",
                     ),
                     is_optional: arg.is_optional(),
-                    typ: Some(RuntimeEaten::Internal(
+                    typ: RuntimeEaten::Internal(
                         arg.base_typing().underlying_type(),
                         "native library's arguments declaration",
-                    )),
+                    ),
                 })
             } else {
                 FnArg::Rest(FnRestArg {
@@ -293,10 +293,7 @@ pub(super) fn generate_internal_arg_decl<
                 typ => FnArg::NormalFlag(FnNormalFlagArg {
                     names,
                     is_optional: arg.is_optional(),
-                    typ: Some(RuntimeEaten::Internal(
-                        typ,
-                        "native library's arguments declaration",
-                    )),
+                    typ: RuntimeEaten::Internal(typ, "native library's arguments declaration"),
                 }),
             }
         }
@@ -438,7 +435,7 @@ macro_rules! define_internal_fn {
                     typ
                 }) if name == "self" => {
                     match typ {
-                        Some(RuntimeEaten::Internal(ValueType::Single(typ), _)) => {
+                        RuntimeEaten::Internal(ValueType::Single(typ), _) => {
                             Some(MethodApplyableType::from_single_value_type(typ.data().clone()).unwrap_or_else(|| {
                                 panic!("invalid method applyable type in native library: {:?}", typ.data())
                             }))

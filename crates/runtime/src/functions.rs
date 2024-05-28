@@ -283,10 +283,8 @@ fn parse_fn_call_args(
                                             },
                                         );
                                     } else {
-                                        return Err(ctx.error(name.at(), match typ {
-                                            None => "a value is expected for this flag".to_owned(),
-                                            Some(typ) => format!("a value of type '{}' is expected for this flag", typ.data().render_colored(ctx, PrettyPrintOptions::inline())),
-                                        }).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
+                                        return Err(ctx.error(name.at(),  format!("a value of type '{}' is expected for this flag", typ.data().render_colored(ctx, PrettyPrintOptions::inline())),
+                                        ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
                                     }
                                 }
 
@@ -294,18 +292,17 @@ fn parse_fn_call_args(
                                     value,
                                     value_sep: _,
                                 }) => {
-                                    if let Some(typ) = typ {
-                                        let is_null_for_optional = *is_optional
-                                            && matches!(value.value, RuntimeValue::Null);
+                                    let is_null_for_optional =
+                                        *is_optional && matches!(value.value, RuntimeValue::Null);
 
-                                        if !is_null_for_optional
-                                            && !check_if_single_type_fits_type(
-                                                &value.value.get_type(),
-                                                typ.data(),
-                                                ctx,
-                                            )
-                                        {
-                                            return Err(
+                                    if !is_null_for_optional
+                                        && !check_if_single_type_fits_type(
+                                            &value.value.get_type(),
+                                            typ.data(),
+                                            ctx,
+                                        )
+                                    {
+                                        return Err(
                                                 ctx.error(
                                                     value.from,
                                                 format!(
@@ -315,7 +312,6 @@ fn parse_fn_call_args(
                                                     value.value.get_type().render_colored(ctx, PrettyPrintOptions::inline())
                                                 )
                                             ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
-                                        }
                                     }
 
                                     out.insert(
@@ -372,36 +368,30 @@ fn parse_fn_call_args(
                         ));
                 };
 
-                if let Some(typ) = typ {
-                    let is_null_for_optional =
-                        *is_optional && matches!(loc_val.value, RuntimeValue::Null);
+                let is_null_for_optional =
+                    *is_optional && matches!(loc_val.value, RuntimeValue::Null);
 
-                    if !is_null_for_optional
-                        && !check_if_single_type_fits_type(
-                            &loc_val.value.get_type(),
-                            typ.data(),
-                            ctx,
-                        )
-                    {
-                        let is_method_self_arg = func.is_method && name.data() == "self";
+                if !is_null_for_optional
+                    && !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx)
+                {
+                    let is_method_self_arg = func.is_method && name.data() == "self";
 
-                        return Err(ctx.error(
-                            loc_val.from,
-                            format!(
-                                "type mismatch: {} '{}', found '{}'",
-                                if is_method_self_arg {
-                                    "method can only be applied on type".to_owned()
-                                } else {
-                                    format!("argument '{}' expected type", name.data())
-                                },
-                                typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
-                                loc_val
-                                    .value
-                                    .get_type()
-                                    .render_colored(ctx, PrettyPrintOptions::inline())
-                            ),
-                        ));
-                    }
+                    return Err(ctx.error(
+                        loc_val.from,
+                        format!(
+                            "type mismatch: {} '{}', found '{}'",
+                            if is_method_self_arg {
+                                "method can only be applied on type".to_owned()
+                            } else {
+                                format!("argument '{}' expected type", name.data())
+                            },
+                            typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
+                            loc_val
+                                .value
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    ));
                 }
 
                 out.insert(

@@ -210,46 +210,54 @@ pub fn program(
                 .map(FnFlagArgNames::ShortFlag),
         ));
 
-        enum _ParsedFnArgName {
-            Positional(RuntimeEaten<String>),
-            Flag(FnFlagArgNames),
-        }
-
         let fn_arg = choice::<_, FnArg>((
-            choice::<_, _ParsedFnArgName>((
-                // Positional
-                ident
-                    .spanned()
-                    .map(RuntimeEaten::Parsed)
-                    .map(_ParsedFnArgName::Positional),
-                // Flag
-                fn_flag_arg_names.map(_ParsedFnArgName::Flag),
-            ))
-            .then(char('?').or_not().map(|is_optional| is_optional.is_some()))
-            .then(
-                ms.ignore_then(char(':'))
-                    .ignore_then(msnl)
-                    .ignore_then(value_type.clone().spanned().map(RuntimeEaten::Parsed))
-                    .or_not(),
-            )
-            .map(|((name, is_optional), typ)| match name {
-                _ParsedFnArgName::Positional(name) => FnArg::Positional(FnPositionalArg {
-                    name,
-                    is_optional,
-                    typ,
+            // Positional
+            ident
+                .spanned()
+                .map(RuntimeEaten::Parsed)
+                .then_ignore(msnl)
+                .then(char('?').or_not())
+                .then_ignore(char(':').critical("expected ':' semicolon for argument's type"))
+                .then_ignore(msnl)
+                .then(
+                    value_type
+                        .clone()
+                        .critical("expected a type for the argument")
+                        .spanned()
+                        .map(RuntimeEaten::Parsed),
+                )
+                .map(|((name, is_optional), typ)| {
+                    FnArg::Positional(FnPositionalArg {
+                        name,
+                        is_optional: is_optional.is_some(),
+                        typ,
+                    })
                 }),
-                _ParsedFnArgName::Flag(names) => {
-                    if !is_optional && typ.is_none() {
-                        FnArg::PresenceFlag(FnPresenceFlagArg { names })
-                    } else {
-                        FnArg::NormalFlag(FnNormalFlagArg {
-                            names,
-                            is_optional,
-                            typ,
-                        })
-                    }
-                }
-            }),
+            // Normal flags
+            fn_flag_arg_names
+                .then_ignore(msnl)
+                .then(char('?').or_not())
+                .then_ignore(char(':'))
+                .then_ignore(msnl)
+                .then(
+                    value_type
+                        .clone()
+                        .critical("expected a type for the flag argument")
+                        .spanned()
+                        .map(RuntimeEaten::Parsed),
+                )
+                .map(|((names, is_optional), typ)| {
+                    FnArg::NormalFlag(FnNormalFlagArg {
+                        names,
+                        is_optional: is_optional.is_some(),
+                        typ,
+                    })
+                }),
+            // Presence flags
+            fn_flag_arg_names
+                .then_ignore(msnl)
+                .then_ignore(char('?'))
+                .map(|names| FnArg::PresenceFlag(FnPresenceFlagArg { names })),
             // Rest
             just("...")
                 .ignore_then(ident)
