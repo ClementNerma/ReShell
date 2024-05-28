@@ -811,8 +811,8 @@ pub fn program(
                 .map(CmdValueMakingArg::ParenExpr),
             // Variables
             var_name.spanned().map(CmdValueMakingArg::VarName),
-            // Raw argument
-            cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw),
+            // Raw argument (but not flags, which aren't value making arguments)
+            not(char('-')).ignore_then(cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw)),
         ));
 
         cmd_flag_arg.finish(
