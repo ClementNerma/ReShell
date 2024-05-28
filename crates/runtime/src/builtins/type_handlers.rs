@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display, marker::PhantomData};
 
 use parsy::{CodeRange, MaybeEaten};
-use reshell_parser::ast::{FnSignature, SingleValueType, ValueType};
+use reshell_parser::ast::{FnSignature, SingleValueType, StructTypeMember, ValueType};
 
 use crate::{
     gc::{GcCell, GcReadOnlyCell},
@@ -19,7 +19,7 @@ macro_rules! declare_basic_types {
             pub struct $name;
 
             impl ArgSingleTyping for $name {
-                fn arg_single_type() -> SingleValueType {
+                fn arg_single_type(&self) -> SingleValueType {
                     SingleValueType::$variant
                 }
 
@@ -31,7 +31,7 @@ macro_rules! declare_basic_types {
             }
 
             impl ArgSingleTypingDirectCreation for $name {
-                fn new_direct() -> Self {
+                fn new_single_direct() -> Self {
                     Self
                 }
             }
@@ -109,7 +109,7 @@ pub struct ExactIntType<From: SpecificIntType> {
 }
 
 impl<From: SpecificIntType> ArgSingleTyping for ExactIntType<From> {
-    fn arg_single_type() -> SingleValueType {
+    fn arg_single_type(&self) -> SingleValueType {
         SingleValueType::Int
     }
 
@@ -130,7 +130,7 @@ impl<From: SpecificIntType> ArgSingleTyping for ExactIntType<From> {
 }
 
 impl<From: SpecificIntType> ArgSingleTypingDirectCreation for ExactIntType<From> {
-    fn new_direct() -> Self {
+    fn new_single_direct() -> Self {
         Self { _f: PhantomData }
     }
 }
@@ -153,7 +153,7 @@ impl<Inner: ArgTyping> DetachedListType<Inner> {
 }
 
 impl<Inner: ArgTyping> ArgTyping for DetachedListType<Inner> {
-    fn arg_type() -> ValueType {
+    fn arg_type(&self) -> ValueType {
         ValueType::Single(MaybeEaten::Raw(SingleValueType::List))
     }
 
@@ -185,15 +185,15 @@ impl<Inner: ArgTypingDirectCreation> ArgTypingDirectCreation for DetachedListTyp
 pub struct UntypedFunctionType;
 
 impl ArgSingleTypingDirectCreation for UntypedFunctionType {
-    fn new_direct() -> Self {
+    fn new_single_direct() -> Self {
         Self
     }
 }
 
 impl ArgSingleTyping for UntypedFunctionType {
-    fn arg_single_type() -> SingleValueType {
+    fn arg_single_type(&self) -> SingleValueType {
         SingleValueType::Function(MaybeEaten::Raw(
-            // Universal signature
+            // Universal signature (TODO: doesn't work :p)
             FnSignature {
                 args: forge_internal_token(vec![]),
                 ret_type: None,
@@ -223,10 +223,10 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping> Union2Type<A, B> {
 }
 
 impl<A: ArgSingleTyping, B: ArgSingleTyping> ArgTyping for Union2Type<A, B> {
-    fn arg_type() -> ValueType {
+    fn arg_type(&self) -> ValueType {
         ValueType::Union(vec![
-            MaybeEaten::Raw(A::arg_single_type()),
-            MaybeEaten::Raw(B::arg_single_type()),
+            MaybeEaten::Raw(self.a.arg_single_type()),
+            MaybeEaten::Raw(self.b.arg_single_type()),
         ])
     }
 
@@ -247,7 +247,7 @@ impl<A: ArgSingleTypingDirectCreation, B: ArgSingleTypingDirectCreation> ArgTypi
     for Union2Type<A, B>
 {
     fn new_direct() -> Self {
-        Self::new(A::new_direct(), B::new_direct())
+        Self::new(A::new_single_direct(), B::new_single_direct())
     }
 }
 
@@ -269,11 +269,11 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> Union3Type<A, B
 }
 
 impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> ArgTyping for Union3Type<A, B, C> {
-    fn arg_type() -> ValueType {
+    fn arg_type(&self) -> ValueType {
         ValueType::Union(vec![
-            MaybeEaten::Raw(A::arg_single_type()),
-            MaybeEaten::Raw(B::arg_single_type()),
-            MaybeEaten::Raw(C::arg_single_type()),
+            MaybeEaten::Raw(self.a.arg_single_type()),
+            MaybeEaten::Raw(self.b.arg_single_type()),
+            MaybeEaten::Raw(self.c.arg_single_type()),
         ])
     }
 
@@ -300,7 +300,11 @@ impl<
     > ArgTypingDirectCreation for Union3Type<A, B, C>
 {
     fn new_direct() -> Self {
-        Self::new(A::new_direct(), B::new_direct(), C::new_direct())
+        Self::new(
+            A::new_single_direct(),
+            B::new_single_direct(),
+            C::new_single_direct(),
+        )
     }
 }
 
@@ -309,3 +313,69 @@ pub enum Union3Result<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping
     B(B::Parsed),
     C(C::Parsed),
 }
+
+macro_rules! declare_typed_struct_type {
+    ($( $struct: ident { $( $member: ident : $generic: ident ),+ } ),+ ) => {
+        $(
+            pub struct $struct<$($generic: ArgTyping),+> {
+                $($member: (String, $generic)),+
+            }
+
+            impl<$($generic: ArgTyping),+> $struct<$($generic),+> {
+                pub fn new( $($member: (impl Into<String>, $generic)),+ ) -> Self {
+                    Self { $( $member: ($member.0.into(), $member.1) ),+ }
+                }
+            }
+
+            impl<$($generic: ArgTyping),+> ArgSingleTyping for $struct<$($generic),+> {
+                fn arg_single_type(&self) -> SingleValueType {
+                    SingleValueType::TypedStruct(vec![
+                        $(
+                            MaybeEaten::Raw(StructTypeMember {
+                                name: MaybeEaten::Raw(self.$member.0.clone()),
+                                typ: MaybeEaten::Raw(self.$member.1.arg_type())
+                            })
+                        ),+
+                    ])
+                }
+
+                #[allow(unused_parens)]
+                type Parsed = ( $( $generic::Parsed ),+ );
+
+                fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+                    let members = match value {
+                        RuntimeValue::Struct(members) => members,
+                        _ => return Err("expected a struct".to_owned()),
+                    };
+
+                    let members = members.read();
+
+                    $(
+                        let $member = members
+                            .get(&self.$member.0)
+                            .ok_or_else(|| format!("property '{}' is missing", self.$member.0))?;
+
+                        let $member = self
+                            .$member
+                            .1
+                            .parse($member.clone())
+                            .map_err(|err| format!("type mismatch in struct member '{}': {err}", self.$member.0))?;
+                    )+
+
+                    Ok(( $( $member ),+ ))
+                }
+            }
+        )+
+    }
+}
+
+declare_typed_struct_type!(
+    TypedStruct1Type { a: A },
+    TypedStruct3Type { a: A, b: B, c: C },
+    TypedStruct4Type {
+        a: A,
+        b: B,
+        c: C,
+        d: D
+    }
+);
