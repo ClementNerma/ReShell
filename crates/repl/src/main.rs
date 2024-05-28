@@ -50,8 +50,11 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         skip_init_script,
     } = Args::parse();
 
-    // TODO: allow to configure through CLI
-    let mut ctx = Context::new(RuntimeConf::default(), build_native_lib_content());
+    let mut ctx = Context::new(
+        // TODO: allow to configure through CLI
+        RuntimeConf::default(),
+        build_native_lib_content(),
+    );
 
     match dirs::home_dir() {
         Some(home_dir) => {

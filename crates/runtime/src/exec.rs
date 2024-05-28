@@ -292,7 +292,6 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             body,
         } => match eval_expr(&iter_on.data, ctx)? {
             RuntimeValue::List(list) => {
-                // TODO: handle locks (e.g. program tries to modify list while iterating)
                 for item in list.read(iter_on.at).iter() {
                     let mut loop_scope = ScopeContent::new();
 
