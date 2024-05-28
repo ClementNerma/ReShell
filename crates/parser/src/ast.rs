@@ -260,6 +260,7 @@ pub enum Value {
     CmdCall(Eaten<CmdCall>),
     FnAsValue(Eaten<String>),
     Lambda(Function),
+    SingleParamLambda(Eaten<Block>),
 }
 
 #[derive(Debug, Clone)]
@@ -442,6 +443,7 @@ pub enum CmdValueMakingArg {
     CmdRawString(Eaten<CmdRawString>),
     Variable(Eaten<String>),
     Lambda(Eaten<Function>),
+    SingleParamLambda(Eaten<Block>),
 }
 
 #[derive(Debug, Clone)]

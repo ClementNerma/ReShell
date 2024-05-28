@@ -890,6 +890,18 @@ pub fn program(
                 .map(CmdValueMakingArg::ParenExpr),
             // Inline command call
             inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
+            // Single-parameter lambdas
+            just("{{")
+                .ignore_then(msnl)
+                .ignore_then(
+                    raw_block
+                        .clone()
+                        .critical("expected a body for the lambda")
+                        .spanned(),
+                )
+                .then_ignore(msnl)
+                .then_ignore(just("}}"))
+                .map(CmdValueMakingArg::SingleParamLambda),
             // Lambdas
             lambda.clone().spanned().map(CmdValueMakingArg::Lambda),
             // Raw argument (but not flags, which aren't value making arguments)

@@ -808,6 +808,8 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
         }
 
         Value::Lambda(func) => check_function(func, state),
+
+        Value::SingleParamLambda(body) => check_single_param_lambda(body, state),
     }
 }
 
@@ -1101,6 +1103,8 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
         CmdValueMakingArg::CmdRawString(cc_str) => check_cmd_raw_string(&cc_str.data, state),
 
         CmdValueMakingArg::Lambda(func) => check_function(&func.data, state),
+
+        CmdValueMakingArg::SingleParamLambda(body) => check_single_param_lambda(body, state),
     }
 }
 
@@ -1118,6 +1122,25 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
     }
 
     Ok(())
+}
+
+fn check_single_param_lambda(body: &Eaten<Block>, state: &mut State) -> CheckerResult {
+    state.register_function_body(body.clone());
+
+    state.prepare_deps(body.data.scope_id);
+
+    let fill_scope = |scope: &mut CheckerScope| {
+        scope.special_scope_type = Some(SpecialScopeType::Function);
+        scope.vars.insert(
+            "it".to_owned(),
+            DeclaredVar {
+                scope_id: body.data.scope_id,
+                is_mut: false,
+            },
+        );
+    };
+
+    check_block_with(body, state, fill_scope)
 }
 
 fn check_function(func: &Function, state: &mut State) -> CheckerResult {
