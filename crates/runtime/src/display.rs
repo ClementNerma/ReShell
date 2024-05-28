@@ -168,16 +168,9 @@ impl PrettyPrintable for RuntimeValue {
                 PrettyPrintablePiece::colored_atomic(float.to_string(), Color::BrightYellow)
             }
 
-            RuntimeValue::String(string) => PrettyPrintablePiece::colored_atomic(
-                format!(
-                    "\"{}\"",
-                    string
-                        .replace('\\', "\\\\")
-                        .replace('\"', "\\\"")
-                        .replace('\n', "\\n")
-                ),
-                Color::BrightGreen,
-            ),
+            RuntimeValue::String(string) => {
+                PrettyPrintablePiece::colored_atomic(format!("\"{string}\"",), Color::BrightGreen)
+            }
 
             RuntimeValue::Range { from, to } => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("range(", Color::Blue),
