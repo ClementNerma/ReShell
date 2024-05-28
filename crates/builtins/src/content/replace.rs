@@ -1,3 +1,5 @@
+use crate::content::regex::RegexValue;
+
 crate::define_internal_fn!(
     //
     // replace substrings
@@ -7,7 +9,7 @@ crate::define_internal_fn!(
 
     (
         source: RequiredArg<StringType> = Arg::method_self(),
-        lookfor: RequiredArg<StringType> = Arg::positional("lookfor"),
+        replacer: RequiredArg<Union2Type<StringType, CustomType<RegexValue>>> = Arg::positional("replacer"),
         replacement: RequiredArg<StringType> = Arg::positional("replacement")
     )
 
@@ -19,14 +21,17 @@ fn run() -> Runner {
         |_,
          Args {
              source,
-             lookfor,
+             replacer,
              replacement,
          },
          _,
          _| {
-            Ok(Some(RuntimeValue::String(
-                source.replace(&lookfor, &replacement),
-            )))
+            let replaced = match replacer {
+                Union2Result::A(string) => source.replace(&string, &replacement),
+                Union2Result::B(regex) => regex.inner().replace(&source, &replacement).into_owned(),
+            };
+
+            Ok(Some(RuntimeValue::String(replaced)))
         },
     )
 }

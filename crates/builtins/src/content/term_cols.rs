@@ -15,7 +15,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, _, _, _| {
         let cols = match terminal_size::terminal_size() {
-            Some((Width(width), Height(_))) => RuntimeValue::Int(i64::try_from(width).unwrap()),
+            Some((Width(width), Height(_))) => RuntimeValue::Int(width.into()),
             None => RuntimeValue::Null,
         };
 
