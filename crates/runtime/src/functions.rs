@@ -1,8 +1,9 @@
 use std::collections::{hash_map::Entry, HashMap};
 
-use parsy::{CodeRange, Eaten};
+use parsy::Eaten;
 use reshell_parser::ast::{
-    CmdArg, FnArg, FnArgNames, FnCall, FnCallArg, SingleValueType, ValueType,
+    CmdArg, FnArg, FnArgNames, FnCall, FnCallArg, RuntimeCodeRange, RuntimeEaten, SingleValueType,
+    ValueType,
 };
 
 use crate::{
@@ -54,7 +55,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
     };
 
     call_fn_value(
-        call.at,
+        RuntimeCodeRange::CodeRange(call.at),
         &func,
         FnPossibleCallArgs::Parsed(&call.data.call_args),
         ctx,
@@ -62,7 +63,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
 }
 
 pub fn call_fn_value(
-    call_at: CodeRange,
+    call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
@@ -71,7 +72,7 @@ pub fn call_fn_value(
         call_at,
         func,
         call_args,
-        &func.signature.inner().args.data,
+        func.signature.inner().args.data(),
         ctx,
     )?;
 
@@ -79,13 +80,19 @@ pub fn call_fn_value(
         RuntimeFnBody::Block(body) => {
             let mut scope_content = ScopeContent::new();
 
-            for (name, loc_value) in args {
+            for (name, parsed) in args {
+                let ParsedFnCallArg {
+                    decl_name_at,
+                    arg_value_at,
+                    value,
+                } = parsed;
+
                 scope_content.vars.insert(
-                    name.data,
+                    name,
                     ScopeVar {
-                        name_at: name.at,
+                        name_at: decl_name_at,
                         is_mut: false,
-                        value: GcCell::new(Some(loc_value)),
+                        value: GcCell::new(Some(LocatedValue::new(value, arg_value_at))),
                     },
                 );
             }
@@ -125,13 +132,13 @@ pub fn call_fn_value(
                 format!(
                     "function call did not return any value, was expected to return a {}",
                     ret_type
-                        .data
+                        .data()
                         .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             ));
         };
 
-        if !check_if_single_type_fits(&ret_val.value.get_type(), &ret_type.data, ctx)? {
+        if !check_if_single_type_fits(&ret_val.value.get_type(), ret_type.data(), ctx)? {
             return Err(ctx.error(
                 call_at,
                 format!(
@@ -141,7 +148,7 @@ pub fn call_fn_value(
                         .get_type()
                         .render_colored(ctx, PrettyPrintOptions::inline()),
                     ret_type
-                        .data
+                        .data()
                         .render_colored(ctx, PrettyPrintOptions::inline())
                 ),
             ));
@@ -152,13 +159,13 @@ pub fn call_fn_value(
 }
 
 fn parse_fn_call_args(
-    call_at: CodeRange,
+    call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
     mut call_args: FnPossibleCallArgs,
     fn_args: &[FnArg],
     ctx: &mut Context,
-) -> ExecResult<HashMap<Eaten<String>, LocatedValue>> {
-    let mut args = HashMap::new();
+) -> ExecResult<HashMap<String, ParsedFnCallArg>> {
+    let mut args: HashMap<String, ParsedFnCallArg> = HashMap::new();
 
     let mut positional_args = fn_args.iter().filter(|arg| !arg.names.is_flag());
 
@@ -167,7 +174,7 @@ fn parse_fn_call_args(
 
     let args_len = match call_args {
         FnPossibleCallArgs::Parsed(parsed) => parsed.data.len(),
-        FnPossibleCallArgs::Direct { at: _, ref args } => args.len(),
+        FnPossibleCallArgs::Internal(ref args) => args.len(),
     };
 
     for arg_index in 0..args_len {
@@ -177,16 +184,14 @@ fn parse_fn_call_args(
 
                 (
                     FnPossibleCallArg::Parsed(arg),
-                    match arg {
+                    RuntimeCodeRange::CodeRange(match arg {
                         FnCallArg::Expr(expr) => expr.at,
                         FnCallArg::CmdArg(cmd_arg) => cmd_arg.at,
-                    },
+                    }),
                 )
             }
-            FnPossibleCallArgs::Direct {
-                at: _,
-                ref mut args,
-            } => {
+
+            FnPossibleCallArgs::Internal(ref mut args) => {
                 let arg = args.remove(0);
                 (FnPossibleCallArg::Direct(arg.value), arg.from)
             }
@@ -206,7 +211,7 @@ fn parse_fn_call_args(
                             fn_args.iter().find(|arg| {
                                 arg.names
                                     .long_flag()
-                                    .filter(|eaten| eaten.data == long_flag)
+                                    .filter(|eaten| eaten.data() == long_flag)
                                     .is_some()
                             })
                         } else {
@@ -224,7 +229,7 @@ fn parse_fn_call_args(
                             fn_args.iter().find(|arg| {
                                 arg.names
                                     .short_flag()
-                                    .filter(|eaten| eaten.data == short_flag)
+                                    .filter(|eaten| *eaten.data() == short_flag)
                                     .is_some()
                             })
                         };
@@ -235,15 +240,23 @@ fn parse_fn_call_args(
                             None => {
                                 args.insert(
                                     fn_arg_var_name(flag),
-                                    LocatedValue::new(RuntimeValue::Bool(true), call_arg_at),
+                                    ParsedFnCallArg {
+                                        decl_name_at: fn_arg_var_at(flag),
+                                        arg_value_at: call_arg_at,
+                                        value: RuntimeValue::Bool(true),
+                                    },
                                 );
                             }
 
                             Some(typ) => {
-                                if is_type_bool(&typ.data) {
+                                if is_type_bool(typ.data()) {
                                     args.insert(
                                         fn_arg_var_name(flag),
-                                        LocatedValue::new(RuntimeValue::Bool(true), call_arg_at),
+                                        ParsedFnCallArg {
+                                            decl_name_at: fn_arg_var_at(flag),
+                                            arg_value_at: call_arg_at,
+                                            value: RuntimeValue::Bool(true),
+                                        },
                                     );
                                 } else {
                                     opened_flag = Some((flag, call_arg_at));
@@ -313,14 +326,14 @@ fn parse_fn_call_args(
         };
 
         if let Some(expected_type) = &fn_arg.typ {
-            if !check_if_single_type_fits(&arg_value.get_type(), &expected_type.data, ctx)? {
+            if !check_if_single_type_fits(&arg_value.get_type(), expected_type.data(), ctx)? {
                 return Err(ctx.error(
                     call_arg_at,
                     format!(
                         "type mismatch for argument '{}': expected a {}, found a {}",
-                        fn_arg_var_name(fn_arg).data,
+                        fn_arg_var_name(fn_arg),
                         expected_type
-                            .data
+                            .data()
                             .render_colored(ctx, PrettyPrintOptions::inline()),
                         arg_value
                             .get_type()
@@ -332,7 +345,11 @@ fn parse_fn_call_args(
 
         args.insert(
             fn_arg_var_name(fn_arg),
-            LocatedValue::new(arg_value, call_arg_at),
+            ParsedFnCallArg {
+                decl_name_at: fn_arg_var_at(fn_arg),
+                arg_value_at: call_arg_at,
+                value: RuntimeValue::Bool(true),
+            },
         );
     }
 
@@ -344,12 +361,12 @@ fn parse_fn_call_args(
         if !arg.is_rest && !arg.is_optional {
             return Err(ctx.error(
                 match call_args {
-                    FnPossibleCallArgs::Parsed(parsed) => parsed.at,
-                    FnPossibleCallArgs::Direct { at, args: _ } => at,
+                    FnPossibleCallArgs::Parsed(parsed) => RuntimeCodeRange::CodeRange(parsed.at),
+                    FnPossibleCallArgs::Internal(_) => RuntimeCodeRange::Internal,
                 },
                 format!(
                     "not enough arguments, missing value for argument '{}'",
-                    fn_arg_var_name(arg).data
+                    fn_arg_var_name(arg)
                 ),
             ));
         }
@@ -363,32 +380,27 @@ fn parse_fn_call_args(
     for flag in fn_args.iter().filter(|arg| arg.names.is_flag()) {
         let arg_name = fn_arg_var_name(flag);
 
-        if let Entry::Vacant(e) = args.entry(arg_name) {
-            let mut value = None;
-
-            if let Some(typ) = &flag.typ {
-                if is_type_bool(&typ.data) {
-                    value = Some(RuntimeValue::Bool(false));
-                } else if !flag.is_optional {
+        if !is_native_fn {
+            if let Entry::Vacant(entry) = args.entry(arg_name) {
+                let value = if matches!(&flag.typ, Some(typ) if is_type_bool(typ.data())) {
+                    RuntimeValue::Bool(false)
+                } else if flag.is_optional {
+                    RuntimeValue::Null
+                } else {
                     return Err(ctx.error(
                         call_at,
                         format!(
                             "value for flag '{}' was not provided",
-                            fn_arg_var_name(flag).data
+                            fn_arg_var_name(flag)
                         ),
                     ));
-                }
-            } else {
-                value = Some(RuntimeValue::Bool(false));
-            }
+                };
 
-            if !is_native_fn {
-                e.insert(LocatedValue::new(
-                    value.unwrap_or(RuntimeValue::Null),
-                    call_at,
-                ));
-            } else if let Some(value) = value {
-                e.insert(LocatedValue::new(value, call_at));
+                entry.insert(ParsedFnCallArg {
+                    decl_name_at: fn_arg_var_at(flag),
+                    arg_value_at: call_at,
+                    value,
+                });
             }
         }
     }
@@ -402,14 +414,18 @@ fn parse_fn_call_args(
         };
 
         args.insert(
-            name,
-            LocatedValue {
+            match name {
+                RuntimeEaten::Eaten(value) => value.data.clone(),
+                RuntimeEaten::Internal(value) => value.clone(),
+            },
+            ParsedFnCallArg {
+                decl_name_at: fn_arg_var_at(rest_arg),
+                // TODO: improve (track positions in "opened_rest")
+                arg_value_at: call_at,
                 value: RuntimeValue::List(GcCell::new(match opened_rest {
                     Some(list) => list,
                     None => vec![],
                 })),
-                // TODO: improve (track positions in "opened_rest")
-                from: call_at,
             },
         );
     }
@@ -417,13 +433,21 @@ fn parse_fn_call_args(
     Ok(args)
 }
 
-fn fn_arg_var_name(arg: &FnArg) -> Eaten<String> {
-    // TODO: performance
+fn fn_arg_var_name(arg: &FnArg) -> String {
     match &arg.names {
-        FnArgNames::Positional(name) => name.clone(),
-        FnArgNames::ShortFlag(short) => short.map_ref(|c| c.to_string()),
-        FnArgNames::LongFlag(long) => long.clone(),
-        FnArgNames::LongAndShortFlag { long, short: _ } => long.clone(),
+        FnArgNames::Positional(name) => name.data().clone(),
+        FnArgNames::ShortFlag(short) => short.data().to_string(),
+        FnArgNames::LongFlag(long) => long.data().clone(),
+        FnArgNames::LongAndShortFlag { long, short: _ } => long.data().clone(),
+    }
+}
+
+fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
+    match &arg.names {
+        FnArgNames::Positional(name) => name.at(),
+        FnArgNames::ShortFlag(short) => short.at(),
+        FnArgNames::LongFlag(long) => long.at(),
+        FnArgNames::LongAndShortFlag { long, short: _ } => long.at(),
     }
 }
 
@@ -436,10 +460,7 @@ fn is_type_bool(typ: &ValueType) -> bool {
 
 pub enum FnPossibleCallArgs<'a> {
     Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
-    Direct {
-        at: CodeRange,
-        args: Vec<LocatedValue>,
-    },
+    Internal(Vec<LocatedValue>),
 }
 
 pub enum FnPossibleCallArg<'a> {
@@ -450,4 +471,10 @@ pub enum FnPossibleCallArg<'a> {
 pub enum FnCallResult {
     Success { returned: Option<LocatedValue> },
     Thrown(LocatedValue),
+}
+
+pub struct ParsedFnCallArg {
+    pub decl_name_at: RuntimeCodeRange,
+    pub arg_value_at: RuntimeCodeRange,
+    pub value: RuntimeValue,
 }

@@ -13,7 +13,7 @@ reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
 reshell-runtime = { path = "../runtime" }
 reshell-builtins = { path = "../builtins" }
-parsy = "0.2.11"
+parsy = "0.2.14"
 clap = { version = "4.4.7", features = ["derive"] }
 reedline = "0.25.0"
 nu-ansi-term = "0.49.0"

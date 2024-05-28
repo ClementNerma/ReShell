@@ -1,6 +1,4 @@
-use parsy::Eaten;
-
-use crate::ast::FnArgNames;
+use crate::ast::{FnArgNames, RuntimeEaten};
 
 impl FnArgNames {
     pub fn is_flag(&self) -> bool {
@@ -12,7 +10,7 @@ impl FnArgNames {
         }
     }
 
-    pub fn short_flag(&self) -> Option<Eaten<char>> {
+    pub fn short_flag(&self) -> Option<RuntimeEaten<char>> {
         match self {
             FnArgNames::Positional(_) => None,
             FnArgNames::ShortFlag(flag) => Some(*flag),
@@ -21,7 +19,7 @@ impl FnArgNames {
         }
     }
 
-    pub fn long_flag(&self) -> Option<&Eaten<String>> {
+    pub fn long_flag(&self) -> Option<&RuntimeEaten<String>> {
         match self {
             FnArgNames::Positional(_) => None,
             FnArgNames::ShortFlag(_) => None,

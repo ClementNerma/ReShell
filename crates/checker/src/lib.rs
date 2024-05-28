@@ -12,8 +12,8 @@ use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
     ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp,
     FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, Instruction, LiteralValue,
-    Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-    StructTypeMember, SwitchCase, Value, ValueType,
+    Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
+    SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub use self::{
@@ -36,7 +36,7 @@ pub fn check(
     let mut state = State::new();
     state.push_scope(native_lib_scope);
 
-    first_scope.code_range = content.data.code_range;
+    first_scope.code_range = RuntimeCodeRange::CodeRange(content.data.code_range);
     state.push_scope(first_scope);
 
     check_block_without_push(content, &mut state)?;
@@ -59,7 +59,7 @@ fn check_block_with(
     } = &block.data;
 
     let mut scope = CheckerScope {
-        code_range: *code_range,
+        code_range: RuntimeCodeRange::CodeRange(*code_range),
         deps: false, // can be changed later on with "fill_scope"
         typ: None,   // can be changed later on with "fill_scope"
         vars: HashMap::new(),
@@ -81,7 +81,7 @@ fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerR
         code_range,
     } = &block.data;
 
-    assert!(state.curr_scope().code_range == *code_range);
+    assert_eq!(state.curr_scope().code_range.real().unwrap(), *code_range);
 
     for instr in instructions {
         if let Instruction::TypeAliasDecl { name, content } = &instr.data {
@@ -142,7 +142,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.curr_scope_mut().vars.insert(
                 name.data.clone(),
                 DeclaredVar {
-                    name_at: name.at,
+                    name_at: RuntimeCodeRange::CodeRange(name.at),
                     is_mut: mutable.is_some(),
                 },
             );
@@ -203,7 +203,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     iter_var.data.clone(),
                     DeclaredVar {
-                        name_at: iter_var.at,
+                        name_at: RuntimeCodeRange::CodeRange(iter_var.at),
                         is_mut: false,
                     },
                 );
@@ -261,7 +261,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state
                 .curr_scope_mut()
                 .fns
-                .insert(name.data.clone(), name.at);
+                .insert(name.data.clone(), RuntimeCodeRange::CodeRange(name.at));
 
             check_function(content, state)?;
         }
@@ -296,7 +296,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
-                        name_at: catch_var.at,
+                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
                         is_mut: false,
                     },
                 );
@@ -326,7 +326,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             state.collected.deps.insert(content.at, HashSet::new());
 
             state.push_scope(CheckerScope {
-                code_range: content.at,
+                code_range: RuntimeCodeRange::CodeRange(content.at),
                 deps: true,
                 typ: None,
                 vars: HashMap::new(),
@@ -678,6 +678,11 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     let FnSignature { args, ret_type: _ } = &signature.data;
 
+    let args = match args {
+        RuntimeEaten::Eaten(args) => args,
+        RuntimeEaten::Internal(_) => unreachable!(),
+    };
+
     let mut vars = HashMap::new();
 
     for arg in &args.data {
@@ -696,15 +701,21 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         };
 
         let dup = vars.insert(
-            var_name.data.clone(),
+            var_name.data().clone(),
             DeclaredVar {
-                name_at: var_name.at,
+                name_at: var_name.at(),
                 is_mut: false,
             },
         );
 
         if dup.is_some() {
-            return Err(CheckerError::new(var_name.at, "Duplicate argument name"));
+            match var_name.at() {
+                RuntimeCodeRange::CodeRange(var_name_at) => {
+                    return Err(CheckerError::new(var_name_at, "Duplicate argument name"))
+                }
+
+                RuntimeCodeRange::Internal => panic!("Duplicate argument name in native function"),
+            }
         }
     }
 
@@ -771,7 +782,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
 
         SingleValueType::Function(signature) => match signature {
             RuntimeEaten::Eaten(eaten) => check_fn_signature(eaten, state),
-            RuntimeEaten::Raw(_) => Ok(()),
+            RuntimeEaten::Internal(_) => Ok(()),
         },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
@@ -782,6 +793,11 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     state.register_function_signature(signature.clone());
 
     let FnSignature { args, ret_type } = &signature.data;
+
+    let args = match args {
+        RuntimeEaten::Eaten(args) => args,
+        RuntimeEaten::Internal(_) => unreachable!(),
+    };
 
     let mut used_idents = HashSet::new();
 
@@ -801,30 +817,36 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
         };
 
         if let Some(long) = long {
-            if used_idents.contains(&long.data) {
-                return Err(CheckerError::new(long.at, "duplicate argument name"));
+            if used_idents.contains(long.data()) {
+                return Err(CheckerError::new(
+                    long.at().real().unwrap(),
+                    "duplicate argument name",
+                ));
             }
 
-            used_idents.insert(long.data.clone());
+            used_idents.insert(long.data().clone());
         }
 
         if let Some(short) = short {
-            let short_str = short.data.to_string();
+            let short_str = short.data().to_string();
 
             if used_idents.contains(&short_str) {
-                return Err(CheckerError::new(short.at, "duplicate flag name"));
+                return Err(CheckerError::new(
+                    short.at().real().unwrap(),
+                    "duplicate flag name",
+                ));
             }
 
             used_idents.insert(short_str);
         }
 
         if let Some(typ) = typ {
-            check_value_type(&typ.data, state)?;
+            check_value_type(typ.data(), state)?;
         }
     }
 
     if let Some(ret_type) = ret_type {
-        check_value_type(&ret_type.data, state)?;
+        check_value_type(ret_type.data(), state)?;
     }
 
     Ok(())

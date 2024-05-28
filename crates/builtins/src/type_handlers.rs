@@ -221,8 +221,8 @@ impl<Inner: ArgSingleTyping> NullableType<Inner> {
 impl<Inner: ArgSingleTyping> ArgTyping for NullableType<Inner> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            RuntimeEaten::Raw(self.inner.underlying_single_type()),
-            RuntimeEaten::Raw(NullType.underlying_single_type()),
+            RuntimeEaten::Internal(self.inner.underlying_single_type()),
+            RuntimeEaten::Internal(NullType.underlying_single_type()),
         ])
     }
 
@@ -258,7 +258,7 @@ impl TypedFunctionType {
 
 impl ArgSingleTyping for TypedFunctionType {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Function(RuntimeEaten::Raw(self.signature.clone()))
+        SingleValueType::Function(RuntimeEaten::Internal(self.signature.clone()))
     }
 
     type Parsed = GcReadOnlyCell<RuntimeFnValue>;
@@ -347,8 +347,8 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping> Union2Type<A, B> {
 impl<A: ArgSingleTyping, B: ArgSingleTyping> ArgTyping for Union2Type<A, B> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            RuntimeEaten::Raw(self.a.underlying_single_type()),
-            RuntimeEaten::Raw(self.b.underlying_single_type()),
+            RuntimeEaten::Internal(self.a.underlying_single_type()),
+            RuntimeEaten::Internal(self.b.underlying_single_type()),
         ])
     }
 
@@ -396,9 +396,9 @@ impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> Union3Type<A, B
 impl<A: ArgSingleTyping, B: ArgSingleTyping, C: ArgSingleTyping> ArgTyping for Union3Type<A, B, C> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            RuntimeEaten::Raw(self.a.underlying_single_type()),
-            RuntimeEaten::Raw(self.b.underlying_single_type()),
-            RuntimeEaten::Raw(self.c.underlying_single_type()),
+            RuntimeEaten::Internal(self.a.underlying_single_type()),
+            RuntimeEaten::Internal(self.b.underlying_single_type()),
+            RuntimeEaten::Internal(self.c.underlying_single_type()),
         ])
     }
 
@@ -460,9 +460,9 @@ macro_rules! declare_typed_struct_type {
                 fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::TypedStruct(vec![
                         $(
-                            RuntimeEaten::Raw(StructTypeMember {
-                                name: RuntimeEaten::Raw(self.$member.0.clone()),
-                                typ: RuntimeEaten::Raw(self.$member.1.underlying_type())
+                            RuntimeEaten::Internal(StructTypeMember {
+                                name: RuntimeEaten::Internal(self.$member.0.clone()),
+                                typ: RuntimeEaten::Internal(self.$member.1.underlying_type())
                             })
                         ),+
                     ])

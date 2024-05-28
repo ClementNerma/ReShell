@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 colored = "2.0.4"
 indexmap = "2.1.0"
-parsy = "0.2.11"
+parsy = "0.2.14"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
 terminal_size = "0.3.0"

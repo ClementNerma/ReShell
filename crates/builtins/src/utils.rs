@@ -1,5 +1,7 @@
 use parsy::{CodeRange, Eaten, FileId, Location};
-use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, ValueType};
+use reshell_parser::ast::{
+    FnArg, FnArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
+};
 
 use reshell_runtime::{
     context::Context,
@@ -10,40 +12,23 @@ use reshell_runtime::{
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
-pub fn forge_internal_loc() -> CodeRange {
-    CodeRange::new(
-        Location {
-            file_id: FileId::Internal,
-            offset: 0,
-        },
-        0,
-    )
-}
-
-pub fn forge_internal_token<T>(data: T) -> Eaten<T> {
-    Eaten {
-        at: forge_internal_loc(),
-        data,
-    }
-}
-
 pub fn forge_basic_fn_signature(
     args: Vec<(impl Into<String>, ValueType)>,
     ret_type: Option<ValueType>,
 ) -> FnSignature {
     FnSignature {
-        args: forge_internal_token(
+        args: RuntimeEaten::Internal(
             args.into_iter()
                 .map(|(name, typ)| FnArg {
-                    names: FnArgNames::Positional(forge_internal_token(name.into())),
+                    names: FnArgNames::Positional(RuntimeEaten::Internal(name.into())),
                     is_optional: false,
                     is_rest: false,
-                    typ: Some(forge_internal_token(typ)),
+                    typ: Some(RuntimeEaten::Internal(typ)),
                 })
                 .collect(),
         ),
 
-        ret_type: ret_type.map(|ret_type| forge_internal_token(Box::new(ret_type))),
+        ret_type: ret_type.map(|ret_type| RuntimeEaten::Internal(Box::new(ret_type))),
     }
 }
 
@@ -89,15 +74,13 @@ pub fn call_fn_checked(
     }
 
     let ret = call_fn_value(
-        forge_internal_loc(),
+        RuntimeCodeRange::Internal,
         func,
-        FnPossibleCallArgs::Direct {
-            at: forge_internal_loc(),
-            args: args
-                .into_iter()
-                .map(|arg| LocatedValue::new(arg, forge_internal_loc()))
+        FnPossibleCallArgs::Internal(
+            args.into_iter()
+                .map(|arg| LocatedValue::new(arg, RuntimeCodeRange::Internal))
                 .collect(),
-        },
+        ),
         ctx,
     )?;
 

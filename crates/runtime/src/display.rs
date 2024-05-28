@@ -1,7 +1,7 @@
 use colored::Color;
 use parsy::{CodeRange, FileId};
 use reshell_parser::ast::{
-    FnArg, FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType,
+    FnArg, FnArgNames, FnSignature, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
 };
 
 use crate::{
@@ -108,41 +108,45 @@ impl PrettyPrintable for SingleValueType {
     }
 }
 
-pub fn dbg_loc(at: CodeRange, files_map: &FilesMap) -> String {
-    match at.start.file_id {
-        FileId::None => unreachable!(),
-        FileId::SourceFile(id) => {
-            let Some(file) = files_map.get_file(id) else {
-                return format!("<unknown file @ offset {}>", at.start.offset);
-            };
+pub fn dbg_loc(at: impl Into<RuntimeCodeRange>, files_map: &FilesMap) -> String {
+    match at.into() {
+        RuntimeCodeRange::CodeRange(at) => match at.start.file_id {
+            FileId::None => unreachable!(),
+            FileId::SourceFile(id) => {
+                let Some(file) = files_map.get_file(id) else {
+                    return format!("<unknown file @ offset {}>", at.start.offset);
+                };
 
-            let bef = &file.content.as_str()[..at.start.offset];
+                let bef = &file.content.as_str()[..at.start.offset];
 
-            let line = bef.chars().filter(|c| *c == '\n').count() + 1;
+                let line = bef.chars().filter(|c| *c == '\n').count() + 1;
 
-            let after_last_nl = match bef.rfind('\n') {
-                Some(index) => &bef[index + 1..],
-                None => bef,
-            };
+                let after_last_nl = match bef.rfind('\n') {
+                    Some(index) => &bef[index + 1..],
+                    None => bef,
+                };
 
-            let col = after_last_nl.chars().count() + 1;
+                let col = after_last_nl.chars().count() + 1;
 
-            format!(
-                "{}:{}:{}",
-                match &file.path {
-                    ScopableFilePath::InMemory(name) => format!("<{name}>"),
+                format!(
+                    "{}:{}:{}",
+                    match &file.path {
+                        ScopableFilePath::InMemory(name) => format!("<{name}>"),
 
-                    ScopableFilePath::InMemoryWithCounter(name, counter) =>
-                        format!("<{name}[{counter}]>"),
+                        ScopableFilePath::InMemoryWithCounter(name, counter) =>
+                            format!("<{name}[{counter}]>"),
 
-                    ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
-                },
-                line,
-                col
-            )
-        }
-        FileId::Internal => "<internal>".into(),
-        FileId::Custom(id) => format!("<custom: {id}>"),
+                        ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
+                    },
+                    line,
+                    col
+                )
+            }
+            FileId::Internal => "<internal>".into(),
+            FileId::Custom(id) => format!("<custom: {id}>"),
+        },
+
+        RuntimeCodeRange::Internal => "internal location".to_string(),
     }
 }
 
@@ -283,7 +287,7 @@ impl PrettyPrintable for FnSignature {
         PrintablePiece::List {
             begin: Colored::with_color("fn(", Color::Blue),
             items: args
-                .data
+                .data()
                 .iter()
                 .map(|item| item.generate_pretty_data(ctx))
                 .collect(),
@@ -292,7 +296,7 @@ impl PrettyPrintable for FnSignature {
             suffix: ret_type.as_ref().map(|ret_type| {
                 Box::new(PrintablePiece::Join(vec![
                     PrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),
-                    ret_type.data.generate_pretty_data(ctx),
+                    ret_type.data().generate_pretty_data(ctx),
                 ]))
             }),
         }
@@ -317,29 +321,29 @@ impl PrettyPrintable for FnArg {
         match names {
             FnArgNames::Positional(name) => {
                 out.extend([PrintablePiece::colored_atomic(
-                    name.data.clone(),
+                    name.data().clone(),
                     Color::Red,
                 )]);
             }
             FnArgNames::ShortFlag(short) => {
                 out.extend([
                     PrintablePiece::colored_atomic("-", Color::BrightYellow),
-                    PrintablePiece::colored_atomic(short.data, Color::Red),
+                    PrintablePiece::colored_atomic(*short.data(), Color::Red),
                 ]);
             }
             FnArgNames::LongFlag(long) => {
                 out.extend([
                     PrintablePiece::colored_atomic("--", Color::BrightYellow),
-                    PrintablePiece::colored_atomic(long.data.clone(), Color::Red),
+                    PrintablePiece::colored_atomic(long.data().clone(), Color::Red),
                 ]);
             }
             FnArgNames::LongAndShortFlag { long, short } => {
                 out.extend([
                     PrintablePiece::colored_atomic("--", Color::BrightYellow),
-                    PrintablePiece::colored_atomic(long.data.clone(), Color::Red),
+                    PrintablePiece::colored_atomic(long.data().clone(), Color::Red),
                     PrintablePiece::colored_atomic(" (", Color::Blue),
                     PrintablePiece::colored_atomic("-", Color::BrightYellow),
-                    PrintablePiece::colored_atomic(short.data, Color::BrightYellow),
+                    PrintablePiece::colored_atomic(*short.data(), Color::BrightYellow),
                     PrintablePiece::colored_atomic(")", Color::Blue),
                 ]);
             }
@@ -351,7 +355,7 @@ impl PrettyPrintable for FnArg {
 
         if let Some(typ) = typ {
             out.push(PrintablePiece::colored_atomic(": ", Color::BrightYellow));
-            out.push(typ.data.generate_pretty_data(ctx));
+            out.push(typ.data().generate_pretty_data(ctx));
         }
 
         PrintablePiece::Join(out)

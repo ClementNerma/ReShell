@@ -142,11 +142,11 @@ pub fn check_fn_signature_equality(
     into: &FnSignature,
     ctx: &Context,
 ) -> ExecResult<bool> {
-    if signature.args.data.len() != into.args.data.len() {
+    if signature.args.data().len() != into.args.data().len() {
         return Ok(false);
     }
 
-    for (arg, cmp_arg) in signature.args.data.iter().zip(into.args.data.iter()) {
+    for (arg, cmp_arg) in signature.args.data().iter().zip(into.args.data().iter()) {
         if arg.is_optional != cmp_arg.is_optional {
             return Ok(false);
         }
@@ -170,14 +170,14 @@ pub fn check_fn_signature_equality(
         }
 
         if let (Some(arg_type), Some(cmp_arg_type)) = (&arg.typ, &cmp_arg.typ) {
-            if !check_if_type_fits(&arg_type.data, &cmp_arg_type.data, ctx)? {
+            if !check_if_type_fits(arg_type.data(), cmp_arg_type.data(), ctx)? {
                 return Ok(false);
             }
         }
     }
 
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
-        if !check_if_type_fits(ret_type.data.as_ref(), &cmp_ret_type.data, ctx)? {
+        if !check_if_type_fits(ret_type.data(), cmp_ret_type.data(), ctx)? {
             return Ok(false);
         }
     }

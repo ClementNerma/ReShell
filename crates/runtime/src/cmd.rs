@@ -7,11 +7,11 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, Expr, FnCall,
-    FnCallArg, SingleCmdCall,
+    FnCallArg, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
-    context::{Context, DepsScopeCreationData, ScopeContent, ScopeRange},
+    context::{Context, DepsScopeCreationData, ScopeContent},
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
@@ -69,7 +69,7 @@ pub fn run_cmd(
 
                 if let Some(deps_scope) = deps_scope {
                     ctx.create_and_push_scope_with_deps(
-                        ScopeRange::CodeRange(call.at),
+                        RuntimeCodeRange::CodeRange(call.at),
                         DepsScopeCreationData::Retrieved(deps_scope),
                         ScopeContent::new(),
                         ctx.generate_parent_scopes_list(),
@@ -112,7 +112,12 @@ pub fn run_cmd(
                             }
                         };
 
-                        call_fn_value(at, &func, FnPossibleCallArgs::Parsed(&call_args), ctx)?
+                        call_fn_value(
+                            RuntimeCodeRange::CodeRange(at),
+                            &func,
+                            FnPossibleCallArgs::Parsed(&call_args),
+                            ctx,
+                        )?
                     }
                 };
 
@@ -314,7 +319,7 @@ fn single_call_to_chain_el(
         } = from_alias;
 
         ctx.create_and_push_scope_with_deps(
-            ScopeRange::CodeRange(name_declared_at),
+            RuntimeCodeRange::CodeRange(name_declared_at),
             DepsScopeCreationData::CapturedDeps(captured_deps),
             // This scope won't be used anyway, it is only here to provide access to the deps scope
             ScopeContent::new(),

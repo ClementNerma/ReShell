@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerContent, ExprOp, Function, LiteralValue, PropAccess, SingleOp, Value,
+    ExprInnerContent, ExprOp, Function, LiteralValue, PropAccess, RuntimeCodeRange, SingleOp,
+    Value,
 };
 
 use crate::{
@@ -345,7 +346,14 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 None => Err(ctx.error(call.at, "function call did not return a value")),
             },
             FnCallResult::Thrown(LocatedValue { from, value }) => Err(ctx.error(
-                from,
+                match from {
+                    RuntimeCodeRange::CodeRange(from) => from,
+                    RuntimeCodeRange::Internal => {
+                        return Err(
+                            ctx.error(call.at, "internal error: native function thrown a value")
+                        )
+                    }
+                },
                 format!(
                     "function call thrown a value: {}",
                     value.render_uncolored(ctx, PrettyPrintOptions::inline())
