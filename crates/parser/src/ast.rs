@@ -144,12 +144,11 @@ pub enum ExprInnerContent {
         elsif: Vec<Eaten<ElsIfExpr>>,
         els: Eaten<Box<Expr>>,
     },
-    // TODO
-    // Try {
-    //     call: Eaten<FnCall>,
-    //     catch_var: Eaten<String>,
-    //     catch_body: Eaten<Box<Expr>>,
-    // },
+    Try {
+        fn_call: Eaten<FnCall>,
+        catch_var: Eaten<String>,
+        catch_expr: Eaten<Box<Expr>>,
+    },
 }
 
 #[derive(Debug, Clone)]

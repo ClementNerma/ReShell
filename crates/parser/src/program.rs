@@ -508,6 +508,54 @@ pub fn program() -> impl Parser<Program> {
                         elsif,
                         els,
                     }),
+                // Try / catch
+                just("try")
+                    .ignore_then(s)
+                    // .ignore_then(
+                    //     char('(').critical("expected an opening parenthesis before function call"),
+                    // )
+                    // .ignore_then(msnl)
+                    .ignore_then(
+                        fn_call
+                            .clone()
+                            .spanned()
+                            .critical("expected a function call"),
+                    )
+                    // .then_ignore(msnl)
+                    // .then_ignore(
+                    //     char(')').critical("expected a closing parenthesis after function call"),
+                    // )
+                    .then_ignore(s.critical("expected 'catch' keyword after function call"))
+                    .then_ignore(
+                        just("catch").critical("expected 'catch' keyword after function call"),
+                    )
+                    .then_ignore(s.critical("expected a space"))
+                    .then(
+                        ident
+                            .clone()
+                            .spanned()
+                            .critical("expected a catch variable"),
+                    )
+                    .then_ignore(s.critical("expected a space"))
+                    // .then_ignore(
+                    //     char('(').critical("expected an opening parenthesis before expression"),
+                    // )
+                    // .then_ignore(msnl)
+                    .then(
+                        expr.clone()
+                            .map(Box::new)
+                            .spanned()
+                            .critical("expected a catch expression"),
+                    )
+                    // .then_ignore(msnl)
+                    // .then_ignore(
+                    //     char(')').critical("expected a closing parenthesis after expression"),
+                    // )
+                    .map(|((fn_call, catch_var), catch_expr)| ExprInnerContent::Try {
+                        fn_call,
+                        catch_var,
+                        catch_expr,
+                    }),
                 // Simple values
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))

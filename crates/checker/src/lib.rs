@@ -386,6 +386,32 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
     Ok(())
 }
 
+fn check_expr_with(
+    expr: &Eaten<impl AsRef<Expr>>,
+    state: &mut State,
+    fill_scope: impl FnOnce(&mut CheckerScope),
+) -> CheckerResult {
+    let mut scope = CheckerScope {
+        code_range: RuntimeCodeRange::CodeRange(expr.at),
+        deps: false, // can be changed later on with "fill_scope"
+        typ: None,   // can be changed later on with "fill_scope"
+        vars: HashMap::new(),
+        fns: HashMap::new(),
+        cmd_aliases: HashMap::new(),
+        type_aliases: HashMap::new(),
+    };
+
+    fill_scope(&mut scope);
+
+    state.push_scope(scope);
+
+    check_expr(expr.data.as_ref(), state)?;
+
+    state.pop_scope();
+
+    Ok(())
+}
+
 fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
     let Expr { inner, right_ops } = expr;
 
@@ -439,6 +465,24 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             }
 
             check_expr(&els.data, state)?;
+        }
+
+        ExprInnerContent::Try {
+            fn_call,
+            catch_var,
+            catch_expr,
+        } => {
+            check_fn_call(fn_call, state)?;
+
+            check_expr_with(catch_expr, state, |scope| {
+                scope.vars.insert(
+                    catch_var.data.clone(),
+                    DeclaredVar {
+                        name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                        is_mut: false,
+                    },
+                );
+            })?;
         }
     }
 
