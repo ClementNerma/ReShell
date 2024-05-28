@@ -5,7 +5,7 @@ use std::{
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
-use reshell_runtime::{bin_resolver::BinariesResolver, context::Context};
+use reshell_runtime::{bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context};
 
 use crate::utils::{
     lazy_cell::LazyCell,
@@ -422,20 +422,8 @@ impl CommandsChecker {
 
         let in_scope = name.strip_prefix('.').is_some_and(|name| ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)));
 
-        let home_dir_str = ctx.home_dir().and_then(|home_dir| home_dir.to_str());
-
-        let name = if name == "~" {
-            match home_dir_str {
-                Some(home_dir_str) => home_dir_str.to_owned(),
-                None => return false,
-            }
-        } else if let Some(name) = name.strip_prefix("~/").or_else(|| name.strip_prefix("~\\")) {
-            match home_dir_str {
-                Some(home_dir_str) => format!("{home_dir_str}{MAIN_SEPARATOR}{name}"),
-                None => return false,
-            }
-        } else {
-            name.to_owned()
+        let Ok(name) = try_replace_home_dir_tilde(name, ctx) else {
+            return false;
         };
         
         let exists = in_scope || ctx.binaries_resolver().resolve_binary_path(&name).is_ok();

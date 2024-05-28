@@ -496,7 +496,8 @@ fn exec_cmd(
     }
 
     // Determine the command name (or path)
-    let cmd_path = treat_cwd_raw(&name.data, name.at, ctx)?;
+    let cmd_path =
+        try_replace_home_dir_tilde(&name.data, ctx).map_err(|err| ctx.error(name.at, err))?;
 
     // Resolve the command name to a binary's path
     let cmd_path = ctx
@@ -751,7 +752,7 @@ fn eval_cmd_computed_string_piece(
     match &piece.data {
         CmdComputedStringPiece::Literal(str) => {
             if transmute_tilde {
-                treat_cwd_raw(str, piece.at, ctx)
+                try_replace_home_dir_tilde(str, ctx).map_err(|err| ctx.error(piece.at, err))
             } else {
                 Ok(str.clone())
             }
@@ -766,17 +767,12 @@ fn eval_cmd_computed_string_piece(
     }
 }
 
-fn treat_cwd_raw(raw: &str, raw_at: CodeRange, ctx: &Context) -> ExecResult<String> {
+pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'static str> {
     let home_dir = || {
         ctx.home_dir()
-            .ok_or_else(|| ctx.error(raw_at, "home directory was not defined in context"))?
+            .ok_or("home directory was not defined in context")?
             .to_str()
-            .ok_or_else(|| {
-                ctx.error(
-                    raw_at,
-                    "home directory path contains invalid UTF-8 characters",
-                )
-            })
+            .ok_or("home directory path contains invalid UTF-8 characters")
     };
 
     let out = if raw == "~" {
