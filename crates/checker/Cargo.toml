@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-parsy = "0.6.3"
+parsy = "0.6.4"
 reshell-parser = { path = "../parser" }
