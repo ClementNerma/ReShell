@@ -36,6 +36,18 @@ fn eval_expr_ref(
                 continue;
             };
 
+        if precedence == 1 {
+            if let Some((p, _)) = right_ops
+                .iter()
+                .enumerate()
+                .find(|(_, c)| operator_precedence(c.op.data) == 0)
+            {
+                if p != pos {
+                    return Err(ctx.error(expr_op.op.at, "to avoid confusions, mixing operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
+                }
+            }
+        }
+
         let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
         let right = eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx)?;
 
