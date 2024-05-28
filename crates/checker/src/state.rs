@@ -100,24 +100,17 @@ impl CheckerOutput {
             fn_signatures,
             fn_bodies,
             cmd_aliases,
-            cmd_calls
+            cmd_calls,
         } = other;
 
         self.deps.extend(deps);
-
         self.type_aliases_decl.extend(type_aliases_decl);
-
         self.type_aliases_usages.extend(type_aliases_usages);
-
         self.type_aliases_decl_by_scope
             .extend(type_aliases_decl_by_scope);
-
         self.cmd_calls.extend(cmd_calls);
-
         self.fn_signatures.extend(fn_signatures);
-
         self.fn_bodies.extend(fn_bodies);
-
         self.cmd_aliases.extend(cmd_aliases);
     }
 
@@ -131,7 +124,7 @@ impl CheckerOutput {
             fn_signatures: self.fn_signatures.clone(),
             fn_bodies: self.fn_bodies.clone(),
             cmd_aliases: self.cmd_aliases.clone(),
-            cmd_calls: self.cmd_calls.clone()
+            cmd_calls: self.cmd_calls.clone(),
         }
     }
 }

@@ -940,10 +940,10 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     let mut vars = HashMap::new();
 
     for arg in &args.data {
-        let CheckedFnArg { name, name_at } = check_fn_arg(arg, state)?;
+        let CheckedFnArg { name_at, var_name } = check_fn_arg(arg, state)?;
 
         let dup = vars.insert(
-            name,
+            var_name,
             DeclaredVar {
                 name_at: RuntimeCodeRange::Parsed(name_at),
                 is_mut: false,
@@ -979,7 +979,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 }
 
 fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
-    let (name, name_at) = match arg {
+    let (name, name_at, alt_var_name) = match arg {
         FnArg::Positional {
             name,
             is_optional: _,
@@ -989,13 +989,21 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 check_value_type(typ.data(), state)?;
             }
 
-            (name.data().clone(), name.at())
+            (name.data().clone(), name.at(), None)
         }
 
         FnArg::PresenceFlag { names } => match names {
-            FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at()),
-            FnFlagArgNames::LongFlag(long) => (long.data().clone(), long.at()),
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => (long.data().clone(), long.at()),
+            FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None),
+            FnFlagArgNames::LongFlag(long) => (
+                long.data().clone(),
+                long.at(),
+                Some(long_flag_var_name(long.data())),
+            ),
+            FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
+                long.data().clone(),
+                long.at(),
+                Some(long_flag_var_name(long.data())),
+            ),
         },
 
         FnArg::NormalFlag {
@@ -1008,19 +1016,25 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             }
 
             match names {
-                FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at()),
-                FnFlagArgNames::LongFlag(long) => (long.data().clone(), long.at()),
-                FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
-                    (long.data().clone(), long.at())
-                }
+                FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None),
+                FnFlagArgNames::LongFlag(long) => (
+                    long.data().clone(),
+                    long.at(),
+                    Some(long_flag_var_name(long.data())),
+                ),
+                FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
+                    long.data().clone(),
+                    long.at(),
+                    Some(long_flag_var_name(long.data())),
+                ),
             }
         }
 
-        FnArg::Rest { name } => (name.data().clone(), name.at()),
+        FnArg::Rest { name } => (name.data().clone(), name.at(), None),
     };
 
     Ok(CheckedFnArg {
-        name,
+        var_name: alt_var_name.unwrap_or_else(|| name.clone()),
         name_at: match name_at {
             RuntimeCodeRange::Parsed(at) => at,
             RuntimeCodeRange::Internal => unreachable!(),
@@ -1029,8 +1043,34 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
 }
 
 struct CheckedFnArg {
-    name: String,
     name_at: CodeRange,
+    var_name: String,
+}
+
+/// Compute the variable name for a long flag
+/// Converst a raw flag name to a valid (variable) identifier
+///
+/// Example: `push-with-lease` -> `pushWithLease`
+pub fn long_flag_var_name(name: &str) -> String {
+    let mut var_name = String::with_capacity(name.len());
+
+    let mut uppercase = false;
+
+    for char in name.chars() {
+        if char == '-' {
+            uppercase = true;
+        } else if uppercase {
+            uppercase = false;
+
+            for char in char.to_uppercase() {
+                var_name.push(char);
+            }
+        } else {
+            var_name.push(char);
+        }
+    }
+
+    var_name
 }
 
 fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult {
@@ -1102,9 +1142,9 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     let mut used_idents = HashSet::new();
 
     for arg in &args.data {
-        let CheckedFnArg { name, name_at } = check_fn_arg(arg, state)?;
+        let CheckedFnArg { var_name, name_at } = check_fn_arg(arg, state)?;
 
-        if !used_idents.insert(name) {
+        if !used_idents.insert(var_name) {
             return Err(CheckerError::new(
                 name_at,
                 "Duplicate argument name in function",

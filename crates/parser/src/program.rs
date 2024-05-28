@@ -155,7 +155,9 @@ pub fn program(
 
         let fn_arg_long_flag = just("--")
             .ignore_then(
-                ident
+                first_ident_char
+                    .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
+                    .collect_string()
                     .spanned()
                     .critical("expected a flag name (identifier)"),
             )
