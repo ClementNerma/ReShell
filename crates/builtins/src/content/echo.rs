@@ -1,3 +1,5 @@
+use colored::{Color, Colorize};
+
 use crate::content::stringify::stringify_value;
 
 use super::stringify::StringifyableType;
@@ -10,16 +12,56 @@ crate::define_internal_fn!(
     "echo",
 
     (
-        message: RequiredArg<StringifyableType> = Arg::positional("message")
+        message: RequiredArg<StringifyableType> = Arg::positional("message"),
+        color: OptionalArg<StringType> = Arg::long_and_short_flag("color", 'c')
     )
 
     -> None
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { message }, _, _| {
-        println!("{}", stringify_value(message));
+    Runner::new(
+        |_,
+         Args { message, color },
+         ArgsAt {
+             color: color_at, ..
+         },
+         ctx| {
+            let message = stringify_value(message);
 
-        Ok(None)
-    })
+            match color {
+                None => println!("{message}"),
+
+                Some(color) => {
+                    let color = match color.as_str() {
+                        "black" => Color::Black,
+                        "red" => Color::Red,
+                        "green" => Color::Green,
+                        "yellow" => Color::Yellow,
+                        "blue" => Color::Blue,
+                        "magenta" => Color::Magenta,
+                        "cyan" => Color::Cyan,
+                        "white" => Color::White,
+                        "brightBlack" => Color::BrightBlack,
+                        "brightRed" => Color::BrightRed,
+                        "brightGreen" => Color::BrightGreen,
+                        "brightYellow" => Color::BrightYellow,
+                        "brightBlue" => Color::BrightBlue,
+                        "brightmagenta" => Color::BrightMagenta,
+                        "brightCyan" => Color::BrightCyan,
+                        "brightWhite" => Color::BrightWhite,
+                        _ => {
+                            return Err(
+                                ctx.error(color_at.unwrap(), format!("unknown color '{color}'"))
+                            )
+                        }
+                    };
+
+                    println!("{}", message.color(color));
+                }
+            }
+
+            Ok(None)
+        },
+    )
 }
