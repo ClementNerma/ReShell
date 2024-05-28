@@ -24,7 +24,7 @@ impl RlHighlighter for Highlighter {
 static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     /// Create a simple rule's inner content
     fn simple_rule<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>) -> SimpleRule {
-        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, preceded_by: None, followed_by: None, style: colors.as_ref().iter().copied().map(S::into).collect() }
+        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, preceded_by: None, followed_by: None, followed_by_nesting: None, style: colors.as_ref().iter().copied().map(S::into).collect() }
     }
 
     /// Create a simple rule
@@ -32,17 +32,24 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
         Rule::Simple(simple_rule(regex, colors))
     }
 
-    /// Create a simple rule that must be followed by a specific nesting type
-    fn simple_followed_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
-        let mut rule = simple_rule(regex, colors);
-        rule.followed_by = Some(followed_by.into());
-        Rule::Simple(rule)
-    }
-
     /// Create a simple rule that must be preceded by a given pattern
     fn simple_preceded_by<S: Into<Style> + Copy>(preceded_by: &'static str, regex: &'static str, colors: impl AsRef<[S]>) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.preceded_by = Some(Regex::new(preceded_by).unwrap());
+        Rule::Simple(rule)
+    }
+
+    /// Create a simple rule that must be followed by a given pattern
+    fn simple_followed_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: &'static str) -> Rule {
+        let mut rule = simple_rule(regex, colors);
+        rule.followed_by = Some(Regex::new(followed_by).unwrap());
+        Rule::Simple(rule)
+    }
+
+    /// Create a simple rule that must be followed by a specific nesting type
+    fn simple_followed_by_nesting<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
+        let mut rule = simple_rule(regex, colors);
+        rule.followed_by_nesting = Some(followed_by.into());
         Rule::Simple(rule)
     }
 
@@ -96,29 +103,26 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // @direct marker
                 simple("(@direct)\\b", [Magenta]),
 
-                // Flags
-                simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
+                // Normalized flags
+                simple_followed_by("\\s(\\-[a-zA-Z0-9_]|\\-\\-[a-zA-Z0-9_-]+[=]?)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
 
                 // Keywords
                 simple("\\b(alias|fn|for|while|if|else|continue|break|throw|try|catch|do|return)\\b", [Magenta]),
 
+                // Numbers
+                simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
+
                 // Command names
-                simple_preceded_by("(^\\s*|[\\|\\n;]\\s*|@direct\\s+)$", "([^\\s\\(\\)\\[\\]\\{}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)", [Blue]),
+                simple_preceded_by("(^\\s*|[\\|\\n;]\\s*|@direct\\s+)$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Blue]),
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),
-
-                // Single variable marker
-                simple("(\\$)", [Red]),
-
-                // Numbers
-                simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
 
                 // Booleans
                 simple("\\b(true|false)\\b", [LightYellow]),
 
                 // Raw arguments
-                simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
+                simple("([^\\s\\(\\)\\[\\]\\{\\}<>;\\?\\|'\"\\$]+)", [Green]),
 
                 // Invalid characters
                 invalid_chars.clone()
@@ -134,8 +138,11 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("(.)", [Green]),
             ]),
             ("expressions", vec![
+                // Method calls
+                simple_followed_by_nesting("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
+
                 // Function calls
-                simple_followed_by("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
+                simple_followed_by_nesting("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
 
                 // Types
                 simple("\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b", [Magenta]),
@@ -149,9 +156,6 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
 
-                // Method calls
-                simple_followed_by("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
-
                 // Struct member access
                 simple("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
 
@@ -161,8 +165,8 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Numbers
                 simple("(\\d+(?:\\.\\d+)?)", [LightYellow]),
 
-                // Flags
-                simple("(?:[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
+                // // Flags
+                // simple("(?:[\\|,]\\s*)(\\-[a-zA-Z0-9_-]*)(?:\\s*[:,\\|]|$)", [LightYellow]),
 
                 // Argument names (by elimination we have reached them)
                 simple("(?:[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[,:\\?\\|]|$)", [Red]),
