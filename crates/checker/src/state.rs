@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten, Location};
-use reshell_parser::ast::{Block, FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall};
+use reshell_parser::ast::{ FnSignature, RuntimeCodeRange, ValueType, SingleCmdCall, FunctionBody};
 
 use crate::{errors::CheckerResult, CheckerError};
 
@@ -52,7 +52,7 @@ pub struct CheckerOutput {
     /// Body of all functions and closures
     /// 
     /// Maps the body's location to its content
-    pub fn_bodies: HashMap<CodeRange, Eaten<Block>>,
+    pub fn_bodies: HashMap<CodeRange, Eaten<FunctionBody>>,
 
     /// List of command aliases
     /// 
@@ -283,7 +283,7 @@ impl State {
     }
 
     /// Register a function's body
-    pub fn register_function_body(&mut self, body: Eaten<Block>) {
+    pub fn register_function_body(&mut self, body: Eaten<FunctionBody>) {
         let dup = self
             .collected
             .fn_bodies
