@@ -451,9 +451,8 @@ pub struct CmdPipe {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CmdPipeType {
-    Stdout,
     Stderr,
-    Value,
+    ValueOrStdout,
     // Both,
 }
 
