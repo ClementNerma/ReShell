@@ -27,6 +27,13 @@ use super::{builder::NativeLibDefinition, prompt::GEN_PROMPT_VAR_NAME};
 pub fn define_native_lib() -> NativeLibDefinition {
     NativeLibDefinition {
         functions: vec![
+            //
+            // ================================
+            // =                              =
+            // =     Type instanciation       =
+            // =                              =
+            // ================================
+            //
             define_internal_fn!(
                 //
                 // Create a map (optionally from a list of entries)
@@ -57,6 +64,50 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Ok(Some(RuntimeValue::Map(GcCell::new(map))))
                 }
             ),
+            define_internal_fn!(
+                //
+                // Create a range value
+                //
+
+                "range",
+
+                Args [ArgsAt] (
+                    from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
+                    to: RequiredArg<ExactIntType<usize>> = Arg::positional("to")
+                )
+
+                -> Some(RangeType::direct_underlying_type()),
+
+                |_, Args { from, to }, _, _| {
+                    Ok(Some(RuntimeValue::Range { from, to }))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Create an error value
+                //
+
+                "error",
+
+                Args [ArgsAt] (
+                    content: RequiredArg<StringType> = Arg::positional("content")
+                )
+
+                -> Some(ErrorType::direct_underlying_type()),
+
+                |at, Args { content }, _, ctx| {
+                    match at {
+                        RuntimeCodeRange::Parsed(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
+                        RuntimeCodeRange::Internal => Err(ctx.error(at, "cannot generate an error from an internal location"))
+                    }
+                }
+            ),
+            //
+            // ================================
+            // =                              =
+            // =       Runtime control        =
+            // =                              =
+            // ================================
             define_internal_fn!(
                 //
                 // Display a message
@@ -137,42 +188,56 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
-                // Create a range value
+                // Change the current directory
                 //
 
-                "range",
+                "cd",
 
                 Args [ArgsAt] (
-                    from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
-                    to: RequiredArg<ExactIntType<usize>> = Arg::positional("to")
+                    path: RequiredArg<StringType> = Arg::positional("path")
                 )
 
-                -> Some(RangeType::direct_underlying_type()),
+                -> None,
 
-                |_, Args { from, to }, _, _| {
-                    Ok(Some(RuntimeValue::Range { from, to }))
+                |at, Args { path }, ArgsAt { path: path_at }, ctx| {
+                    let trimmed_path = path.trim_end_matches(['/', '\\']);
+
+                    let path = Path::new(if trimmed_path.is_empty() { path.as_str() } else { trimmed_path });
+
+                    if !path.is_dir() {
+                        return Err(ctx.error(path_at, format!("directory '{}' does not exist", path.display())))
+                    }
+
+                    std::env::set_current_dir(path)
+                        .map_err(|err| ctx.error(at, format!("failed to change current directory: {err}")))?;
+
+                    Ok(None)
                 }
             ),
             define_internal_fn!(
                 //
-                // Create an error value
+                // Exit the program (optionally with an error code)
                 //
 
-                "error",
+                "exit",
 
                 Args [ArgsAt] (
-                    content: RequiredArg<StringType> = Arg::positional("content")
+                    code: OptionalArg<ExactIntType<u8>> = Arg::positional("code")
                 )
 
-                -> Some(ErrorType::direct_underlying_type()),
+                -> None,
 
-                |at, Args { content }, _, ctx| {
-                    match at {
-                        RuntimeCodeRange::Parsed(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
-                        RuntimeCodeRange::Internal => Err(ctx.error(at, "cannot generate an error from an internal location"))
-                    }
+                |at, Args { code }, _, ctx| {
+                    Err(ctx.exit(at, code))
                 }
             ),
+            //
+            // ================================
+            // =                              =
+            // =        Type utilities        =
+            // =                              =
+            // ================================
+            //
             define_internal_fn!(
                 //
                 // Get the length of a string or the number of entries in a map / list
@@ -236,6 +301,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Ok(Some(list.write(list_at, ctx)?.pop().unwrap_or(RuntimeValue::Null)))
                 }
             ),
+            //
+            // ================================
+            // =                              =
+            // =          Functional          =
+            // =                              =
+            // ================================
+            //
             define_internal_fn!(
                 //
                 // map over a list
@@ -281,6 +353,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Ok(Some(RuntimeValue::List(GcCell::new(mapped))))
                 }
             ),
+            //
+            // ================================
+            // =                              =
+            // =          Filesystem          =
+            // =                              =
+            // ================================
+            //
             define_internal_fn!(
                 //
                 // Check if a path exists
@@ -332,6 +411,13 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Ok(Some(RuntimeValue::Bool(Path::new(&path).is_file())))
                 }
             ),
+            //
+            // ================================
+            // =                              =
+            // =      Environment control     =
+            // =                              =
+            // ================================
+            //
             define_internal_fn!(
                 //
                 // Get the value of an environment variable
@@ -382,30 +468,29 @@ pub fn define_native_lib() -> NativeLibDefinition {
             ),
             define_internal_fn!(
                 //
-                // Change the current directory
+                // Get the current directory
                 //
 
-                "cd",
+                "current_dir",
 
                 Args [ArgsAt] (
-                    path: RequiredArg<StringType> = Arg::positional("path")
+                    lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
                 )
 
-                -> None,
+                -> Some(StringType::direct_underlying_type()),
 
-                |at, Args { path }, ArgsAt { path: path_at }, ctx| {
-                    let trimmed_path = path.trim_end_matches(['/', '\\']);
+                |at, Args { lossy }, _, ctx| {
+                    let current_dir = std::env::current_dir()
+                        .map_err(|err| ctx.error(at, format!("failed to get current directory: {err}")))?;
 
-                    let path = Path::new(if trimmed_path.is_empty() { path.as_str() } else { trimmed_path });
+                    let current_dir = if lossy != Some(true) {
+                        current_dir.to_str().ok_or_else(|| ctx.error(at, format!("current directoy contains invalid UTF-8 characters: '{}'", current_dir.display())))?
+                            .to_string()
+                    } else {
+                        current_dir.to_string_lossy().to_string()
+                    };
 
-                    if !path.is_dir() {
-                        return Err(ctx.error(path_at, format!("directory '{}' does not exist", path.display())))
-                    }
-
-                    std::env::set_current_dir(path)
-                        .map_err(|err| ctx.error(at, format!("failed to change current directory: {err}")))?;
-
-                    Ok(None)
+                    Ok(Some(RuntimeValue::String(current_dir)))
                 }
             ),
             define_internal_fn!(
@@ -446,50 +531,6 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     };
 
                     Ok(Some(rows))
-                }
-            ),
-            define_internal_fn!(
-                //
-                // Get the current directory
-                //
-
-                "current_dir",
-
-                Args [ArgsAt] (
-                    lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
-                )
-
-                -> Some(StringType::direct_underlying_type()),
-
-                |at, Args { lossy }, _, ctx| {
-                    let current_dir = std::env::current_dir()
-                        .map_err(|err| ctx.error(at, format!("failed to get current directory: {err}")))?;
-
-                    let current_dir = if lossy != Some(true) {
-                        current_dir.to_str().ok_or_else(|| ctx.error(at, format!("current directoy contains invalid UTF-8 characters: '{}'", current_dir.display())))?
-                            .to_string()
-                    } else {
-                        current_dir.to_string_lossy().to_string()
-                    };
-
-                    Ok(Some(RuntimeValue::String(current_dir)))
-                }
-            ),
-            define_internal_fn!(
-                //
-                // Exit the program (optionally with an error code)
-                //
-
-                "exit",
-
-                Args [ArgsAt] (
-                    code: OptionalArg<ExactIntType<u8>> = Arg::positional("code")
-                )
-
-                -> None,
-
-                |at, Args { code }, _, ctx| {
-                    Err(ctx.exit(at, code))
                 }
             ),
         ],
