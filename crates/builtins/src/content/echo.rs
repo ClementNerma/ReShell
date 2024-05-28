@@ -1,3 +1,7 @@
+use crate::content::stringify::stringify_value;
+
+use super::stringify::StringifyableType;
+
 crate::define_internal_fn!(
     //
     // Display a message
@@ -6,7 +10,7 @@ crate::define_internal_fn!(
     "echo",
 
     (
-        message: RequiredArg<Union3Type<StringType, IntType, FloatType>> = Arg::positional("message")
+        message: RequiredArg<StringifyableType> = Arg::positional("message")
     )
 
     -> None
@@ -14,14 +18,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { message }, _, _| {
-        println!(
-            "{}",
-            match message {
-                Union3Result::A(string) => string,
-                Union3Result::B(int) => int.to_string(),
-                Union3Result::C(float) => float.to_string(),
-            }
-        );
+        println!("{}", stringify_value(message));
 
         Ok(None)
     })
