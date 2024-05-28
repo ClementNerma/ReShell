@@ -163,16 +163,15 @@ fn eval_double_op(
             RuntimeValue::Bool(if op.data == DoubleOp::Eq { cmp } else { !cmp })
         }
 
-        // TODO: performance
-        DoubleOp::NullFallback => match (&left, &right) {
-            (RuntimeValue::Null, _) => right.clone(),
-            (_, RuntimeValue::Null) => left.clone(),
-            (_, _) => {
+        DoubleOp::NullFallback => match (left, right) {
+            (RuntimeValue::Null, right) => right,
+            (left, RuntimeValue::Null) => left,
+            (left, right) => {
                 if !check_if_single_type_fits_single(&left.get_type(), &right.get_type(), ctx)? {
                     todo!("Incompatible types");
                 }
 
-                left.clone()
+                left
             }
         },
     };
