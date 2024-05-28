@@ -7,4 +7,4 @@ pub mod files;
 mod program;
 mod utils;
 
-pub use program::program;
+pub use program::{delimiter_chars, program};

@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     error::Error,
     fs,
@@ -8,6 +9,7 @@ use std::{
 
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
+use reshell_parser::delimiter_chars;
 use reshell_runtime::{
     context::{Context, ScopeContent},
     pretty::{PrettyPrintOptions, PrettyPrintable},
@@ -37,16 +39,9 @@ impl RlCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let completion_data = self.completion_data.lock().unwrap();
 
-        let split = |c: char| {
-            c.is_whitespace()
-                || c == '('
-                || c == ')'
-                || c == '['
-                || c == ']'
-                || c == '{'
-                || c == '}'
-                || c == '"'
-        };
+        let delimiter_chars = delimiter_chars();
+
+        let split = |c: char| c.is_whitespace() && !delimiter_chars.contains(&c);
 
         let word_start = match line[..pos].rfind(split) {
             Some(index) => index + 1,
@@ -167,6 +162,8 @@ fn build_cmd_completions(
         .flatten()
         .chain(path.split(path_var_sep).filter(|entry| !entry.is_empty()));
 
+    let delimiter_chars = delimiter_chars();
+
     let mut results = Vec::<(String, Suggestion)>::new();
 
     for dir in path_dirs {
@@ -224,12 +221,7 @@ fn build_cmd_completions(
             results.push((
                 item_name_lc,
                 Suggestion {
-                    // TODO: improve escaping
-                    value: if item_name.contains(' ') {
-                        format!("\"{item_name}\"")
-                    } else {
-                        item_name.to_owned()
-                    },
+                    value: escape_raw(item_name, &delimiter_chars).into_owned(),
                     description: None,
                     extra: None,
                     span,
@@ -332,6 +324,8 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
 
     let starts_with_dot_slash = word.starts_with("./") || word.starts_with(".\\");
 
+    let delimiter_chars = delimiter_chars();
+
     let mut results = vec![];
 
     for path in paths {
@@ -357,20 +351,16 @@ fn complete_path(word: &str, span: Span, home_dir: Option<&str>) -> Vec<Suggesti
             )
         }
 
-        let mut value = if starts_with_dot_slash {
+        let path = if starts_with_dot_slash {
             format!(".{MAIN_SEPARATOR}{path_str}")
         } else {
             path_str.clone()
         };
 
-        if value.contains(' ') {
-            value = format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
-        }
-
         results.push((
             path_str,
             Suggestion {
-                value,
+                value: escape_raw(&path, &delimiter_chars).into_owned(),
                 description: None,
                 extra: None,
                 span,
@@ -448,5 +438,29 @@ impl CompletionDataScope {
                 })
                 .collect(),
         }
+    }
+}
+
+fn escape_raw<'a>(str: &'a str, delimiter_chars: &HashSet<char>) -> Cow<'a, str> {
+    if str
+        .chars()
+        .any(|c| c.is_whitespace() || delimiter_chars.contains(&c))
+    {
+        let mut out = String::with_capacity(str.len() + 2);
+        out.push('"');
+
+        for c in str.chars() {
+            if c == '"' || c == '$' || c == '\\' {
+                out.push('\\');
+            }
+
+            out.push(c);
+        }
+
+        out.push('"');
+
+        Cow::Owned(out)
+    } else {
+        Cow::Borrowed(str)
     }
 }
