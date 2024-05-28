@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use parsy::Eaten;
+use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
@@ -38,14 +38,26 @@ pub fn run_in_existing_scope(program: &Program, ctx: &mut Context) -> ExecResult
 
 pub fn run_program(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
     let (scope, instr_ret) = run_block(&program.content.data, ctx, init_scope)?;
-    assert!(instr_ret.is_none());
-    Ok(scope)
+
+    match instr_ret {
+        None => Ok(scope),
+        Some(instr_ret) => Err(ctx.error(
+            instr_ret.from,
+            "cannot exit the program with this instruction",
+        )),
+    }
 }
 
 fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
     let instr_ret = run_block_in_current_scope(&program.content.data, ctx)?;
-    assert!(instr_ret.is_none());
-    Ok(())
+
+    match instr_ret {
+        None => Ok(()),
+        Some(instr_ret) => Err(ctx.error(
+            instr_ret.from,
+            "cannot exit the program with this instruction",
+        )),
+    }
 }
 
 pub fn run_block(
@@ -246,8 +258,13 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             },
                         );
 
-                        if let (_, Some(InstrRet::BreakLoop)) =
-                            run_block(&body.data, ctx, loop_scope)?
+                        if let (
+                            _,
+                            Some(InstrRet {
+                                from: _,
+                                typ: InstrRetType::BreakLoop,
+                            }),
+                        ) = run_block(&body.data, ctx, loop_scope)?
                         {
                             break;
                         }
@@ -271,8 +288,13 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             },
                         );
 
-                        if let (_, Some(InstrRet::BreakLoop)) =
-                            run_block(&body.data, ctx, loop_scope)?
+                        if let (
+                            _,
+                            Some(InstrRet {
+                                from: _,
+                                typ: InstrRetType::BreakLoop,
+                            }),
+                        ) = run_block(&body.data, ctx, loop_scope)?
                         {
                             break;
                         }
@@ -309,15 +331,31 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 break;
             }
 
-            if let (_, Some(InstrRet::BreakLoop)) = run_block(&body.data, ctx, ctx.create_scope())?
+            if let (
+                _,
+                Some(InstrRet {
+                    from: _,
+                    typ: InstrRetType::BreakLoop,
+                }),
+            ) = run_block(&body.data, ctx, ctx.create_scope())?
             {
                 break;
             }
         },
 
-        Instruction::LoopContinue => return Ok(Some(InstrRet::ContinueLoop)),
+        Instruction::LoopContinue => {
+            return Ok(Some(InstrRet {
+                from: instr.at,
+                typ: InstrRetType::ContinueLoop,
+            }))
+        }
 
-        Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
+        Instruction::LoopBreak => {
+            return Ok(Some(InstrRet {
+                from: instr.at,
+                typ: InstrRetType::BreakLoop,
+            }))
+        }
 
         Instruction::Switch { expr, cases } => {
             let switch_on = eval_expr(&expr.data, ctx)?;
@@ -368,20 +406,24 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::FnReturn { expr } => {
-            return Ok(Some(InstrRet::FnReturn(
-                expr.as_ref()
-                    .map(|expr| {
-                        eval_expr(&expr.data, ctx).map(|value| LocatedValue::new(value, expr.at))
-                    })
-                    .transpose()?,
-            )))
+            return Ok(Some(InstrRet {
+                from: instr.at,
+                typ: InstrRetType::FnReturn(
+                    expr.as_ref()
+                        .map(|expr| {
+                            eval_expr(&expr.data, ctx)
+                                .map(|value| LocatedValue::new(value, expr.at))
+                        })
+                        .transpose()?,
+                ),
+            }))
         }
 
         Instruction::Throw(expr) => {
-            return Ok(Some(InstrRet::Throwed(LocatedValue::new(
-                eval_expr(&expr.data, ctx)?,
-                expr.at,
-            ))));
+            return Ok(Some(InstrRet {
+                from: instr.at,
+                typ: InstrRetType::Throwed(LocatedValue::new(eval_expr(&expr.data, ctx)?, expr.at)),
+            }));
         }
 
         Instruction::CmdAliasDecl { name, content } => {
@@ -416,8 +458,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
     Ok(None)
 }
 
+#[derive(Debug)]
+pub struct InstrRet {
+    pub typ: InstrRetType,
+    pub from: CodeRange,
+}
+
 #[derive(Debug, Clone)]
-pub enum InstrRet {
+pub enum InstrRetType {
     ContinueLoop,
     BreakLoop,
     FnReturn(Option<LocatedValue>),
