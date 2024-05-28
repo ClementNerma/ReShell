@@ -7,7 +7,7 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use crate::{
     context::Context,
     errors::ExecResult,
-    files_map::ScopableFilePath,
+    files_map::{FilesMap, ScopableFilePath},
     pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrintablePiece},
     values::RuntimeValue,
 };
@@ -94,11 +94,11 @@ pub fn readable_single_type(
     }
 }
 
-pub fn dbg_loc(at: CodeRange, ctx: &Context) -> String {
+pub fn dbg_loc(at: CodeRange, files_map: &FilesMap) -> String {
     match at.start.file_id {
         FileId::None => unreachable!(),
         FileId::Id(id) => {
-            let Some(file) = ctx.files_map().get_file(id) else {
+            let Some(file) = files_map.get_file(id) else {
                 return format!("<unknown file @ offset {}>", at.start.offset);
             };
 

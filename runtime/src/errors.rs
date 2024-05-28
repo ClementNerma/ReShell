@@ -10,6 +10,7 @@ pub struct ExecError {
     pub in_fork: bool,
     pub file: SourceFile,
     pub content: ExecErrorContent,
+    pub stack_trace: StackTrace,
 }
 
 #[derive(Debug)]
@@ -39,4 +40,15 @@ impl From<ParsingError> for ExecErrorContent {
     fn from(value: ParsingError) -> Self {
         Self::ParsingErr(value)
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct StackTraceEntry {
+    pub fn_called_at: CodeRange,
+    // pub args: Vec<RuntimeValue>,
+}
+
+#[derive(Debug, Clone)]
+pub struct StackTrace {
+    pub history: Vec<StackTraceEntry>,
 }

@@ -4,7 +4,8 @@ use parsy::{
     ParsingError,
 };
 use reshell_runtime::{
-    errors::{ExecError, ExecErrorContent},
+    display::dbg_loc,
+    errors::{ExecError, ExecErrorContent, StackTrace, StackTraceEntry},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
@@ -26,6 +27,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 exit_status: _,
             } => (err.at, message.clone()),
         },
+    };
+
+    let stack_trace = match err {
+        ReportableError::ParsingError(_) => None,
+        ReportableError::ExecError(err) => Some(&err.stack_trace),
     };
 
     let (source_file, offset, len, msg) = match at.start.file_id {
@@ -75,6 +81,21 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let display_file = match &source_file.path {
         ScopableFilePath::InMemory(in_mem) => format!("<{in_mem}>"),
         ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
+    };
+
+    let msg = match stack_trace {
+        None => msg,
+        Some(StackTrace { history }) => format!(
+            "{msg}{}",
+            history
+                .iter()
+                .rev()
+                .map(|StackTraceEntry { fn_called_at }| {
+                    format!("\n| stacktrace: {}", dbg_loc(*fn_called_at, files))
+                })
+                .collect::<String>()
+                .fg(ariadne::Color::Blue)
+        ),
     };
 
     let inner = Report::build(ReportKind::Error, display_file.clone(), offset)
