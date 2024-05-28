@@ -5,7 +5,7 @@ crate::define_internal_fn!(
     // map over a list
     //
 
-    "forEach",
+    "each",
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
