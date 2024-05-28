@@ -33,8 +33,8 @@ fn run() -> Runner {
         |_,
          Args { list, reduce_fn },
          ArgsAt {
-             list: _,
              reduce_fn: reduce_fn_at,
+             ..
          },
          ctx| {
             let reduce_fn = LocatedValue::new(RuntimeValue::Function(reduce_fn), reduce_fn_at);

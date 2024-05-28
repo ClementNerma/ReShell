@@ -32,8 +32,7 @@ fn run() -> Runner {
         |_,
          Args { list, mapper },
          ArgsAt {
-             list: _,
-             mapper: mapper_at,
+             mapper: mapper_at, ..
          },
          ctx| {
             let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
