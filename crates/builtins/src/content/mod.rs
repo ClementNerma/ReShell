@@ -35,6 +35,7 @@ mod set_env;
 mod slice;
 mod split;
 mod struct_to_map;
+mod take;
 mod term_cols;
 mod term_rows;
 mod write_file;
@@ -82,6 +83,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::slice::build_fn(),
             self::split::build_fn(),
             self::struct_to_map::build_fn(),
+            self::take::build_fn(),
             self::term_cols::build_fn(),
             self::term_rows::build_fn(),
             self::write_file::build_fn(),
