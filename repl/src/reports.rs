@@ -1,8 +1,5 @@
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
-use parsy::{
-    CodeRange, CriticalErrorMsgContent, CriticalErrorNature, FileId, ParserExpectation,
-    ParsingError,
-};
+use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
 use reshell_runtime::{
     display::dbg_loc,
     errors::{ExecError, ExecErrorContent, StackTrace, StackTraceEntry},
@@ -115,25 +112,14 @@ fn parser_expection_to_str(err: &ParserExpectation) -> String {
     match err {
         ParserExpectation::Char(c) => format!("expected char '{c}'"),
         ParserExpectation::Str(str) => format!("expected '{str}'"),
-        ParserExpectation::Custom(msg) => format!("{msg}"),
+        ParserExpectation::Custom(msg) => msg.to_string(),
         ParserExpectation::Break => unreachable!(),
     }
 }
 
 fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
     let msg = match err.critical() {
-        Some(nature) => {
-            let content = match nature {
-                CriticalErrorNature::Direct(content) => content,
-                CriticalErrorNature::UnexpectedEndOfInput(content) => content,
-            };
-
-            match content {
-                CriticalErrorMsgContent::Inherit => parser_expection_to_str(err.inner().expected()),
-                CriticalErrorMsgContent::Custom(msg) => msg.to_string(),
-            }
-        }
-
+        Some(nature) => nature.to_string(),
         None => parser_expection_to_str(err.inner().expected()),
     };
 

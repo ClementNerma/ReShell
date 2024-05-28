@@ -7,7 +7,7 @@ edition = "2021"
 colored = "2.0.0"
 fork = "0.1.22"
 glob = "0.3.1"
-parsy = "0.1.0"
+parsy = "0.2.0"
 rand = "0.8.5"
 reshell-parser = { path = "../parser" }
 termsize = "0.1.6"
