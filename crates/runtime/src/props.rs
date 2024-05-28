@@ -9,21 +9,23 @@ use crate::{
     values::RuntimeValue,
 };
 
-pub fn eval_props_access<T>(
+pub fn eval_props_access<'ast, T>(
     left: &mut RuntimeValue,
-    accesses: &[Eaten<PropAccessNature>],
+    accesses: impl ExactSizeIterator<Item = &'ast Eaten<PropAccessNature>>,
     policy: PropAccessPolicy,
     ctx: &mut Context,
     finalize: impl FnOnce(&mut RuntimeValue, &mut Context) -> T,
 ) -> ExecResult<T> {
-    if accesses.is_empty() {
+    if accesses.len() == 0 {
         return Ok(finalize(left, ctx));
     }
 
     let mut left = left.clone();
 
-    for (i, acc) in accesses.iter().enumerate() {
-        let next_acc = accesses.get(i + 1);
+    let mut accesses = accesses.into_iter().peekable();
+
+    while let Some(acc) = accesses.next() {
+        let next_acc = accesses.peek();
 
         match &acc.data {
             PropAccessNature::Key(key_expr) => match left {

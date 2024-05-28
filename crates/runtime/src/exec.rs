@@ -188,7 +188,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             } else {
                 eval_props_access(
                     &mut var.value.write().as_mut().unwrap().value,
-                    prop_acc,
+                    prop_acc.iter(),
                     PropAccessPolicy::TrailingAccessMayNotExist,
                     ctx,
                     |left, ctx| match list_push {
