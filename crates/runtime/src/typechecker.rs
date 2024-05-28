@@ -26,13 +26,31 @@ pub fn check_if_value_fits_single_type(
         SingleValueType::Int => matches!(value, RuntimeValue::Int(_)),
         SingleValueType::Float => matches!(value, RuntimeValue::Float(_)),
         SingleValueType::String => matches!(value, RuntimeValue::String(_)),
-        SingleValueType::List => matches!(value, RuntimeValue::List(_)),
         SingleValueType::Range => matches!(value, RuntimeValue::Range { from: _, to: _ }),
-        SingleValueType::Map => matches!(value, RuntimeValue::Map(_)),
         SingleValueType::Error => matches!(value, RuntimeValue::Error(_)),
         SingleValueType::CmdCall => matches!(value, RuntimeValue::CmdCall { content_at: _ }),
         SingleValueType::CmdArg => matches!(value, RuntimeValue::CmdArg(_)),
+        SingleValueType::UntypedList => matches!(value, RuntimeValue::List(_)),
+        SingleValueType::UntypedMap => matches!(value, RuntimeValue::Map(_)),
         SingleValueType::UntypedStruct => matches!(value, RuntimeValue::Struct(_)),
+
+        SingleValueType::TypedList(items_type) => match &value {
+            RuntimeValue::List(items) => items
+                .read_promise_no_write()
+                .iter()
+                .all(|item| check_if_value_fits_type(item, items_type, ctx)),
+
+            _ => false,
+        },
+
+        SingleValueType::TypedMap(items_type) => match &value {
+            RuntimeValue::Map(items) => items
+                .read_promise_no_write()
+                .iter()
+                .all(|(_, value)| check_if_value_fits_type(value, items_type, ctx)),
+
+            _ => false,
+        },
 
         SingleValueType::TypedStruct(member_types) => match &value {
             RuntimeValue::Struct(members) => {

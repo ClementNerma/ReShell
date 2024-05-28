@@ -1337,13 +1337,17 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Int
         | SingleValueType::Float
         | SingleValueType::String
-        | SingleValueType::List
         | SingleValueType::Range
-        | SingleValueType::Map
         | SingleValueType::Error
-        | SingleValueType::UntypedStruct
         | SingleValueType::CmdArg
-        | SingleValueType::CmdCall => Ok(()),
+        | SingleValueType::CmdCall
+        | SingleValueType::UntypedList
+        | SingleValueType::UntypedMap
+        | SingleValueType::UntypedStruct => Ok(()),
+
+        SingleValueType::TypedList(inner) | SingleValueType::TypedMap(inner) => {
+            check_value_type(inner, state)
+        }
 
         SingleValueType::TypedStruct(members) => {
             let mut names = HashSet::new();

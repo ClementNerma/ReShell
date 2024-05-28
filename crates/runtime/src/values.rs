@@ -157,9 +157,9 @@ impl RuntimeValue {
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
-            RuntimeValue::List(_) => SingleValueType::List,
+            RuntimeValue::List(_) => SingleValueType::UntypedList,
             RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
-            RuntimeValue::Map(_) => SingleValueType::Map,
+            RuntimeValue::Map(_) => SingleValueType::UntypedMap,
             RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
                 members
                     .read_promise_no_write()

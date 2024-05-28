@@ -92,12 +92,12 @@ declare_basic_type_handlers!(
         _ => Err("expected a command call".to_owned())
     },
 
-    UntypedListType (List) = GcCell<Vec<RuntimeValue>> => value: match value {
+    UntypedListType (UntypedList) = GcCell<Vec<RuntimeValue>> => value: match value {
         RuntimeValue::List(items) => Ok(items),
         _ => Err("expected a list".to_owned())
     },
 
-    UntypedMapType (Map) = GcCell<HashMap<String, RuntimeValue>> => value: match value {
+    UntypedMapType (UntypedMap) = GcCell<HashMap<String, RuntimeValue>> => value: match value {
         RuntimeValue::Map(items) => Ok(items),
         _ => Err("expected a map".to_owned())
     },
@@ -174,7 +174,7 @@ impl<Inner: Typing> DetachedListType<Inner> {
 
 impl<Inner: Typing> SingleTyping for DetachedListType<Inner> {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::List
+        SingleValueType::UntypedList
     }
 
     type Parsed = Vec<Inner::Parsed>;
@@ -214,7 +214,7 @@ impl<Inner: Typing> DetachedMapType<Inner> {
 
 impl<Inner: Typing> SingleTyping for DetachedMapType<Inner> {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Map
+        SingleValueType::UntypedMap
     }
 
     type Parsed = HashMap<String, Inner::Parsed>;
@@ -367,7 +367,7 @@ pub struct Tuple2Type<A: Typing, B: Typing> {
 
 impl<A: Typing, B: Typing> SingleTyping for Tuple2Type<A, B> {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::List
+        SingleValueType::UntypedList
     }
 
     type Parsed = (A::Parsed, B::Parsed);
