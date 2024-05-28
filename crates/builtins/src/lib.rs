@@ -4,7 +4,9 @@
 //! This crate contains utilities to generate the native library as well as
 //! tools to render the REPL's prompt
 
-#![forbid(unsafe_code)]
+// TODO: Restore this forbid() once time has a sound way to get local offset
+// #![forbid(unsafe_code)]
+
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 

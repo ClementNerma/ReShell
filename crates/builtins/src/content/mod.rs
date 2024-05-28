@@ -14,6 +14,7 @@ mod contains;
 mod contains_str;
 mod current_dir;
 mod current_script_path;
+mod datetime;
 mod dbg;
 mod dbg_type;
 mod dir_exists;
@@ -100,6 +101,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::contains_str::build_fn(),
             self::current_dir::build_fn(),
             self::current_script_path::build_fn(),
+            self::datetime::build_fn(),
             self::dbg::build_fn(),
             self::dbg_type::build_fn(),
             self::dir_exists::build_fn(),
