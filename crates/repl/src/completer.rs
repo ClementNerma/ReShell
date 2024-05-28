@@ -103,7 +103,7 @@ pub fn generate_completions(
         return sort_results(word, cmd_comp);
     }
 
-    complete_path(word, span, ctx)
+    build_path_completions(word, span, ctx)
 }
 
 fn build_fn_completions<'a>(
@@ -288,7 +288,7 @@ fn complete_var_name(
     sort_results(&word, results)
 }
 
-fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
+fn build_path_completions(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
     let mut search = word
         .split(['/', '\\'])
         .filter(|segment| !segment.is_empty() && *segment != ".")
