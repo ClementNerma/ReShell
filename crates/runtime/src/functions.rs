@@ -52,15 +52,16 @@ pub fn eval_fn_call_type(
             None | Some(FnCallType::Piped(_)) => ctx.get_visible_fn_value(&call.data.name)?.clone(),
             Some(FnCallType::Method(loc_val)) => {
                 let typ = loc_val.value.get_type();
-                let typ = MethodApplyableType::from_single_value_type(typ.clone()).ok_or_else(|| {
-                    ctx.error(
-                        call.at,
-                        format!(
-                            "cannot call this method on a {}",
-                            typ.render_colored(ctx, PrettyPrintOptions::inline())
-                        ),
-                    )
-                })?;
+                let typ =
+                    MethodApplyableType::from_single_value_type(typ.clone()).ok_or_else(|| {
+                        ctx.error(
+                            call.at,
+                            format!(
+                                "cannot call this method on a {}",
+                                typ.render_colored(ctx, PrettyPrintOptions::inline())
+                            ),
+                        )
+                    })?;
 
                 ctx.get_visible_method_value(&call.data.name, &typ)?.clone()
             }
@@ -108,6 +109,7 @@ pub fn call_fn_value(
                 scope_content.vars.insert(
                     name,
                     ScopeVar {
+                        decl_scope_id: body.data.ast_scope_id(),
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(value, arg_value_at)),
                     },

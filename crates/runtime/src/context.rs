@@ -232,7 +232,7 @@ impl Context {
                             (
                                 key.clone(),
                                 DeclaredCmdAlias {
-                                    scope_id: *ast_scope_id,
+                                    scope_id: value.decl_scope_id,
                                     content_at: value.value.content.at,
                                     is_ready: true,
                                 },
@@ -248,12 +248,12 @@ impl Context {
                         .unwrap_or_default(),
 
                     fns: fns
-                        .keys()
-                        .map(|name| {
+                        .iter()
+                        .map(|(name, func)| {
                             (
                                 name.clone(),
                                 DeclaredFn {
-                                    scope_id: *ast_scope_id,
+                                    scope_id: func.decl_scope_id,
                                 },
                             )
                         })
@@ -262,11 +262,11 @@ impl Context {
                     methods: {
                         let mut decl_methods = HashMap::<_, HashMap<_, _>>::new();
 
-                        for (name, on_type) in methods.keys() {
+                        for ((name, on_type), method) in methods.iter() {
                             decl_methods.entry(on_type.clone()).or_default().insert(
                                 name.clone(),
                                 DeclaredMethod {
-                                    scope_id: *ast_scope_id,
+                                    scope_id: method.decl_scope_id,
                                 },
                             );
                         }
@@ -276,12 +276,12 @@ impl Context {
 
                     vars: vars
                         .iter()
-                        .map(|(name, decl)| {
+                        .map(|(name, var)| {
                             (
                                 name.clone(),
                                 DeclaredVar {
-                                    scope_id: *ast_scope_id,
-                                    is_mut: decl.is_mut,
+                                    scope_id: var.decl_scope_id,
+                                    is_mut: var.is_mut,
                                 },
                             )
                         })
@@ -883,6 +883,9 @@ impl ScopeContent {
 /// Scoped variable
 #[derive(Debug, Clone)]
 pub struct ScopeVar {
+    /// Declaration scope ID
+    pub decl_scope_id: AstScopeId,
+
     /// Is the variable mutable?
     pub is_mut: bool,
 
@@ -895,6 +898,9 @@ pub struct ScopeVar {
 /// Scoped function
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
+    /// Declaration scope ID
+    pub decl_scope_id: AstScopeId,
+
     /// Value of the function
     /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
     pub value: GcReadOnlyCell<RuntimeFnValue>,
@@ -903,6 +909,9 @@ pub struct ScopeFn {
 /// Scoped method
 #[derive(Debug, Clone)]
 pub struct ScopeMethod {
+    /// Declaration scope ID
+    pub decl_scope_id: AstScopeId,
+
     /// Type the method can be applied on
     pub applyable_type: MethodApplyableType,
 
@@ -914,6 +923,9 @@ pub struct ScopeMethod {
 /// Scoped command alias
 #[derive(Debug, Clone)]
 pub struct ScopeCmdAlias {
+    /// Declaration scope ID
+    pub decl_scope_id: AstScopeId,
+
     /// Location of the alias' name in its declaration
     pub name_at: CodeRange,
 

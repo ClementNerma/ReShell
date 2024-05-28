@@ -1,7 +1,10 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use indexmap::IndexSet;
-use reshell_parser::ast::{FnSignature, RuntimeCodeRange, RuntimeEaten};
+use reshell_parser::{
+    ast::{FnSignature, RuntimeCodeRange, RuntimeEaten},
+    scope::NATIVE_LIB_AST_SCOPE_ID,
+};
 
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeMethod, ScopeVar},
@@ -56,6 +59,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                 (
                     name.to_owned(),
                     ScopeFn {
+                        decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             signature: RuntimeFnSignature::Owned(FnSignature {
                                 args: RuntimeEaten::Internal(args),
@@ -87,6 +91,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                 (
                     (name.to_owned(), on_type.clone()),
                     ScopeMethod {
+                        decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         applyable_type: on_type.clone(),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             signature: RuntimeFnSignature::Owned(FnSignature {
@@ -115,6 +120,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                 (
                     name.to_owned(),
                     ScopeVar {
+                        decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         is_mut,
                         value: GcCell::new(LocatedValue::new(
                             init_value,

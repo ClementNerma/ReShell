@@ -98,6 +98,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                 let dup = fns.insert(
                     name.data.clone(),
                     ScopeFn {
+                        decl_scope_id: block.scope_id,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
@@ -131,6 +132,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                 let dup = methods.insert(
                     (name.data.clone(), on_type.clone()),
                     ScopeMethod {
+                        decl_scope_id: block.scope_id,
                         applyable_type: on_type.clone(),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
@@ -212,9 +214,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             let init_value = eval_expr(&init_expr.data, ctx)
                 .map(|value| LocatedValue::new(value, RuntimeCodeRange::Parsed(init_expr.at)))?;
 
+            let decl_scope_id = ctx.current_scope().ast_scope_id;
+
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
                 ScopeVar {
+                    decl_scope_id,
                     is_mut: mutable.is_some(),
                     value: GcCell::new(init_value),
                 },
@@ -346,6 +351,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
+                            decl_scope_id: body.data.scope_id,
                             is_mut: false,
                             value: GcCell::new(LocatedValue::new(
                                 item.clone(),
@@ -373,6 +379,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
+                            decl_scope_id: body.data.scope_id,
                             is_mut: false,
                             value: GcCell::new(LocatedValue::new(
                                 RuntimeValue::Int(i),
@@ -433,6 +440,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     key_iter_var.data.clone(),
                     ScopeVar {
+                        decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(
                             RuntimeValue::String(key.clone()),
@@ -444,6 +452,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     value_iter_var.data.clone(),
                     ScopeVar {
+                        decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(
                             value.clone(),
@@ -604,6 +613,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         scope.vars.insert(
                             catch_var.data.clone(),
                             ScopeVar {
+                                decl_scope_id: catch_body.data.scope_id,
                                 is_mut: false,
                                 value: GcCell::new(LocatedValue::new(
                                     RuntimeValue::String(message),
@@ -638,11 +648,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 .get_cmd_alias_content(content)
                 .unwrap_or_else(|| ctx.panic(content.at, "unregistered command alias content"));
 
+            let decl_scope_id = ctx.current_scope().ast_scope_id;
+
             let cmd_aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
 
             cmd_aliases.insert(
                 name.data.clone(),
                 ScopeCmdAlias {
+                    decl_scope_id,
                     name_at: name.at,
                     value: GcReadOnlyCell::new(RuntimeCmdAlias {
                         name_declared_at: name.at,
