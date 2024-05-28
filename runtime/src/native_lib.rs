@@ -104,6 +104,13 @@ macro_rules! extract_arg_from_type {
         $arg.value
     };
 
+    ($arg: ident, UntypedStruct) => {
+        match $arg.value {
+            RuntimeValue::Struct(items) => items,
+            _ => unreachable!(),
+        }
+    };
+
     ($arg: ident, List, $rest_type: ident) => {
         match $arg.value {
             RuntimeValue::List(items) => items
@@ -170,11 +177,10 @@ macro_rules! native_var {
 pub fn generate_native_lib() -> Scope {
     let native_fns = [
         //
-        // hello world
+        // create a map
         //
-        native_fn!(hello () {
-            println!("Hello world!");
-            Ok(None)
+        native_fn!(map (entries: UntypedStruct) -> (Map) {
+            Ok(Some(RuntimeValue::Map(entries)))
         }),
         //
         // print text
