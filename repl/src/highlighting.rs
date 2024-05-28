@@ -44,7 +44,7 @@ fn highlight(input: &str) -> StyledText {
         ("variables") => "(\\$[a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
         ("variables declaration") => "\\blet\\s+(?:mut\\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
         ("loop iterator") => "(?:^|\\n|\\s)for\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
-        ("function arguments and struct fields") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*:" => Red,
+        ("function arguments and struct fields") => "(?:\\b|[^\\|]\\|\\s*|,\\s*)([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?:[:,]|\\|[^\\|])" => Red,
         ("untyped function arguments (1)") => "[^\\$]\\(\\s*([a-zA-Z_][a-zA-Z0-9_]*)" => Red,
         ("untyped function arguments (2)") => "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
         ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
