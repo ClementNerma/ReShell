@@ -381,7 +381,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             let value = ctx.get_var_value(var_name)?;
 
             let RuntimeValue::List(items) = &value else {
-                return Err(ctx.error(var_name.at, format!("expected a list to spread, found a {}", readable_value_type(value, ctx))));
+                return Err(ctx.error(var_name.at, format!("expected a list to spread, found a {}", readable_value_type(value))));
             };
 
             Ok(CmdArgResult::Spreaded(items.clone()))

@@ -163,7 +163,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value, ctx)
+                            readable_value_type(&value)
                         ),
                     ))
                 }
@@ -179,7 +179,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                     let cond_val = eval_expr(&cond.data, ctx)?;
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val, ctx))));
+                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val))));
                     };
 
                     if cond_val {
@@ -259,7 +259,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         iter_on.at,
                         format!(
                             "expected a list or range to iterate on, found a {} instead",
-                            readable_value_type(&value, ctx)
+                            readable_value_type(&value)
                         ),
                     ))
                 }
@@ -274,7 +274,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value, ctx)
+                            readable_value_type(&value)
                         ),
                     ))
                 }

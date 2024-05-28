@@ -25,7 +25,7 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<Loc
                     call.data.name.at,
                     format!(
                         "expected a function, found a {} instead",
-                        readable_value_type(value, ctx)
+                        readable_value_type(value)
                     ),
                 ))
             }
@@ -83,7 +83,7 @@ pub fn call_fn_value(
                 call_at,
                 format!(
                     "function call did not return any value, was expected to return a {}",
-                    readable_type(&ret_type.data, ctx)
+                    readable_type(&ret_type.data)
                 ),
             ));
         };
@@ -93,8 +93,8 @@ pub fn call_fn_value(
                 call_at,
                 format!(
                     "function call returned a {}, was expected to return a {}",
-                    readable_value_type(&ret_val.value, ctx),
-                    readable_type(&ret_type.data, ctx)
+                    readable_value_type(&ret_val.value),
+                    readable_type(&ret_type.data)
                 ),
             ));
         }
@@ -272,8 +272,8 @@ fn parse_fn_call_args(
                     format!(
                         "type mismatch for argument '{}': expected a {}, found a {}",
                         fn_arg_var_name(fn_arg),
-                        readable_type(&expected_type.data, ctx),
-                        readable_value_type(&arg_value, ctx)
+                        readable_type(&expected_type.data),
+                        readable_value_type(&arg_value)
                     ),
                 ));
             }

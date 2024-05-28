@@ -1,6 +1,9 @@
 use glob::glob;
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_runtime::display::{dbg_fn_signature, readable_value_type};
+use reshell_runtime::{
+    display::readable_value_type,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
+};
 
 use crate::state::RUNTIME_CONTEXT;
 
@@ -53,9 +56,7 @@ impl RlCompleter for Completer {
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
                     description: Some(match &item.value {
-                        Some(located_val) => {
-                            readable_value_type(&located_val.value, ctx).into_owned()
-                        }
+                        Some(located_val) => readable_value_type(&located_val.value).into_owned(),
                         None => "<value not set>".to_string(),
                     }),
                     extra: None,
@@ -75,7 +76,7 @@ impl RlCompleter for Completer {
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("@{name}"),
-                    description: Some(dbg_fn_signature(&item.value.signature, ctx)),
+                    description: Some(item.value.signature.render(PrettyPrintOptions::inline())),
                     extra: None,
                     span,
                     append_whitespace: true,
@@ -165,6 +166,7 @@ impl RlCompleter for Completer {
                 )
             }
 
+            // TODO: if path contains a space, wrap it with double quotes (and escape double quotes inside it with backslashes!)
             out.push((
                 file_type_enum,
                 Suggestion {

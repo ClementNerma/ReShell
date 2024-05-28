@@ -694,6 +694,7 @@ dependencies = [
 name = "reshell-runtime"
 version = "0.1.0"
 dependencies = [
+ "colored",
  "fork",
  "glob",
  "parsy",
