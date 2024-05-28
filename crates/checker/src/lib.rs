@@ -210,6 +210,35 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             })?;
         }
 
+        Instruction::ForLoopKeyed {
+            key_iter_var,
+            value_iter_var,
+            iter_on,
+            body,
+        } => {
+            check_expr(&iter_on.data, state)?;
+
+            check_block_with(body, state, |scope| {
+                scope.typ = Some(ScopeType::Loop);
+
+                scope.vars.insert(
+                    key_iter_var.data.clone(),
+                    DeclaredVar {
+                        name_at: RuntimeCodeRange::CodeRange(key_iter_var.at),
+                        is_mut: false,
+                    },
+                );
+
+                scope.vars.insert(
+                    value_iter_var.data.clone(),
+                    DeclaredVar {
+                        name_at: RuntimeCodeRange::CodeRange(value_iter_var.at),
+                        is_mut: false,
+                    },
+                );
+            })?;
+        }
+
         Instruction::WhileLoop { cond, body } => {
             check_expr(&cond.data, state)?;
             check_block_with(body, state, |scope| {

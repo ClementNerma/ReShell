@@ -45,6 +45,13 @@ pub enum Instruction {
         body: Eaten<Block>,
     },
 
+    ForLoopKeyed {
+        key_iter_var: Eaten<String>,
+        value_iter_var: Eaten<String>,
+        iter_on: Eaten<Expr>,
+        body: Eaten<Block>,
+    },
+
     WhileLoop {
         cond: Eaten<Expr>,
         body: Eaten<Block>,
