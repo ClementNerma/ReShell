@@ -1,6 +1,8 @@
-use reedline::{FileBackedHistory, History};
+use reedline::{FileBackedHistory, History, ListMenu, ReedlineMenu};
 
 use crate::print_warn;
+
+pub static HISTORY_MENU_NAME: &'static str = "history_menu";
 
 pub fn create_history() -> Box<dyn History> {
     // TODO: allow to customize:
@@ -28,4 +30,9 @@ pub fn create_history() -> Box<dyn History> {
     };
 
     Box::new(history)
+}
+
+pub fn create_history_menu() -> ReedlineMenu {
+    let menu = ListMenu::default().with_name(HISTORY_MENU_NAME);
+    ReedlineMenu::HistoryMenu(Box::new(menu))
 }

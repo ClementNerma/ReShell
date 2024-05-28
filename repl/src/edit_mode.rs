@@ -3,7 +3,7 @@ use reedline::{
     ReedlineEvent,
 };
 
-use crate::completer::COMPLETION_MENU_NAME;
+use crate::{completer::COMPLETION_MENU_NAME, history::HISTORY_MENU_NAME};
 
 pub fn create_edit_mode() -> Box<dyn RlEditMode> {
     Box::new(EditMode {
@@ -112,6 +112,10 @@ impl RlEditMode for EditMode {
                     }
                     ('z', KeyModifiers::CONTROL) => ReedlineEvent::Edit(vec![EditCommand::Undo]),
                     ('y', KeyModifiers::CONTROL) => ReedlineEvent::Edit(vec![EditCommand::Redo]),
+                    ('r', KeyModifiers::CONTROL) => ReedlineEvent::UntilFound(vec![
+                        ReedlineEvent::Menu(HISTORY_MENU_NAME.to_string()),
+                        ReedlineEvent::MenuNext,
+                    ]),
 
                     ('"', KeyModifiers::NONE) => {
                         ReedlineEvent::Edit(self.insert_matching('"', '"', line, offset))

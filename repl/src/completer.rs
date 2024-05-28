@@ -1,5 +1,5 @@
 use glob::glob;
-use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
+use reedline::{Completer as RlCompleter, ListMenu, ReedlineMenu, Span, Suggestion};
 use reshell_runtime::display::{dbg_fn_signature, readable_value_type};
 
 use crate::state::RUNTIME_CONTEXT;
@@ -14,7 +14,7 @@ pub fn create_completer() -> Box<dyn RlCompleter> {
 }
 
 pub fn create_completion_menu() -> ReedlineMenu {
-    let menu = ColumnarMenu::default().with_name(COMPLETION_MENU_NAME);
+    let menu = ListMenu::default().with_name(COMPLETION_MENU_NAME);
     ReedlineMenu::EngineCompleter(Box::new(menu))
 }
 
