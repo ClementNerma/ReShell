@@ -266,7 +266,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 "{}:",
                 match info_type {
                     ExecErrorInfoType::Note => "note",
-                    ExecErrorInfoType::Tip => "tip ",
+                    ExecErrorInfoType::Tip => "tip",
                 }
             )
             .cyan()

@@ -12,7 +12,7 @@ use crate::{
         FlagArgValueResult,
     },
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
-    errors::ExecResult,
+    errors::{ExecResult, ExecErrorInfoType},
     exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
@@ -273,9 +273,8 @@ fn parse_fn_call_args(
                                         return Err(ctx.error(name.at, match typ {
                                             None => "a value is expected for this flag".to_owned(),
                                             Some(typ) => format!("a value of type '{}' is expected for this flag", typ.data().render_colored(ctx, PrettyPrintOptions::inline())),
-                                        }));
+                                        }).with_info(ExecErrorInfoType::Tip, format!("signature = {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
                                     }
-
                                 }
 
                                 Some(FlagArgValueResult { value, value_sep: _ }) => {
@@ -284,7 +283,7 @@ fn parse_fn_call_args(
                                             return Err(ctx.error(value.from, 
                                                 format!("expected a value of type '{}' for flag '{}', found '{}'", typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
                                             names.render_colored(ctx, PrettyPrintOptions::inline()), value.value.get_type().render_colored(ctx, PrettyPrintOptions::inline()))
-                                            ));
+                                            ).with_info(ExecErrorInfoType::Tip, format!("signature = {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
                                         }
                                     }
 
@@ -316,10 +315,10 @@ fn parse_fn_call_args(
                     continue;
                 }
 
-                return Err(ctx.error(
-                    name.at,
-                    "unknown flag provided",
-                ));
+                return Err(
+                    ctx.error(name.at,"unknown flag provided")
+                        .with_info(ExecErrorInfoType::Tip, format!("signature = {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline())))
+                );
             }
 
             CmdSingleArgResult::Basic(loc_val) => {
@@ -329,7 +328,8 @@ fn parse_fn_call_args(
                         continue;
                     }
 
-                    return Err(ctx.error(loc_val.from, "too many arguments provided"));
+                    return Err(ctx.error(loc_val.from, "too many arguments provided")
+                        .with_info(ExecErrorInfoType::Tip, format!("signature = {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
                 };
 
                 if let Some(typ) = typ {
@@ -404,6 +404,7 @@ fn parse_fn_call_args(
                 } else {
                     return Err(
                         ctx.error(call_at, format!("missing value for argument: {}", fn_arg_human_name(arg)))
+                            .with_info(ExecErrorInfoType::Tip, format!("signature = {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline())))
                     );
                 }
             }
