@@ -1138,9 +1138,15 @@ pub fn program(
                         .map(|(cond, body)| SwitchCase { cond, body })
                         .repeated_vec(),
                 )
+                .then(
+                    msnl.ignore_then(just("else"))
+                        .ignore_then(ms)
+                        .ignore_then(block.clone().spanned().critical("expected a block"))
+                        .or_not(),
+                )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_expectation())
-                .map(|(expr, cases)| Instruction::Switch { expr, cases }),
+                .map(|((expr, cases), els)| Instruction::Switch { expr, cases, els }),
             //
             // Function declaration
             //

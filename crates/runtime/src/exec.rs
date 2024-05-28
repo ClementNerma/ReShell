@@ -504,8 +504,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
         Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
 
-        Instruction::Switch { expr, cases } => {
+        Instruction::Switch { expr, cases, els } => {
             let switch_on = eval_expr(&expr.data, ctx)?;
+
+            let mut matched = false;
 
             for SwitchCase { cond, body } in cases {
                 let case_value = eval_expr(&cond.data, ctx)?;
@@ -528,8 +530,15 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 )?;
 
                 if cmp {
+                    matched = true;
                     run_block(body, ctx, None)?;
                     break;
+                }
+            }
+
+            if !matched {
+                if let Some(els) = els {
+                    run_block(els, ctx, None)?;
                 }
             }
         }
