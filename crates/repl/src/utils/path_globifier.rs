@@ -99,61 +99,38 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
     })
 }
 
+// TODO: last "." segment (not followed by a separator) should be globifyable (e.g. .gitignore, .env, etc.)
 fn globify(input: &str) -> String {
     let mut globified_segments: Vec<String> = vec![];
-    let mut curr_segment = String::new();
-    let mut escaping = false;
 
-    // TODO: last "." segment (not followed by a separator) should be globifyable (e.g. .gitignore, .env, etc.)
-    let mut push_segment = |old_curr_segment: &mut String, is_last: bool| {
-        let curr_segment = old_curr_segment.clone(); // TODO: no .clone()
-        old_curr_segment.clear();
+    let segments = input.split(['/', '\\']).collect::<Vec<_>>();
 
+    for (i, segment) in segments.iter().copied().enumerate() {
         // TODO: deal better with empty segments!
-        if curr_segment.is_empty() {
+        if segment.is_empty() {
             if globified_segments.is_empty() {
                 globified_segments.push(String::new());
-            } else if is_last {
+            } else if i + 1 == segments.len() {
                 globified_segments.push(String::from('*'))
             }
-        } else if curr_segment == "." || curr_segment == ".." || curr_segment.contains(':') {
-            globified_segments.push(curr_segment);
+        } else if segment == "." || segment == ".." || segment.contains(':') {
+            globified_segments.push(segment.to_owned());
         } else {
-            // TODO: don't add stars if there is already one at the beginning or the end
-            let mut segment = String::with_capacity(curr_segment.len());
+            let mut globified = String::with_capacity(segment.len());
 
-            if !curr_segment.starts_with('*') {
-                segment.push('*');
+            if !segment.starts_with('*') {
+                globified.push('*');
             }
 
-            segment.push_str(&curr_segment);
+            globified.push_str(segment);
 
-            if !curr_segment.ends_with('*') {
-                segment.push('*');
+            if !segment.ends_with('*') {
+                globified.push('*');
             }
 
-            globified_segments.push(segment);
-        }
-    };
-
-    for c in input.chars() {
-        if (escaping && c == '\\') || (!escaping && c == '/') {
-            escaping = false;
-            push_segment(&mut curr_segment, false);
-            continue;
-        }
-
-        if escaping {
-            escaping = false;
-            curr_segment.push(c);
-        } else if c == '\\' {
-            escaping = true;
-        } else {
-            curr_segment.push(c);
+            globified_segments.push(globified);
         }
     }
-
-    push_segment(&mut curr_segment, true);
 
     globified_segments.join(MAIN_SEPARATOR_STR)
 }
