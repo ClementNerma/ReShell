@@ -99,7 +99,6 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
             ]),
             ("commands", vec![
                 // Command names
-                // TODO: requires "^" to match beginning of expression
                 rule!(@simple "(?:^|[\\n\\{\\|]|\\$\\()\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\|\\'\\\"\\$]+)" => [Blue]),
 
                 //
