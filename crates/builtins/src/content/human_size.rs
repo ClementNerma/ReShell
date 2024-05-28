@@ -24,7 +24,7 @@ fn run() -> Runner {
             .find_map(|(i, unit)| {
                 let base = 1024_u64.pow(i.try_into().unwrap());
 
-                if size > base {
+                if size >= base {
                     Some((unit, base))
                 } else {
                     None
@@ -32,20 +32,36 @@ fn run() -> Runner {
             })
             .unwrap();
 
-        let max_prec = 10_u128.pow(precision.map(u32::from).unwrap_or(2));
+        let precision = precision.unwrap_or(2);
+
+        let max_prec = 10_u128.pow(u32::from(precision));
 
         let div = u128::from(size) * max_prec / u128::from(unit_base);
 
-        let int_part = div / max_prec;
-        let frac_part = div % max_prec;
+        let mut int_part = div / max_prec;
+        let mut frac_part = div % max_prec;
 
-        let precision = precision.unwrap_or(2);
+        let last_digit = (u128::from(size) * max_prec * 10 / u128::from(unit_base)) % 10;
+
+        if last_digit > 5 {
+            if precision == 0 {
+                int_part += 1;
+                frac_part = 0;
+            } else {
+                frac_part += 1;
+
+                if frac_part >= max_prec {
+                    int_part += 1;
+                    frac_part = 0;
+                }
+            }
+        }
 
         Ok(Some(RuntimeValue::String(format!(
             "{int_part}{} {unit}",
             if frac_part > 0 && precision > 0 {
                 format!(
-                    ".{:#precision$}",
+                    ".{:#0precision$}",
                     frac_part,
                     precision = usize::from(precision)
                 )
