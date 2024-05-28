@@ -552,7 +552,7 @@ impl Context {
         name: &Eaten<String>,
     ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
         let Some(func) = self.get_visible_fn(name) else {
-            self.panic(name.at, "function not found (= bug in checker)");
+            self.panic(name.at, "function not found");
         };
 
         Ok(&func.value)
@@ -589,7 +589,7 @@ impl Context {
     pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> &'c ScopeVar {
         self.visible_scopes_content()
             .find_map(|scope| scope.vars.get(&name.data))
-            .unwrap_or_else(|| self.panic(name.at, "variable was not found (= bug in checker)"))
+            .unwrap_or_else(|| self.panic(name.at, "variable was not found"))
     }
 
     /// Get a specific type alias
@@ -642,10 +642,7 @@ impl Context {
         match self.collected.cmd_aliases.get(&from.alias_content_at) {
             Some(developed) => Arc::clone(developed),
 
-            None => self.panic(
-                from.alias_content_at,
-                "command alias is missing (= bug in checker)",
-            ),
+            None => self.panic(from.alias_content_at, "command alias is missing"),
         }
     }
 
@@ -658,10 +655,7 @@ impl Context {
         match self.collected.cmd_calls.get(&from.at) {
             Some(developed) => Arc::clone(developed),
 
-            None => self.panic(
-                from.at,
-                "developed command call data is missing (= bug in checker)",
-            ),
+            None => self.panic(from.at, "developed command call data is missing"),
         }
     }
 
@@ -671,7 +665,7 @@ impl Context {
         match self.collected.cmd_call_values.get(&at) {
             Some(cmd_call) => Arc::clone(cmd_call),
 
-            None => self.panic(at, "command call data is missing (= bug in checker)"),
+            None => self.panic(at, "command call data is missing"),
         }
     }
 
@@ -724,42 +718,29 @@ impl Context {
             else {
                 self.panic(
                     body_content_at,
-                    format!(
-                        "cannot find {dep_type} '{name}' to capture (= bug in checker) (ocurred at {})",
-                        body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
-                    ),
+                    format!("cannot find {dep_type} '{name}' to capture",),
                 );
             };
 
             match dep_type {
                 DependencyType::Variable => {
-                    let var = decl_scope
-                    .content
-                        .vars
-                        .get(name)
-                        .unwrap_or_else(|| self.panic(
+                    let var = decl_scope.content.vars.get(name).unwrap_or_else(|| {
+                        self.panic(
                             body_content_at,
-                            format!(
-                                "cannot find variable '{name}' to capture (= bug in checker) '{name}' (declared at {})",
-                                body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
-                            )
-                        ));
+                            format!("cannot find variable '{name}' to capture",),
+                        )
+                    });
 
                     captured_deps.vars.insert(dep.clone(), var.clone());
                 }
 
                 DependencyType::Function => {
-                    let func = decl_scope
-                    .content
-                        .fns
-                        .get(name)
-                        .unwrap_or_else(|| self.panic(
+                    let func = decl_scope.content.fns.get(name).unwrap_or_else(|| {
+                        self.panic(
                             body_content_at,
-                            format!(
-                                "cannot find function '{name}' to capture (= bug in checker) '{name}' (declared at {})",
-                                body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
-                            )
-                        ));
+                            format!("cannot find function '{name}' to capture",),
+                        )
+                    });
 
                     captured_deps.fns.insert(dep.clone(), func.clone());
                 }
@@ -790,17 +771,12 @@ impl Context {
                 }
 
                 DependencyType::CmdAlias => {
-                    let cmd_alias = decl_scope
-                    .content
-                        .cmd_aliases
-                        .get(name)
-                        .unwrap_or_else(|| self.panic(
+                    let cmd_alias = decl_scope.content.cmd_aliases.get(name).unwrap_or_else(|| {
+                        self.panic(
                             body_content_at,
-                            format!(
-                                "cannot find command alias '{name}' to capture (= bug in checker) '{name}' (declared at {})",
-                                body_content_at.render_uncolored(&self.conf.files_map, PrettyPrintOptions::inline())
-                            )
-                        ));
+                            format!("cannot find command alias '{name}' to capture",),
+                        )
+                    });
 
                     captured_deps
                         .cmd_aliases

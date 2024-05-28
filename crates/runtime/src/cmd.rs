@@ -371,7 +371,7 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
             .unwrap_or_else(|| {
                 ctx.panic(
                     developed_alias.alias_called_at.at,
-                    "runtime alias not found (= bug in checker)",
+                    "runtime alias not found",
                 )
             });
 
