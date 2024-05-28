@@ -1,4 +1,4 @@
-pub fn handle_nesting<'s>(input: &'s str) -> Vec<NestingAction> {
+pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
     let mut opened: Vec<(&str, usize)> = vec![];
     let mut opened_strings: Vec<(&str, usize)> = vec![];
     let mut output: Vec<NestingAction> = vec![];
@@ -134,13 +134,11 @@ pub fn handle_nesting<'s>(input: &'s str) -> Vec<NestingAction> {
                             NestingActionType::Opening,
                         );
 
-                        push(
-                            &mut output,
-                            &mut opened,
+                        output.push(NestingAction::new(
                             offset,
                             1,
-                            NestingActionType::Closing,
-                        );
+                            NestingActionType::Closing { opening_offset },
+                        ));
 
                         continue;
                     }
@@ -176,7 +174,7 @@ pub fn handle_nesting<'s>(input: &'s str) -> Vec<NestingAction> {
                             &mut opened,
                             offset,
                             1,
-                            NestingActionType::Closing,
+                            NestingActionType::Closing { opening_offset },
                         );
 
                         opened_strings.push((char_as_str, offset));
@@ -231,7 +229,7 @@ impl NestingAction {
 
 pub enum NestingActionType {
     Opening,
-    Closing,
+    Closing { opening_offset: usize },
     Unclosed,
     ClosingWithoutOpening,
     Escaping,
