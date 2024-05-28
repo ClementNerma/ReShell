@@ -263,7 +263,10 @@ fn check_if_cmd_is_fn(
             data: args
                 .data
                 .iter()
-                .map(|arg| FnCallArg::CmdArg(arg.clone()))
+                .map(|arg| Eaten {
+                    at: arg.at,
+                    data: FnCallArg::CmdArg(arg.clone()),
+                })
                 .collect(),
         },
     };
