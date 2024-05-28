@@ -97,7 +97,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 ),
 
                 _ => {
-                    if inside_string!() {
+                    if !inside_string!() {
                         open(&mut output, &mut opened, offset, char_as_str)
                     }
                 }
