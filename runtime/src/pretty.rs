@@ -20,7 +20,7 @@ pub trait PrettyPrintable {
         self.generate_pretty_data()
             .render(opts, |Colored(ref string, color)| match color {
                 Some(color) => {
-                    out.push_str(&string.color(*color));
+                    out.push_str(&format!("{}", string.color(*color)));
                 }
                 None => out.push_str(string),
             });
