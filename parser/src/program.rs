@@ -392,10 +392,10 @@ pub fn program() -> impl Parser<Program> {
             just("||").to(DoubleOp::Or),
             just("==").to(DoubleOp::Eq),
             just("!=").to(DoubleOp::Neq),
-            just("<").to(DoubleOp::Lt),
             just("<=").to(DoubleOp::Lte),
-            just(">").to(DoubleOp::Gt),
+            just("<").to(DoubleOp::Lt),
             just(">=").to(DoubleOp::Gte),
+            just(">").to(DoubleOp::Gt),
             just("??").to(DoubleOp::NullFallback),
         ));
 
