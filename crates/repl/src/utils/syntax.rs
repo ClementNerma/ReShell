@@ -233,6 +233,11 @@ fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<
         ),
     };
 
+    assert_eq!(
+        style.len(),
+        matched.rule.matches.static_captures_len().unwrap()
+    );
+
     for (i, style) in style.iter().enumerate() {
         let Some(captured) = matched.get(i + 1) else {
             continue;
