@@ -19,6 +19,7 @@ use reshell_runtime::{
 };
 
 use crate::{
+    cmd::ExecArgs,
     completer::{self, generate_completions, CompletionContext},
     edit_mode,
     exec::run_script,
@@ -31,6 +32,7 @@ use crate::{
 
 pub fn start(
     ctx: &mut Context,
+    exec_args: ExecArgs,
     timings: Timings,
     show_timings: bool,
 ) -> Result<Option<ExitCode>, Box<dyn Error>> {
@@ -156,6 +158,7 @@ pub fn start(
             &input,
             SourceFileLocation::CustomName(format!("repl[{counter}]")),
             &parser,
+            exec_args,
             ctx,
         );
 
