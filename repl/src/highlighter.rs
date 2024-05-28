@@ -33,7 +33,8 @@ impl RlHighlighter for Highlighter {
             ("loop iterator") => "(?:^|\\n|\\s)(?:for|let|mut)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\b" => Red,
             ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
             ("command") => "(?:^|[\\(\\{;])\\s*([a-zA-Z0-9_/\\.]+)\\b" => LightBlue,
-            ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue
+            ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
+            ("symbols") => "([\\(\\)\\{\\}\\[\\],;=!<>])" => DarkGray
         );
 
         h.finalize(Style::new().fg(Color::Green))
