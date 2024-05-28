@@ -1,4 +1,6 @@
-use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType};
+use reshell_parser::ast::{
+    FnArg, FnFlagArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType,
+};
 
 use crate::{context::Context, display::dbg_loc};
 
@@ -140,32 +142,112 @@ pub fn check_fn_signature_equality(
     }
 
     for (arg, cmp_arg) in signature.args.data().iter().zip(into.args.data().iter()) {
-        if arg.is_optional != cmp_arg.is_optional {
-            return false;
-        }
-
-        if arg.is_rest != cmp_arg.is_rest {
-            return false;
-        }
-
-        match (&arg.names, &cmp_arg.names) {
-            (FnArgNames::Positional(_), FnArgNames::Positional(_)) => {}
-            (FnArgNames::ShortFlag(_), FnArgNames::ShortFlag(_)) => {}
-            (FnArgNames::LongFlag(_), FnArgNames::LongFlag(_)) => {}
+        match (arg, cmp_arg) {
             (
-                FnArgNames::LongAndShortFlag { long: _, short: _ },
-                FnArgNames::LongAndShortFlag { long: _, short: _ },
-            ) => {}
+                FnArg::Positional {
+                    name: a_name,
+                    is_optional: a_is_optional,
+                    typ: a_typ,
+                },
+                FnArg::Positional {
+                    name: b_name,
+                    is_optional: b_is_optional,
+                    typ: b_typ,
+                },
+            ) => {
+                if a_name.data() != b_name.data() {
+                    return false;
+                }
 
-            (FnArgNames::Positional(_), _) | (_, FnArgNames::Positional(_)) => return false,
-            (FnArgNames::ShortFlag(_), _) | (_, FnArgNames::ShortFlag(_)) => return false,
-            (FnArgNames::LongFlag(_), _) | (_, FnArgNames::LongFlag(_)) => return false,
-        }
+                if a_is_optional != b_is_optional {
+                    return false;
+                }
 
-        if let (Some(arg_type), Some(cmp_arg_type)) = (&arg.typ, &cmp_arg.typ) {
-            if !check_if_type_fits_type(arg_type.data(), cmp_arg_type.data(), ctx) {
-                return false;
+                if let (Some(a_type), Some(b_type)) = (a_typ, b_typ) {
+                    if !check_if_type_fits_type(a_type.data(), b_type.data(), ctx) {
+                        return false;
+                    }
+                }
             }
+
+            (
+                FnArg::Positional {
+                    name: _,
+                    is_optional: _,
+                    typ: _,
+                },
+                _,
+            )
+            | (
+                _,
+                FnArg::Positional {
+                    name: _,
+                    is_optional: _,
+                    typ: _,
+                },
+            ) => return false,
+
+            (FnArg::PresenceFlag { names: a_names }, FnArg::PresenceFlag { names: b_names }) => {
+                if !check_fn_flag_args_name_compat(a_names, b_names) {
+                    return false;
+                }
+            }
+
+            (FnArg::PresenceFlag { names: _ }, _) | (_, FnArg::PresenceFlag { names: _ }) => {
+                return false
+            }
+
+            (
+                FnArg::NormalFlag {
+                    names: a_names,
+                    is_optional: a_is_optional,
+                    typ: a_typ,
+                },
+                FnArg::NormalFlag {
+                    names: b_names,
+                    is_optional: b_is_optional,
+                    typ: b_typ,
+                },
+            ) => {
+                if !check_fn_flag_args_name_compat(a_names, b_names) {
+                    return false;
+                }
+
+                if a_is_optional != b_is_optional {
+                    return false;
+                }
+
+                if let (Some(a_type), Some(b_type)) = (a_typ, b_typ) {
+                    if !check_if_type_fits_type(a_type.data(), b_type.data(), ctx) {
+                        return false;
+                    }
+                }
+            }
+
+            (
+                FnArg::NormalFlag {
+                    names: _,
+                    is_optional: _,
+                    typ: _,
+                },
+                _,
+            )
+            | (
+                _,
+                FnArg::NormalFlag {
+                    names: _,
+                    is_optional: _,
+                    typ: _,
+                },
+            ) => return false,
+
+            (FnArg::Rest { name: a_name }, FnArg::Rest { name: b_name }) => {
+                if a_name.data() != b_name.data() {
+                    return false;
+                }
+            }
+            //
+            // (FnArg::Rest { name: _ }, _) | (_, FnArg::Rest { name: _ }) => return false,
         }
     }
 
@@ -176,4 +258,34 @@ pub fn check_fn_signature_equality(
     }
 
     true
+}
+
+/// Check if a set of flag names is compatible with another
+///
+/// For instance, if the target (into) has '-c' and '--current',
+/// the source must have both those parameters as it could otherwise produce
+/// a case where a call to it would result in an error due to it missing
+/// either the short and long flag
+fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) -> bool {
+    match into {
+        FnFlagArgNames::ShortFlag(b) => match curr {
+            FnFlagArgNames::LongFlag(_) => false,
+            FnFlagArgNames::ShortFlag(a)
+            | FnFlagArgNames::LongAndShortFlag { long: _, short: a } => a.data() == b.data(),
+        },
+
+        FnFlagArgNames::LongFlag(b) => match curr {
+            FnFlagArgNames::ShortFlag(_) => false,
+            FnFlagArgNames::LongFlag(a)
+            | FnFlagArgNames::LongAndShortFlag { long: a, short: _ } => a.data() == b.data(),
+        },
+
+        FnFlagArgNames::LongAndShortFlag { long, short } => match curr {
+            FnFlagArgNames::ShortFlag(_) | FnFlagArgNames::LongFlag(_) => false,
+            FnFlagArgNames::LongAndShortFlag {
+                long: a_long,
+                short: a_short,
+            } => a_long.data() == long.data() && a_short.data() == short.data(),
+        },
+    }
 }

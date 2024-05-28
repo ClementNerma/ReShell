@@ -180,11 +180,16 @@ fn single_call_to_chain_el(
 
         let mut eval_args = Vec::with_capacity(args.data.len());
 
-        for arg in &args.data {
-            match eval_cmd_arg(&arg.data, ctx)? {
+        fn append(
+            result: CmdArgResult,
+            result_at: CodeRange,
+            eval_args: &mut Vec<String>,
+            ctx: &mut Context,
+        ) -> ExecResult<()> {
+            match result {
                 CmdArgResult::Single(value) => match value {
                     CmdSingleArgResult::Basic(value) => {
-                        eval_args.push(value_to_str(&value.value, arg.at, ctx)?)
+                        eval_args.push(value_to_str(&value.value, result_at, ctx)?)
                     }
 
                     CmdSingleArgResult::Flag { name, value } => {
@@ -215,16 +220,24 @@ fn single_call_to_chain_el(
                         }
                     }
 
-                    CmdSingleArgResult::RestSeparator => {
+                    CmdSingleArgResult::RestSeparator(_) => {
                         // TODO: make this a constant in the parser or something
                         eval_args.push("--".to_owned());
                     }
                 },
 
-                CmdArgResult::Spreaded(_) => {
-                    todo!()
+                CmdArgResult::Spreaded(items) => {
+                    for item in items {
+                        append(CmdArgResult::Single(item), result_at, eval_args, ctx)?;
+                    }
                 }
             }
+
+            Ok(())
+        }
+
+        for arg in &args.data {
+            append(eval_cmd_arg(&arg.data, ctx)?, arg.at, &mut eval_args, ctx)?;
         }
 
         Ok(CmdChainElContent::Cmd(CmdCallEl {
@@ -348,7 +361,6 @@ fn eval_cmd_chain_el_content(
                     Some((child, _)) => match pipe_type.unwrap().data {
                         CmdPipeType::Stdout => Stdio::from(child.stdout.take().unwrap()),
                         CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
-                        // CmdPipeType::Both => todo!(),
                     },
                     None => Stdio::inherit(),
                 })
@@ -544,7 +556,9 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
             .map(|value| CmdArgResult::Single(CmdSingleArgResult::Basic(value))),
 
-        CmdArg::RestSeparator => Ok(CmdArgResult::Single(CmdSingleArgResult::RestSeparator)),
+        CmdArg::RestSeparator(eaten) => Ok(CmdArgResult::Single(
+            CmdSingleArgResult::RestSeparator(*eaten),
+        )),
 
         CmdArg::Flag(CmdFlagArg { name, value }) => {
             Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
@@ -679,7 +693,7 @@ pub enum CmdSingleArgResult {
         name: Eaten<CmdFlagNameArg>,
         value: Option<FlagArgValueResult>,
     },
-    RestSeparator,
+    RestSeparator(Eaten<()>),
 }
 
 #[derive(Debug, Clone)]

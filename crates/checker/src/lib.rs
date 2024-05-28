@@ -7,14 +7,14 @@ mod state;
 
 use std::collections::{HashMap, HashSet};
 
-use parsy::Eaten;
+use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagValueArg, CmdPath,
     CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
-    Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature,
-    Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeCodeRange,
-    RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value,
-    ValueType,
+    Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
+    FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+    RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
+    SwitchCase, Value, ValueType,
 };
 
 pub use self::{
@@ -757,7 +757,7 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
             Ok(())
         }
 
-        CmdArg::RestSeparator => Ok(()),
+        CmdArg::RestSeparator(_) => Ok(()),
     }
 }
 
@@ -799,50 +799,19 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     let mut vars = HashMap::new();
 
     for arg in &args.data {
-        let FnArg {
-            names,
-            is_optional,
-            is_rest,
-            typ,
-        } = arg;
-
-        let var_name = match names {
-            FnArgNames::Positional(name) => name.clone(),
-            FnArgNames::ShortFlag(name) => name.map(|c| c.to_string()),
-            FnArgNames::LongFlag(name) => name.clone(),
-            FnArgNames::LongAndShortFlag { long, short: _ } => long.clone(),
-        };
-
-        let var_name_at = match var_name.at() {
-            RuntimeCodeRange::Parsed(var_name_at) => var_name_at,
-            RuntimeCodeRange::Internal => unreachable!(),
-        };
+        let CheckedFnArg { name, name_at } = check_fn_arg(arg, state)?;
 
         let dup = vars.insert(
-            var_name.data().clone(),
+            name,
             DeclaredVar {
-                name_at: var_name.at(),
+                name_at: RuntimeCodeRange::Parsed(name_at),
                 is_mut: false,
             },
         );
 
         if dup.is_some() {
-            return Err(CheckerError::new(var_name_at, "Duplicate argument name"));
+            return Err(CheckerError::new(name_at, "Duplicate argument name"));
         }
-
-        if names.is_flag() && typ.is_none() && *is_optional {
-            return Err(CheckerError::new(
-                var_name_at,
-                "Typeless flags are presence flags and can't be marked as optional",
-            ));
-        }
-
-        // TODO: flags can't be rest
-        // TODO: no positional argument after optional positional one
-        // TODO: no positional argument after rest one
-        // TODO: rest argument can't have a type
-        // TODO: rest argument can't be marked as optional
-        // TODO: flags can't be both optional AND without a type
     }
 
     state
@@ -858,6 +827,61 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
             scope.vars.insert(name, var);
         }
     })
+}
+
+fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
+    let (name, name_at) = match arg {
+        FnArg::Positional {
+            name,
+            is_optional: _,
+            typ,
+        } => {
+            if let Some(typ) = typ {
+                check_value_type(typ.data(), state)?;
+            }
+
+            (name.data().clone(), name.at())
+        }
+
+        FnArg::PresenceFlag { names } => match names {
+            FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at()),
+            FnFlagArgNames::LongFlag(long) => (long.data().clone(), long.at()),
+            FnFlagArgNames::LongAndShortFlag { long, short: _ } => (long.data().clone(), long.at()),
+        },
+
+        FnArg::NormalFlag {
+            names,
+            is_optional: _,
+            typ,
+        } => {
+            if let Some(typ) = typ {
+                check_value_type(typ.data(), state)?;
+            }
+
+            match names {
+                FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at()),
+                FnFlagArgNames::LongFlag(long) => (long.data().clone(), long.at()),
+                FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
+                    (long.data().clone(), long.at())
+                }
+            }
+        }
+
+        FnArg::Rest { name } => (name.data().clone(), name.at()),
+    };
+
+    Ok(CheckedFnArg {
+        name,
+        name_at: match name_at {
+            RuntimeCodeRange::Parsed(at) => at,
+            RuntimeCodeRange::Internal => unreachable!(),
+        },
+    })
+}
+
+struct CheckedFnArg {
+    name: String,
+    name_at: CodeRange,
 }
 
 fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult {
@@ -929,46 +953,13 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     let mut used_idents = HashSet::new();
 
     for arg in &args.data {
-        let FnArg {
-            names,
-            is_optional: _,
-            is_rest: _,
-            typ,
-        } = arg;
+        let CheckedFnArg { name, name_at } = check_fn_arg(arg, state)?;
 
-        let (long, short) = match names {
-            FnArgNames::Positional(name) => (Some(name), None),
-            FnArgNames::ShortFlag(flag) => (None, Some(flag)),
-            FnArgNames::LongFlag(flag) => (Some(flag), None),
-            FnArgNames::LongAndShortFlag { long, short } => (Some(long), Some(short)),
-        };
-
-        if let Some(long) = long {
-            if used_idents.contains(long.data()) {
-                return Err(CheckerError::new(
-                    long.at().real().unwrap(),
-                    "duplicate argument name",
-                ));
-            }
-
-            used_idents.insert(long.data().clone());
-        }
-
-        if let Some(short) = short {
-            let short_str = short.data().to_string();
-
-            if used_idents.contains(&short_str) {
-                return Err(CheckerError::new(
-                    short.at().real().unwrap(),
-                    "duplicate flag name",
-                ));
-            }
-
-            used_idents.insert(short_str);
-        }
-
-        if let Some(typ) = typ {
-            check_value_type(typ.data(), state)?;
+        if !used_idents.insert(name) {
+            return Err(CheckerError::new(
+                name_at,
+                "Duplicate argument name in function",
+            ));
         }
     }
 

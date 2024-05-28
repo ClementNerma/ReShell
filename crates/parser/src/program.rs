@@ -9,9 +9,9 @@ use crate::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
     CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece,
     DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp,
-    FlagValueSeparator, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, Instruction,
-    LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp,
-    SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+    FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
+    Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall,
+    SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub fn program() -> impl Parser<Program> {
@@ -155,7 +155,7 @@ pub fn program() -> impl Parser<Program> {
                 not(possible_ident_char.clone()).critical("expected a single-character identifier"),
             );
 
-        let fn_arg_names = choice::<_, FnArgNames>((
+        let fn_flag_arg_names = choice::<_, FnFlagArgNames>((
             // Long *and* short flags
             fn_arg_long_flag
                 .clone()
@@ -164,45 +164,65 @@ pub fn program() -> impl Parser<Program> {
                 .then_ignore(char('('))
                 .then(fn_arg_short_flag.clone().map(RuntimeEaten::Eaten))
                 .then_ignore(char(')').critical("unclosed short argument, expected ')'"))
-                .map(|(long, short)| FnArgNames::LongAndShortFlag { short, long }),
+                .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
             // Long flag only
             fn_arg_long_flag
                 .map(RuntimeEaten::Eaten)
-                .map(FnArgNames::LongFlag),
+                .map(FnFlagArgNames::LongFlag),
             // Long flag only
             fn_arg_short_flag
                 .map(RuntimeEaten::Eaten)
-                .map(FnArgNames::ShortFlag),
-            // No flag
-            ident
-                .clone()
-                .spanned()
-                .map(RuntimeEaten::Eaten)
-                .map(FnArgNames::Positional),
+                .map(FnFlagArgNames::ShortFlag),
         ));
 
-        let fn_arg = just("...")
-            .or_not()
-            .then(fn_arg_names)
-            .then(ms.ignore_then(char('?')).to(()).or_not())
+        enum _ParsedFnArgName {
+            Positional(RuntimeEaten<String>),
+            Flag(FnFlagArgNames),
+        }
+
+        let fn_arg = choice::<_, FnArg>((
+            choice::<_, _ParsedFnArgName>((
+                // Positional
+                ident
+                    .clone()
+                    .spanned()
+                    .map(RuntimeEaten::Eaten)
+                    .map(_ParsedFnArgName::Positional),
+                // Flag
+                fn_flag_arg_names.map(_ParsedFnArgName::Flag),
+            ))
+            .then(char('?').or_not().map(|is_optional| is_optional.is_some()))
             .then(
                 ms.ignore_then(char(':'))
-                    .ignore_then(ms)
-                    .ignore_then(
-                        value_type
-                            .clone()
-                            .spanned()
-                            .map(RuntimeEaten::Eaten)
-                            .critical("expected a (valid) type"),
-                    )
+                    .ignore_then(msnl)
+                    .ignore_then(value_type.clone().spanned().map(RuntimeEaten::Eaten))
                     .or_not(),
             )
-            .map(|(((is_rest, names), is_optional), typ)| FnArg {
-                names,
-                is_rest: is_rest.is_some(),
-                is_optional: is_optional.is_some(),
-                typ,
-            });
+            .map(|((name, is_optional), typ)| match name {
+                _ParsedFnArgName::Positional(name) => FnArg::Positional {
+                    name,
+                    is_optional,
+                    typ,
+                },
+                _ParsedFnArgName::Flag(names) => {
+                    if !is_optional && typ.is_none() {
+                        FnArg::PresenceFlag { names }
+                    } else {
+                        FnArg::NormalFlag {
+                            names,
+                            is_optional,
+                            typ,
+                        }
+                    }
+                }
+            }),
+            // Rest
+            just("...")
+                .ignore_then(ident.clone())
+                .spanned()
+                .map(RuntimeEaten::Eaten)
+                .map(|name| FnArg::Rest { name }),
+        ));
 
         fn_signature.finish(
             char('(')
@@ -779,8 +799,10 @@ pub fn program() -> impl Parser<Program> {
             cmd_flag_arg.map(CmdArg::Flag),
             // Rest separator
             just("--")
+                .to(())
+                .spanned()
                 .not_followed_by(cmd_raw)
-                .to(CmdArg::RestSeparator),
+                .map(CmdArg::RestSeparator),
             // Spread
             just("$...")
                 .ignore_then(

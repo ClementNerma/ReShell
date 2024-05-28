@@ -1,6 +1,4 @@
-use reshell_parser::ast::{
-    FnArg, FnArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
-};
+use reshell_parser::ast::{FnArg, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType};
 
 use reshell_runtime::{
     cmd::{CmdArgResult, CmdSingleArgResult},
@@ -21,10 +19,9 @@ pub fn forge_basic_fn_signature(
     FnSignature {
         args: RuntimeEaten::Internal(
             args.into_iter()
-                .map(|(name, typ)| FnArg {
-                    names: FnArgNames::Positional(RuntimeEaten::Internal(name.into())),
+                .map(|(name, typ)| FnArg::Positional {
+                    name: RuntimeEaten::Internal(name.into()),
                     is_optional: false,
-                    is_rest: false,
                     typ: Some(RuntimeEaten::Internal(typ)),
                 })
                 .collect(),
@@ -81,13 +78,10 @@ pub fn call_fn_checked(
         FnPossibleCallArgs::Internal(
             args.into_iter()
                 .map(|arg| {
-                    (
+                    CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
+                        arg,
                         RuntimeCodeRange::Internal,
-                        CmdArgResult::Single(CmdSingleArgResult::Basic(LocatedValue::new(
-                            arg,
-                            RuntimeCodeRange::Internal,
-                        ))),
-                    )
+                    )))
                 })
                 .collect(),
         ),
