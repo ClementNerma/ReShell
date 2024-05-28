@@ -374,13 +374,7 @@ pub fn program() -> impl Parser<Program> {
                 .map(Value::FnAsValue),
             // Closures
             char('|')
-                .ignore_then(
-                    fn_arg
-                        .clone()
-                        .separated_by(char(',').padded())
-                        .spanned()
-                        .debug(simple_debug),
-                )
+                .ignore_then(fn_arg.clone().separated_by(char(',').padded()).spanned())
                 .then_ignore(char('|').critical("unclosed function arguments list"))
                 .then_ignore(ms)
                 .then(
