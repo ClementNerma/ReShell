@@ -95,6 +95,20 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
         block.at
     );
 
+    block_first_pass(instructions, block, state)?;
+
+    for instr in instructions {
+        check_instr(instr, state)?;
+    }
+
+    Ok(())
+}
+
+fn block_first_pass(
+    instructions: &[Eaten<Instruction>],
+    block: &Eaten<Block>,
+    state: &mut State,
+) -> CheckerResult {
     for instr in instructions {
         match &instr.data {
             Instruction::TypeAliasDecl { name, content } => {
@@ -163,12 +177,15 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
                 state.register_cmd_alias(content.clone());
             }
 
+            Instruction::Include(program) => {
+                let Program { content } = &program.data;
+                let Block { instructions } = &content.data;
+
+                block_first_pass(instructions, block, state)?;
+            }
+
             _ => {}
         }
-    }
-
-    for instr in instructions {
-        check_instr(instr, state)?;
     }
 
     Ok(())
@@ -413,13 +430,12 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
         Instruction::Include(program) => {
-            let curr_at = state.curr_scope().code_range;
+            let Program { content } = &program.data;
+            let Block { instructions } = &content.data;
 
-            state.curr_scope_mut().code_range = RuntimeCodeRange::Parsed(program.data.content.at);
-
-            check_block_in_current_scope(&program.data.content, state)?;
-
-            state.curr_scope_mut().code_range = curr_at;
+            for instr in instructions {
+                check_instr(instr, state)?;
+            }
         }
     }
 

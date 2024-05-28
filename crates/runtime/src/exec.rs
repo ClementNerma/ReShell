@@ -626,11 +626,9 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::Include(program) => {
-            ctx.inside_imported_program(program, |ctx| {
-                let Program { content } = &program.data;
+            let Program { content } = &program.data;
 
-                run_block_in_current_scope(&content.data, ctx)
-            })?;
+            run_block_in_current_scope(&content.data, ctx)?;
         }
     }
 
