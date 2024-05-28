@@ -55,15 +55,20 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             },
             // OS family
             BuiltinVar {
-                name: "OS_FAMILY",
+                name: "IS_PLATFORM_WINDOWS",
                 is_mut: false,
-                init_value: RuntimeValue::String(
-                    match TARGET_FAMILY {
-                        TargetFamily::Windows => "windows",
-                        TargetFamily::Unix => "unix",
-                    }
-                    .to_string(),
-                ),
+                init_value: RuntimeValue::Bool(match TARGET_FAMILY {
+                    TargetFamily::Windows => true,
+                    TargetFamily::Unix => false,
+                }),
+            },
+            BuiltinVar {
+                name: "IS_PLATFORM_UNIX",
+                is_mut: false,
+                init_value: RuntimeValue::Bool(match TARGET_FAMILY {
+                    TargetFamily::Windows => false,
+                    TargetFamily::Unix => true,
+                }),
             },
         ],
     }
