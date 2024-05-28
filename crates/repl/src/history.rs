@@ -198,16 +198,24 @@ impl RlHistory for History {
         };
 
         let start_idx = match start_id {
-            Some(from_id) => self.entries.get_index_of(&from_id).ok_or(ReedlineError(
-                ReedlineErrorVariants::OtherHistoryError("provided 'start_id' item was not found"),
-            ))?,
+            Some(from_id) => {
+                self.entries.get_index_of(&from_id).ok_or(ReedlineError(
+                    ReedlineErrorVariants::OtherHistoryError(
+                        "provided 'start_id' item was not found",
+                    ),
+                ))? + 1
+            }
             None => 0,
         };
 
         let end_idx = match end_id {
-            Some(to_id) => self.entries.get_index_of(&to_id).ok_or(ReedlineError(
-                ReedlineErrorVariants::OtherHistoryError("provided 'end_id' item was not found"),
-            ))?,
+            Some(to_id) => self
+                .entries
+                .get_index_of(&to_id)
+                .ok_or(ReedlineError(ReedlineErrorVariants::OtherHistoryError(
+                    "provided 'end_id' item was not found",
+                )))?
+                .wrapping_sub(1),
             None => self.entries.len().saturating_sub(1),
         };
 
