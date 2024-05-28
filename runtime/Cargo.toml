@@ -1,0 +1,12 @@
+[package]
+name = "reshell-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fork = "0.1.20"
+glob = "0.3.1"
+parsy = { path = "../../Parsy" }
+rand = "0.8.5"
+reshell-parser = { path = "../parser" }
+termsize = "0.1.6"
