@@ -49,7 +49,7 @@ fn highlight(input: &str) -> StyledText {
         ("untyped function arguments (2)") => "([a-zA-Z_][a-zA-Z0-9_]*)\\s*[\\),]" => Red,
         ("numbers") => "\\b(\\d+(?:\\.\\d+)?)\\b" => LightYellow,
         ("raw command marker") => "(?:^|[\\{;]|\\$\\()\\s*(@raw)\\b" => Magenta,
-        ("command") => "(?:^|[\\{;]|\\$\\(|@raw\\s+)\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
+        ("command") => "(?:^|[\\{;]|\\$\\(|@raw\\s+)\\s*([^\\(\\)\\[\\]\\{\\}<>=;\\!\\?&\\|'\"\\$]+)\\b" => LightBlue,
         ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
         ("command expression opening") => "\\s(\\$)\\(" => Red,
         ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue,
