@@ -62,7 +62,7 @@ pub fn run_program(
             ctx.reset_to_first_scope();
 
             match err.has_exit_code {
-                None => Ok(ProgramExitStatus::Normal),
+                None => Err(err),
                 Some(code) => Ok(ProgramExitStatus::ExitRequested { code }),
             }
         }
