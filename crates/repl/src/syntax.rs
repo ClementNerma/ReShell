@@ -272,43 +272,26 @@ impl<'a> Highlighter<'a> {
         let mut min = None::<Match>;
 
         for rule in rules {
-            match rule {
-                Rule::Simple(simple) => {
-                    if let Some(matched) = Self::match_simple_rule(simple, text, shift) {
-                        if min.is_none()
-                            || matches!(min, Some(ref min) if matched.start < min.start)
-                        {
-                            min = Some(matched);
-                        }
-                    }
-                }
+            let matching = match rule {
+                Rule::Simple(simple) => Self::match_simple_rule(simple, text, shift),
 
                 Rule::Progressive(simple, following) => {
-                    if let Some(matched) = Self::match_simple_rule(simple, text, shift) {
-                        if min.is_none()
-                            || matches!(min, Some(ref min) if matched.start < min.start)
-                        {
-                            min = Some(matched.with_following(following));
-                        }
-                    }
+                    Self::match_simple_rule(simple, text, shift)
+                        .map(|matched| matched.with_following(following))
                 }
 
                 Rule::Nested(_) => continue,
 
-                Rule::Group(name) => {
-                    let matched = self.find_nearest_simple_or_progressive_rule(
-                        text,
-                        self.rule_set.groups.get(name).unwrap(),
-                        shift,
-                    );
+                Rule::Group(name) => self.find_nearest_simple_or_progressive_rule(
+                    text,
+                    self.rule_set.groups.get(name).unwrap(),
+                    shift,
+                ),
+            };
 
-                    if let Some(matched) = matched {
-                        if min.is_none()
-                            || matches!(min, Some(ref min) if matched.start < min.start)
-                        {
-                            min = Some(matched);
-                        }
-                    }
+            if let Some(matched) = matching {
+                if min.is_none() || matches!(min, Some(ref min) if matched.start < min.start) {
+                    min = Some(matched);
                 }
             }
         }
