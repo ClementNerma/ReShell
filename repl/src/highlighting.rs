@@ -51,7 +51,7 @@ fn highlight(input: &str) -> StyledText {
         ("command") => "(?:^|[\\{;]|\\$\\()\\s*([a-zA-Z0-9_/\\-\\.]+)\\b" => LightBlue,
         ("function calls") => "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
         ("command expression opening") => "\\s(\\$)\\(" => Red,
-        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|,;=!<>\\?\\+\\-\\*\\/]+)" => Blue,
+        ("symbols and operators") => "([\\(\\)\\{\\}\\[\\]&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue,
         ("raw arguments") => "(.)" => Green
     );
 
