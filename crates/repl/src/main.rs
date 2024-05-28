@@ -17,6 +17,7 @@ use reshell_runtime::{conf::RuntimeConf, context::Context};
 
 use self::cmd::Args;
 use self::exec::run_script;
+use self::paths::{HOME_DIR, INIT_SCRIPT_PATH};
 use self::reports::ReportableError;
 use self::utils::threads::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
 
@@ -28,6 +29,7 @@ mod exec;
 mod highlighter;
 mod hinter;
 mod history;
+mod paths;
 mod prompt;
 mod repl;
 mod reports;
@@ -85,10 +87,10 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         take_pending_ctrl_c_request,
     );
 
-    match dirs::home_dir() {
+    match &*HOME_DIR {
         Some(home_dir) => {
             if home_dir.is_dir() {
-                ctx.set_home_dir(home_dir);
+                ctx.set_home_dir(home_dir.clone());
             } else {
                 print_warn(format!(
                     "Determined path to home directory was {} but it does not exist",
@@ -149,16 +151,14 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     let before_init_script = Instant::now();
 
     if !skip_init_script {
-        match dirs::home_dir() {
+        match &*INIT_SCRIPT_PATH {
             None => print_warn(
                 "Cannot run init script: failed to determine path to the user's home directory",
             ),
 
-            Some(home_dir) => {
-                let init_file = home_dir.join(INIT_SCRIPT_FILE_NAME);
-
+            Some(init_file) => {
                 if init_file.is_file() {
-                    match fs::read_to_string(&init_file) {
+                    match fs::read_to_string(init_file) {
                         Err(err) => {
                             print_err(format!(
                                 "Failed to read init script at path {}: {err}",
@@ -171,7 +171,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                         Ok(source) => {
                             let init_script_result = run_script(
                                 &source,
-                                SourceFileLocation::RealFile(init_file),
+                                SourceFileLocation::RealFile(init_file.clone()),
                                 &parser,
                                 &mut ctx,
                             );
@@ -212,8 +212,6 @@ fn print_warn(msg: impl AsRef<str>) {
 fn print_err(msg: impl AsRef<str>) {
     eprintln!("{}", msg.as_ref().bright_red());
 }
-
-static INIT_SCRIPT_FILE_NAME: &str = "init.rsh";
 
 pub struct Timings {
     pub started: Instant,

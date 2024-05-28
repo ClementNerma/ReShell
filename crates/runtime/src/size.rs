@@ -23,7 +23,7 @@ use reshell_parser::{
 
 use crate::{
     cmd::{CmdSingleArgResult, FlagArgValueResult},
-    conf::RuntimeConf,
+    conf::{HistoryConf, RuntimeConf},
     context::{CallStackEntry, Scope, ScopeCmdAlias, ScopeContent, ScopeFn, ScopeVar},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     values::{
@@ -929,16 +929,26 @@ impl ComputableSize for RuntimeConf {
         let Self {
             initial_home_dir,
             call_stack_limit,
-            history_path,
-            history_enabled,
-            history_capacity,
+            history,
         } = self;
 
         initial_home_dir.compute_heap_size()
             + call_stack_limit.compute_heap_size()
-            + history_path.compute_heap_size()
-            + history_enabled.compute_heap_size()
-            + history_capacity.compute_heap_size()
+            + history.compute_heap_size()
+    }
+}
+
+impl ComputableSize for HistoryConf {
+    fn compute_heap_size(&self) -> usize {
+        let Self {
+            enabled,
+            custom_location,
+            capacity,
+        } = self;
+
+        enabled.compute_heap_size()
+            + custom_location.compute_heap_size()
+            + capacity.compute_heap_size()
     }
 }
 

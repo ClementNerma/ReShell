@@ -135,6 +135,7 @@ dependencies = [
  "android-tzdata",
  "iana-time-zone",
  "num-traits",
+ "serde",
  "windows-targets 0.48.5",
 ]
 
@@ -598,8 +599,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.26.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a093a20a6c473247c2e9971aaf4cedf9041bcd3f444dc7fad667d3b6b7a5fd"
+source = "git+https://github.com/nushell/reedline#43944ee99dd701f7fd6f57cfa3e60e3695d5ef8e"
 dependencies = [
  "chrono",
  "crossterm",
@@ -656,7 +656,6 @@ dependencies = [
  "dirs",
  "glob",
  "nu-ansi-term",
- "once_cell",
  "parsy",
  "reedline",
  "regex",

@@ -1,3 +1,5 @@
+// TODO: rework with reedline's (potential) new history API
+
 use reedline::{FileBackedHistory, History, ListMenu, ReedlineMenu};
 use reshell_runtime::conf::RuntimeConf;
 
@@ -6,9 +8,9 @@ use crate::print_warn;
 pub static HISTORY_MENU_NAME: &str = "history_menu";
 
 pub fn create_history(runtime_conf: &RuntimeConf) -> Box<dyn History> {
-    let capacity = runtime_conf.history_capacity;
+    let capacity = runtime_conf.history.capacity;
 
-    let history = if runtime_conf.history_enabled {
+    let history = if runtime_conf.history.enabled {
         match dirs::home_dir() {
             Some(dir) => match FileBackedHistory::with_file(capacity, dir.join(".rsh_history")) {
                 Ok(history) => history,
@@ -26,7 +28,7 @@ pub fn create_history(runtime_conf: &RuntimeConf) -> Box<dyn History> {
             }
         }
     } else {
-        FileBackedHistory::new(runtime_conf.history_capacity)
+        FileBackedHistory::new(runtime_conf.history.capacity)
     };
 
     Box::new(history)

@@ -1,3 +1,6 @@
+// TODO: try to find a way to get rid of threads entirely?
+// And move Ctrl+C logic elsewhere
+
 use std::{
     sync::Mutex,
     time::{Duration, Instant},

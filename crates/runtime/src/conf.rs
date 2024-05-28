@@ -4,9 +4,7 @@ use std::path::PathBuf;
 pub struct RuntimeConf {
     pub initial_home_dir: Option<PathBuf>,
     pub call_stack_limit: usize,
-    pub history_path: Option<PathBuf>,
-    pub history_enabled: bool,
-    pub history_capacity: usize,
+    pub history: HistoryConf,
 }
 
 impl Default for RuntimeConf {
@@ -14,9 +12,24 @@ impl Default for RuntimeConf {
         Self {
             initial_home_dir: None,
             call_stack_limit: 10_000,
-            history_path: None,
-            history_enabled: true,
-            history_capacity: 1_000_000,
+            history: HistoryConf::default(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct HistoryConf {
+    pub enabled: bool,
+    pub custom_location: Option<PathBuf>,
+    pub capacity: usize,
+}
+
+impl Default for HistoryConf {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            custom_location: None,
+            capacity: 100_000,
         }
     }
 }
