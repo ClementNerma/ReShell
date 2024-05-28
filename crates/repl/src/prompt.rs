@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use reedline::{
     Prompt as RlPrompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
 };
-use reshell_builtins::prompt::PromptRendering;
+use reshell_builtins::repl_fns::prompt::PromptRendering;
 
 pub struct Prompt {
     rendering: PromptRendering,

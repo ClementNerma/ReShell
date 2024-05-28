@@ -9,8 +9,7 @@ use crate::{
     builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
     functions::native_functions,
     methods::native_methods,
-    on_dir_jump::ON_DIR_JUMP_VAR_NAME,
-    prompt::GEN_PROMPT_VAR_NAME,
+    repl_fns::{on_dir_jump::ON_DIR_JUMP_VAR_NAME, prompt::GEN_PROMPT_VAR_NAME},
 };
 
 /// Generate definitions of the native library
