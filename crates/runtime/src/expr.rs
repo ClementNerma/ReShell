@@ -15,7 +15,7 @@ use crate::{
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_props_access, PropAccessPolicy, PropAssignmentMode},
+    props::{eval_props_access, PropAccessMode, TailPropAccessPolicy},
     values::{
         are_values_equal, value_to_str, LocatedValue, NotComparableTypesErr, RuntimeFnBody,
         RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
@@ -286,12 +286,11 @@ fn eval_expr_inner_direct_chaining(
             let resolved = eval_props_access(
                 &mut left.value,
                 [nature].into_iter(),
-                PropAccessPolicy::Read,
+                TailPropAccessPolicy::Read,
                 ctx,
                 |d, _| match d {
-                    PropAssignmentMode::OnlyReadExisting(d) => d.clone(),
-                    PropAssignmentMode::OnlyWriteExisting(_)
-                    | PropAssignmentMode::WriteExistingOrCreate(_) => {
+                    PropAccessMode::ReadExisting(d) => d.clone(),
+                    PropAccessMode::WriteExisting(_) | PropAccessMode::Create(_) => {
                         unreachable!()
                     }
                 },

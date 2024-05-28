@@ -16,31 +16,28 @@ use crate::{
     values::RuntimeValue,
 };
 
-/// How properties assignment should behave on a given target
-pub enum PropAssignmentMode<'c> {
-    /// Only allow reading existing properties
-    OnlyReadExisting(&'c RuntimeValue),
-
-    /// Only allow writing existing properties
-    OnlyWriteExisting(&'c mut RuntimeValue),
-
-    /// Allow writing to existing properties or creating them if they don't exist
-    WriteExistingOrCreate(VacantEntry<'c, String, RuntimeValue>),
-}
-
 /// Evaluate a chain of properties access
+///
+/// `left`: the value to operate on
+/// `accesses`: iterator providing the property accesses to perform
+/// `policy`: how the tail property should be accessed
+/// `ctx`: runtime context
+/// `finalize`: callback taking a value that allows reading,
+///             writing or creating the tail property based on the provided policy
 pub fn eval_props_access<'ast, 'c, T>(
     left: &'c mut RuntimeValue,
     accesses: impl ExactSizeIterator<Item = &'ast Eaten<PropAccessNature>>,
-    policy: PropAccessPolicy,
+    policy: TailPropAccessPolicy,
     ctx: &'c mut Context,
-    finalize: impl FnOnce(PropAssignmentMode, &mut Context) -> T,
+    finalize: impl FnOnce(PropAccessMode, &mut Context) -> T,
 ) -> ExecResult<T> {
+    // Special handling for empty accesses
+    // (which are the most common ; most expressions don't have properties chain)
     if accesses.len() == 0 {
         return Ok(finalize(
             match policy {
-                PropAccessPolicy::Read => PropAssignmentMode::OnlyReadExisting(left),
-                PropAccessPolicy::Write(_) => PropAssignmentMode::OnlyWriteExisting(left),
+                TailPropAccessPolicy::Read => PropAccessMode::ReadExisting(left),
+                TailPropAccessPolicy::Write(_) => PropAccessMode::WriteExisting(left),
             },
             ctx,
         ));
@@ -88,18 +85,15 @@ pub fn eval_props_access<'ast, 'c, T>(
                             },
 
                             None => match policy {
-                                PropAccessPolicy::Read => {
-                                    return Ok(finalize(
-                                        PropAssignmentMode::OnlyReadExisting(value),
-                                        ctx,
-                                    ))
+                                TailPropAccessPolicy::Read => {
+                                    return Ok(finalize(PropAccessMode::ReadExisting(value), ctx))
                                 }
 
-                                PropAccessPolicy::Write(_) => {
+                                TailPropAccessPolicy::Write(_) => {
                                     drop(items);
 
                                     return Ok(finalize(
-                                        PropAssignmentMode::OnlyWriteExisting(
+                                        PropAccessMode::WriteExisting(
                                             list.write(key_expr.at, ctx)?.get_mut(index).unwrap(),
                                         ),
                                         ctx,
@@ -147,22 +141,17 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
 
                         (Some(value), None) => match policy {
-                            PropAccessPolicy::Read => {
-                                return Ok(finalize(
-                                    PropAssignmentMode::OnlyReadExisting(value),
-                                    ctx,
-                                ))
+                            TailPropAccessPolicy::Read => {
+                                return Ok(finalize(PropAccessMode::ReadExisting(value), ctx))
                             }
 
-                            PropAccessPolicy::Write(_) => {
+                            TailPropAccessPolicy::Write(_) => {
                                 drop(map_read);
 
                                 let mut map = map.write(key_expr.at, ctx)?;
 
                                 return Ok(finalize(
-                                    PropAssignmentMode::OnlyWriteExisting(
-                                        map.get_mut(&key).unwrap(),
-                                    ),
+                                    PropAccessMode::WriteExisting(map.get_mut(&key).unwrap()),
                                     ctx,
                                 ));
                             }
@@ -173,14 +162,14 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
 
                         (None, None) => match policy {
-                            PropAccessPolicy::Read
-                            | PropAccessPolicy::Write(PropAccessTailPolicy::ExistingOnly) => {
+                            TailPropAccessPolicy::Read
+                            | TailPropAccessPolicy::Write(TailPropWritingPolicy::ExistingOnly) => {
                                 return Err(
                                     ctx.error(key_expr.at, format!("key '{key}' was not found"))
                                 )
                             }
 
-                            PropAccessPolicy::Write(PropAccessTailPolicy::TailMayNotExist) => {
+                            TailPropAccessPolicy::Write(TailPropWritingPolicy::TailMayNotExist) => {
                                 drop(map_read);
 
                                 let mut map = map.write(key_expr.at, ctx)?;
@@ -190,10 +179,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                                     Entry::Vacant(vacant) => vacant,
                                 };
 
-                                return Ok(finalize(
-                                    PropAssignmentMode::WriteExistingOrCreate(entry),
-                                    ctx,
-                                ));
+                                return Ok(finalize(PropAccessMode::Create(entry), ctx));
                             }
                         },
                     }
@@ -234,22 +220,17 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
 
                         None => match policy {
-                            PropAccessPolicy::Read => {
-                                return Ok(finalize(
-                                    PropAssignmentMode::OnlyReadExisting(value),
-                                    ctx,
-                                ))
+                            TailPropAccessPolicy::Read => {
+                                return Ok(finalize(PropAccessMode::ReadExisting(value), ctx))
                             }
 
-                            PropAccessPolicy::Write(_) => {
+                            TailPropAccessPolicy::Write(_) => {
                                 drop(obj_read);
 
                                 let mut obj = obj.write(prop.at, ctx)?;
 
                                 return Ok(finalize(
-                                    PropAssignmentMode::OnlyWriteExisting(
-                                        obj.get_mut(&prop.data).unwrap(),
-                                    ),
+                                    PropAccessMode::WriteExisting(obj.get_mut(&prop.data).unwrap()),
                                     ctx,
                                 ));
                             }
@@ -274,14 +255,38 @@ pub fn eval_props_access<'ast, 'c, T>(
     unreachable!()
 }
 
+/// How properties should be accessed
 #[derive(PartialEq, Eq)]
-pub enum PropAccessPolicy {
+pub enum TailPropAccessPolicy {
+    /// Read the final property
     Read,
-    Write(PropAccessTailPolicy),
+
+    /// Write the final property
+    Write(TailPropWritingPolicy),
 }
 
+/// How the last property should be accessed
 #[derive(PartialEq, Eq)]
-pub enum PropAccessTailPolicy {
+pub enum TailPropWritingPolicy {
+    /// Only allow existing tail properties
     ExistingOnly,
+
+    /// Allow non-existing tail properties
     TailMayNotExist,
+}
+
+/// How to perform final access on a property chain.
+///
+/// Will be generated depending on the provided [`PropAccessPolicy`].
+///
+/// It will contain a value allowing for reading / writing / creating the tail property.
+pub enum PropAccessMode<'c> {
+    /// Read the value of an existing property
+    ReadExisting(&'c RuntimeValue),
+
+    /// Only allow writing existing properties
+    WriteExisting(&'c mut RuntimeValue),
+
+    /// Allow writing to existing properties or creating them if they don't exist
+    Create(VacantEntry<'c, String, RuntimeValue>),
 }
