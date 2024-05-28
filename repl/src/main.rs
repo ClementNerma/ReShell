@@ -30,6 +30,16 @@ mod state;
 mod validator;
 
 fn main() -> ExitCode {
+    match inner_main() {
+        Ok(code) => code,
+        Err(err) => {
+            print_err(err);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn inner_main() -> Result<ExitCode, &'static str> {
     let args = cmd::Args::parse();
 
     match dirs::home_dir() {
@@ -53,45 +63,45 @@ fn main() -> ExitCode {
 
     if let Some(file_path) = args.exec_file {
         if !file_path.exists() {
-            fail("Error: provided file was not found");
+            return Err("Error: provided file was not found");
         }
 
         if !file_path.is_file() {
-            fail("Error: provided file path is a directory");
+            return Err("Error: provided file path is a directory");
         }
 
         let Ok(content) = fs::read_to_string(&file_path) else {
-            fail("Failed to read thep rovided path");
+            return Err("Failed to read thep rovided path");
         };
 
         return match run_script(&content, ScopableFilePath::RealFile(file_path), &parser) {
-            Ok(_) => ExitCode::SUCCESS,
+            Ok(_) => Ok(ExitCode::SUCCESS),
             Err(err) => {
                 reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
-                ExitCode::FAILURE
+                Ok(ExitCode::FAILURE)
             }
         };
     }
 
     if let Some(input) = args.eval {
         return match run_script(&input, ScopableFilePath::InMemory("eval"), &parser) {
-            Ok(_) => ExitCode::SUCCESS,
+            Ok(_) => Ok(ExitCode::SUCCESS),
             Err(err) => {
                 reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
-                ExitCode::FAILURE
+                Ok(ExitCode::FAILURE)
             }
         };
     }
 
     if !args.skip_init_script {
         if let Err(()) = run_init_script(&parser) {
-            return ExitCode::FAILURE;
+            return Ok(ExitCode::FAILURE);
         }
     }
 
     repl::start();
 
-    ExitCode::SUCCESS
+    Ok(ExitCode::SUCCESS)
 }
 
 fn run_init_script(parser: &impl Parser<Program>) -> Result<(), ()> {
@@ -145,11 +155,6 @@ fn print_warn(msg: &str) {
 
 fn print_err(msg: &str) {
     eprintln!("{}", msg.bright_red());
-}
-
-fn fail(msg: &str) -> ! {
-    print_err(msg);
-    std::process::exit(1);
 }
 
 static INIT_SCRIPT_FILE_NAME: &str = "init.rsh";

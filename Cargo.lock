@@ -674,6 +674,7 @@ dependencies = [
  "fork",
  "glob",
  "indexmap",
+ "once_cell",
  "parsy",
  "rand",
  "reshell-checker",
