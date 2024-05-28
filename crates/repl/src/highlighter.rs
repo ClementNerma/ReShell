@@ -23,29 +23,36 @@ impl RlHighlighter for Highlighter {
 }
 
 static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
+    /// Create a simple rule's inner content
     fn simple_rule(regex: &'static str, colors: impl AsRef<[Color]>) -> SimpleRule {
         SimpleRule { matches: Regex::new(regex).unwrap(), style: colors.as_ref().iter().map(|color| Style::new().fg(*color)).collect() }
     }
 
+    /// Create a simple rule
     fn simple(regex: &'static str, colors: impl AsRef<[Color]>) -> Rule {
         Rule::Simple(simple_rule(regex, colors))
     }
 
+    /// Create a progressive rule
     fn progressive<C: AsRef<[Color]>>(parts: impl AsRef<[(&'static str, C)]>) -> Rule {
         let mut parts = parts.as_ref().iter().map(|(regex, colors)| simple_rule(regex, colors)).collect::<Vec<_>>();
         Rule::Progressive(parts.remove(0), parts)
     }
 
+    /// Create a group inclusion rule
     fn include_group(name: &'static str) -> Rule {
         Rule::Group(name.to_owned())
     }
 
+    /// Create a nested rule
     fn nested(begin: SimpleRule, end: SimpleRule, inner_rules: Vec<Rule>) -> Rule {
         Rule::Nested(NestingRule { begin, end, inner_rules })
     }
     
+    // Import all available colors for ease of use
     use Color::*;
 
+    // Build the rule set
     let rule_set = RuleSet {
         groups: [
             ("instructions", vec![
