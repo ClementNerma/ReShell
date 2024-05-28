@@ -2,15 +2,17 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
+use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{fs, time::Instant};
 
 use clap::Parser as _;
 use colored::Colorize;
 use reshell_builtins::builder::build_native_lib_content;
+use reshell_parser::files::{FilesMap, SourceFileLocation};
 use reshell_parser::program;
 use reshell_runtime::errors::ExecErrorNature;
-use reshell_runtime::{conf::RuntimeConf, context::Context, files_map::ScopableFilePath};
+use reshell_runtime::{conf::RuntimeConf, context::Context};
 
 use self::cmd::Args;
 use self::exec::run_script;
@@ -50,9 +52,16 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         skip_init_script,
     } = Args::parse();
 
+    let files_map = FilesMap::new(Box::new(|path| {
+        let path = PathBuf::from(path);
+        let content = std::fs::read_to_string(&path)?;
+        Ok((SourceFileLocation::RealFile(path), content))
+    }));
+
     let mut ctx = Context::new(
         // TODO: allow to configure through CLI
         RuntimeConf::default(),
+        files_map.clone(),
         build_native_lib_content(),
     );
 
@@ -73,7 +82,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         }
     }
 
-    let parser = program();
+    let parser = program(|path| files_map.load_file(&path));
 
     if let Some(file_path) = exec_file {
         if !file_path.exists() {
@@ -90,7 +99,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
 
         return match run_script(
             &content,
-            ScopableFilePath::RealFile(file_path),
+            SourceFileLocation::RealFile(file_path),
             &parser,
             &mut ctx,
         ) {
@@ -105,7 +114,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
     if let Some(input) = eval {
         return match run_script(
             &input,
-            ScopableFilePath::InMemory("eval"),
+            SourceFileLocation::CustomName("eval".to_owned()),
             &parser,
             &mut ctx,
         ) {
@@ -142,7 +151,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
                         Ok(source) => {
                             let init_script_result = run_script(
                                 &source,
-                                ScopableFilePath::RealFile(init_file),
+                                SourceFileLocation::RealFile(init_file),
                                 &parser,
                                 &mut ctx,
                             );

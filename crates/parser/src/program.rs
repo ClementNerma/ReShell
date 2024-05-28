@@ -1,20 +1,26 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error};
 
 use parsy::{
     atoms::{alphanumeric, digits},
     char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, Parser,
 };
 
-use crate::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
-    CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece,
-    DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerContent, ExprOp,
-    FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
-    Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall,
-    SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
+use crate::{
+    ast::{
+        Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg,
+        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
+        ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames,
+        FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase,
+        Value, ValueType,
+    },
+    files::SourceFile,
 };
 
-pub fn program() -> impl Parser<Program> {
+pub fn program(
+    file_loader: impl Fn(String) -> Result<SourceFile, Box<dyn Error>>,
+) -> impl Parser<Program> {
     let raw_block = recursive::<Block, _>(|raw_block| {
         let ms = whitespaces().no_newline();
         let s = ms.at_least_one();

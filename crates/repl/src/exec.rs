@@ -1,8 +1,8 @@
 use once_cell::sync::OnceCell;
 use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
-use reshell_parser::ast::Program;
-use reshell_runtime::{context::Context, exec::run_program, files_map::ScopableFilePath};
+use reshell_parser::{ast::Program, files::SourceFileLocation};
+use reshell_runtime::{context::Context, exec::run_program};
 
 use crate::reports::ReportableError;
 
@@ -10,11 +10,11 @@ static NATIVE_LIB_FOR_CHECKER: OnceCell<CheckerScope> = OnceCell::new();
 
 pub fn code_check_script(
     input: &str,
-    file_path: ScopableFilePath,
+    loc: SourceFileLocation,
     parser: &impl Parser<Program>,
     ctx: &mut Context,
 ) -> Result<(Eaten<Program>, CheckerOutput), ReportableError> {
-    let file_id = ctx.register_file(file_path, input.to_string());
+    let file_id = ctx.files_map().register_file(loc, input.to_string());
 
     let parsed = parser
         .parse_str_as_file(input, FileId::SourceFile(file_id))
@@ -34,11 +34,11 @@ pub fn code_check_script(
 
 pub fn run_script(
     input: &str,
-    file_path: ScopableFilePath,
+    file_loc: SourceFileLocation,
     parser: &impl Parser<Program>,
     ctx: &mut Context,
 ) -> Result<(), ReportableError> {
-    let (parsed, checker_output) = code_check_script(input, file_path, parser, ctx)?;
+    let (parsed, checker_output) = code_check_script(input, file_loc, parser, ctx)?;
 
     run_program(&parsed.data, checker_output, ctx)
         .map_err(|err| ReportableError::Runtime(err, Some(parsed)))

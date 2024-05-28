@@ -7,10 +7,10 @@ use std::{
 use colored::Colorize;
 use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
+use reshell_parser::files::SourceFileLocation;
 use reshell_runtime::{
     context::Context,
     errors::ExecErrorNature,
-    files_map::ScopableFilePath,
     pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
@@ -39,7 +39,9 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
         .with_quick_completions(true)
         .with_partial_completions(true);
 
-    let parser = reshell_parser::program();
+    let files_map = ctx.files_map().clone();
+
+    let parser = reshell_parser::program(|path| files_map.load_file(&path));
 
     let mut counter = 0;
 
@@ -88,7 +90,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
 
         let ret = run_script(
             &input,
-            ScopableFilePath::InMemoryWithCounter("repl", counter),
+            SourceFileLocation::CustomName(format!("repl[{counter}]")),
             &parser,
             ctx,
         );

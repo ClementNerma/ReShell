@@ -2,14 +2,16 @@ use std::borrow::Cow;
 
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
-use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError};
+use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
-use reshell_parser::ast::{Program, RuntimeCodeRange};
+use reshell_parser::{
+    ast::{Program, RuntimeCodeRange},
+    files::{FilesMap, SourceFile, SourceFileLocation},
+};
 use reshell_runtime::{
     context::CallStackEntry,
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature},
-    files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
 #[derive(Debug)]
@@ -97,8 +99,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
                 (
                     SourceFile {
-                        id: 0,
-                        path: ScopableFilePath::InMemory("source-less code"),
+                        id: SourceFileID::from(0),
+                        location: SourceFileLocation::CustomName("source-less code".to_owned()),
                         content: src.to_string(),
                     },
                     0,
@@ -123,8 +125,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
             (
                 SourceFile {
-                    id: 0,
-                    path: ScopableFilePath::InMemory("native"),
+                    id: SourceFileID::from(0),
+                    location: SourceFileLocation::CustomName("native".to_owned()),
                     content: src.to_string(),
                 },
                 0,
@@ -134,10 +136,9 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         }
     };
 
-    let display_file = match &source_file.path {
-        ScopableFilePath::InMemory(in_mem) => format!("<{in_mem}>"),
-        ScopableFilePath::InMemoryWithCounter(in_mem, counter) => format!("<{in_mem}[{counter}]>"),
-        ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
+    let display_file = match source_file.location {
+        SourceFileLocation::CustomName(in_mem) => format!("<{in_mem}>"),
+        SourceFileLocation::RealFile(path) => path.to_string_lossy().to_string(),
     };
 
     let mut bottom = String::new();

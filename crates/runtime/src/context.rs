@@ -5,17 +5,17 @@ use std::{
 };
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, FileId};
+use parsy::{CodeRange, Eaten, FileId, SourceFileID};
 use reshell_checker::{CheckerOutput, CheckerScope, DeclaredVar, Dependency, DependencyType};
-use reshell_parser::ast::{
-    Block, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType,
+use reshell_parser::{
+    ast::{Block, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
+    files::FilesMap,
 };
 
 use crate::{
     conf::RuntimeConf,
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
-    files_map::{FilesMap, ScopableFilePath},
     gc::{GcCell, GcReadOnlyCell},
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
@@ -102,7 +102,7 @@ pub struct Context {
 impl Context {
     /// Create a new context (runtime state)
     /// The native library's content can be generated using the dedicated crate
-    pub fn new(conf: RuntimeConf, native_lib_content: ScopeContent) -> Self {
+    pub fn new(conf: RuntimeConf, files_map: FilesMap, native_lib_content: ScopeContent) -> Self {
         let scopes_to_add = [
             Scope {
                 id: NATIVE_LIB_SCOPE_ID,
@@ -134,7 +134,7 @@ impl Context {
             scopes_id_counter: FIRST_SCOPE_ID,
             scopes,
             current_scope: FIRST_SCOPE_ID,
-            files_map: FilesMap::new(),
+            files_map,
             home_dir: conf.initial_home_dir.clone(),
             deps: HashMap::new(),
             deps_scopes: HashMap::new(),
@@ -172,12 +172,7 @@ impl Context {
         self.home_dir.as_ref()
     }
 
-    /// Register a file
-    pub fn register_file(&mut self, path: ScopableFilePath, content: String) -> u64 {
-        self.files_map.register_file(path, content)
-    }
-
-    /// Get the map of all files
+    /// Get read-only view of the files map
     pub fn files_map(&self) -> &FilesMap {
         &self.files_map
     }
@@ -435,12 +430,12 @@ impl Context {
 
     /// Push an already-created scope above the current one
     pub fn push_scope(&mut self, scope: Scope) {
-        if let Some(file_id) = scope.source_file_id() {
-            assert!(
-                self.files_map.has_file(file_id),
-                "Provided scope is associated to an unregistered file"
-            );
-        }
+        // if let Some(file_id) = scope.source_file_id() {
+        //     assert!(
+        //         self.files_map.get(file_id),
+        //         "Provided scope is associated to an unregistered file"
+        //     );
+        // }
 
         if scope.call_stack.history.len() > self.conf.call_stack_limit {
             panic!(
@@ -604,8 +599,8 @@ impl Context {
                         })
                         .unwrap_or_else(|| panic!(
                             "internal error: cannot find variable to capture (this is a bug in the checker)\nDetails:\n> {name} (declared at {})",
-                            dbg_loc(*declared_at, self.files_map()
-                        )));
+                            dbg_loc(*declared_at, &self.files_map)
+                        ));
 
                     captured_deps.vars.insert(dep.clone(), var.clone());
                 }
@@ -704,7 +699,7 @@ impl Scope {
     }
 
     /// Get this scope's source file ID
-    pub fn source_file_id(&self) -> Option<u64> {
+    pub fn source_file_id(&self) -> Option<SourceFileID> {
         match self.range {
             RuntimeCodeRange::Internal => None,
             RuntimeCodeRange::Parsed(range) => match range.start.file_id {
