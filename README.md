@@ -1,5 +1,7 @@
 # The ReShell Project
 
+**WARNING:** This project is under heavy development and many things are either non-functional or may produce unexpected results. **Please use at your own risks!**
+
 The ReShell project aims to provide a complete alternative to popular shells such as *sh (sh, bash, zsh, ksh, ...), PowerShell or Batch.
 
 It is designed to be as easy to use as possible, and feature many functions that are not available in most shells: functions returning values, lambdas, optional typechecking, nested arrays, complete error handling, etc.
