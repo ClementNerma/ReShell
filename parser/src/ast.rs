@@ -4,7 +4,7 @@ use parsy::Eaten;
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub content: Block,
+    pub content: Eaten<Block>,
 }
 
 #[derive(Debug, Clone)]

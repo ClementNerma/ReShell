@@ -1,6 +1,8 @@
+use std::cmp::min;
+
 use nu_ansi_term::{Color, Style};
 use once_cell::sync::Lazy;
-use parsy::CodeRange;
+use parsy::{CodeRange, Location};
 use reedline::StyledText;
 
 pub struct HighlightList<'a> {
@@ -19,7 +21,7 @@ impl<'a> HighlightList<'a> {
     }
 
     pub fn into_rendered(mut self) -> StyledText {
-        self.push_untreated_bit(self.source.as_bytes().len());
+        self.push_untreated_bit(Style::default(), self.source.as_bytes().len());
         self.rendered
     }
 }
@@ -31,19 +33,55 @@ impl<'a> HighlightList<'a> {
         let start = at.start.offset;
         let end = start + at.len;
 
-        self.push_untreated_bit(start);
+        self.push_untreated_bit(Style::default(), start);
 
         self.rendered
             .push((style.clone(), self.source[start..end].to_string()));
 
-        self.prev = start + at.len;
+        self.prev += at.len;
     }
 
-    fn push_untreated_bit(&mut self, start: usize) {
-        if start > self.prev {
+    pub fn push_until(&mut self, style: &Style, at: CodeRange, until: CodeRange) {
+        assert_eq!(at.start.file_id, until.start.file_id);
+        assert!(until.start.offset >= at.start.offset);
+
+        self.push(
+            style,
+            CodeRange {
+                start: at.start,
+                len: min(until.start.offset - at.start.offset, at.len),
+            },
+        );
+    }
+
+    pub fn push_remaining(&mut self, style: &Style, at: CodeRange) {
+        assert!(at.start.offset <= self.prev);
+
+        self.push(
+            style,
+            CodeRange {
+                start: Location {
+                    file_id: at.start.file_id,
+                    offset: self.prev,
+                },
+                len: at.len - (self.prev - at.start.offset),
+            },
+        );
+    }
+
+    pub fn push_everything_until(&mut self, style: &Style, until: CodeRange) {
+        self.push_untreated_bit(style.clone(), until.start.offset);
+    }
+
+    fn push_untreated_bit(&mut self, style: Style, until: usize) {
+        assert!(until >= self.prev);
+
+        if until > self.prev {
             self.rendered
-                .push((Style::default(), self.source[self.prev..start].to_string()));
+                .push((style.clone(), self.source[self.prev..until].to_string()));
         }
+
+        self.prev = until;
     }
 }
 
