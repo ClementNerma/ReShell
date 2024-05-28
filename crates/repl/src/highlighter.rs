@@ -7,14 +7,14 @@ use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 use reshell_runtime::{bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context};
 
-use crate::utils::{
+use crate::{repl::SHARED_CONTEXT, utils::{
     lazy_cell::LazyCell,
     nesting::NestingOpeningType,
     syntax::{
         compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule,
         RuleSet, RuleStylization, SimpleRule, ValidatedRuleSet,
     },
-};
+}};
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
@@ -24,6 +24,12 @@ pub struct Highlighter;
 
 impl RlHighlighter for Highlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+        if line.is_empty() {
+            COMMANDS_CHECKER.lock().unwrap().clear(
+                SHARED_CONTEXT.lock().unwrap().as_mut().unwrap().binaries_resolver()
+            );
+        }
+
         highlight(line)
     }
 }
@@ -440,4 +446,3 @@ impl CommandsChecker {
 }
 
 pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> = LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));
-
