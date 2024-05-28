@@ -10,7 +10,7 @@ pub struct Validator;
 
 impl RlValidator for Validator {
     fn validate(&self, line: &str) -> ValidationResult {
-        if line.trim_end().ends_with('\\')
+        if line.trim_end().ends_with(" \\")
             || detect_nesting_actions(line).iter().any(|action| {
                 matches!(
                     action.action_type,
