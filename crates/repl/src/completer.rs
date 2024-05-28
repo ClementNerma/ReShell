@@ -35,18 +35,35 @@ impl RlCompleter for Completer {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let completion_data = self.completion_data.lock().unwrap();
 
-        let after_last_ws = match line[..pos].rfind(char::is_whitespace) {
+        let split = |c: char| {
+            c.is_whitespace()
+                || c == '('
+                || c == ')'
+                || c == '['
+                || c == ']'
+                || c == '{'
+                || c == '}'
+                || c == '"'
+        };
+
+        let word_start = match line[..pos].rfind(split) {
             Some(index) => index + 1,
             None => 0,
         };
 
-        let Some(word) = line[after_last_ws..].split_whitespace().next() else {
-            return vec![];
+        let word_end = match line[word_start..pos].find(split) {
+            Some(index) => index,
+            None => pos,
         };
 
+        let after_space =
+            word_start > 0 && line[word_start..].chars().next().unwrap().is_whitespace();
+
+        let word = &line[word_start..word_end];
+
         let span = Span {
-            start: after_last_ws,
-            end: after_last_ws + word.len(),
+            start: word_start,
+            end: word_end,
         };
 
         if word == "~" {
@@ -84,6 +101,24 @@ impl RlCompleter for Completer {
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, signature)| Suggestion {
                     value: format!("@{name}"),
+                    description: Some(signature.clone()),
+                    extra: None,
+                    span,
+                    append_whitespace: true,
+                })
+                .collect::<Vec<_>>();
+        }
+
+        if !after_space {
+            let word_lc = word.to_lowercase();
+
+            return completion_data
+                .scopes
+                .iter()
+                .flat_map(|scope| scope.fns.iter())
+                .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
+                .map(|(name, signature)| Suggestion {
+                    value: name.clone(),
                     description: Some(signature.clone()),
                     extra: None,
                     span,
