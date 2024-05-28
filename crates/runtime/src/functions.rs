@@ -349,7 +349,7 @@ fn parse_fn_call_args(
                         return Err(ctx.error(
                             loc_val.from,
                             format!(
-                                "type mismatch: argument '{}' has type '{}', found '{}'",
+                                "type mismatch: argument '{}' expected type '{}', found '{}'",
                                 name.data(),
                                 typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
                                 loc_val
