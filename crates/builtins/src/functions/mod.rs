@@ -12,6 +12,7 @@ mod canonicalize;
 mod captures;
 mod cd;
 mod chars;
+mod clear_progress_bar;
 mod clone;
 mod contains;
 mod contains_str;
@@ -34,6 +35,7 @@ mod for_each;
 mod get;
 mod glob;
 mod human_size;
+mod inc_progress_bar;
 mod inspect;
 mod is_empty;
 mod join;
@@ -49,6 +51,7 @@ mod parse_json;
 mod path_exists;
 mod pop;
 mod prepend;
+mod progress_bar;
 mod range;
 mod read_dir;
 mod read_file;
@@ -96,6 +99,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::captures::build_fn(),
         self::cd::build_fn(),
         self::chars::build_fn(),
+        self::clear_progress_bar::build_fn(),
         self::clone::build_fn(),
         self::contains::build_fn(),
         self::contains_str::build_fn(),
@@ -117,6 +121,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::get::build_fn(),
         self::glob::build_fn(),
         self::human_size::build_fn(),
+        self::inc_progress_bar::build_fn(),
         self::inspect::build_fn(),
         self::is_empty::build_fn(),
         self::join::build_fn(),
@@ -133,6 +138,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::path_exists::build_fn(),
         self::transform::build_fn(),
         self::prepend::build_fn(),
+        self::progress_bar::build_fn(),
         self::pop::build_fn(),
         self::range::build_fn(),
         self::read_dir::build_fn(),
