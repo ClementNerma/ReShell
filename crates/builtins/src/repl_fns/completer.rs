@@ -7,7 +7,7 @@ use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::
 
 use crate::{
     helper::{Typing, TypingDirectCreation},
-    type_handlers::{DetachedListType, StringType, TypedStruct2Type},
+    type_handlers::{DetachedListType, NullType, StringType, TypedStruct2Type, Union2Type},
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
 
@@ -44,29 +44,37 @@ pub fn generate_completions(
     ));
 
     let expected_signature = forge_basic_fn_signature(
-        vec![("line", StringType::direct_underlying_type())],
+        vec![(
+            "line",
+            DetachedListType::<Union2Type<StringType, NullType>>::direct_underlying_type(),
+        )],
         Some(ret_type.underlying_type()),
     );
 
-    let completion_args = vec![RuntimeValue::List(GcCell::new(
+    let vec = vec![RuntimeValue::List(GcCell::new(
         cmd_pieces
             .iter()
             .map(|segments| {
-                RuntimeValue::String(
-                    segments
-                        .iter()
-                        .map(|segment| match segment {
-                            CompletionStringSegment::String(string) => string.clone(),
-                            CompletionStringSegment::VariableName(name) => {
-                                // TODO: find a better implementation
-                                format!("<variable: {name}>")
-                            }
-                        })
-                        .collect(),
-                )
+                let mut joined = String::new();
+
+                for segment in segments {
+                    match segment {
+                        CompletionStringSegment::String(string) => {
+                            joined.push_str(string);
+                        }
+
+                        CompletionStringSegment::VariableName(_) => {
+                            return RuntimeValue::Null;
+                        }
+                    }
+                }
+
+                RuntimeValue::String(joined)
             })
             .collect(),
     ))];
+
+    let completion_args = vec;
 
     let ret_val = call_fn_checked(
         &completer_var_value,
