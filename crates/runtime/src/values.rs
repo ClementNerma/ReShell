@@ -128,7 +128,9 @@ impl RuntimeValue {
             RuntimeValue::Function(content) => {
                 // TODO: performance (use already collected data from checker?)
                 SingleValueType::Function(match &content.signature {
-                    RuntimeFnSignature::Shared(shared) => RuntimeEaten::Eaten(Eaten::clone(shared)),
+                    RuntimeFnSignature::Shared(shared) => {
+                        RuntimeEaten::Parsed(Eaten::clone(shared))
+                    }
                     RuntimeFnSignature::Owned(owned) => RuntimeEaten::Internal(owned.clone()),
                 })
             }

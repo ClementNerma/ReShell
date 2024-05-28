@@ -19,10 +19,10 @@ use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagValueArg, CmdPath,
     CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
-    ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
-    FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess,
-    PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-    StructTypeMember, SwitchCase, Value, ValueType,
+    ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall,
+    FnCallArg, FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue,
+    Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
+    SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
 pub use self::{
@@ -482,14 +482,14 @@ fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
 fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResult {
     let ExprInner {
         content,
-        prop_acc,
+        chainings,
         pipes,
     } = &inner.data;
 
     check_expr_inner_content(&content.data, state)?;
 
-    for acc in prop_acc {
-        check_prop_access(acc, state)?;
+    for chaining in chainings {
+        check_expr_inner_chaining(&chaining.data, state)?;
     }
 
     for fn_call in pipes {
@@ -497,6 +497,13 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
     }
 
     Ok(())
+}
+
+fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) -> CheckerResult {
+    match chaining {
+        ExprInnerChaining::PropAccess(prop_acc) => check_prop_access(prop_acc, state),
+        ExprInnerChaining::MethodCall(method_call) => check_fn_call(method_call, state),
+    }
 }
 
 fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> CheckerResult {
@@ -886,7 +893,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     let FnSignature { args, ret_type: _ } = &signature.data;
 
     let args = match args {
-        RuntimeEaten::Eaten(args) => args,
+        RuntimeEaten::Parsed(args) => args,
         RuntimeEaten::Internal(_) => unreachable!(),
     };
 
@@ -1034,7 +1041,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         }
 
         SingleValueType::Function(signature) => match signature {
-            RuntimeEaten::Eaten(eaten) => check_fn_signature(eaten, state),
+            RuntimeEaten::Parsed(eaten) => check_fn_signature(eaten, state),
             RuntimeEaten::Internal(_) => Ok(()),
         },
 
@@ -1048,7 +1055,7 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     let FnSignature { args, ret_type } = &signature.data;
 
     let args = match args {
-        RuntimeEaten::Eaten(args) => args,
+        RuntimeEaten::Parsed(args) => args,
         RuntimeEaten::Internal(_) => unreachable!(),
     };
 

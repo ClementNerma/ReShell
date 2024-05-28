@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerContent, ExprOp, Function, LiteralValue, PropAccess, RuntimeCodeRange, SingleOp,
-    Value,
+    ExprInnerChaining, ExprInnerContent, ExprOp, Function, LiteralValue, PropAccess,
+    RuntimeCodeRange, SingleOp, Value,
 };
 
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
     context::{Context, ScopeContent, ScopeVar},
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
-    functions::{eval_fn_call, eval_piped_fn_call},
+    functions::{eval_fn_call, eval_fn_call_type, FnCallType},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
@@ -200,44 +200,65 @@ fn apply_double_op(
 fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let ExprInner {
         content,
-        prop_acc,
+        chainings,
         pipes,
     } = &inner.data;
 
     let mut left = eval_expr_inner_content(&content.data, ctx)?;
+    let mut left_at = content.at;
 
-    for acc in prop_acc {
-        let PropAccess { nature, nullable } = &acc.data;
+    for chaining in chainings {
+        match &chaining.data {
+            ExprInnerChaining::PropAccess(acc) => {
+                let PropAccess { nature, nullable } = &acc.data;
 
-        if *nullable && matches!(left, RuntimeValue::Null) {
-            continue;
+                if *nullable && matches!(left, RuntimeValue::Null) {
+                    return Ok(left);
+                }
+
+                left = eval_props_access(
+                    &mut left,
+                    [nature].into_iter(),
+                    PropAccessPolicy::Read,
+                    ctx,
+                    |d, _| match d {
+                        PropAssignment::ReadExisting(d) => d.clone(),
+                        PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => {
+                            unreachable!()
+                        }
+                    },
+                )?;
+
+                // TODO: update left_at
+            }
+
+            ExprInnerChaining::MethodCall(fn_call) => {
+                let result = eval_fn_call_type(
+                    fn_call,
+                    FnCallType::Method(LocatedValue::new(left, RuntimeCodeRange::Parsed(left_at))),
+                    ctx,
+                )?;
+
+                let loc_val = result.ok_or_else(|| {
+                    ctx.error(fn_call.at, "called function did not return a value")
+                })?;
+
+                left = loc_val.value;
+
+                // TOOD: update left_at
+            }
         }
-
-        left = eval_props_access(
-            &mut left,
-            [nature].into_iter(),
-            PropAccessPolicy::Read,
-            ctx,
-            |d, _| match d {
-                PropAssignment::ReadExisting(d) => d.clone(),
-                PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => unreachable!(),
-            },
-        )?;
     }
 
-    // TODO: cover "prop_acc" as well
-    let mut left_loc = RuntimeCodeRange::Parsed(content.at);
+    let mut left = LocatedValue::new(left, RuntimeCodeRange::Parsed(left_at));
 
-    for call in pipes {
-        let LocatedValue { value, from } =
-            eval_piped_fn_call(call, Some(LocatedValue::new(left, left_loc)), ctx)?
-                .ok_or_else(|| ctx.error(call.at, "method call did not return a value"))?;
-
-        left_loc = from;
-        left = value;
+    for pipe in pipes {
+        // TODO: cover content + all chainings + previous calls
+        left = eval_fn_call_type(pipe, FnCallType::Piped(left), ctx)?
+            .ok_or_else(|| ctx.error(pipe.at, "method call did not return a value"))?;
     }
 
-    Ok(left)
+    Ok(left.value)
 }
 
 fn eval_expr_inner_content(
