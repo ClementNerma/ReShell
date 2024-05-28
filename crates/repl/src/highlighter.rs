@@ -238,7 +238,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 method_call(),
 
                 // Raw arguments
-                simple("(\\.+)", [Green]),
+                simple("(.)", [Green]),
             ]),
             ("literal-strings", vec![
                 // Escaped characters
