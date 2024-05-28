@@ -1,7 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use indexmap::{IndexMap, IndexSet};
-use once_cell::sync::Lazy;
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
 use reshell_parser::ast::ValueType;
@@ -21,18 +20,6 @@ use crate::{
 pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
 pub static FIRST_SCOPE_ID: u64 = 1;
 
-static INITIAL_NATIVE_LIB_SCOPE: Lazy<Scope> = Lazy::new(generate_native_lib);
-static INITIAL_FIRST_SCOPE: Lazy<Scope> = Lazy::new(|| Scope {
-    id: FIRST_SCOPE_ID,
-    call_stack: CallStack::empty(),
-    call_stack_entry: None,
-    content: ScopeContent::new(),
-    parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
-    range: ScopeRange::SourceLess,
-    previous_scope: None,
-    deps_scope: None,
-});
-
 #[derive(Debug)]
 pub struct Context {
     conf: RuntimeConf,
@@ -51,8 +38,17 @@ pub struct Context {
 impl Context {
     pub fn new(conf: RuntimeConf) -> Self {
         let scopes_to_add = [
-            INITIAL_NATIVE_LIB_SCOPE.clone(),
-            INITIAL_FIRST_SCOPE.clone(),
+            generate_native_lib(),
+            Scope {
+                id: FIRST_SCOPE_ID,
+                call_stack: CallStack::empty(),
+                call_stack_entry: None,
+                content: ScopeContent::new(),
+                parent_scopes: IndexSet::from([NATIVE_LIB_SCOPE_ID]),
+                range: ScopeRange::SourceLess,
+                previous_scope: None,
+                deps_scope: None,
+            }
         ];
 
         let mut scopes = HashMap::new();

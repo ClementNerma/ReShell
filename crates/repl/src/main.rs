@@ -10,9 +10,11 @@ use std::process::ExitCode;
 use clap::Parser as _;
 use colored::Colorize;
 use reshell_parser::program;
-use reshell_runtime::{exec::ProgramExitStatus, files_map::ScopableFilePath};
+use reshell_runtime::{
+    conf::RuntimeConf, context::Context, exec::ProgramExitStatus, files_map::ScopableFilePath,
+};
 
-use self::{exec::run_script, state::RUNTIME_CONTEXT};
+use self::exec::run_script;
 
 mod cmd;
 mod completer;
@@ -25,7 +27,6 @@ mod logic;
 mod prompt;
 mod repl;
 mod reports;
-mod state;
 mod validator;
 
 fn main() -> ExitCode {
@@ -41,10 +42,13 @@ fn main() -> ExitCode {
 fn inner_main() -> Result<ExitCode, &'static str> {
     let args = cmd::Args::parse();
 
+    // TODO: allow to configure through CLI
+    let mut ctx = Context::new(RuntimeConf::default());
+
     match dirs::home_dir() {
         Some(home_dir) => {
             if home_dir.is_dir() {
-                RUNTIME_CONTEXT.write().unwrap().set_home_dir(home_dir);
+                ctx.set_home_dir(home_dir);
             } else {
                 print_warn(&format!(
                     "Determined path to home directory was {} but it does not exist",
@@ -73,26 +77,36 @@ fn inner_main() -> Result<ExitCode, &'static str> {
             return Err("Failed to read thep rovided path");
         };
 
-        return match run_script(&content, ScopableFilePath::RealFile(file_path), &parser) {
+        return match run_script(
+            &content,
+            ScopableFilePath::RealFile(file_path),
+            &parser,
+            &mut ctx,
+        ) {
             Ok(exit_status) => match exit_status {
                 ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
                 ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code)),
             },
             Err(err) => {
-                reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
+                reports::print_error(&err, ctx.files_map());
                 Ok(ExitCode::FAILURE)
             }
         };
     }
 
     if let Some(input) = args.eval {
-        return match run_script(&input, ScopableFilePath::InMemory("eval"), &parser) {
+        return match run_script(
+            &input,
+            ScopableFilePath::InMemory("eval"),
+            &parser,
+            &mut ctx,
+        ) {
             Ok(exit_status) => match exit_status {
                 ProgramExitStatus::Normal => Ok(ExitCode::SUCCESS),
                 ProgramExitStatus::ExitRequested { code } => Ok(ExitCode::from(code)),
             },
             Err(err) => {
-                reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
+                reports::print_error(&err, ctx.files_map());
                 Ok(ExitCode::FAILURE)
             }
         };
@@ -119,8 +133,12 @@ fn inner_main() -> Result<ExitCode, &'static str> {
                         }
 
                         Ok(source) => {
-                            let init_script_result =
-                                run_script(&source, ScopableFilePath::RealFile(init_file), &parser);
+                            let init_script_result = run_script(
+                                &source,
+                                ScopableFilePath::RealFile(init_file),
+                                &parser,
+                                &mut ctx,
+                            );
 
                             match init_script_result {
                                 Ok(instr_ret) => match instr_ret {
@@ -129,10 +147,7 @@ fn inner_main() -> Result<ExitCode, &'static str> {
                                         return Ok(ExitCode::from(code))
                                     }
                                 },
-                                Err(err) => reports::print_error(
-                                    &err,
-                                    RUNTIME_CONTEXT.read().unwrap().files_map(),
-                                ),
+                                Err(err) => reports::print_error(&err, ctx.files_map()),
                             }
                         }
                     }
@@ -141,7 +156,7 @@ fn inner_main() -> Result<ExitCode, &'static str> {
         }
     }
 
-    match repl::start() {
+    match repl::start(&mut ctx) {
         Some(exit_code) => Ok(exit_code),
         None => Ok(ExitCode::SUCCESS),
     }

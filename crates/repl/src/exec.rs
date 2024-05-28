@@ -3,12 +3,13 @@ use parsy::{Eaten, FileId, Parser};
 use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
+    context::Context,
     exec::{run_program, ProgramExitStatus},
     files_map::ScopableFilePath,
     native_lib::generate_native_lib,
 };
 
-use crate::{reports::ReportableError, state::RUNTIME_CONTEXT};
+use crate::reports::ReportableError;
 
 static NATIVE_LIB_FOR_CHECKER: OnceCell<CheckerScope> = OnceCell::new();
 
@@ -16,9 +17,8 @@ pub fn code_check_script(
     input: &str,
     file_path: ScopableFilePath,
     parser: &impl Parser<Program>,
+    ctx: &mut Context,
 ) -> Result<(Eaten<Program>, CheckerOutput), ReportableError> {
-    let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
-
     let file_id = ctx.register_file(file_path, input.to_string());
 
     let parsed = parser
@@ -41,10 +41,9 @@ pub fn run_script(
     input: &str,
     file_path: ScopableFilePath,
     parser: &impl Parser<Program>,
+    ctx: &mut Context,
 ) -> Result<ProgramExitStatus, ReportableError> {
-    let (parsed, checker_output) = code_check_script(input, file_path, parser)?;
-
-    let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
+    let (parsed, checker_output) = code_check_script(input, file_path, parser, ctx)?;
 
     run_program(&parsed.data, checker_output, ctx).map_err(ReportableError::Runtime)
 }
