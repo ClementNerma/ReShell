@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use colored::Colorize;
-use terminal_size::{terminal_size, Width};
+use terminal_size::{terminal_size, Height, Width};
 
 use crate::{
     builder::BuiltinVar,
@@ -9,8 +9,8 @@ use crate::{
     helper::{Arg, ArgNames, OptionalArg, RequiredArg, TypingDirectCreation},
     type_handlers::{
         AnyType, BoolType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType,
-        NullType, RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result, Union2Type,
-        Union3Result, Union3Type, UntypedListType, UntypedStructType,
+        NullType, NullableType, RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result,
+        Union2Type, Union3Result, Union3Type, UntypedListType, UntypedStructType,
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
@@ -406,6 +406,46 @@ pub fn define_native_lib() -> NativeLibDefinition {
                         .map_err(|err| ctx.error(at, format!("failed to change current directory: {err}")))?;
 
                     Ok(None)
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Get the current number of colums of the terminal
+                //
+
+                "term_cols",
+
+                Args [ArgsAt] ()
+
+                -> Some(NullableType::<ExactIntType<usize>>::direct_underlying_type()),
+
+                |_, _, _, _| {
+                    let cols = match terminal_size::terminal_size() {
+                        Some((Width(width), Height(_))) => RuntimeValue::Int(width as i64),
+                        None => RuntimeValue::Null
+                    };
+
+                    Ok(Some(cols))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // Get the current number of rows of the terminal
+                //
+
+                "term_rows",
+
+                Args [ArgsAt] ()
+
+                -> Some(NullableType::<ExactIntType<usize>>::direct_underlying_type()),
+
+                |_, _, _, _| {
+                    let rows = match terminal_size::terminal_size() {
+                        Some((Width(_), Height(height))) => RuntimeValue::Int(height as i64),
+                        None => RuntimeValue::Null
+                    };
+
+                    Ok(Some(rows))
                 }
             ),
             define_internal_fn!(
