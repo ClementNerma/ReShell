@@ -81,7 +81,7 @@ impl RlCompleter for Completer {
         }
 
         if !after_space && !word.contains(['/', '\\']) {
-            let mut cmd_comp = build_cmd_completions(word, span, &completion_data)
+            let mut cmd_comp = build_cmd_completions(word, span)
                 .ok()
                 .flatten()
                 .unwrap_or_default();
@@ -143,7 +143,6 @@ fn complete_fn_name(
 fn build_cmd_completions(
     word: &str,
     span: Span,
-    completion_data: &CompletionData,
 ) -> Result<Option<Vec<SortableSuggestion>>, Box<dyn Error>> {
     if word.contains('/') || word.contains('\\') {
         return Ok(None);
@@ -161,7 +160,9 @@ fn build_cmd_completions(
         TargetFamily::Unix => ':',
     };
 
-    let path_dirs = [completion_data.home_dir.as_deref()]
+    let current_dir = std::env::current_dir()?;
+
+    let path_dirs = [current_dir.to_str()]
         .into_iter()
         .flatten()
         .chain(path.split(path_var_sep).filter(|entry| !entry.is_empty()));
