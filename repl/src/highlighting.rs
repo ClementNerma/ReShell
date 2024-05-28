@@ -101,8 +101,8 @@ impl<'a> HighlightList<'a> {
         self.push(at, Color::Cyan.into())
     }
 
-    pub fn raw_str(&mut self, _: CodeRange) {
-        // do nothing?
+    pub fn raw_str(&mut self, at: CodeRange) {
+        self.push(at, Style::new());
     }
 
     pub fn path(&mut self, at: CodeRange) {
