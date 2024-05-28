@@ -72,7 +72,7 @@ pub fn run_cmd(
                         ScopeRange::CodeRange(call.at),
                         DepsScopeCreationData::Retrieved(deps_scope),
                         ScopeContent::new(),
-                        ctx.generate_parent_scopes(),
+                        ctx.generate_parent_scopes_list(),
                         None,
                     );
                 }
