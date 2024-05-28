@@ -252,7 +252,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         before_repl: Instant::now(),
     };
 
-    repl::start(&mut ctx, exec_args, timings, show_timings)
+    repl::start(&mut ctx, parser, exec_args, timings, show_timings)
         .map(|code| code.unwrap_or(ExitCode::SUCCESS))
         .map_err(|err| format!("REPL crashed: {err:?}"))
 }

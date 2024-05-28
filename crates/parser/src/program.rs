@@ -23,6 +23,12 @@ use crate::{
     scope::ScopeIdGenerator,
 };
 
+/// Parse a full program
+///
+/// Note that, due to the way scope IDs are generated, if scopes are reused
+/// (e.g. REPL), then the **same** parser **MUST** be reused!
+///
+/// Otherwise the scope IDs counter will be reset and scope IDs will clash
 pub fn program(
     load_file: impl Fn(String, FileId) -> Result<SourceFile, String> + 'static,
 ) -> impl Parser<Program> {
