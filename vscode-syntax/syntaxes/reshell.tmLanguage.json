@@ -61,6 +61,10 @@
 					"name": "comment"
 				},
 				{
+					"match": "(?<={)([\\sa-zA-Z0-9\\-_,]+)(?=\\->)",
+					"name": "variable.name"
+				},
+				{
 					"match": "(?<=\\s)\\-\\-[a-zA-Z0-9\\-_]+|\\-[a-zA-Z]\\b",
 					"name": "constant"
 				},
