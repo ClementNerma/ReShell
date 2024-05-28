@@ -1,41 +1,49 @@
+use reshell_parser::ast::FnCallNature;
 use reshell_runtime::{
-    cmd::{CmdArgResult, CmdSingleArgResult},
-    functions::FnPossibleCallArgs,
+    cmd::CmdArgResult,
+    functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
+    pretty::{PrettyPrintOptions, PrettyPrintable},
 };
-
-use crate::utils::{call_fn_checked_with_parsed_args, forge_basic_fn_signature};
 
 crate::define_internal_fn!(
     "runFn",
 
     (
-        func: RequiredArg<TypedFunctionType> = exec_fn_type(),
+        func: RequiredArg<AnyType> = Arg::positional("func"),
         args: RequiredArg<DetachedListType<CmdArgType>> = Arg::rest("args")
     )
 
     -> None
 );
 
-fn exec_fn_type() -> RequiredArg<TypedFunctionType> {
-    RequiredArg::new(
-        ArgNames::Positional("transform_fn"),
-        TypedFunctionType::new(forge_basic_fn_signature(vec![], None)),
-    )
-}
-
 fn run() -> Runner {
-    Runner::new(|_, Args { func, args }, args_at, ctx| {
-        let loc_val = call_fn_checked_with_parsed_args(
-            &LocatedValue::new(RuntimeValue::Function(func), args_at.func),
-            exec_fn_type().base_typing().signature(),
-            FnPossibleCallArgs::Internal(vec![CmdArgResult::Spreaded(
-                args.iter()
-                    .map(|arg| CmdSingleArgResult::clone(arg))
-                    .collect(),
-            )]),
-            ctx,
-        )?;
+    Runner::new(|_, Args { func, args }, args_at, ctx| match func {
+        RuntimeValue::Function(func) => {
+            let loc_val = call_fn_value(
+                args_at.func,
+                &func,
+                FnCallInfos {
+                    args: FnPossibleCallArgs::Internal(
+                        args.into_iter()
+                            .map(|arg| CmdArgResult::Single((*arg).clone()))
+                            .collect(),
+                    ),
+                    nature: FnCallNature::Variable,
+                    piped: None,
+                },
+                ctx,
+            )?;
 
-        Ok(loc_val.map(|loc_val| loc_val.value))
+            Ok(loc_val.map(|loc_val| loc_val.value))
+        }
+
+        _ => Err(ctx.error(
+            args_at.func,
+            format!(
+                "expected a function, found a: {}",
+                func.get_type()
+                    .render_colored(ctx, PrettyPrintOptions::inline())
+            ),
+        )),
     })
 }
