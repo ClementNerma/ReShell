@@ -370,12 +370,6 @@ fn parse_fn_call_args(
         ));
     }
 
-    // TODO: check all arguments
-    // => not optional and not provided => ERR
-    // => except if bool (then default to "false")
-
-    // TODO: fill REST argument
-
     Ok(out)
 }
 
