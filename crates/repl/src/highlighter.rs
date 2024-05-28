@@ -420,13 +420,20 @@ impl CommandsChecker {
             return *exists;
         }
 
-        let in_scope = name.strip_prefix('.').is_some_and(|name| ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)));
+        let exists = match name.strip_prefix('.') {
+            Some(name) => ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method, _)| method == name) || scope.content.cmd_aliases.contains_key(name)),
+            None => {
+                if ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name)) {
+                    return true;
+                }
 
-        let Ok(name) = try_replace_home_dir_tilde(name, ctx) else {
-            return false;
+                let Ok(name) = try_replace_home_dir_tilde(name, ctx) else {
+                    return false;
+                };
+
+                ctx.binaries_resolver().resolve_binary_path(&name).is_ok()
+            },
         };
-        
-        let exists = in_scope || ctx.binaries_resolver().resolve_binary_path(&name).is_ok();
 
         self.entries.insert(name.to_owned(), exists);
 
