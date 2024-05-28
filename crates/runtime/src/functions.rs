@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-    MethodApplyableType, RuntimeCodeRange,
+    MethodApplyableType, RuntimeCodeRange, RuntimeEaten,
 };
 
 use crate::{
@@ -229,7 +229,7 @@ fn parse_fn_call_args(
                 for arg in fn_args {
                     match arg {
                         FnArg::PresenceFlag { names } => {
-                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx)
+                            let Some(var_name) = get_matching_var_name(name.data(), names, ctx)
                             else {
                                 continue;
                             };
@@ -260,7 +260,7 @@ fn parse_fn_call_args(
                                 var_name,
                                 ValidatedFnCallArg {
                                     decl_name_at: fn_arg_var_at(arg),
-                                    arg_value_at: RuntimeCodeRange::Parsed(name.at),
+                                    arg_value_at: name.at(),
                                     value: RuntimeValue::Bool(true),
                                 },
                             );
@@ -273,7 +273,7 @@ fn parse_fn_call_args(
                             is_optional,
                             typ,
                         } => {
-                            let Some(var_name) = get_matching_var_name(&name.data, names, ctx)
+                            let Some(var_name) = get_matching_var_name(name.data(), names, ctx)
                             else {
                                 continue;
                             };
@@ -285,12 +285,12 @@ fn parse_fn_call_args(
                                             var_name,
                                             ValidatedFnCallArg {
                                                 decl_name_at: fn_arg_var_at(arg),
-                                                arg_value_at: RuntimeCodeRange::Parsed(name.at),
+                                                arg_value_at: name.at(),
                                                 value: RuntimeValue::Null,
                                             },
                                         );
                                     } else {
-                                        return Err(ctx.error(name.at, match typ {
+                                        return Err(ctx.error(name.at(), match typ {
                                             None => "a value is expected for this flag".to_owned(),
                                             Some(typ) => format!("a value of type '{}' is expected for this flag", typ.data().render_colored(ctx, PrettyPrintOptions::inline())),
                                         }).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
@@ -353,7 +353,7 @@ fn parse_fn_call_args(
                     continue;
                 }
 
-                return Err(ctx.error(name.at, "unknown flag provided").with_info(
+                return Err(ctx.error(name.at(), "unknown flag provided").with_info(
                     ExecInfoType::Tip,
                     format!(
                         "called function's signature is: {}",
@@ -566,7 +566,7 @@ fn flatten_fn_call_args(
                     }
 
                     FnCallArg::Flag { name, value } => out.push(CmdSingleArgResult::Flag {
-                        name: name.clone(),
+                        name: RuntimeEaten::Parsed(name.clone()),
                         value: Some(FlagArgValueResult {
                             value: LocatedValue::new(
                                 eval_expr(&value.data, ctx)?,
