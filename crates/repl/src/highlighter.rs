@@ -102,6 +102,9 @@ static RULE_SET: Lazy<Arc<ValidatedRuleSet>> = Lazy::new(|| {
                 // Single variable marker
                 simple("(\\$)", [Red]),
 
+                // Numbers
+                simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[^\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
+
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
             ]),
