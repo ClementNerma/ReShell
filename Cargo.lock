@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "parsy"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "809519850db75b76063d2a177a620a9368cc094dd5802f4437ef676373fda6b6"
+checksum = "d42fcd198b70f5297f4392a9a61f8f17aaf2d6b260183164a36aba31399a6987"
 
 [[package]]
 name = "ppv-lite86"

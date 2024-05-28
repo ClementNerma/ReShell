@@ -107,7 +107,7 @@ impl PrettyPrintable for SingleValueType {
 pub fn dbg_loc(at: CodeRange, files_map: &FilesMap) -> String {
     match at.start.file_id {
         FileId::None => unreachable!(),
-        FileId::Id(id) => {
+        FileId::SourceFile(id) => {
             let Some(file) = files_map.get_file(id) else {
                 return format!("<unknown file @ offset {}>", at.start.offset);
             };

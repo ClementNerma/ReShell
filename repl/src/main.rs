@@ -114,7 +114,7 @@ fn run_script(file_path: ScopableFilePath, content: &str, exit_on_fail: bool) {
         ctx.create_and_push_scope(
             ScopeRange::CodeRange(CodeRange::new(
                 Location {
-                    file_id: FileId::Id(file_id),
+                    file_id: FileId::SourceFile(file_id),
                     offset: 0,
                 },
                 content.len(),

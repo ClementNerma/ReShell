@@ -68,7 +68,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             )
         }
 
-        FileId::Id(id) => {
+        FileId::SourceFile(id) => {
             let file = files.get_file(id).unwrap();
 
             let offset = at.start.offset();

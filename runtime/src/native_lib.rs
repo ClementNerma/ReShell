@@ -398,7 +398,7 @@ pub fn generate_native_lib() -> Scope {
             let file_id = ctx.register_file(ScopableFilePath::RealFile(file_path), source.clone());
 
             let parsed = program()
-                .parse_str_as_file(&source, FileId::Id(file_id))
+                .parse_str_as_file(&source, FileId::SourceFile(file_id))
                 .map_err(|err| ctx.error(at, err))?;
 
             // TODO: how to create a scope with an ID that doesn't conflict with existing scopes?

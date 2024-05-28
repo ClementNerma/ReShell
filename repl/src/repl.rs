@@ -73,7 +73,7 @@ pub fn start() {
             ctx.create_and_push_scope(
                 ScopeRange::CodeRange(CodeRange::new(
                     Location {
-                        file_id: FileId::Id(file_id),
+                        file_id: FileId::SourceFile(file_id),
                         offset: 0,
                     },
                     input.len(),
@@ -121,7 +121,7 @@ pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), Reportable
     let parsed = parser
         .parse_str_as_file(
             input,
-            FileId::Id(ctx.current_scope().source_file_id().unwrap()),
+            FileId::SourceFile(ctx.current_scope().source_file_id().unwrap()),
         )
         .map_err(ReportableError::ParsingError)?;
 
