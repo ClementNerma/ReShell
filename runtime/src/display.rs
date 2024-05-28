@@ -22,7 +22,7 @@ pub fn value_to_str(value: &RuntimeValue, at: CodeRange, ctx: &Context) -> ExecR
         | RuntimeValue::Error { at: _, msg: _ } => Err(ctx.error(
             at,
             format!(
-                "cannot convert a {} to string",
+                "cannot convert a {} to a string",
                 readable_value_type(value, ctx)
             ),
         )),
