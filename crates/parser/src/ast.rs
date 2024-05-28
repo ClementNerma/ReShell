@@ -367,6 +367,7 @@ pub enum ComputedStringPiece {
 pub enum EscapableChar {
     Newline,
     CarriageReturn,
+    Tab,
     DoubleQuote,
     BackQuote,
     SingleQuote,
