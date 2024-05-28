@@ -104,24 +104,15 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::TypedStruct(_), SingleValueType::UntypedStruct) => true,
 
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
-            // TODO: make comparison stricter (no excess properties?)
-            for member in b {
-                let StructTypeMember { name, typ } = &member.data();
+            b.iter().all(|b_member| {
+                let StructTypeMember { name, typ } = b_member.data();
 
-                match a
-                    .iter()
+                a.iter()
                     .find(|member| member.data().name.data() == name.data())
-                {
-                    None => return false,
-                    Some(member) => {
-                        if !check_if_type_fits_type(member.data().typ.data(), typ.data(), ctx) {
-                            return false;
-                        }
-                    }
-                }
-            }
-
-            true
+                    .map_or(false, |a_member| {
+                        check_if_type_fits_type(a_member.data().typ.data(), typ.data(), ctx)
+                    })
+            })
         }
 
         (SingleValueType::UntypedStruct, _) | (_, SingleValueType::UntypedStruct) => false,
