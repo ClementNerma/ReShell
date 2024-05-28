@@ -135,6 +135,11 @@ fn globify(input: &str) -> String {
             out.push(MAIN_SEPARATOR);
         }
 
+        if segment == "." || segment == ".." {
+            out.push_str(segment);
+            continue;
+        }
+
         if !segment.starts_with('*') {
             out.push('*');
         }
