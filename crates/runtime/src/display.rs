@@ -426,13 +426,13 @@ impl PrettyPrintable for CmdFlagNameArg {
 
 pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
     let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
-        '"'.to_owned(),
+        '\''.to_owned(),
         Color::BrightGreen,
     )];
 
     let mut shift = 0;
 
-    while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '"']) {
+    while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '\'']) {
         pos += shift;
 
         if pos > shift {
@@ -464,7 +464,7 @@ pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
     }
 
     pieces.push(PrettyPrintablePiece::colored_atomic(
-        '"'.to_owned(),
+        '\''.to_owned(),
         Color::BrightGreen,
     ));
 
