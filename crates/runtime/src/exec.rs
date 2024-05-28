@@ -100,6 +100,13 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
     block_first_pass(instructions, block, ctx)?;
 
     // Second pass: run instructions
+    run_instructions_in_current_scope(instructions, ctx)
+}
+
+fn run_instructions_in_current_scope(
+    instructions: &[Eaten<Instruction>],
+    ctx: &mut Context,
+) -> ExecResult<Option<InstrRet>> {
     let mut wandering_value = None;
 
     for instr in instructions {
@@ -198,6 +205,7 @@ fn block_first_pass(
 
             Instruction::Include(program) => {
                 let Program { content } = &program.data;
+
                 let Block {
                     scope_id: _,
                     instructions,
@@ -781,7 +789,15 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         Instruction::Include(program) => {
             let Program { content } = &program.data;
 
-            return run_block_in_current_scope(&content.data, ctx);
+            let Block {
+                scope_id: _,
+                instructions,
+            } = &content.data;
+
+            // NOTE: we don't use `run_block_in_current_scope` as it triggers a first-pass execution,
+            //       which would re-declare functions, methods etc. that were already handled when
+            //       exploring the parent block.
+            return run_instructions_in_current_scope(instructions, ctx);
         }
     };
 
