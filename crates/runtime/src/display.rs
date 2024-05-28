@@ -13,7 +13,7 @@ use crate::{
     context::Context,
     errors::ExecResult,
     pretty::{Colored, PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece},
-    values::{RuntimeFnBody, RuntimeValue},
+    values::{ErrorValueContent, RuntimeFnBody, RuntimeValue},
 };
 
 pub fn value_to_str(
@@ -33,7 +33,7 @@ pub fn value_to_str(
         | RuntimeValue::Map(_)
         | RuntimeValue::Struct(_)
         | RuntimeValue::Function(_)
-        | RuntimeValue::Error { at: _, msg: _ } => Err(ctx
+        | RuntimeValue::Error(_) => Err(ctx
             .error(
                 at,
                 format!(
@@ -182,24 +182,28 @@ impl PrettyPrintable for RuntimeValue {
                 PrettyPrintablePiece::colored_atomic(")", Color::Blue),
             ]),
 
-            RuntimeValue::Error { at, msg } => PrettyPrintablePiece::Join(vec![
-                PrettyPrintablePiece::colored_atomic("error(", Color::Red),
-                PrettyPrintablePiece::colored_atomic(
-                    format!(
-                        "\"{}\"",
-                        msg.replace('\\', "\\\\")
-                            .replace('\"', "\\\"")
-                            .replace('\n', "\\n")
+            RuntimeValue::Error(err) => {
+                let ErrorValueContent { at, msg } = &**err;
+
+                PrettyPrintablePiece::Join(vec![
+                    PrettyPrintablePiece::colored_atomic("error(", Color::Red),
+                    PrettyPrintablePiece::colored_atomic(
+                        format!(
+                            "\"{}\"",
+                            msg.replace('\\', "\\\\")
+                                .replace('\"', "\\\"")
+                                .replace('\n', "\\n")
+                        ),
+                        Color::Green,
                     ),
-                    Color::Green,
-                ),
-                PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
-                PrettyPrintablePiece::colored_atomic(
-                    dbg_loc(*at, ctx.files_map()),
-                    Color::BrightMagenta,
-                ),
-                PrettyPrintablePiece::colored_atomic(")", Color::Red),
-            ]),
+                    PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
+                    PrettyPrintablePiece::colored_atomic(
+                        dbg_loc(*at, ctx.files_map()),
+                        Color::BrightMagenta,
+                    ),
+                    PrettyPrintablePiece::colored_atomic(")", Color::Red),
+                ])
+            }
 
             RuntimeValue::ArgSpread(items) => PrettyPrintablePiece::List {
                 begin: Colored::with_color("spread(", Color::Magenta),
