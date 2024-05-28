@@ -1,5 +1,5 @@
 use reshell_parser::ast::{
-    FnArg, FnCallNature, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
+    FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeEaten, ValueType,
 };
 
 use reshell_runtime::{
@@ -22,13 +22,18 @@ pub fn forge_basic_fn_signature(
     FnSignature {
         args: RuntimeEaten::Internal(
             args.into_iter()
-                .map(|(name, typ)| FnArg::Positional {
-                    name: RuntimeEaten::Internal(name.into(), "native library's type generator"),
-                    is_optional: false,
-                    typ: Some(RuntimeEaten::Internal(
-                        typ,
-                        "native library's type generator",
-                    )),
+                .map(|(name, typ)| {
+                    FnArg::Positional(FnPositionalArg {
+                        name: RuntimeEaten::Internal(
+                            name.into(),
+                            "native library's type generator",
+                        ),
+                        is_optional: false,
+                        typ: Some(RuntimeEaten::Internal(
+                            typ,
+                            "native library's type generator",
+                        )),
+                    })
                 })
                 .collect(),
             "native library's type generator",

@@ -484,22 +484,34 @@ pub enum CmdPipeType {
 
 #[derive(Debug, Clone)]
 pub enum FnArg {
-    Positional {
-        name: RuntimeEaten<String>,
-        is_optional: bool,
-        typ: Option<RuntimeEaten<ValueType>>,
-    },
-    PresenceFlag {
-        names: FnFlagArgNames,
-    },
-    NormalFlag {
-        names: FnFlagArgNames,
-        is_optional: bool,
-        typ: Option<RuntimeEaten<ValueType>>,
-    },
-    Rest {
-        name: RuntimeEaten<String>,
-    },
+    Positional(FnPositionalArg),
+    PresenceFlag(FnPresenceFlagArg),
+    NormalFlag(FnNormalFlagArg),
+    Rest(FnRestArg),
+}
+
+#[derive(Debug, Clone)]
+pub struct FnPositionalArg {
+    pub name: RuntimeEaten<String>,
+    pub is_optional: bool,
+    pub typ: Option<RuntimeEaten<ValueType>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FnPresenceFlagArg {
+    pub names: FnFlagArgNames,
+}
+
+#[derive(Debug, Clone)]
+pub struct FnNormalFlagArg {
+    pub names: FnFlagArgNames,
+    pub is_optional: bool,
+    pub typ: Option<RuntimeEaten<ValueType>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct FnRestArg {
+    pub name: RuntimeEaten<String>,
 }
 
 #[derive(Debug, Clone)]

@@ -16,10 +16,11 @@ use crate::{
         CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
         ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
         ExprInnerDirectChaining, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
-        FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue,
-        MapDestructBinding, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall,
-        SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
-        Value, ValueType, VarDeconstruction,
+        FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
+        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, Program,
+        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -232,20 +233,20 @@ pub fn program(
                     .or_not(),
             )
             .map(|((name, is_optional), typ)| match name {
-                _ParsedFnArgName::Positional(name) => FnArg::Positional {
+                _ParsedFnArgName::Positional(name) => FnArg::Positional(FnPositionalArg {
                     name,
                     is_optional,
                     typ,
-                },
+                }),
                 _ParsedFnArgName::Flag(names) => {
                     if !is_optional && typ.is_none() {
-                        FnArg::PresenceFlag { names }
+                        FnArg::PresenceFlag(FnPresenceFlagArg { names })
                     } else {
-                        FnArg::NormalFlag {
+                        FnArg::NormalFlag(FnNormalFlagArg {
                             names,
                             is_optional,
                             typ,
-                        }
+                        })
                     }
                 }
             }),
@@ -254,7 +255,7 @@ pub fn program(
                 .ignore_then(ident)
                 .spanned()
                 .map(RuntimeEaten::Parsed)
-                .map(|name| FnArg::Rest { name }),
+                .map(|name| FnArg::Rest(FnRestArg { name })),
         ));
 
         fn_signature.finish(

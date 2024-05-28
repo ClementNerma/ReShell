@@ -1,5 +1,6 @@
 use reshell_parser::ast::{
-    FnArg, FnFlagArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType,
+    FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
+    FnSignature, SingleValueType, StructTypeMember, ValueType,
 };
 
 use crate::{context::Context, display::dbg_loc};
@@ -150,16 +151,16 @@ pub fn check_fn_signature_equality(
     for (arg, cmp_arg) in signature.args.data().iter().zip(into.args.data().iter()) {
         match (arg, cmp_arg) {
             (
-                FnArg::Positional {
+                FnArg::Positional(FnPositionalArg {
                     name: _,
                     is_optional: a_is_optional,
                     typ: a_typ,
-                },
-                FnArg::Positional {
+                }),
+                FnArg::Positional(FnPositionalArg {
                     name: _,
                     is_optional: b_is_optional,
                     typ: b_typ,
-                },
+                }),
             ) => {
                 // NOTE: We don't compare names as they only matter for the function body's scope
 
@@ -174,44 +175,30 @@ pub fn check_fn_signature_equality(
                 }
             }
 
-            (
-                FnArg::Positional {
-                    name: _,
-                    is_optional: _,
-                    typ: _,
-                },
-                _,
-            )
-            | (
-                _,
-                FnArg::Positional {
-                    name: _,
-                    is_optional: _,
-                    typ: _,
-                },
-            ) => return false,
+            (FnArg::Positional(_), _) | (_, FnArg::Positional(_)) => return false,
 
-            (FnArg::PresenceFlag { names: a_names }, FnArg::PresenceFlag { names: b_names }) => {
+            (
+                FnArg::PresenceFlag(FnPresenceFlagArg { names: a_names }),
+                FnArg::PresenceFlag(FnPresenceFlagArg { names: b_names }),
+            ) => {
                 if !check_fn_flag_args_name_compat(a_names, b_names) {
                     return false;
                 }
             }
 
-            (FnArg::PresenceFlag { names: _ }, _) | (_, FnArg::PresenceFlag { names: _ }) => {
-                return false
-            }
+            (FnArg::PresenceFlag(_), _) | (_, FnArg::PresenceFlag(_)) => return false,
 
             (
-                FnArg::NormalFlag {
+                FnArg::NormalFlag(FnNormalFlagArg {
                     names: a_names,
                     is_optional: a_is_optional,
                     typ: a_typ,
-                },
-                FnArg::NormalFlag {
+                }),
+                FnArg::NormalFlag(FnNormalFlagArg {
                     names: b_names,
                     is_optional: b_is_optional,
                     typ: b_typ,
-                },
+                }),
             ) => {
                 if !check_fn_flag_args_name_compat(a_names, b_names) {
                     return false;
@@ -228,24 +215,9 @@ pub fn check_fn_signature_equality(
                 }
             }
 
-            (
-                FnArg::NormalFlag {
-                    names: _,
-                    is_optional: _,
-                    typ: _,
-                },
-                _,
-            )
-            | (
-                _,
-                FnArg::NormalFlag {
-                    names: _,
-                    is_optional: _,
-                    typ: _,
-                },
-            ) => return false,
+            (FnArg::NormalFlag(_), _) | (_, FnArg::NormalFlag(_)) => return false,
 
-            (FnArg::Rest { name: a_name }, FnArg::Rest { name: b_name }) => {
+            (FnArg::Rest(FnRestArg { name: a_name }), FnArg::Rest(FnRestArg { name: b_name })) => {
                 if a_name.data() != b_name.data() {
                     return false;
                 }

@@ -24,10 +24,11 @@ use reshell_parser::{
         CmdPipe, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
         ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
-        FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding,
-        Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
-        SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
-        Value, ValueType, VarDeconstruction,
+        FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
+        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, Program, PropAccess,
+        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -1151,11 +1152,11 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
 fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
     let (name, name_at, alt_var_name, is_rest) = match arg {
-        FnArg::Positional {
+        FnArg::Positional(FnPositionalArg {
             name,
             is_optional: _,
             typ,
-        } => {
+        }) => {
             if let Some(typ) = typ {
                 check_value_type(typ.data(), state)?;
             }
@@ -1163,7 +1164,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             (name.data().clone(), name.at(), None, false)
         }
 
-        FnArg::PresenceFlag { names } => match names {
+        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
             FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None, false),
 
             FnFlagArgNames::LongFlag(long) => (
@@ -1181,11 +1182,11 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             ),
         },
 
-        FnArg::NormalFlag {
+        FnArg::NormalFlag(FnNormalFlagArg {
             names,
             is_optional: _,
             typ,
-        } => {
+        }) => {
             if let Some(typ) = typ {
                 check_value_type(typ.data(), state)?;
             }
@@ -1211,7 +1212,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             }
         }
 
-        FnArg::Rest { name } => (name.data().clone(), name.at(), None, true),
+        FnArg::Rest(FnRestArg { name }) => (name.data().clone(), name.at(), None, true),
     };
 
     Ok(CheckedFnArg {
@@ -1344,11 +1345,11 @@ fn check_fn_signature(
             is_rest,
         } = &checked_arg;
 
-        if let FnArg::Positional {
+        if let FnArg::Positional(FnPositionalArg {
             name,
             is_optional,
             typ: _,
-        } = arg
+        }) = arg
         {
             if *is_optional {
                 had_optional = true;

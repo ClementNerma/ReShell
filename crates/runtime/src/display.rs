@@ -4,7 +4,8 @@ use colored::Color;
 use parsy::FileId;
 use reshell_parser::{
     ast::{
-        CmdFlagNameArg, FlagValueSeparator, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange,
+        CmdFlagNameArg, FlagValueSeparator, FnArg, FnFlagArgNames, FnNormalFlagArg,
+        FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, RuntimeCodeRange,
         SingleValueType, StructTypeMember, ValueType,
     },
     files::{FilesMap, SourceFileLocation},
@@ -301,11 +302,11 @@ impl PrettyPrintable for FnSignature {
 impl PrettyPrintable for FnArg {
     fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece {
         match self {
-            FnArg::Positional {
+            FnArg::Positional(FnPositionalArg {
                 name,
                 is_optional,
                 typ,
-            } => {
+            }) => {
                 let mut out = vec![PrettyPrintablePiece::colored_atomic(
                     name.data(),
                     Color::Red,
@@ -323,13 +324,13 @@ impl PrettyPrintable for FnArg {
                 PrettyPrintablePiece::Join(out)
             }
 
-            FnArg::PresenceFlag { names } => names.generate_pretty_data(ctx),
+            FnArg::PresenceFlag(FnPresenceFlagArg { names }) => names.generate_pretty_data(ctx),
 
-            FnArg::NormalFlag {
+            FnArg::NormalFlag(FnNormalFlagArg {
                 names,
                 is_optional,
                 typ,
-            } => {
+            }) => {
                 let mut out: Vec<PrettyPrintablePiece> = vec![names.generate_pretty_data(ctx)];
 
                 if *is_optional {
@@ -344,7 +345,7 @@ impl PrettyPrintable for FnArg {
                 PrettyPrintablePiece::Join(out)
             }
 
-            FnArg::Rest { name } => PrettyPrintablePiece::colored_atomic(
+            FnArg::Rest(FnRestArg { name }) => PrettyPrintablePiece::colored_atomic(
                 format!("...{}", name.data()),
                 Color::BrightYellow,
             ),
