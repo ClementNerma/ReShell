@@ -38,6 +38,10 @@ pub struct Context {
     /// Runtime configuration
     conf: RuntimeConf,
 
+    /// Function to check if Ctrl+C was pressed
+    /// Indicator must be reset before the boolean is actually returned
+    take_ctrl_c_indicator: fn() -> bool,
+
     /// Auto-incremented scopes ID counter
     /// When a counter is created, this is increased and assigned to the new scope
     scopes_id_counter: u64,
@@ -105,7 +109,12 @@ pub struct Context {
 impl Context {
     /// Create a new context (runtime state)
     /// The native library's content can be generated using the dedicated crate
-    pub fn new(conf: RuntimeConf, files_map: FilesMap, native_lib_content: ScopeContent) -> Self {
+    pub fn new(
+        conf: RuntimeConf,
+        files_map: FilesMap,
+        native_lib_content: ScopeContent,
+        take_ctrl_c_indicator: fn() -> bool,
+    ) -> Self {
         let scopes_to_add = [
             Scope {
                 id: NATIVE_LIB_SCOPE_ID,
@@ -148,6 +157,7 @@ impl Context {
             fn_bodies: HashMap::new(),
             cmd_aliases: HashMap::new(),
             wandering_value: None,
+            take_ctrl_c_indicator,
             conf,
         }
     }
@@ -161,6 +171,21 @@ impl Context {
     /// Get the runtime configuration
     pub fn conf(&self) -> &RuntimeConf {
         &self.conf
+    }
+
+    /// (Semi-Private) Clear Ctrl+C press indicator
+    pub(crate) fn reset_ctrl_c_press_indicator(&self) {
+        (self.take_ctrl_c_indicator)();
+    }
+
+    /// (Semi-Private) Ensure Ctrl+C was not pressed
+    /// Otherwise, return a Ctrl+C error
+    pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
+        if (self.take_ctrl_c_indicator)() {
+            Err(self.error(at.into(), ExecErrorNature::CtrlC))
+        } else {
+            Ok(())
+        }
     }
 
     /// Set of change path to the current user's home directory

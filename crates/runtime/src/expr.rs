@@ -397,7 +397,8 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 | ExecErrorNature::Exit { code: _ }
                 | ExecErrorNature::Thrown { value: _ } => Err(err),
 
-                ExecErrorNature::CommandFailed {
+                ExecErrorNature::CtrlC
+                | ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status: _,
                 } => Ok(RuntimeValue::Bool(false)),

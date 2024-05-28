@@ -18,6 +18,7 @@ use reshell_runtime::{conf::RuntimeConf, context::Context};
 use self::cmd::Args;
 use self::exec::run_script;
 use self::reports::ReportableError;
+use self::utils::threads::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
 
 mod cmd;
 mod compat;
@@ -52,6 +53,10 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         skip_init_script,
     } = Args::parse();
 
+    // Set up Ctrl+C handler
+    setup_ctrl_c_handler().map_err(|err| format!("Failed to setup Ctrl+C handler: {err}"))?;
+
+    // Create a files map
     let files_map = FilesMap::new(Box::new(|path, relative_to, files_map| {
         let mut path = PathBuf::from(path);
 
@@ -77,6 +82,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         RuntimeConf::default(),
         files_map.clone(),
         build_native_lib_content(),
+        take_pending_ctrl_c_request,
     );
 
     match dirs::home_dir() {

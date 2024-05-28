@@ -47,6 +47,8 @@ pub enum ExecErrorNature {
     Thrown { value: LocatedValue },
     /// Program requested to exit
     Exit { code: Option<u8> },
+    /// Interrupted by a Ctrl+C press
+    CtrlC,
     /// Any other error, represented by a custom message
     Custom(Cow<'static, str>),
 }

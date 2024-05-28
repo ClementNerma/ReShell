@@ -28,6 +28,9 @@ pub fn run_program(
     checker_output: CheckerOutput,
     ctx: &mut Context,
 ) -> ExecResult<()> {
+    // Reset Ctrl+C requests
+    ctx.reset_ctrl_c_press_indicator();
+
     let Program { content } = program;
 
     match program.content.at.start.file_id {
