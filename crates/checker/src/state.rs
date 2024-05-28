@@ -16,7 +16,7 @@ pub struct State<'a> {
 }
 
 impl<'a> State<'a> {
-    /// Create an empty state
+    /// Create a new state
     pub fn new(prev: &'a mut CheckerOutput) -> Self {
         Self {
             scopes: vec![],
