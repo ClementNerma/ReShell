@@ -133,7 +133,7 @@ macro_rules! extract_arg_from_type {
             RuntimeValue::List(items) => items
                 .into_iter()
                 .map(|item| match item {
-                    RuntimeValue::$rest_type(string) => string,
+                    RuntimeValue::$rest_type(value) => value,
                     _ => unreachable!(),
                 })
                 .collect::<Vec<_>>(),
@@ -276,6 +276,36 @@ pub fn generate_native_lib() -> Scope {
         //
         native_fn!(count (list: List) -> (Int) {
             Ok(Some(RuntimeValue::Int(list.read().len() as i64)))
+        }),
+        //
+        // pop a value from a list
+        //
+        native_fn!(pop (list: List) -> (Any | Null) {
+            Ok(Some(match list.write().pop() {
+                Some(value) => value,
+                None => RuntimeValue::Null
+            }))
+        }),
+        //
+        // remove a value from a list
+        //
+        native_fn!(remove_at (list: List, index: Int [index_at]) [ctx] -> (Any) {
+            let mut list = list.write();
+
+            if index < 0 {
+                Err(ctx.error(index_at, format!("index must be higher than 0 (got {index})")))
+            } else if index as usize + 1 > list.len() {
+                Err(ctx.error(index_at, format!("cannot remove index {index} as list only contains {} elements", list.len())))
+            } else {
+                Ok(Some(list.remove(index as usize)))
+            }
+        }),
+        //
+        // get a portion of a list
+        //
+        native_fn!(slice (list: List, from: Int, len: Int) -> (List) {
+            let items = list.read().iter().skip(from as usize).take(len as usize).cloned().collect();
+            Ok(Some(RuntimeValue::List(GcCell::new(items))))
         }),
         //
         // get the length of a string
