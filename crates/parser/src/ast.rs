@@ -183,7 +183,7 @@ pub enum ExprInnerContent {
     SingleOp {
         op: Eaten<SingleOp>,
         right: Eaten<Box<ExprInnerContent>>,
-        right_chainings: Vec<Eaten<ExprInnerDirectChaining>>,
+        right_chainings: Vec<Eaten<ExprInnerChaining>>,
     },
     ParenExpr(Eaten<Box<Expr>>),
     Value(Eaten<Value>),
@@ -222,12 +222,6 @@ pub struct SwitchExprCase {
 
 #[derive(Debug, Clone)]
 pub enum ExprInnerChaining {
-    Direct(ExprInnerDirectChaining),
-    FnCall(Eaten<FnCall>),
-}
-
-#[derive(Debug, Clone)]
-pub enum ExprInnerDirectChaining {
     PropAccess(Eaten<PropAccess>),
     MethodCall(Eaten<FnCall>),
 }

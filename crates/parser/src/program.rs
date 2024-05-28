@@ -14,13 +14,12 @@ use crate::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
         CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
-        ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
-        ExprInnerDirectChaining, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
-        FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
-        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, Program,
-        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
-        VarDeconstruction,
+        ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
+        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
+        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
+        Instruction, LiteralValue, MapDestructBinding, Program, PropAccess, PropAccessNature,
+        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember,
+        SwitchCase, SwitchExprCase, Value, ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -593,7 +592,7 @@ pub fn program(
             .then_ignore(msnl)
             .then_ignore(char('}').critical_with_no_message());
 
-        let expr_inner_direct_chaining = late::<ExprInnerDirectChaining>();
+        let expr_inner_direct_chaining = late::<ExprInnerChaining>();
 
         let scope_id_gen_bis = scope_id_gen.clone();
 
@@ -779,23 +778,12 @@ pub fn program(
                 nature,
             });
 
-        expr_inner_direct_chaining.finish(choice::<_, ExprInnerDirectChaining>((
+        let expr_inner_chaining = choice::<_, ExprInnerChaining>((
             lookahead(char('.'))
                 .ignore_then(fn_call.clone())
                 .spanned()
-                .map(ExprInnerDirectChaining::MethodCall),
-            prop_access
-                .spanned()
-                .map(ExprInnerDirectChaining::PropAccess),
-        )));
-
-        let expr_inner_chaining = choice::<_, ExprInnerChaining>((
-            expr_inner_direct_chaining.map(ExprInnerChaining::Direct),
-            char('|')
-                .padded_by(msnl)
-                .ignore_then(fn_call.clone())
-                .spanned()
-                .map(ExprInnerChaining::FnCall),
+                .map(ExprInnerChaining::MethodCall),
+            prop_access.spanned().map(ExprInnerChaining::PropAccess),
         ));
 
         let expr_inner = expr_inner_content
