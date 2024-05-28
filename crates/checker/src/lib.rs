@@ -21,13 +21,13 @@ use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar,
-        CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString,
-        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-        ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
-        FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding,
-        Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
-        SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
-        Value, ValueType, VarDeclType,
+        CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdSpreadArg, CmdValueMakingArg,
+        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
+        ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall,
+        FnCallArg, FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue,
+        MapDestructBinding, Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase,
+        SwitchExprCase, Value, ValueType, VarDeclType,
     },
     scope::AstScopeId,
 };
@@ -1057,10 +1057,14 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
             }
         }
 
-        CmdArg::SpreadVar(var) => {
-            state.register_usage(var, DependencyType::Variable)?;
-            Ok(())
-        }
+        CmdArg::Spread(arg) => check_cmd_spread_arg(&arg.data, state),
+    }
+}
+
+fn check_cmd_spread_arg(arg: &CmdSpreadArg, state: &mut State) -> CheckerResult {
+    match arg {
+        CmdSpreadArg::Variable(var) => state.register_usage(var, DependencyType::Variable),
+        CmdSpreadArg::Expr(expr) => check_expr(expr, state),
     }
 }
 

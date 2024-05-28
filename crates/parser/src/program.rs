@@ -12,7 +12,7 @@ use parsy::{
 use crate::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar,
-        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType,
+        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdSpreadArg,
         CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
         EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
         ExprInnerDirectChaining, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
@@ -923,10 +923,22 @@ pub fn program(
             // Flag arguments
             cmd_flag_arg.map(CmdArg::Flag),
             // Spread
-            just("...$")
-                .ignore_then(ident.critical("expected a variable to spread"))
+            just("...")
+                .ignore_then(
+                    choice::<_, CmdSpreadArg>((
+                        char('$')
+                            .ignore_then(ident)
+                            .spanned()
+                            .map(CmdSpreadArg::Variable),
+                        char('(')
+                            .ignore_then(expr.clone())
+                            .then_ignore(char(')'))
+                            .map(CmdSpreadArg::Expr),
+                    ))
+                    .critical("expected a value to spread"),
+                )
                 .spanned()
-                .map(CmdArg::SpreadVar),
+                .map(CmdArg::Spread),
             // Value-making
             cmd_value_making_arg.map(CmdArg::ValueMaking),
         ));
