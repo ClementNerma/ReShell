@@ -718,7 +718,7 @@ impl Context {
             else {
                 self.panic(
                     body_content_at,
-                    format!("cannot find {dep_type} '{name}' to capture",),
+                    format!("cannot find {dep_type} '{name}' to capture"),
                 );
             };
 
@@ -727,7 +727,7 @@ impl Context {
                     let var = decl_scope.content.vars.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
-                            format!("cannot find variable '{name}' to capture",),
+                            format!("cannot find variable '{name}' to capture"),
                         )
                     });
 
@@ -738,7 +738,7 @@ impl Context {
                     let func = decl_scope.content.fns.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
-                            format!("cannot find function '{name}' to capture",),
+                            format!("cannot find function '{name}' to capture"),
                         )
                     });
 
@@ -774,7 +774,7 @@ impl Context {
                     let cmd_alias = decl_scope.content.cmd_aliases.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
-                            format!("cannot find command alias '{name}' to capture",),
+                            format!("cannot find command alias '{name}' to capture"),
                         )
                     });
 

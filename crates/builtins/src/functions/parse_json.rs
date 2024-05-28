@@ -25,7 +25,7 @@ fn run() -> Runner {
         let json = serde_json_to_value(json).map_err(|err| {
             ctx.throw(
                 string_at,
-                format!("Failed to parse input string as JSON: {err}",),
+                format!("Failed to parse input string as JSON: {err}"),
             )
         })?;
 
