@@ -14,6 +14,7 @@ mod errors;
 mod state;
 
 pub mod output;
+pub mod typechecker;
 
 use std::collections::{HashMap, HashSet};
 
@@ -33,6 +34,7 @@ use reshell_parser::{
     scope::AstScopeId,
 };
 
+use self::typechecker::check_if_type_fits_type;
 pub use self::{
     errors::CheckerError,
     state::{
@@ -147,6 +149,7 @@ fn block_first_pass(
                 state.curr_scope_mut().fns.insert(
                     name.data.clone(),
                     DeclaredFn {
+                        decl_at: RuntimeCodeRange::Parsed(name.at),
                         scope_id: curr_scope_id,
                     },
                 );
@@ -157,20 +160,38 @@ fn block_first_pass(
                 on_type,
                 content: _,
             } => {
+                check_value_type(&on_type.data, state)?;
+
                 let curr_scope_id = state.curr_scope().id;
 
-                let type_methods = state.curr_scope_mut().methods.entry(*on_type).or_default();
+                if let Some(same_name_methods) = state.curr_scope().methods.get(&name.data) {
+                    let get_type_alias = &|name| state.get_type_alias_or_panic(&name);
 
-                if type_methods.contains_key(&name.data) {
-                    return Err(CheckerError::new(name.at, "duplicate method declaration"));
+                    for (other_type, _) in same_name_methods.iter() {
+                        if check_if_type_fits_type(&on_type.data, other_type, get_type_alias)
+                            || check_if_type_fits_type(other_type, &on_type.data, get_type_alias)
+                        {
+                            // TODO: display both clashing types
+                            return Err(CheckerError::new(
+                                name.at,
+                                "this method clashes with another same-name method applying on a compatible type",
+                            ));
+                        }
+                    }
                 }
 
-                type_methods.insert(
-                    name.data.clone(),
-                    DeclaredMethod {
-                        scope_id: curr_scope_id,
-                    },
-                );
+                state
+                    .curr_scope_mut()
+                    .methods
+                    .entry(name.data.clone())
+                    .or_default()
+                    .push((
+                        shared(on_type.data.clone()),
+                        DeclaredMethod {
+                            decl_at: RuntimeCodeRange::Parsed(name.at),
+                            scope_id: curr_scope_id,
+                        },
+                    ));
             }
 
             Instruction::CmdAliasDecl {
@@ -197,6 +218,7 @@ fn block_first_pass(
                 state.curr_scope_mut().cmd_aliases.insert(
                     name.data.clone(),
                     DeclaredCmdAlias {
+                        decl_at: name.at,
                         scope_id: curr_scope_id,
                         content_at: content.at,
                         is_ready: false,
@@ -251,6 +273,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 state.curr_scope_mut().vars.insert(
                     name.data.clone(),
                     DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(name.at),
                         scope_id,
                         is_mut: is_mut.is_some(),
                     },
@@ -369,6 +392,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     iter_var.data.clone(),
                     DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(iter_var.at),
                         scope_id: scope.id,
                         is_mut: false,
                     },
@@ -390,6 +414,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     key_iter_var.data.clone(),
                     DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         scope_id: scope.id,
                         is_mut: false,
                     },
@@ -398,6 +423,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     value_iter_var.data.clone(),
                     DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         scope_id: scope.id,
                         is_mut: false,
                     },
@@ -497,6 +523,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(catch_var.at),
                         scope_id: scope.id,
                         is_mut: false,
                     },
@@ -681,6 +708,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(catch_var.at),
                         scope_id: scope.id,
                         is_mut: false,
                     },
@@ -931,22 +959,22 @@ fn check_single_cmd_call(
         }
 
         CmdPath::Method(name) => {
-            if !state.scopes().any(|scope| {
-                scope
-                    .methods
-                    .values()
-                    .any(|methods| methods.contains_key(&name.data))
-            }) {
+            if !state
+                .scopes()
+                .any(|scope| scope.methods.contains_key(&name.data))
+            {
                 return Err(CheckerError::new(
                     name.at,
                     format!("no method named '{}' found for any type", name.data),
                 ));
             }
 
+            state.register_usage(name, DependencyType::Method)?;
+
             CmdPathTargetType::Function
         }
 
-        CmdPath::Raw(name) => find_if_cmd_or_fn(
+        CmdPath::Raw(name) => check_if_cmd_or_fn_and_register(
             &name.forge_here(name.data.to_owned()),
             &mut developed_aliases,
             state,
@@ -983,7 +1011,7 @@ fn check_single_cmd_call(
     Ok(target_type)
 }
 
-fn find_if_cmd_or_fn(
+fn check_if_cmd_or_fn_and_register(
     name: &Eaten<String>,
     developed_aliases: &mut Vec<DevelopedCmdAliasCall>,
     state: &mut State,
@@ -1005,6 +1033,7 @@ fn find_if_cmd_or_fn(
         Some(target) => match target {
             Target::CmdAlias(cmd_alias) => {
                 let DeclaredCmdAlias {
+                    decl_at: _,
                     scope_id: _,
                     content_at,
                     is_ready,
@@ -1017,12 +1046,12 @@ fn find_if_cmd_or_fn(
                     ));
                 }
 
+                state.register_usage(name, DependencyType::CmdAlias)?;
+
                 developed_aliases.push(DevelopedCmdAliasCall {
                     alias_called_at: name.clone(),
                     alias_content_at: content_at,
                 });
-
-                state.register_usage(name, DependencyType::CmdAlias)?;
 
                 let alias_inner_call = state.get_developed_cmd_call_at(content_at);
                 let alias_inner_call = alias_inner_call.as_ref().unwrap();
@@ -1036,7 +1065,10 @@ fn find_if_cmd_or_fn(
                 })
             }
 
-            Target::Function => Ok(CmdPathTargetType::Function),
+            Target::Function => {
+                state.register_usage(name, DependencyType::Function)?;
+                Ok(CmdPathTargetType::Function)
+            }
         },
 
         None => Ok(CmdPathTargetType::ExternalCommand),
@@ -1129,6 +1161,7 @@ fn check_single_param_lambda(body: &Eaten<Block>, state: &mut State) -> CheckerR
         scope.vars.insert(
             "it".to_owned(),
             DeclaredVar {
+                decl_at: RuntimeCodeRange::Parsed(body.at),
                 scope_id: body.data.scope_id,
                 is_mut: false,
             },
@@ -1149,7 +1182,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     for checked_arg in checked_args {
         let CheckedFnArg {
-            name_at: _,
+            name_at,
             var_name,
             is_rest: _,
         } = checked_arg;
@@ -1157,6 +1190,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         let dup = vars.insert(
             var_name,
             DeclaredVar {
+                decl_at: RuntimeCodeRange::Parsed(name_at),
                 scope_id: body.data.scope_id,
                 is_mut: false,
             },

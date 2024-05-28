@@ -119,7 +119,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                     name.data.clone(),
                     ScopeFn {
                         decl_scope_id: block.scope_id,
-                        name_declared_at: RuntimeCodeRange::Parsed(name.at),
+                        name_at: RuntimeCodeRange::Parsed(name.at),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
@@ -151,11 +151,13 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 
                 let methods = &mut ctx.current_scope_content_mut().methods;
 
-                let dup = methods.insert(
-                    (name.data.clone(), *on_type),
-                    ScopeMethod {
+                methods
+                    .entry(name.data.clone())
+                    .or_default()
+                    .push(ScopeMethod {
+                        name_at: RuntimeCodeRange::Parsed(name.at),
                         decl_scope_id: block.scope_id,
-                        applyable_type: *on_type,
+                        on_type: GcReadOnlyCell::new(on_type.data.clone()),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
@@ -163,11 +165,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                             parent_scopes,
                             captured_deps: GcOnceCell::new_uninit(),
                         }),
-                    },
-                );
-
-                // Ensure checker did its job correctly (no duplicate name)
-                assert!(dup.is_none());
+                    });
             }
 
             _ => {}
@@ -361,6 +359,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
                             ScopeVar {
+                                name_at: RuntimeCodeRange::Parsed(iter_on.at),
                                 decl_scope_id: body.data.scope_id,
                                 is_mut: false,
                                 value: GcCell::new(LocatedValue::new(
@@ -390,6 +389,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
                             ScopeVar {
+                                name_at: RuntimeCodeRange::Parsed(iter_var.at),
                                 decl_scope_id: body.data.scope_id,
                                 is_mut: false,
                                 value: GcCell::new(LocatedValue::new(
@@ -455,6 +455,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     key_iter_var.data.clone(),
                     ScopeVar {
+                        name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(
@@ -467,6 +468,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     value_iter_var.data.clone(),
                     ScopeVar {
+                        name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(
@@ -577,14 +579,20 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
         Instruction::MethodDecl {
             name,
-            on_type,
+            on_type: _,
             content,
         } => {
             let captured_deps = ctx.capture_deps(content.body.at, content.body.data.scope_id);
 
             ctx.current_scope_content_mut()
                 .methods
-                .get_mut(&(name.data.clone(), *on_type))
+                .get_mut(&name.data)
+                .unwrap()
+                .iter_mut()
+                .find(|method| match method.name_at {
+                    RuntimeCodeRange::Parsed(decl_at) => decl_at == name.at,
+                    RuntimeCodeRange::Internal(_) => false,
+                })
                 .unwrap()
                 .value
                 .captured_deps
@@ -644,6 +652,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     scope.vars.insert(
                         catch_var.data.clone(),
                         ScopeVar {
+                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             decl_scope_id: catch_body.data.scope_id,
                             is_mut: false,
                             value: GcCell::new(LocatedValue::new(
@@ -861,6 +870,7 @@ fn declare_var(
     ctx.current_scope_content_mut().vars.insert(
         name.data.clone(),
         ScopeVar {
+            name_at: RuntimeCodeRange::Parsed(name.at),
             decl_scope_id,
             is_mut: is_mut.is_some(),
             value: GcCell::new(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at))),

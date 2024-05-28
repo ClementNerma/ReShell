@@ -2,7 +2,7 @@ use parsy::{CodeRange, Eaten};
 
 use crate::ast::{
     CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgNames,
-    MethodApplyableType, RuntimeCodeRange, RuntimeEaten, SingleValueType,
+    RuntimeCodeRange, RuntimeEaten,
 };
 
 impl FnFlagArgNames {
@@ -103,31 +103,6 @@ impl CmdRawString {
         match &only_piece.data {
             CmdRawStringPiece::Literal(lit) => Some(lit),
             CmdRawStringPiece::Variable(_) => None,
-        }
-    }
-}
-
-impl MethodApplyableType {
-    pub fn from_single_value_type(value: SingleValueType) -> Option<Self> {
-        match value {
-            SingleValueType::Bool => Some(Self::Bool),
-            SingleValueType::Int => Some(Self::Int),
-            SingleValueType::Float => Some(Self::Float),
-            SingleValueType::String => Some(Self::String),
-            SingleValueType::List => Some(Self::List),
-            SingleValueType::Range => Some(Self::Range),
-            SingleValueType::Map => Some(Self::Map),
-            SingleValueType::Error => Some(Self::Error),
-            SingleValueType::CmdCall => Some(Self::CmdCall),
-            SingleValueType::CmdArg => Some(Self::ArgSpread),
-            SingleValueType::Custom(name) => Some(Self::Custom(name)),
-
-            SingleValueType::Any
-            | SingleValueType::Null
-            | SingleValueType::UntypedStruct
-            | SingleValueType::TypedStruct(_)
-            | SingleValueType::Function(_)
-            | SingleValueType::TypeAlias(_) => None,
         }
     }
 }

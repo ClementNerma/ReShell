@@ -38,7 +38,7 @@ fn run() -> Runner {
 
                     println!(
                         "Function declared at: {}\n\n{}",
-                        match func.name_declared_at {
+                        match func.name_at {
                             RuntimeCodeRange::Parsed(at) => {
                                 dbg_loc(at, ctx.files_map()).underline()
                             }

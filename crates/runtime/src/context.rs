@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
@@ -11,12 +7,13 @@ use reshell_checker::{
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
+    typechecker::check_if_single_type_fits_type,
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
 };
 use reshell_parser::{
     ast::{
-        Block, CmdCall, FnSignature, MethodApplyableType, Program, RuntimeCodeRange, RuntimeEaten,
-        SingleCmdCall, ValueType,
+        Block, CmdCall, FnSignature, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+        SingleValueType, ValueType,
     },
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
@@ -235,6 +232,7 @@ impl Context {
                             (
                                 key.clone(),
                                 DeclaredCmdAlias {
+                                    decl_at: value.name_at,
                                     scope_id: value.decl_scope_id,
                                     content_at: value.value.content.at,
                                     is_ready: true,
@@ -256,26 +254,33 @@ impl Context {
                             (
                                 name.clone(),
                                 DeclaredFn {
+                                    decl_at: func.name_at,
                                     scope_id: func.decl_scope_id,
                                 },
                             )
                         })
                         .collect(),
 
-                    methods: {
-                        let mut decl_methods = HashMap::<_, HashMap<_, _>>::new();
-
-                        for ((name, on_type), method) in methods.iter() {
-                            decl_methods.entry(*on_type).or_default().insert(
-                                name.clone(),
-                                DeclaredMethod {
-                                    scope_id: method.decl_scope_id,
-                                },
-                            );
-                        }
-
-                        decl_methods
-                    },
+                    methods: methods
+                        .iter()
+                        .map(|(name, with_types)| {
+                            (
+                                name.to_owned(),
+                                with_types
+                                    .iter()
+                                    .map(|method| {
+                                        (
+                                            GcReadOnlyCell::clone_as_arc(&method.on_type),
+                                            DeclaredMethod {
+                                                decl_at: method.name_at,
+                                                scope_id: method.decl_scope_id,
+                                            },
+                                        )
+                                    })
+                                    .collect(),
+                            )
+                        })
+                        .collect(),
 
                     vars: vars
                         .iter()
@@ -283,6 +288,7 @@ impl Context {
                             (
                                 name.clone(),
                                 DeclaredVar {
+                                    decl_at: var.name_at,
                                     scope_id: var.decl_scope_id,
                                     is_mut: var.is_mut,
                                 },
@@ -436,13 +442,13 @@ impl Context {
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
                         .collect(),
 
-                    methods: methods
-                        .iter()
-                        .map(|(dep, value)| {
-                            ((dep.name.clone(), value.applyable_type), value.clone())
-                        })
-                        .collect(),
-
+                    methods: methods.iter().fold(
+                        HashMap::with_capacity(methods.len()),
+                        |mut map, (dep, value)| {
+                            map.entry(dep.name.clone()).or_default().push(value.clone());
+                            map
+                        },
+                    ),
                     cmd_aliases: cmd_aliases
                         .iter()
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
@@ -552,20 +558,31 @@ impl Context {
         Ok(&func.value)
     }
 
-    /// Get a specific method
+    /// Get all methods with a given name
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub fn get_visible_method<'s>(
+    pub fn find_applicable_method<'s>(
         &'s self,
         name: &Eaten<String>,
-        on_type: MethodApplyableType,
-    ) -> Option<&'s ScopeMethod> {
-        self.visible_scopes_content().find_map(|scope| {
-            scope.methods.get(
-                // TODO: optimize?
-                &(name.data.clone(), on_type),
-            )
-        })
+        for_type: &SingleValueType,
+    ) -> Result<&'s ScopeMethod, Vec<&'s ScopeMethod>> {
+        let mut not_matching = vec![];
+
+        for method in self
+            .visible_scopes_content()
+            .filter_map(|scope| scope.methods.get(&name.data))
+            .flatten()
+        {
+            if check_if_single_type_fits_type(for_type, &method.on_type, &|name| {
+                &self.get_type_alias(&name).data
+            }) {
+                return Ok(method);
+            }
+
+            not_matching.push(method);
+        }
+
+        Err(not_matching)
     }
 
     /// Get a specific variable
@@ -580,10 +597,18 @@ impl Context {
     /// Get a specific type alias
     /// It is guaranteed to be the one referenced at that point in time
     /// as type alias usages are collected before runtime
-    pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> Option<&'c Eaten<ValueType>> {
-        let type_alias_at = self.collected.type_aliases_usages.get(name)?;
+    pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> &'c Eaten<ValueType> {
+        let Some(type_alias_at) = self.collected.type_aliases_usages.get(name) else {
+            self.panic(
+                name.at,
+                format!(
+                    "type alias '{}' was not found (this is a bug in the checker)",
+                    name.data
+                ),
+            );
+        };
 
-        Some(self.collected.type_aliases_decl.get(type_alias_at).unwrap())
+        self.collected.type_aliases_decl.get(type_alias_at).unwrap()
     }
 
     /// Get a specific type signature from its location
@@ -689,6 +714,7 @@ impl Context {
 
         for dep in deps_list {
             let Dependency {
+                decl_at: _,
                 name,
                 declared_in,
                 dep_type,
@@ -741,19 +767,25 @@ impl Context {
                 }
 
                 DependencyType::Method => {
-                    let mut on_types = HashSet::new();
-
                     for scope in self.visible_scopes_for(decl_scope) {
-                        for ((method_name, on_type), method) in &scope.content.methods {
-                            if name == method_name && on_types.insert(*on_type) {
-                                captured_deps.methods.insert(
-                                    Dependency {
-                                        name: name.clone(),
-                                        declared_in: method.decl_scope_id,
-                                        dep_type: DependencyType::Method,
-                                    },
-                                    method.clone(),
-                                );
+                        for (method_name, methods) in scope.content.methods.iter() {
+                            for method in methods {
+                                if name == method_name {
+                                    match method.name_at {
+                                        RuntimeCodeRange::Internal(_) => unreachable!(),
+                                        RuntimeCodeRange::Parsed(decl_at) => {
+                                            captured_deps.methods.insert(
+                                                Dependency {
+                                                    decl_at,
+                                                    name: name.clone(),
+                                                    declared_in: method.decl_scope_id,
+                                                    dep_type: DependencyType::Method,
+                                                },
+                                                method.clone(),
+                                            );
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -846,7 +878,7 @@ pub struct ScopeContent {
     pub fns: HashMap<String, ScopeFn>,
 
     /// Methods (map keys are a combinator of method name + appliable type)
-    pub methods: HashMap<(String, MethodApplyableType), ScopeMethod>,
+    pub methods: HashMap<String, Vec<ScopeMethod>>,
 
     /// Command aliases (map keys are command alias names)
     pub cmd_aliases: HashMap<String, ScopeCmdAlias>,
@@ -868,6 +900,9 @@ impl ScopeContent {
 /// Scoped variable
 #[derive(Debug, Clone)]
 pub struct ScopeVar {
+    /// Name declaration location
+    pub name_at: RuntimeCodeRange,
+
     /// Declaration scope ID
     pub decl_scope_id: AstScopeId,
 
@@ -883,11 +918,11 @@ pub struct ScopeVar {
 /// Scoped function
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
+    /// Name declaration location
+    pub name_at: RuntimeCodeRange,
+
     /// Declaration scope ID
     pub decl_scope_id: AstScopeId,
-
-    /// Name declaration location
-    pub name_declared_at: RuntimeCodeRange,
 
     /// Value of the function
     /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
@@ -897,11 +932,15 @@ pub struct ScopeFn {
 /// Scoped method
 #[derive(Debug, Clone)]
 pub struct ScopeMethod {
+    /// Name declaration location
+    pub name_at: RuntimeCodeRange,
+
     /// Declaration scope ID
     pub decl_scope_id: AstScopeId,
 
     /// Type the method can be applied on
-    pub applyable_type: MethodApplyableType,
+    /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
+    pub on_type: GcReadOnlyCell<ValueType>,
 
     /// Value of the method
     /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning

@@ -179,6 +179,10 @@ impl<T> GcReadOnlyCell<T> {
             value: Arc::new(value),
         }
     }
+
+    pub fn clone_as_arc(this: &Self) -> Arc<T> {
+        Arc::clone(&this.value)
+    }
 }
 
 impl<T> Deref for GcReadOnlyCell<T> {

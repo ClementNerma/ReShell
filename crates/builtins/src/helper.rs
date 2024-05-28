@@ -1,6 +1,6 @@
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-    MethodApplyableType, RuntimeEaten, SingleValueType, ValueType,
+    RuntimeEaten, SingleValueType, ValueType,
 };
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
@@ -332,7 +332,7 @@ pub struct InternalFunction {
     pub name: &'static str,
 
     /// If it is a method, type it applies on
-    pub method_on_type: Option<MethodApplyableType>,
+    pub method_on_type: Option<ValueType>,
 
     /// List of arguments the function takes
     pub args: Vec<FnArg>,
@@ -350,7 +350,7 @@ macro_rules! define_internal_fn {
     ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
         use std::collections::HashMap;
 
-        use reshell_parser::ast::{FnArg, FnPositionalArg, MethodApplyableType, RuntimeCodeRange, RuntimeEaten, ValueType};
+        use reshell_parser::ast::{FnArg, FnPositionalArg, RuntimeCodeRange, RuntimeEaten};
 
         use reshell_runtime::{
             context::Context,
@@ -446,12 +446,7 @@ macro_rules! define_internal_fn {
                     typ
                 }) if name == "self" => {
                     match typ {
-                        Some(RuntimeEaten::Internal(ValueType::Single(typ), _)) => {
-                            Some(MethodApplyableType::from_single_value_type(typ.data().clone()).unwrap_or_else(|| {
-                                panic!("invalid method applyable type in native library: {:?}", typ.data())
-                            }))
-                        },
-
+                        Some(RuntimeEaten::Internal(typ, _)) => Some(typ.clone()),
                         _ => panic!("invalid method applyable type in native library: {:?}", typ)
                     }
                 }

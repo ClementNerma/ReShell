@@ -1,21 +1,21 @@
 use std::collections::HashMap;
 
 use parsy::{CodeRange, Eaten};
+use reshell_checker::typechecker::check_if_single_type_fits_type;
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-    FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, MethodApplyableType,
-    RuntimeCodeRange, RuntimeEaten,
+    FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeEaten,
+    SingleValueType,
 };
 
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
-    context::{CallStackEntry, Context, ScopeContent, ScopeVar},
+    context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    typechecker::check_if_single_type_fits_type,
     values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -36,17 +36,7 @@ pub fn eval_fn_call(
 
             let typ = piped.value.get_type();
 
-            let method = MethodApplyableType::from_single_value_type(typ.clone())
-                .and_then(|typ| ctx.get_visible_method(&call.data.name, typ))
-                .ok_or_else(|| {
-                    ctx.error(
-                        call.at,
-                        format!(
-                            "no such method for type {}",
-                            typ.render_colored(ctx, PrettyPrintOptions::inline())
-                        ),
-                    )
-                })?;
+            let method = find_applicable_method(call.at, &call.data.name, &typ, ctx)?;
 
             method.value.clone()
         }
@@ -110,7 +100,7 @@ pub fn call_fn_value(
 
             for (name, parsed) in args {
                 let ValidatedFnCallArg {
-                    decl_name_at: _,
+                    decl_name_at,
                     arg_value_at,
                     value,
                 } = parsed;
@@ -118,6 +108,7 @@ pub fn call_fn_value(
                 scope_content.vars.insert(
                     name,
                     ScopeVar {
+                        name_at: decl_name_at,
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         value: GcCell::new(LocatedValue::new(value, arg_value_at)),
@@ -163,7 +154,9 @@ pub fn call_fn_value(
             ));
         };
 
-        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), ctx) {
+        if !check_if_single_type_fits_type(&ret_val.value.get_type(), ret_type.data(), &|name| {
+            &ctx.get_type_alias(&name).data
+        }) {
             return Err(ctx.error(
                 call_at,
                 format!(
@@ -302,7 +295,7 @@ fn parse_fn_call_args(
                                         && !check_if_single_type_fits_type(
                                             &value.value.get_type(),
                                             typ.data(),
-                                            ctx,
+                                            &|name| &ctx.get_type_alias(&name).data,
                                         )
                                     {
                                         return Err(
@@ -379,7 +372,7 @@ fn parse_fn_call_args(
                         if !check_if_single_type_fits_type(
                             &loc_val.value.get_type(),
                             typ.data(),
-                            ctx,
+                            &|name| &ctx.get_type_alias(&name).data,
                         ) {
                             let is_method_self_arg = func.is_method && name.data() == "self";
 
@@ -735,6 +728,38 @@ fn get_matching_var_name(
             }
         },
     }
+}
+
+pub fn find_applicable_method<'s>(
+    call_at: CodeRange,
+    name: &Eaten<String>,
+    for_type: &SingleValueType,
+    ctx: &'s Context,
+) -> ExecResult<&'s ScopeMethod> {
+    ctx.find_applicable_method(name, for_type)
+        .map_err(|not_matching| {
+            let mut err = ctx.error(
+                call_at,
+                format!(
+                    "no such method for type {}",
+                    for_type.render_colored(ctx, PrettyPrintOptions::inline())
+                ),
+            );
+
+            for method in not_matching {
+                err = err.with_info(
+                    ExecInfoType::Note,
+                    format!(
+                        "found incompatible method with type: {}",
+                        method
+                            .on_type
+                            .render_colored(ctx, PrettyPrintOptions::inline())
+                    ),
+                );
+            }
+
+            err
+        })
 }
 
 pub struct FnCallInfos<'a> {

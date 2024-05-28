@@ -785,6 +785,7 @@ dependencies = [
  "parsy",
  "pomsky",
  "regex",
+ "reshell-checker",
  "reshell-parser",
  "reshell-runtime",
  "serde_json",

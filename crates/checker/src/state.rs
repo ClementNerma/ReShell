@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
-    ast::{Block, CmdCall, FnSignature, MethodApplyableType, SingleCmdCall, ValueType},
+    ast::{Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
 
@@ -94,6 +94,9 @@ impl<'a> State<'a> {
         item_usage: &Eaten<String>,
         dep_type: DependencyType,
     ) -> CheckerResult {
+        // TODO: internal functions, variables and methods are NOT registered as dependencies
+        //       (as we don't have a way to tell apart methods with the same name if they don't have a different decl_at for instance)
+
         match dep_type {
             DependencyType::Variable => {
                 let var = self
@@ -103,7 +106,16 @@ impl<'a> State<'a> {
                     .find_map(|scope| scope.vars.get(&item_usage.data).copied())
                     .ok_or_else(|| CheckerError::new(item_usage.at, "variable was not found"))?;
 
-                self.register_single_usage(var.scope_id, &item_usage.data, dep_type)
+                match var.decl_at {
+                    RuntimeCodeRange::Internal(_) => Ok(()),
+
+                    RuntimeCodeRange::Parsed(item_decl_at) => self.register_single_usage(
+                        var.scope_id,
+                        item_decl_at,
+                        &item_usage.data,
+                        dep_type,
+                    ),
+                }
             }
 
             DependencyType::Function => {
@@ -114,7 +126,47 @@ impl<'a> State<'a> {
                     .find_map(|scope| scope.fns.get(&item_usage.data).copied())
                     .ok_or_else(|| CheckerError::new(item_usage.at, "function was not found"))?;
 
-                self.register_single_usage(func.scope_id, &item_usage.data, dep_type)
+                match func.decl_at {
+                    RuntimeCodeRange::Internal(_) => Ok(()),
+
+                    RuntimeCodeRange::Parsed(item_decl_at) => self.register_single_usage(
+                        func.scope_id,
+                        item_decl_at,
+                        &item_usage.data,
+                        dep_type,
+                    ),
+                }
+            }
+
+            DependencyType::Method => {
+                let methods_scope_id = self
+                    .scopes
+                    .iter()
+                    .rev()
+                    .flat_map(|scope| scope.methods.get(&item_usage.data))
+                    .flat_map(|method| method.iter().map(|(_, method)| method))
+                    .copied()
+                    .collect::<Vec<_>>();
+
+                if methods_scope_id.is_empty() {
+                    return Err(CheckerError::new(item_usage.at, "method was not found"));
+                }
+
+                for method in methods_scope_id {
+                    match method.decl_at {
+                        RuntimeCodeRange::Internal(_) => {}
+                        RuntimeCodeRange::Parsed(item_decl_at) => {
+                            self.register_single_usage(
+                                method.scope_id,
+                                item_decl_at,
+                                &item_usage.data,
+                                DependencyType::Method,
+                            )?;
+                        }
+                    }
+                }
+
+                Ok(())
             }
 
             DependencyType::CmdAlias => {
@@ -132,36 +184,12 @@ impl<'a> State<'a> {
                     ));
                 }
 
-                self.register_single_usage(cmd_alias.scope_id, &item_usage.data, dep_type)
-            }
-
-            DependencyType::Method => {
-                let methods_scope_id = self
-                    .scopes
-                    .iter()
-                    .rev()
-                    .flat_map(|scope| {
-                        scope
-                            .methods
-                            .values()
-                            .find_map(|methods| methods.get(&item_usage.data))
-                    })
-                    .map(|method| method.scope_id)
-                    .collect::<Vec<_>>();
-
-                if methods_scope_id.is_empty() {
-                    return Err(CheckerError::new(item_usage.at, "method was not found"));
-                }
-
-                for method_scope_id in methods_scope_id {
-                    self.register_single_usage(
-                        method_scope_id,
-                        &item_usage.data,
-                        DependencyType::Method,
-                    )?;
-                }
-
-                Ok(())
+                self.register_single_usage(
+                    cmd_alias.scope_id,
+                    cmd_alias.decl_at,
+                    &item_usage.data,
+                    dep_type,
+                )
             }
         }
     }
@@ -169,6 +197,7 @@ impl<'a> State<'a> {
     fn register_single_usage(
         &mut self,
         item_declared_in: AstScopeId,
+        item_decl_at: CodeRange,
         name: &str,
         dep_type: DependencyType,
     ) -> CheckerResult {
@@ -209,6 +238,7 @@ impl<'a> State<'a> {
             .get_mut(&deps_scope_id)
             .unwrap()
             .insert(Dependency {
+                decl_at: item_decl_at,
                 name: name.to_owned(),
                 declared_in: item_declared_in,
                 dep_type,
@@ -274,6 +304,7 @@ impl<'a> State<'a> {
             .collected
             .cmd_aliases
             .insert(alias_content.at, shared(alias_content));
+
         assert!(dup.is_none());
     }
 
@@ -326,7 +357,20 @@ impl<'a> State<'a> {
             .collected
             .cmd_call_values
             .insert(from.at, shared(from.clone()));
+
         assert!(dup.is_none());
+    }
+
+    /// Get a type alias or panic (used for typechecker)
+    pub(crate) fn get_type_alias_or_panic(&self, name: &Eaten<String>) -> &ValueType {
+        let type_alias_loc = self.collected.type_aliases_usages.get(name).unwrap();
+
+        &self
+            .collected
+            .type_aliases_decl
+            .get(type_alias_loc)
+            .unwrap()
+            .data
     }
 }
 
@@ -346,7 +390,7 @@ pub struct CheckerScope {
     pub fns: HashMap<String, DeclaredFn>,
 
     /// List of methods declared in this scope, associated to their appliable types
-    pub methods: HashMap<MethodApplyableType, HashMap<String, DeclaredMethod>>,
+    pub methods: HashMap<String, Vec<(SharingType<ValueType>, DeclaredMethod)>>,
 
     /// List of command aliases declared in this scope
     pub cmd_aliases: HashMap<String, DeclaredCmdAlias>,
@@ -381,6 +425,9 @@ impl SpecialScopeType {
 /// Variable declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredVar {
+    /// Name location
+    pub decl_at: RuntimeCodeRange,
+
     /// Scope the variable is defined in
     pub scope_id: AstScopeId,
 
@@ -391,6 +438,9 @@ pub struct DeclaredVar {
 /// Function declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredFn {
+    /// Name location
+    pub decl_at: RuntimeCodeRange,
+
     /// Scope the function is defined in
     pub scope_id: AstScopeId,
 }
@@ -398,6 +448,9 @@ pub struct DeclaredFn {
 /// Method declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredMethod {
+    /// Name location
+    pub decl_at: RuntimeCodeRange,
+
     /// Scope the method is defined in
     pub scope_id: AstScopeId,
 }
@@ -405,6 +458,9 @@ pub struct DeclaredMethod {
 /// Command alias declaration
 #[derive(Clone, Copy)]
 pub struct DeclaredCmdAlias {
+    /// Name location
+    pub decl_at: CodeRange,
+
     /// Scope the comment alias is defined in
     pub scope_id: AstScopeId,
 
