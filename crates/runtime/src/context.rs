@@ -759,17 +759,15 @@ impl Context {
 
                     for scope in self.visible_scopes_for(decl_scope) {
                         for ((method_name, on_type), method) in &scope.content.methods {
-                            if name == method_name {
-                                if on_types.insert(on_type.clone()) {
-                                    captured_deps.methods.insert(
-                                        Dependency {
-                                            name: name.clone(),
-                                            declared_in: method.decl_scope_id,
-                                            dep_type: DependencyType::Method,
-                                        },
-                                        method.clone(),
-                                    );
-                                }
+                            if name == method_name && on_types.insert(on_type.clone()) {
+                                captured_deps.methods.insert(
+                                    Dependency {
+                                        name: name.clone(),
+                                        declared_in: method.decl_scope_id,
+                                        dep_type: DependencyType::Method,
+                                    },
+                                    method.clone(),
+                                );
                             }
                         }
                     }

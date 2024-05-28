@@ -60,7 +60,6 @@ pub fn run_cmd(
     let chain = base
         .into_iter()
         .map(|base| (base, None))
-        .into_iter()
         .chain(
             pipes
                 .iter()
