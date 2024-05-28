@@ -1,10 +1,10 @@
 use std::time::Instant;
 
-use parsy::{FileId, Parser};
+use parsy::{CodeRange, FileId, Location, Parser};
 use reedline::{Reedline, Signal};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    context::{Scope, ScopeContent},
+    context::{Scope, ScopeContent, ScopeRange},
     errors::{ExecErrorContent, ExecResult},
     exec::run_in_existing_scope,
     files_map::ScopableFilePath,
@@ -34,17 +34,7 @@ pub fn start() {
 
     let parser = reshell_parser::program();
 
-    with_writable_rt_ctx(|ctx| {
-        let file_id = ctx.register_file(ScopableFilePath::InMemory("repl"), String::new());
-
-        ctx.push_scope(Scope {
-            id: 0,
-            in_file_id: file_id,
-            visible_scopes: vec![],
-            content: ScopeContent::new(),
-            history_entry: None,
-        });
-    });
+    let mut counter = 0;
 
     let mut last_cmd_status = None;
 
@@ -73,7 +63,24 @@ pub fn start() {
         };
 
         with_writable_rt_ctx(|ctx| {
-            ctx.update_current_scope_file(ScopableFilePath::InMemory("repl"), input.clone());
+            counter += 1;
+
+            let file_id = ctx.register_file(
+                ScopableFilePath::InMemoryWithCounter("repl", counter),
+                input.clone(),
+            );
+
+            ctx.push_scope(Scope {
+                range: ScopeRange::CodeRange(CodeRange::new(
+                    Location {
+                        file_id: FileId::Id(file_id),
+                        offset: 0,
+                    },
+                    input.len(),
+                )),
+                history_entry: None,
+                content: ScopeContent::new(),
+            });
         });
 
         let start = Instant::now();
@@ -113,7 +120,7 @@ pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), Reportable
     let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
 
     let parsed = parser
-        .parse_str_as_file(input, FileId::Id(ctx.current_scope().in_file_id))
+        .parse_str_as_file(input, FileId::Id(ctx.current_source_file_id().unwrap()))
         .map_err(ReportableError::ParsingError)?;
 
     run_in_existing_scope(&parsed.data, ctx).map_err(ReportableError::ExecError)

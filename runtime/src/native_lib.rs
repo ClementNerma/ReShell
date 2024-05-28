@@ -11,7 +11,7 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
 
-use crate::context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar};
+use crate::context::{Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar};
 use crate::display::dbg_loc;
 use crate::errors::ExecResult;
 use crate::files_map::ScopableFilePath;
@@ -297,14 +297,11 @@ pub fn generate_native_lib() -> Scope {
         //
         // get path of the current script
         //
-        native_fn!(current_script_path () [ctx, at] -> (String | Null) {
-            match &ctx.current_file().path {
-                ScopableFilePath::InMemory(_) => Ok(Some(RuntimeValue::Null)),
-                ScopableFilePath::RealFile(path) => match path.to_str() {
-                    None => Err(ctx.error(at, "path to current script contains invalid UTF-8 content")),
-                    Some(str) => Ok(Some(RuntimeValue::String(str.to_string())))
-                }
-            }
+        native_fn!(current_script_path () [ctx] -> (String | Null) {
+            Ok(Some(match ctx.current_file_path() {
+                None => RuntimeValue::Null,
+                Some(path) => RuntimeValue::String(path.to_string_lossy().to_string())
+            }))
         }),
         //
         // get the width of the terminal
@@ -505,9 +502,7 @@ pub fn generate_native_lib() -> Scope {
     }
 
     Scope {
-        id: 0,
-        visible_scopes: vec![],
-        in_file_id: 0,
+        range: ScopeRange::Global,
         history_entry: None,
         content,
     }

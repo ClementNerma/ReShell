@@ -6,8 +6,9 @@
 
 use clap::Parser;
 use colored::Colorize;
+use parsy::{CodeRange, FileId, Location};
 use reshell_runtime::{
-    context::{Scope, ScopeContent},
+    context::{Scope, ScopeContent, ScopeRange},
     files_map::ScopableFilePath,
 };
 use state::{with_writable_rt_ctx, RUNTIME_CONTEXT};
@@ -111,9 +112,13 @@ fn run_script(file_path: ScopableFilePath, content: &str, exit_on_fail: bool) {
         let file_id = ctx.register_file(file_path, content.to_string());
 
         ctx.push_scope(Scope {
-            id: 0, // TODO: this means it's a duplicate with native lib, should this be changed?
-            in_file_id: file_id,
-            visible_scopes: vec![],
+            range: ScopeRange::CodeRange(CodeRange::new(
+                Location {
+                    file_id: FileId::Id(file_id),
+                    offset: 0,
+                },
+                content.len(),
+            )),
             content: ScopeContent::new(),
             history_entry: None,
         });

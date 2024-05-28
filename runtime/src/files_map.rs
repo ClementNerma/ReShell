@@ -33,6 +33,7 @@ impl FilesMap {
     pub fn get_file_path(&self, id: u64) -> Option<&PathBuf> {
         self.get_file(id).and_then(|file| match &file.path {
             ScopableFilePath::InMemory(_) => None,
+            ScopableFilePath::InMemoryWithCounter(_, _) => None,
             ScopableFilePath::RealFile(path) => Some(path),
         })
     }
@@ -54,5 +55,6 @@ pub struct SourceFile {
 #[derive(Debug, Clone)]
 pub enum ScopableFilePath {
     InMemory(&'static str),
+    InMemoryWithCounter(&'static str, usize),
     RealFile(PathBuf),
 }

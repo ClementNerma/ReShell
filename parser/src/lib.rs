@@ -4,5 +4,6 @@
 
 pub mod ast;
 mod program;
+mod utils;
 
 pub use program::program;

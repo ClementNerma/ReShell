@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::ast::{SingleCmdCall, ValueType};
 
 use crate::{
@@ -35,7 +35,8 @@ impl Context {
     pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
         ExecError {
             at,
-            file: self.current_file().clone(),
+            in_file: self.current_file_id(),
+            source_file: self.current_file().cloned(),
             content: content.into(),
             in_fork: self.in_fork,
             stack_trace: self.stack_trace(),
@@ -65,18 +66,14 @@ impl Context {
     }
 
     pub fn push_scope(&mut self, scope: Scope) {
-        assert!(
-            self.files_map.has_file(scope.in_file_id),
-            "Provided scope is associated to an unregistered file"
-        );
+        if let Some(file_id) = scope.in_real_file_id() {
+            assert!(
+                self.files_map.has_file(file_id),
+                "Provided scope is associated to an unregistered file"
+            );
+        }
 
         self.scopes.push(scope);
-    }
-
-    // TODO: check if this is *really* safe
-    pub fn update_current_scope_file(&mut self, path: ScopableFilePath, content: String) {
-        // self.current_scope_mut().in_file_id = self.files_map.register_file(path, content);
-        self.scopes.last_mut().unwrap().in_file_id = self.files_map.register_file(path, content);
     }
 
     pub fn mark_as_forked(&mut self) {
@@ -102,39 +99,44 @@ impl Context {
         self.scopes.pop().unwrap()
     }
 
-    pub fn current_file_id(&self) -> u64 {
-        self.current_scope().in_file_id
+    pub fn current_file_id(&self) -> Option<FileId> {
+        self.current_scope().in_file_id()
     }
 
-    pub fn current_file(&self) -> &SourceFile {
-        self.files_map.get_file(self.current_file_id()).unwrap()
+    pub fn current_source_file_id(&self) -> Option<u64> {
+        self.current_scope().in_real_file_id()
+    }
+
+    pub fn current_file(&self) -> Option<&SourceFile> {
+        self.current_source_file_id()
+            .and_then(|file_id| self.files_map.get_file(file_id))
     }
 
     pub fn current_file_path(&self) -> Option<&PathBuf> {
-        self.files_map.get_file_path(self.current_file_id())
+        self.current_source_file_id()
+            .and_then(|file_id| self.files_map.get_file_path(file_id))
     }
 
     pub fn register_file(&mut self, path: ScopableFilePath, content: String) -> u64 {
         self.files_map.register_file(path, content)
     }
 
+    // TODO: accelerate this (cache available ranges when creating scope?)
     pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
-        self.scopes.iter().filter(|scope| {
-            scope.id == 0
-                || self
-                    .current_scope()
-                    .visible_scopes
-                    .iter()
-                    .any(|id| scope.id == *id)
-        })
+        let current_scope_range = self.current_scope().range;
+
+        self.scopes
+            .iter()
+            .filter(move |scope| scope.covers_scope(current_scope_range))
     }
 
+    // // TODO: accelerate this (cache available ranges when creating scope?)
     pub fn visible_scopes_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut Scope> {
-        let visible_scopes = self.current_scope().visible_scopes.clone();
+        let current_scope_range = self.current_scope().range;
 
         self.scopes
             .iter_mut()
-            .filter(move |scope| scope.id == 0 || visible_scopes.iter().any(|id| scope.id == *id))
+            .filter(move |scope| scope.covers_scope(current_scope_range))
     }
 
     pub fn all_vars(&self) -> impl Iterator<Item = (&String, &ScopeVar)> {
@@ -210,11 +212,63 @@ impl Context {
 
 #[derive(Debug, Clone)]
 pub struct Scope {
-    pub id: u64,
-    pub visible_scopes: Vec<u64>,
-    pub in_file_id: u64,
+    pub range: ScopeRange,
     pub history_entry: Option<StackTraceEntry>,
     pub content: ScopeContent,
+}
+
+impl Scope {
+    fn in_file_id(&self) -> Option<FileId> {
+        match self.range {
+            ScopeRange::Global => None,
+            ScopeRange::CodeRange(range) => Some(range.start.file_id),
+        }
+    }
+
+    fn in_real_file_id(&self) -> Option<u64> {
+        match self.range {
+            ScopeRange::Global => None,
+            ScopeRange::CodeRange(range) => match range.start.file_id {
+                FileId::None | FileId::Internal | FileId::Custom(_) => None,
+                FileId::Id(id) => Some(id),
+            },
+        }
+    }
+
+    fn covers(&self, range: CodeRange) -> bool {
+        match self.range {
+            ScopeRange::Global => true,
+            ScopeRange::CodeRange(scope_range) => match scope_range.start.file_id {
+                FileId::None | FileId::Internal | FileId::Custom(_) => true,
+                FileId::Id(id) => match range.start.file_id {
+                    FileId::None => unreachable!(),
+                    FileId::Id(file_id) => {
+                        id == file_id
+                            && range.start.offset >= scope_range.start.offset
+                            && range.start.offset + range.len
+                                <= scope_range.start.offset + scope_range.len
+                    }
+                    FileId::Internal | FileId::Custom(_) => false,
+                },
+            },
+        }
+    }
+
+    fn covers_scope(&self, range: ScopeRange) -> bool {
+        match range {
+            ScopeRange::Global => match self.range {
+                ScopeRange::Global => true,
+                ScopeRange::CodeRange(_) => false,
+            },
+            ScopeRange::CodeRange(range) => self.covers(range),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum ScopeRange {
+    Global,
+    CodeRange(CodeRange),
 }
 
 #[derive(Debug, Clone)]

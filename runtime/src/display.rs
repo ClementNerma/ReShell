@@ -125,6 +125,10 @@ pub fn dbg_loc(at: CodeRange, files_map: &FilesMap) -> String {
                 "{}:{}:{}",
                 match &file.path {
                     ScopableFilePath::InMemory(name) => format!("<{name}>"),
+
+                    ScopableFilePath::InMemoryWithCounter(name, counter) =>
+                        format!("<{name}[{counter}]>"),
+
                     ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
                 },
                 line,

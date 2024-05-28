@@ -5,7 +5,7 @@ use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
-    context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar},
+    context::{Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
     errors::{ExecResult, StackTraceEntry},
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
@@ -70,15 +70,12 @@ pub fn run_block_with_options(
     history_entry: Option<StackTraceEntry>,
 ) -> ExecResult<(Scope, Option<InstrRet>)> {
     let Block {
-        id,
-        visible_scopes,
         instructions: _,
+        code_range,
     } = block;
 
     ctx.push_scope(Scope {
-        id: *id,
-        visible_scopes: visible_scopes.clone(),
-        in_file_id: ctx.current_file_id(),
+        range: ScopeRange::CodeRange(*code_range),
         history_entry,
         content,
     });
@@ -90,9 +87,8 @@ pub fn run_block_with_options(
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     let Block {
-        id: _,
-        visible_scopes: _,
         instructions,
+        code_range: _,
     } = block;
 
     for instr in instructions {
