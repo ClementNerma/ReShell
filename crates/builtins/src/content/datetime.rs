@@ -1,5 +1,5 @@
 use time::{
-    format_description,
+    format_description::{self, well_known::Rfc2822},
     util::local_offset::{set_soundness, Soundness},
     OffsetDateTime, UtcOffset,
 };
@@ -10,7 +10,7 @@ define_internal_fn!(
     "datetime",
 
     (
-        format: RequiredArg<StringType> = Arg::positional("format")
+        format: OptionalArg<StringType> = Arg::positional("format")
     )
 
     -> Some(StringType::direct_underlying_type())
@@ -22,18 +22,25 @@ fn run() -> Runner {
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
 
-        let format = format_description::parse(&format).map_err(|err| {
-            ctx.error(
-                format_at,
-                format!("Failed to parse date/time formatting: {err}"),
-            )
-        })?;
+        let out = match format {
+            Some(format) => {
+                let format = format_description::parse(&format).map_err(|err| {
+                    ctx.error(
+                        format_at.unwrap(),
+                        format!("Failed to parse date/time formatting: {err}"),
+                    )
+                })?;
 
-        let formatted = now
-            .format(&format)
-            .map_err(|err| ctx.error(at, format!("Failed to format date/time: {err}")))?;
+                now.format(&format)
+                    .map_err(|err| ctx.error(at, format!("Failed to format date/time: {err}")))?
+            }
 
-        Ok(Some(RuntimeValue::String(formatted)))
+            None => now
+                .format(&Rfc2822)
+                .map_err(|err| ctx.error(at, format!("Failed to format date/time: {err}")))?,
+        };
+
+        Ok(Some(RuntimeValue::String(out)))
     })
 }
 
