@@ -812,7 +812,7 @@ pub fn program(
             // Variables
             var_name.spanned().map(CmdValueMakingArg::VarName),
             // Raw argument (but not flags, which aren't value making arguments)
-            not(char('-')).ignore_then(cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw)),
+            cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw),
         ));
 
         cmd_flag_arg.finish(
@@ -820,7 +820,13 @@ pub fn program(
                 .spanned()
                 .then(
                     choice((
-                        s.to(FlagValueSeparator::Space),
+                        s
+                            // Flags must be exlucded, otherwise '-a -b'
+                            // would have '-b' considered as the value for '-a'
+                            .not_followed_by(char('-'))
+                            // Same thing goes for rest arguments
+                            .not_followed_by(just("...$"))
+                            .to(FlagValueSeparator::Space),
                         char('=').to(FlagValueSeparator::Equal),
                     ))
                     .then(cmd_value_making_arg.clone().spanned())
