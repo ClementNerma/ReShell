@@ -1,6 +1,4 @@
-use std::fs;
-use std::time::Instant;
-use std::{collections::HashMap, env::VarError, path::Path};
+use std::{collections::HashMap, env::VarError, fs, path::Path, time::Instant};
 
 use colored::Colorize;
 use fork::{fork, Fork};
@@ -11,10 +9,10 @@ use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, Value
 use reshell_parser::program;
 use terminal_size::{terminal_size, Height, Width};
 
-use crate::context::NATIVE_LIB_SCOPE_ID;
-use crate::values::CapturedDependencies;
 use crate::{
-    context::{CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
+    context::{
+        CallStack, Context, Scope, ScopeContent, ScopeFn, ScopeRange, ScopeVar, NATIVE_LIB_SCOPE_ID,
+    },
     display::dbg_loc,
     errors::ExecResult,
     files_map::ScopableFilePath,
@@ -22,7 +20,7 @@ use crate::{
     gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
     typechecker::check_fn_equality,
-    values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{CapturedDependencies, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
 macro_rules! native_fn {
