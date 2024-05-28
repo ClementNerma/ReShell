@@ -48,19 +48,19 @@ impl RlEditMode for EditMode {
                 }
 
                 (KeyCode::Left, KeyModifiers::CONTROL) => {
-                    ReedlineEvent::Edit(vec![EditCommand::MoveWordLeft])
+                    ReedlineEvent::Edit(vec![EditCommand::MoveWordLeft { select: false }])
                 }
 
                 (KeyCode::Right, KeyModifiers::CONTROL) => {
-                    ReedlineEvent::Edit(vec![EditCommand::MoveWordRight])
+                    ReedlineEvent::Edit(vec![EditCommand::MoveWordRight { select: false }])
                 }
 
                 (KeyCode::Home, KeyModifiers::NONE) => {
-                    ReedlineEvent::Edit(vec![EditCommand::MoveToStart])
+                    ReedlineEvent::Edit(vec![EditCommand::MoveToStart { select: false }])
                 }
 
                 (KeyCode::End, KeyModifiers::NONE) => {
-                    ReedlineEvent::Edit(vec![EditCommand::MoveToEnd])
+                    ReedlineEvent::Edit(vec![EditCommand::MoveToEnd { select: false }])
                 }
 
                 (KeyCode::Backspace, KeyModifiers::NONE) => {
