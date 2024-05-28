@@ -688,6 +688,16 @@ pub fn program(
                             catch_expr_scope_id: scope_id_gen_bis.gen(),
                         },
                     ),
+                // Throws
+                just("throw")
+                    .ignore_then(ms)
+                    .ignore_then(
+                        expr.clone()
+                            .map(Box::new)
+                            .spanned()
+                            .critical("expected an expression to throw"),
+                    )
+                    .map(ExprInnerContent::Throw),
                 // Simple values
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))

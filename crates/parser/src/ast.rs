@@ -94,7 +94,7 @@ pub enum Instruction {
     /// Function return statement
     FnReturn { expr: Option<Eaten<Expr>> },
 
-    /// Function throw statement
+    /// Throw statement
     Throw(Eaten<Expr>),
 
     /// Try block
@@ -184,6 +184,7 @@ pub enum ExprInnerContent {
         catch_expr: Eaten<Box<Expr>>,
         catch_expr_scope_id: AstScopeId,
     },
+    Throw(Eaten<Box<Expr>>),
 }
 
 #[derive(Debug, Clone)]
