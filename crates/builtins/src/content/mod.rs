@@ -21,10 +21,12 @@ mod file_exists;
 mod filter;
 mod find_str;
 mod fold;
+mod get;
 mod glob;
 mod human_size;
 mod inspect;
 mod join;
+mod json;
 mod keys;
 mod len;
 mod lines;
@@ -85,10 +87,12 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::exit::build_fn(),
             self::file_exists::build_fn(),
             self::fold::build_fn(),
+            self::get::build_fn(),
             self::glob::build_fn(),
             self::human_size::build_fn(),
             self::inspect::build_fn(),
             self::join::build_fn(),
+            self::json::build_fn(),
             self::len::build_fn(),
             self::lines::build_fn(),
             self::filter::build_fn(),

@@ -17,7 +17,7 @@ use reshell_runtime::{conf::RuntimeConf, context::Context};
 
 use self::cmd::Args;
 use self::exec::run_script;
-use self::paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_DATA_DIR};
+use self::paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_CONFIG_DIR, SHELL_LOCAL_DATA_DIR};
 use self::reports::ReportableError;
 use self::utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request};
 
@@ -58,12 +58,24 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     // Set up Ctrl+C handler
     setup_ctrl_c_handler().map_err(|err| format!("Failed to setup Ctrl+C handler: {err}"))?;
 
-    // Create shell's data directory
-    if let Some(dir) = &*SHELL_DATA_DIR {
+    // Create shell's config directory
+    if let Some(dir) = &*SHELL_CONFIG_DIR {
         if !dir.exists() {
             if let Err(err) = fs::create_dir_all(dir) {
                 print_err(format!(
-                    "Failed to create data directory for the shell at path '{}': {err}",
+                    "Failed to create config directory for the shell at path '{}': {err}",
+                    dir.display()
+                ));
+            }
+        }
+    }
+
+    // Create shell's local data directory
+    if let Some(dir) = &*SHELL_LOCAL_DATA_DIR {
+        if !dir.exists() {
+            if let Err(err) = fs::create_dir_all(dir) {
+                print_err(format!(
+                    "Failed to create local data directory for the shell at path '{}': {err}",
                     dir.display()
                 ));
             }
