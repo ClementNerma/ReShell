@@ -3,28 +3,36 @@ use reedline::StyledText;
 use regex::Regex;
 
 pub struct SyntaxHighlighter<'a> {
-    text: &'a str,
-    items: Vec<Highlighted>,
+    input: &'a str,
+    highlighted: Vec<Highlighted>,
 }
 
 impl<'a> SyntaxHighlighter<'a> {
     pub fn new(text: &'a str) -> Self {
         Self {
-            text,
-            items: vec![],
+            input: text,
+            highlighted: vec![],
         }
     }
 
-    pub fn highlight(&mut self, regex: Regex, styles: &[Style]) {
+    pub fn input(&self) -> &'a str {
+        self.input
+    }
+
+    pub fn highlighted(&self) -> &[Highlighted] {
+        &self.highlighted
+    }
+
+    pub fn regex(&mut self, regex: Regex, styles: &[Style]) {
         let mut items = vec![];
 
-        for cap in regex.captures_iter(self.text) {
+        for cap in regex.captures_iter(self.input) {
             assert_eq!(cap.len() - 1, styles.len());
 
             for (i, style) in styles.iter().enumerate() {
                 let cap = cap.get(i + 1).unwrap();
 
-                if self.items.iter().any(|item| {
+                if self.highlighted.iter().any(|item| {
                     cap.start() < item.start + item.len && item.start < cap.start() + cap.len()
                 }) {
                     continue;
@@ -38,7 +46,18 @@ impl<'a> SyntaxHighlighter<'a> {
             }
         }
 
-        self.items.extend(items);
+        self.highlighted.extend(items);
+    }
+
+    pub fn range(&mut self, start: usize, len: usize, style: Style) {
+        assert!(self.input[start..start + len].len() == len);
+
+        assert!(!self
+            .highlighted
+            .iter()
+            .any(|item| { start < item.start + item.len && item.start < start + len }));
+
+        self.highlighted.push(Highlighted { start, len, style });
     }
 
     // pub fn highlight_with(&mut self, regex: Regex, stylize: impl Fn(&str) -> StyledText) {
@@ -66,18 +85,18 @@ impl<'a> SyntaxHighlighter<'a> {
     // }
 
     pub fn finalize(mut self, blank_style: Style) -> StyledText {
-        self.items.sort_by_key(|item| item.start);
+        self.highlighted.sort_by_key(|item| item.start);
 
         let mut out = StyledText::new();
 
         let mut last_pos = 0;
 
-        for Highlighted { start, len, style } in self.items {
+        for Highlighted { start, len, style } in self.highlighted {
             if start > last_pos {
-                out.push((blank_style, self.text[last_pos..start].to_string()));
+                out.push((blank_style, self.input[last_pos..start].to_string()));
             }
 
-            out.push((style, self.text[start..start + len].to_string()));
+            out.push((style, self.input[start..start + len].to_string()));
 
             // match render_as {
             //     Stylized::Style(style) => {
@@ -96,19 +115,19 @@ impl<'a> SyntaxHighlighter<'a> {
             last_pos = start + len;
         }
 
-        if self.text.len() > last_pos {
-            out.push((blank_style, self.text[last_pos..].to_string()));
+        if self.input.len() > last_pos {
+            out.push((blank_style, self.input[last_pos..].to_string()));
         }
 
         out
     }
 }
 
-struct Highlighted {
-    start: usize,
-    len: usize,
+pub struct Highlighted {
+    pub start: usize,
+    pub len: usize,
     // render_as: Stylized,
-    style: Style,
+    pub style: Style,
 }
 
 // enum Stylized {

@@ -47,6 +47,8 @@ pub enum RuntimeValue {
     Error { at: CodeRange, msg: String },
 }
 
+// TODO: escapes (backslashes) in strings!!!!
+
 impl RuntimeValue {
     pub fn get_type(&self) -> SingleValueType {
         match self {
