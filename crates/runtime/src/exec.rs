@@ -59,6 +59,9 @@ fn run_block(
     ctx: &mut Context,
     content: Option<ScopeContent>,
 ) -> ExecResult<Option<InstrRet>> {
+    // Handle any Ctrl+C press
+    ctx.ensure_no_ctrl_c_press(block.at)?;
+
     ctx.create_and_push_scope(
         block.data.scope_id,
         content.unwrap_or_else(ScopeContent::new),
@@ -79,6 +82,10 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 
     // First pass: collect functions declaration
     for instr in instructions {
+        // Handle any Ctrl+C press
+        ctx.ensure_no_ctrl_c_press(instr.at)?;
+
+        // Run the instruction
         match &instr.data {
             Instruction::FnDecl { name, content } => {
                 let parent_scopes = ctx.generate_parent_scopes_list();
