@@ -6,8 +6,8 @@ use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
-    context::{Context, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
-    errors::{CallStackEntry, ExecResult},
+    context::{CallStackEntry, Context, ScopeContent, ScopeFn, ScopeRange, ScopeVar},
+    errors::ExecResult,
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
     gc::GcCell,

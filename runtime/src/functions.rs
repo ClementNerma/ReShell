@@ -7,8 +7,8 @@ use reshell_parser::ast::{
 
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
-    context::{Context, ScopeContent, ScopeVar},
-    errors::{CallStackEntry, ExecResult},
+    context::{CallStackEntry, Context, ScopeContent, ScopeVar},
+    errors::ExecResult,
     exec::{run_called_block, InstrRet, InstrRetType},
     expr::eval_expr,
     gc::GcCell,

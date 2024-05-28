@@ -1,6 +1,9 @@
 use parsy::{CodeRange, FileId, ParsingError};
 
-use crate::{context::ScopeRange, files_map::SourceFile};
+use crate::{
+    context::{CallStack, ScopeRange},
+    files_map::SourceFile,
+};
 
 pub type ExecResult<T> = Result<T, ExecError>;
 
@@ -41,16 +44,4 @@ impl From<ParsingError> for ExecErrorContent {
     fn from(value: ParsingError) -> Self {
         Self::ParsingErr(value)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct CallStackEntry {
-    pub fn_called_at: CodeRange,
-    pub previous_scope: u64,
-    // pub args: Vec<RuntimeValue>,
-}
-
-#[derive(Debug, Clone)]
-pub struct CallStack {
-    pub history: Vec<CallStackEntry>,
 }
