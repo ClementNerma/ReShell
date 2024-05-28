@@ -644,6 +644,18 @@ fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
 fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
         FnCallArg::Expr(expr) => check_expr(&expr.data, state),
+        FnCallArg::Flag(flag) => {
+            let CmdFlagArg {
+                name: _,
+                value,
+                raw: _,
+            } = &flag.data;
+
+            match value {
+                Some(value) => check_cmd_value_making_arg(&value.data, state),
+                None => Ok(()),
+            }
+        }
         FnCallArg::CmdArg(cmd_arg) => check_cmd_arg(cmd_arg, state),
     }
 }

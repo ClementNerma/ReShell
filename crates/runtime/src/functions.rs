@@ -2,12 +2,12 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    CmdFlagNameArg, FnArg, FnArgNames, FnCall, FnCallArg, RuntimeCodeRange, SingleValueType,
-    ValueType,
+    CmdFlagArg, CmdFlagNameArg, FnArg, FnArgNames, FnCall, FnCallArg, RuntimeCodeRange,
+    SingleValueType, ValueType,
 };
 
 use crate::{
-    cmd::{eval_cmd_arg, CmdArgResult, CmdSingleArgResult},
+    cmd::{eval_cmd_arg, eval_cmd_value_making_arg, CmdArgResult, CmdSingleArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeVar},
     errors::ExecResult,
     exec::{run_body_with_deps, InstrRet},
@@ -386,6 +386,24 @@ fn flatten_fn_call_args(
                                 eval,
                                 RuntimeCodeRange::Parsed(expr.at),
                             )),
+                        ))
+                    }
+
+                    FnCallArg::Flag(flag) => {
+                        let CmdFlagArg { name, value, raw } = &flag.data;
+
+                        let value = value
+                            .as_ref()
+                            .map(|value| eval_cmd_value_making_arg(&value.data, ctx))
+                            .transpose()?;
+
+                        out.push((
+                            RuntimeCodeRange::Parsed(flag.at),
+                            CmdSingleArgResult::Flag {
+                                name: name.clone(),
+                                value,
+                                raw: raw.clone(),
+                            },
                         ))
                     }
 

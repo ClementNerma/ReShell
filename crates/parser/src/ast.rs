@@ -388,6 +388,7 @@ pub struct FnCall {
 #[derive(Debug, Clone)]
 pub enum FnCallArg {
     Expr(Eaten<Expr>),
+    Flag(Eaten<CmdFlagArg>),
     CmdArg(Eaten<CmdArg>),
 }
 

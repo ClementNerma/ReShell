@@ -40,6 +40,8 @@ pub fn program() -> impl Parser<Program> {
         let cmd_call = late::<CmdCall>();
         let expr = late::<Expr>();
 
+        let cmd_flag_arg = late::<CmdFlagArg>();
+
         let fn_signature = late::<FnSignature>();
 
         let value_type = late::<ValueType>();
@@ -237,13 +239,14 @@ pub fn program() -> impl Parser<Program> {
             .spanned()
             .then_ignore(char('('))
             .then(
-                expr.clone()
-                    .spanned()
-                    .map(FnCallArg::Expr)
-                    .spanned()
-                    .padded()
-                    .separated_by(char(','))
-                    .spanned(),
+                choice::<_, FnCallArg>((
+                    cmd_flag_arg.clone().spanned().map(FnCallArg::Flag),
+                    expr.clone().spanned().map(FnCallArg::Expr),
+                ))
+                .spanned()
+                .padded()
+                .separated_by(char(','))
+                .spanned(),
             )
             .then_ignore(char(')').critical("expected an expression"))
             .map(|(name, call_args)| FnCall {
@@ -755,15 +758,17 @@ pub fn program() -> impl Parser<Program> {
             cmd_raw.spanned().map(CmdValueMakingArg::Raw),
         ));
 
-        let cmd_flag_arg = cmd_flag_name_arg
-            .spanned()
-            .then(
-                choice((s.map(|_| ()), char('=').map(|_| ())))
-                    .ignore_then(cmd_value_making_arg.clone().spanned())
-                    .or_not(),
-            )
-            .collect_string_and_data()
-            .map(|(raw, (name, value))| CmdFlagArg { name, value, raw });
+        cmd_flag_arg.finish(
+            cmd_flag_name_arg
+                .spanned()
+                .then(
+                    choice((s.map(|_| ()), char('=').map(|_| ())))
+                        .ignore_then(cmd_value_making_arg.clone().spanned())
+                        .or_not(),
+                )
+                .collect_string_and_data()
+                .map(|(raw, (name, value))| CmdFlagArg { name, value, raw }),
+        );
 
         let cmd_arg = choice::<_, CmdArg>((
             // Flag arguments
