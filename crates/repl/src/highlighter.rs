@@ -130,7 +130,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 ]),
 
                 // Flags
-                simple("\\s(\\-[\\-a-zA-Z0-9_]*)", [LightYellow]),
+                simple("\\s(\\-[a-zA-Z0-9_-]*)", [LightYellow]),
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
@@ -159,7 +159,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 simple("\\b(null)\\b", [LightYellow]),
 
                 // Flags
-                simple("\\s(\\-[\\-a-zA-Z0-9_]*)", [LightYellow]),
+                simple("\\s(\\-[\\-a-zA-Z0-9_-]*)", [LightYellow]),
 
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
