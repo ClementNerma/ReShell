@@ -1,17 +1,16 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    fmt::Debug,
-};
+use std::{collections::HashMap, fmt::Debug};
 
+use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, MaybeEaten};
 use reshell_parser::ast::{Block, FnSignature, SingleValueType, StructTypeMember, ValueType};
 
-use crate::{context::Context, errors::ExecResult};
+use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 #[derive(Debug, Clone)]
 pub struct RuntimeFnValue {
     pub signature: FnSignature,
     pub body: RuntimeFnBody,
+    pub parent_scopes: IndexSet<u64>,
 }
 
 #[derive(Clone)]
@@ -34,19 +33,22 @@ impl Debug for RuntimeFnBody {
 
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
+    // Primitives
+    // These can be cloned cheaply
     Null,
     Bool(bool),
     Int(i64),
     Float(f64),
     String(String),
-    List(Vec<RuntimeValue>),
     Range { from: usize, to: usize },
-    // TODO: replace with an IndexMap
-    Map(BTreeMap<String, RuntimeValue>),
-    // TODO: replace with an IndexMap
-    Struct(BTreeMap<String, RuntimeValue>),
-    Function(RuntimeFnValue),
     Error { at: CodeRange, msg: String },
+
+    // Containers
+    // These can be cloned cheaply thanks to them using a GcCell
+    List(GcCell<Vec<RuntimeValue>>),
+    Map(GcCell<IndexMap<String, RuntimeValue>>),
+    Struct(GcCell<IndexMap<String, RuntimeValue>>),
+    Function(GcCell<RuntimeFnValue>),
 }
 
 impl RuntimeValue {
@@ -62,6 +64,7 @@ impl RuntimeValue {
             RuntimeValue::Map(_) => SingleValueType::Map,
             RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
                 members
+                    .read()
                     .iter()
                     .map(|(name, value)| {
                         MaybeEaten::Raw(StructTypeMember {
@@ -73,11 +76,28 @@ impl RuntimeValue {
                     })
                     .collect(),
             ),
-            RuntimeValue::Function(RuntimeFnValue { signature, body: _ }) => {
+            RuntimeValue::Function(content) => {
                 // TODO: performance
-                SingleValueType::Function(signature.clone())
+                SingleValueType::Function(content.read().signature.clone())
             }
             RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
+        }
+    }
+
+    pub fn is_primitive(&self) -> bool {
+        match self {
+            RuntimeValue::Null
+            | RuntimeValue::Bool(_)
+            | RuntimeValue::Int(_)
+            | RuntimeValue::Float(_)
+            | RuntimeValue::String(_)
+            | RuntimeValue::Range { from: _, to: _ }
+            | RuntimeValue::Error { at: _, msg: _ } => true,
+
+            RuntimeValue::List(_)
+            | RuntimeValue::Map(_)
+            | RuntimeValue::Struct(_)
+            | RuntimeValue::Function(_) => false,
         }
     }
 }
@@ -119,9 +139,10 @@ pub fn are_values_equal(
         (RuntimeValue::String(a), RuntimeValue::String(b)) => Ok(a == b),
         (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Ok(false),
 
-        (RuntimeValue::List(a), RuntimeValue::List(b)) => Ok(a.len() == b.len()
-            && a.iter()
-                .zip(b.iter())
+        (RuntimeValue::List(a), RuntimeValue::List(b)) => Ok(a.read().len() == b.read().len()
+            && a.read()
+                .iter()
+                .zip(b.read().iter())
                 .all(|(a, b)| are_values_equal(a, b).unwrap_or(false))),
         (RuntimeValue::List(_), _) | (_, RuntimeValue::List(_)) => Ok(false),
 
@@ -138,17 +159,19 @@ pub fn are_values_equal(
         (RuntimeValue::Range { from: _, to: _ }, _)
         | (_, RuntimeValue::Range { from: _, to: _ }) => Ok(false),
 
-        (RuntimeValue::Map(a), RuntimeValue::Map(b)) => Ok(a.len() == b.len()
-            && a.iter()
-                .zip(b.iter())
+        (RuntimeValue::Map(a), RuntimeValue::Map(b)) => Ok(a.read().len() == b.read().len()
+            && a.read()
+                .iter()
+                .zip(b.read().iter())
                 .all(|((a_key, a_value), (b_key, b_value))| {
                     a_key == b_key && are_values_equal(a_value, b_value).unwrap_or(false)
                 })),
         (RuntimeValue::Map(_), _) | (_, RuntimeValue::Map(_)) => Ok(false),
 
-        (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => Ok(a.len() == b.len()
-            && a.iter()
-                .zip(b.iter())
+        (RuntimeValue::Struct(a), RuntimeValue::Struct(b)) => Ok(a.read().len() == b.read().len()
+            && a.read()
+                .iter()
+                .zip(b.read().iter())
                 .all(|((a_key, a_value), (b_key, b_value))| {
                     a_key == b_key && are_values_equal(a_value, b_value).unwrap_or(false)
                 })),

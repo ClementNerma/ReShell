@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-
+use indexmap::IndexMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
@@ -12,8 +11,9 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     functions::{call_fn, fail_if_thrown},
+    gc::GcCell,
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
+    props::{eval_props_access, PropAccessPolicy},
     values::{are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
@@ -195,7 +195,6 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     let ExprInner { content, prop_acc } = &inner.data;
 
     let mut left = eval_expr_inner_content(&content.data, ctx)?;
-    let mut left = &mut left;
 
     for acc in prop_acc {
         let PropAccess { nature, nullable } = &acc.data;
@@ -205,18 +204,19 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
         }
 
         // TODO: this may be slow for such a widely-used function
-        let suite = make_prop_access_suite([&nature.data].into_iter(), ctx)?;
-
-        left = eval_prop_access_suite(
-            left,
-            [nature].into_iter(),
-            suite,
+        left = eval_props_access(
+            // TODO: don't clone here
+            left.clone(),
+            // TODO: don't clone here
+            &[nature.clone()],
             PropAccessPolicy::ExistingOnly,
-        )
-        .map_err(|err| err(ctx))?;
+            ctx,
+            // TODO: don't clone here
+            |d, _| d.clone(),
+        )?;
     }
 
-    Ok(left.clone())
+    Ok(left)
 }
 
 fn eval_expr_inner_content(
@@ -305,21 +305,34 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         Value::ComputedString(computed_str) => {
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)
         }
-        Value::List(values) => Ok(RuntimeValue::List(
+        Value::List(values) => Ok(RuntimeValue::List(GcCell::new(
             values
                 .iter()
                 .map(|expr| eval_expr(&expr.data, ctx))
                 .collect::<Result<Vec<_>, _>>()?,
-        )),
-        Value::Object(obj) => {
-            let props = obj
+        ))),
+        Value::Struct(obj) => {
+            let members = obj
                 .iter()
                 .map(|(name, expr)| eval_expr(&expr.data, ctx).map(|value| (name.clone(), value)))
-                .collect::<Result<BTreeMap<String, RuntimeValue>, _>>()?;
+                .collect::<Result<IndexMap<String, RuntimeValue>, _>>()?;
 
-            Ok(RuntimeValue::Struct(props))
+            Ok(RuntimeValue::Struct(GcCell::new(members)))
         }
-        Value::Variable(name) => ctx.get_var_value(name).map(|value| value.clone()),
+        Value::Variable(name) => Ok(ctx
+            .get_visible_var(name)
+            .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
+            .read()
+            .value
+            .as_ref()
+            .ok_or_else(|| {
+                ctx.error(
+                    name.at,
+                    "trying to use variable before it is assigned a value",
+                )
+            })?
+            .value
+            .clone()),
         Value::FnAsValue(name) => Ok(RuntimeValue::Function(
             ctx.get_visible_fn_value(name)?.clone(),
         )),
@@ -339,11 +352,14 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 } => Ok(RuntimeValue::Bool(false)),
             },
         },
-        // TODO: performance
-        Value::Closure { signature, body } => Ok(RuntimeValue::Function(RuntimeFnValue {
-            signature: signature.clone(),
-            body: RuntimeFnBody::Block(body.clone()),
-        })),
+        Value::Closure { signature, body } => {
+            Ok(RuntimeValue::Function(GcCell::new(RuntimeFnValue {
+                signature: signature.clone(),
+                // TODO: compute and store which values this references
+                body: RuntimeFnBody::Block(body.clone()),
+                parent_scopes: ctx.current_scope().parent_scopes.clone(),
+            })))
+        }
     }
 }
 
@@ -381,7 +397,18 @@ fn eval_computed_string_piece(
         }
         .to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
-            ctx.get_var_value(var_name)?,
+            &ctx.get_visible_var(var_name)
+                .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
+                .read()
+                .value
+                .as_ref()
+                .ok_or_else(|| {
+                    ctx.error(
+                        var_name.at,
+                        "trying to use variable before it is assigned a value",
+                    )
+                })?
+                .value,
             var_name.at,
             ctx,
         )?),

@@ -265,7 +265,11 @@ fn develop_aliases<'a>(
         CmdPath::ComputedString(_) => return Cow::Borrowed(call),
     };
 
-    for (alias_name, alias_cmd) in ctx.all_cmd_aliases() {
+    let all_cmd_aliases = ctx
+        .visible_scopes()
+        .flat_map(|scope| scope.content.cmd_aliases.iter());
+
+    for (alias_name, alias_cmd) in all_cmd_aliases {
         if &cmd_path.data == alias_name {
             let mut call = call.clone();
 
@@ -368,7 +372,21 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::ComputedString(computed_str) => Ok(CmdArgResult::Single(
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?,
         )),
-        CmdArg::VarName(name) => Ok(CmdArgResult::Single(ctx.get_var_value(name)?.clone())),
+        CmdArg::VarName(name) => Ok(CmdArgResult::Single(
+            ctx.get_visible_var(name)
+                .ok_or_else(|| ctx.error(name.at, "variable was not found"))?
+                .read()
+                .value
+                .as_ref()
+                .ok_or_else(|| {
+                    ctx.error(
+                        name.at,
+                        "trying to use variable before it is assigned a value",
+                    )
+                })?
+                .value
+                .clone(),
+        )),
         CmdArg::FnAsValue(name) => Ok(CmdArgResult::Single(RuntimeValue::Function(
             ctx.get_visible_fn_value(name)?.clone(),
         ))),
@@ -380,21 +398,33 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             raw, ctx,
         )?))),
         CmdArg::SpreadVar(var_name) => {
-            let value = ctx.get_var_value(var_name)?;
+            let var = ctx
+                .get_visible_var(var_name)
+                .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
+                .read();
 
-            let RuntimeValue::List(items) = &value else {
+            let value = var.value.as_ref().ok_or_else(|| {
+                ctx.error(
+                    var_name.at,
+                    "trying to use variable before it is assigned a value",
+                )
+            })?;
+
+            let RuntimeValue::List(items) = &value.value else {
                 return Err(ctx.error(
                     var_name.at,
                     format!(
                         "expected a list to spread, found a {}",
                         value
+                            .value
                             .get_type()
                             .render_colored(ctx, PrettyPrintOptions::inline())
                     ),
                 ));
             };
 
-            Ok(CmdArgResult::Spreaded(items.clone()))
+            let items = items.read().iter().cloned().collect();
+            Ok(CmdArgResult::Spreaded(items))
         }
     }
 }

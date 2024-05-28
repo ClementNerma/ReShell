@@ -7,7 +7,6 @@ pub type ExecResult<T> = Result<T, ExecError>;
 #[derive(Debug)]
 pub struct ExecError {
     pub at: CodeRange,
-    pub in_fork: bool,
     pub in_file: Option<FileId>,
     pub source_file: Option<SourceFile>,
     pub content: ExecErrorContent,
