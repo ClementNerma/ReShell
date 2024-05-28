@@ -38,7 +38,7 @@ pub fn create_completion_menu() -> ReedlineMenu {
 }
 
 pub type ExternalCompleter =
-    Box<dyn Fn(&str, &mut Context) -> Vec<ExternalCompletion> + Send + Sync>;
+    Box<dyn Fn(&[Cow<str>], &mut Context) -> Vec<ExternalCompletion> + Send + Sync>;
 
 #[derive(Debug)]
 pub struct ExternalCompletion {
@@ -104,57 +104,58 @@ pub fn generate_completions(
         return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
             complete_path(word, span, ctx)
         } else {
-            complete_var_name(&unescape(s_word), Some("$"), span, ctx)
+            complete_var_name(s_word, Some("$"), span, ctx)
         };
     }
 
     // TODO: only complete if inside expression
     if let Some(s_word) = word.strip_prefix('@') {
         return sort_results(
-            &unescape(word),
-            build_fn_completions(&unescape(s_word), next_char, Some("@"), span, ctx).collect(),
+            word,
+            build_fn_completions(s_word, next_char, Some("@"), span, ctx).collect(),
         );
     }
 
-    if after_cmd_separator {
-        let word = unescape(word);
-
+    if after_cmd_separator && !word.starts_with(['\'', '"']) {
         if let Some(s_word) = word.strip_prefix('.') {
             return sort_results(
-                &word,
-                build_method_completions(&unescape(s_word), Some("."), span, ctx).collect(),
+                word,
+                build_method_completions(s_word, Some("."), span, ctx).collect(),
             );
         }
 
-        let mut cmd_comp = build_cmd_completions(&word, next_char, span)
+        let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
             .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(&word, next_char, None, span, ctx));
+        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
 
-        return sort_results(&word, cmd_comp);
+        return sort_results(word, cmd_comp);
     }
 
-    if !after_space && !word.contains(['/', '\\']) {
-        let word = unescape(word);
-
-        let mut cmd_comp = build_cmd_completions(&word, next_char, span)
+    if !after_space && !word.contains(['/', '\\', '\'', '"']) {
+        let mut cmd_comp = build_cmd_completions(word, next_char, span)
             .ok()
             .flatten()
             .unwrap_or_default();
 
-        cmd_comp.extend(build_fn_completions(&word, next_char, None, span, ctx));
+        cmd_comp.extend(build_fn_completions(word, next_char, None, span, ctx));
 
-        return sort_results(&word, cmd_comp);
+        return sort_results(word, cmd_comp);
     }
 
     if after_space {
         if let Some(external_completer) = external_completer {
-            let cmd_start = cmd_pieces.first().map_or(0, |piece| piece.start);
-            let cmd = &line[cmd_start..pos];
+            // let cmd_start = cmd_pieces.first().map_or(0, |piece| piece.start);
+            // let cmd = &line[cmd_start..pos];
 
-            let completions = external_completer(cmd, ctx);
+            let cmd_pieces = cmd_pieces
+                .iter()
+                .map(|piece| unescape(piece.content))
+                .collect::<Vec<_>>();
+
+            let completions = external_completer(&cmd_pieces, ctx);
 
             if !completions.is_empty() {
                 return completions
@@ -179,7 +180,7 @@ pub fn generate_completions(
         }
     }
 
-    complete_path(word, span, ctx)
+    complete_path(&unescape(word), span, ctx)
 }
 
 fn build_fn_completions<'a>(
@@ -333,7 +334,7 @@ fn build_cmd_completions(
             results.push((
                 item_name.to_owned(),
                 Suggestion {
-                    value: escape_raw(item_name).into_owned(),
+                    value: escape_str(item_name, None).into_owned(),
                     description: None,
                     style: None,
                     extra: None,
@@ -435,35 +436,26 @@ fn complete_path(word: &str, span: Span, ctx: &Context) -> Vec<Suggestion> {
                 let corrected_value = value.as_str().replace(['/', '\\'], MAIN_SEPARATOR_STR);
 
                 match path_str.strip_prefix(&corrected_value) {
-                    Some(stripped_path) => {
-                        let mut escaped = escape_raw(stripped_path).into_owned();
-
-                        let insertion_point = if escaped.starts_with('"') { 1 } else { 0 };
-
-                        escaped.insert(insertion_point, '$');
-                        escaped.insert_str(insertion_point + 1, name);
-
-                        escaped
-                    }
-
-                    None => escape_raw(&path_str).into_owned(),
+                    Some(stripped_path) => escape_str(stripped_path, Some(&format!("${name}"))),
+                    None => escape_str(&path_str, None),
                 }
             }
 
-            Some(GlobPathStartsWith::HomeDirTilde(home_dir)) => escape_raw(&format!(
-                "~{MAIN_SEPARATOR}{}",
+            Some(GlobPathStartsWith::HomeDirTilde(home_dir)) => escape_str(
                 path_str
                     .strip_prefix(&format!("{home_dir}{MAIN_SEPARATOR}"))
-                    .unwrap()
-            ))
-            .into_owned(),
+                    .unwrap(),
+                Some(&format!("~{MAIN_SEPARATOR}")),
+            ),
 
             Some(GlobPathStartsWith::CurrentDir) => {
-                escape_raw(&format!(".{MAIN_SEPARATOR}{path_str}")).into_owned()
+                escape_str(&path_str, Some(&format!("./{MAIN_SEPARATOR}")))
             }
 
-            None => escape_raw(&path_str).into_owned(),
+            None => escape_str(&path_str, None),
         };
+
+        let value = value.into_owned();
 
         results.push((
             path_str,
@@ -516,38 +508,83 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .collect()
 }
 
-fn unescape(str: &str) -> String {
-    let mut unescaped = String::new();
+fn unescape(str: &str) -> Cow<str> {
+    if !str.starts_with(['\'', '"']) {
+        return Cow::Borrowed(str);
+    }
+
+    let mut out = String::new();
     let mut escaping = false;
 
-    for c in str.chars() {
+    let mut chars = str.chars().enumerate();
+
+    let (_, opening_char) = chars.next().unwrap();
+
+    for (i, c) in chars {
         if escaping {
+            out.push(c);
             escaping = false;
         } else if c == '\\' {
             escaping = true;
+        } else if c == opening_char {
+            assert!(i + 1 == str.chars().count());
         } else {
-            unescaped.push(c);
+            out.push(c);
         }
     }
 
-    unescaped
+    Cow::Owned(out)
 }
 
-fn escape_raw(str: &str) -> Cow<str> {
-    if str.chars().any(needs_escaping) {
+fn escape_str<'a>(str: &'a str, untouched_prefix: Option<&str>) -> Cow<'a, str> {
+    if !str.chars().any(needs_escaping) {
+        match untouched_prefix {
+            Some(prefix) => Cow::Owned(format!("{prefix}{str}")),
+            None => Cow::Borrowed(str),
+        }
+    }
+    //
+    // Technically, we don't need to do this if the '$' is escaped
+    // But for the sake of not developing a backslash-counting algorithm,
+    // we don't handle it here (for now).
+    else if str.contains('$') {
         let mut escaped = String::with_capacity(str.len());
 
+        escaped.push('"');
+
+        if let Some(prefix) = untouched_prefix {
+            escaped.push_str(prefix);
+        }
+
         for c in str.chars() {
-            if needs_escaping(c) {
+            if c == '"' || c == '$' || c == '\\' {
                 escaped.push('\\');
             }
 
             escaped.push(c);
         }
 
+        escaped.push('"');
+
         Cow::Owned(escaped)
-    } else {
-        Cow::Borrowed(str)
+    }
+    //
+    // If we don't need variables, we can use single-quote escaping
+    else {
+        let mut escaped = String::with_capacity(str.len());
+        escaped.push('\'');
+
+        for c in str.chars() {
+            if c == '\'' || c == '\\' {
+                escaped.push('\\');
+            }
+
+            escaped.push(c);
+        }
+
+        escaped.push('\'');
+
+        Cow::Owned(escaped)
     }
 }
 

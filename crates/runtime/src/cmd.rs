@@ -767,7 +767,7 @@ fn eval_cmd_raw_string_piece(
                 Ok(str.clone())
             }
         }
-        CmdRawStringPiece::Escaped(char) => Ok(char.to_string()),
+
         CmdRawStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             "only stringifyable variables can be used inside computable strings",

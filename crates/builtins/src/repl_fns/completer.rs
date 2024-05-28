@@ -1,5 +1,7 @@
+use std::borrow::Cow;
+
 use reshell_parser::ast::RuntimeCodeRange;
-use reshell_runtime::{context::Context, errors::ExecResult, values::RuntimeValue};
+use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
     helper::{Typing, TypingDirectCreation},
@@ -11,7 +13,7 @@ pub static GEN_COMPLETIONS_VAR_NAME: &str = "generateCompletions";
 
 /// Generate completions (used for the REPL)
 pub fn generate_completions(
-    line: &str,
+    cmd_pieces: &[Cow<str>],
     ctx: &mut Context,
 ) -> ExecResult<Option<Vec<(String, String)>>> {
     let completer_var = ctx
@@ -39,7 +41,12 @@ pub fn generate_completions(
         Some(ret_type.underlying_type()),
     );
 
-    let completion_args = vec![RuntimeValue::String(line.to_owned())];
+    let completion_args = vec![RuntimeValue::List(GcCell::new(
+        cmd_pieces
+            .iter()
+            .map(|piece| RuntimeValue::String(piece.clone().into_owned()))
+            .collect(),
+    ))];
 
     let ret_val = call_fn_checked(
         &completer_var_value,

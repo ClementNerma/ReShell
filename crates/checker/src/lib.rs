@@ -1114,7 +1114,6 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
     for piece in pieces {
         match &piece.data {
             CmdRawStringPiece::Literal(_) => {}
-            CmdRawStringPiece::Escaped(_) => {}
             CmdRawStringPiece::Variable(var) => {
                 state.register_usage(var, DependencyType::Variable)?;
             }

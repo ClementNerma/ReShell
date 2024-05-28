@@ -417,7 +417,6 @@ pub struct CmdRawString {
 #[derive(Debug, Clone)]
 pub enum CmdRawStringPiece {
     Literal(String),
-    Escaped(char),
     Variable(Eaten<String>),
 }
 

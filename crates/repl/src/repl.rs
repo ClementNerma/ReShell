@@ -43,7 +43,7 @@ pub fn start(
 ) -> Result<Option<ExitCode>, Box<dyn Error>> {
     // Prepare completions generator
     let comp_gen: ExternalCompleter =
-        Box::new(move |line, ctx| match generate_completions(line, ctx) {
+        Box::new(move |pieces, ctx| match generate_completions(pieces, ctx) {
             Ok(None) => vec![],
 
             Ok(Some(completions)) => completions
