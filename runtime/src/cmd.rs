@@ -24,6 +24,44 @@ pub fn run_cmd(
     ctx: &mut Context,
     capture_stdout: bool,
 ) -> ExecResult<Option<String>> {
+    let env_vars = &call.data.base.data.env_vars.data;
+
+    let mut backup = HashMap::with_capacity(env_vars.len());
+
+    for env_var in env_vars {
+        let CmdEnvVar { name, value } = &env_var.data;
+
+        // TODO: this code is a duplicate of the same one a bit below
+        let value = match &value.data {
+            CmdEnvVarValue::Raw(raw) => treat_cmd_raw(raw, ctx)?,
+            CmdEnvVarValue::ComputedString(computed_str) => {
+                eval_computed_string(computed_str, ctx)?
+            }
+            CmdEnvVarValue::Expr(expr) => value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx)?,
+        };
+
+        backup.insert(&name.data, std::env::var_os(&name.data));
+
+        std::env::set_var(&name.data, value);
+    }
+
+    let result = run_cmd_with_env_vars_set(call, ctx, capture_stdout);
+
+    for (name, value) in backup {
+        match value {
+            Some(value) => std::env::set_var(name, value),
+            None => std::env::remove_var(name),
+        }
+    }
+
+    result
+}
+
+fn run_cmd_with_env_vars_set(
+    call: &Eaten<CmdCall>,
+    ctx: &mut Context,
+    capture_stdout: bool,
+) -> ExecResult<Option<String>> {
     let CmdCall { base, pipes } = &call.data;
 
     let chain = [(base, None)]
@@ -49,8 +87,8 @@ pub fn run_cmd(
         }
     }
 
-    if let Some(call) = found {
-        call_fn(&call, ctx)?;
+    if let Some(fn_call) = found {
+        call_fn(&fn_call, ctx)?;
         return Ok(None);
     }
 
