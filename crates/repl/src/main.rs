@@ -24,6 +24,7 @@ mod exec;
 mod highlighter;
 mod hinter;
 mod history;
+mod nesting;
 mod prompt;
 mod repl;
 mod reports;
