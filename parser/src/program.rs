@@ -81,24 +81,17 @@ pub fn program() -> impl Parser<Program> {
             ident.clone().spanned().map(SingleValueType::TypeAlias),
         ));
 
-        let value_type = choice::<_, ValueType>((
-            // Union
-            char('(')
-                .ignore_then(ms)
-                .ignore_then(
-                    single_value_type
-                        .clone()
-                        .spanned()
-                        .separated_by(char('|').padded()),
-                )
-                .then_ignore(ms)
-                .then_ignore(
-                    char(')').critical("unclosed type union (expected closing parenthesis)"),
-                )
-                .map(ValueType::Union),
-            // Single
-            single_value_type.spanned().map(ValueType::Single),
-        ));
+        let value_type = single_value_type
+            .clone()
+            .spanned()
+            .separated_by(char('|').padded())
+            .map(|mut types| {
+                if types.len() > 1 {
+                    ValueType::Union(types)
+                } else {
+                    ValueType::Single(types.remove(0))
+                }
+            });
 
         let fn_arg_long_flag = just("--")
             .ignore_then(
@@ -157,7 +150,6 @@ pub fn program() -> impl Parser<Program> {
 
         fn_signature.finish(
             char('(')
-                .critical("expected list of arguments opened by '('")
                 .ignore_then(fn_arg.clone().separated_by(char(',').padded()))
                 .then_ignore(msnl)
                 .then_ignore(char(')').critical("missing closing parenthesis for arguments list"))
@@ -733,7 +725,7 @@ pub fn program() -> impl Parser<Program> {
                         .critical("expected identifier as the function's name"),
                 )
                 .then_ignore(ms)
-                .then(fn_signature)
+                .then(fn_signature.critical("expected a list of arguments opened by a '('"))
                 .then_ignore(ms)
                 .then(
                     block

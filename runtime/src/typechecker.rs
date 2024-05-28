@@ -32,7 +32,7 @@ pub fn check_if_single_type_fits(
         }
         ValueType::Union(types) => {
             for typ in types {
-                if check_if_single_type_fits(&typ.data, into, ctx)? == false {
+                if check_if_single_type_fits_single(value_type, &typ.data, ctx)? == false {
                     return Ok(false);
                 }
             }
