@@ -755,8 +755,30 @@ pub fn program() -> impl Parser<Program> {
             // Throws
             //
             just("throw")
-                .ignore_then(s.ignore_then(expr.clone().spanned()))
+                .ignore_then(s)
+                .ignore_then(expr.clone().spanned())
                 .map(|expr| Instruction::Throw(expr)),
+            //
+            // Aliases declaration
+            //
+            just("alias")
+                .ignore_then(s)
+                .ignore_then(
+                    ident
+                        .clone()
+                        .spanned()
+                        .critical("expected an alias name (identifier)"),
+                )
+                .then_ignore(ms)
+                .then_ignore(char('=').critical("expected an assignment operator (=)"))
+                .then_ignore(ms)
+                .then(
+                    single_cmd_call
+                        .clone()
+                        .spanned()
+                        .critical("expected a command call to alias"),
+                )
+                .map(|(name, content)| Instruction::AliasDecl { name, content }),
             //
             // Command calls
             //

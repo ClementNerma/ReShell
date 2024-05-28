@@ -73,6 +73,11 @@ pub enum Instruction {
 
     Throw(Eaten<Expr>),
 
+    AliasDecl {
+        name: Eaten<String>,
+        content: Eaten<SingleCmdCall>,
+    },
+
     CmdCall(Eaten<CmdCall>),
 
     BaseBlock(Eaten<Block>),
