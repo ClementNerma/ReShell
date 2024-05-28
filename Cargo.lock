@@ -496,9 +496,9 @@ dependencies = [
 
 [[package]]
 name = "parsy"
-version = "0.3.1"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69706cf956d8948c9a2621fcdb7969509e62201f649e81f66b183eb456256a6a"
+checksum = "c98af8eb14a5f886991fcd4e95fb785b91edb54af84218804fb2d84d687e999a"
 
 [[package]]
 name = "proc-macro2"

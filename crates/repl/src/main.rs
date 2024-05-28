@@ -8,6 +8,7 @@ use std::{fs, time::Instant};
 
 use clap::Parser as _;
 use colored::Colorize;
+use parsy::FileId;
 use reshell_builtins::builder::build_native_lib_content;
 use reshell_parser::files::{FilesMap, SourceFileLocation};
 use reshell_parser::program;
@@ -52,9 +53,23 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         skip_init_script,
     } = Args::parse();
 
-    let files_map = FilesMap::new(Box::new(|path| {
-        let path = PathBuf::from(path);
-        let content = std::fs::read_to_string(&path)?;
+    let files_map = FilesMap::new(Box::new(|path, relative_to, files_map| {
+        let mut path = PathBuf::from(path);
+
+        if !path.is_absolute() {
+            match relative_to {
+                FileId::None | FileId::Internal | FileId::Custom(_) => {}
+                FileId::SourceFile(id) => match files_map.get_file(id).unwrap().location {
+                    SourceFileLocation::CustomName(_) => {}
+                    SourceFileLocation::RealFile(relative_to) => {
+                        path = relative_to.parent().unwrap().join(path);
+                    }
+                },
+            }
+        };
+
+        let content = std::fs::read_to_string(&path).map_err(|err| format!("{err}"))?;
+
         Ok((SourceFileLocation::RealFile(path), content))
     }));
 
@@ -82,7 +97,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
         }
     }
 
-    let parser = program(|path| files_map.load_file(&path));
+    let parser = program(move |path, relative| files_map.load_file(&path, relative));
 
     if let Some(file_path) = exec_file {
         if !file_path.exists() {

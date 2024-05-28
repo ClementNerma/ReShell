@@ -98,6 +98,8 @@ pub enum Instruction {
     FnCall(Eaten<FnCall>),
 
     CmdCall(Eaten<CmdCall>),
+
+    Imported(Eaten<Program>),
 }
 
 #[derive(Debug, Clone)]

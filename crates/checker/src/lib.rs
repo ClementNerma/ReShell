@@ -40,7 +40,7 @@ pub fn check(
     first_scope.code_range = RuntimeCodeRange::Parsed(content.data.code_range);
     state.push_scope(first_scope);
 
-    check_block_without_push(content, &mut state)?;
+    check_block_without_push(&program.content, &mut state)?;
 
     Ok(state.collected)
 }
@@ -77,6 +77,14 @@ fn check_block_with(
 }
 
 fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
+    check_block_in_current_scope(block, state)?;
+
+    state.pop_scope();
+
+    Ok(())
+}
+
+fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
     let Block {
         instructions,
         code_range,
@@ -117,8 +125,6 @@ fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerR
     for instr in instructions {
         check_instr(instr, state)?;
     }
-
-    state.pop_scope();
 
     Ok(())
 }
@@ -384,6 +390,16 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::FnCall(fn_call) => check_fn_call(fn_call, state)?,
 
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
+
+        Instruction::Imported(program) => {
+            let curr_at = state.curr_scope().code_range;
+
+            state.curr_scope_mut().code_range = RuntimeCodeRange::Parsed(program.data.content.at);
+
+            check_block_in_current_scope(&program.data.content, state)?;
+
+            state.curr_scope_mut().code_range = curr_at;
+        }
     }
 
     Ok(())

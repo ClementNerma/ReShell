@@ -1,15 +1,15 @@
 use std::{
     collections::HashMap,
-    error::Error,
     fmt::Debug,
     path::PathBuf,
     sync::{Arc, RwLock},
 };
 
-use parsy::SourceFileID;
+use parsy::{FileId, SourceFileID};
 
-pub type FileLoader =
-    Box<dyn FnMut(&str) -> Result<(SourceFileLocation, String), Box<dyn Error>> + Send + Sync>;
+pub type FileLoader = Box<
+    dyn Fn(&str, FileId, &FilesMap) -> Result<(SourceFileLocation, String), String> + Send + Sync,
+>;
 
 #[derive(Clone)]
 pub struct FilesMap(Arc<RwLock<FilesMapInner>>);
@@ -29,11 +29,11 @@ impl FilesMap {
         })))
     }
 
-    pub fn load_file(&self, path: &str) -> Result<SourceFile, Box<dyn Error>> {
+    pub fn load_file(&self, path: &str, relative_to: FileId) -> Result<SourceFile, String> {
         let (location, content) = {
-            let mut inner = self.0.write().unwrap();
+            let inner = self.0.read().unwrap();
 
-            (inner.file_loader)(path)?
+            (inner.file_loader)(path, relative_to, self)?
         };
 
         let file_id = self.register_file(location, content);
