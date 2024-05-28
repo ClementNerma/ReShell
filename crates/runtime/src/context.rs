@@ -370,7 +370,7 @@ impl Context {
         &mut self,
         range: RuntimeCodeRange,
         creation_data: DepsScopeCreationData,
-        content: ScopeContent,
+        content: Option<ScopeContent>,
         parent_scopes: IndexSet<u64>,
         call_stack_entry: Option<CallStackEntry>,
     ) {
@@ -415,12 +415,12 @@ impl Context {
             call_stack.append(call_stack_entry);
         }
 
-        // Create the new csope
+        // Create the new scope
         let scope = Scope {
             id: self.generate_scope_id(),
             range,
             parent_scopes,
-            content,
+            content: content.unwrap_or_else(ScopeContent::new),
             call_stack,
             previous_scope: Some(self.current_scope),
             deps_scope: Some(deps_scope_id),

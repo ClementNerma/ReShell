@@ -114,7 +114,7 @@ pub fn call_fn_value(
                 body,
                 captured_deps.clone(),
                 ctx,
-                scope_content,
+                Some(scope_content),
                 func.parent_scopes.clone(),
                 Some(CallStackEntry {
                     fn_called_at: call_at,

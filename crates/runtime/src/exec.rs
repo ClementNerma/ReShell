@@ -59,9 +59,12 @@ pub fn run_program(
 fn run_block(
     block: &Eaten<Block>,
     ctx: &mut Context,
-    content: ScopeContent,
+    content: Option<ScopeContent>,
 ) -> ExecResult<Option<InstrRet>> {
-    ctx.create_and_push_scope(RuntimeCodeRange::Parsed(block.at), content);
+    ctx.create_and_push_scope(
+        RuntimeCodeRange::Parsed(block.at),
+        content.unwrap_or_else(ScopeContent::new),
+    );
 
     let result = run_block_in_current_scope(&block.data, ctx);
 
@@ -120,14 +123,14 @@ pub(crate) fn run_body_with_deps(
     body: &Eaten<FunctionBody>,
     captured_deps: CapturedDependencies,
     ctx: &mut Context,
-    content: ScopeContent,
+    scope_content: Option<ScopeContent>,
     parent_scopes: IndexSet<u64>,
     call_stack_entry: Option<CallStackEntry>,
 ) -> ExecResult<Option<InstrRet>> {
     ctx.create_and_push_scope_with_deps(
         RuntimeCodeRange::Parsed(body.at),
         DepsScopeCreationData::CapturedDeps(captured_deps),
-        content,
+        scope_content,
         parent_scopes,
         call_stack_entry,
     );
@@ -156,10 +159,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             mutable,
             init_expr,
         } => {
-            assert!(
-                !ctx.current_scope().content.vars.contains_key(&name.data),
-                "duplicate variable declaration (this is a bug in the checker)"
-            );
+            // assert!(
+            //     !ctx.current_scope().content.vars.contains_key(&name.data),
+            //     "duplicate variable declaration (this is a bug in the checker)"
+            // );
 
             let init_value = init_expr
                 .as_ref()
@@ -280,7 +283,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             let mut ret = None;
 
             if cond_val {
-                ret = Some(run_block(body, ctx, ScopeContent::new())?);
+                ret = Some(run_block(body, ctx, None)?);
             } else {
                 for branch in elsif {
                     let ElsIf { cond, body } = &branch.data;
@@ -291,14 +294,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     };
 
                     if cond_val {
-                        ret = Some(run_block(body, ctx, ScopeContent::new())?);
+                        ret = Some(run_block(body, ctx, None)?);
                         break;
                     }
                 }
 
                 if ret.is_none() {
                     if let Some(els) = els {
-                        ret = Some(run_block(els, ctx, ScopeContent::new())?);
+                        ret = Some(run_block(els, ctx, None)?);
                     }
                 }
             }
@@ -327,7 +330,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         },
                     );
 
-                    if let Some(ret) = run_block(body, ctx, loop_scope)? {
+                    if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
                         match ret {
                             InstrRet::ContinueLoop => {}
                             InstrRet::BreakLoop => break,
@@ -355,7 +358,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         },
                     );
 
-                    if let Some(ret) = run_block(body, ctx, loop_scope)? {
+                    if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
                         match ret {
                             InstrRet::ContinueLoop => {}
                             InstrRet::BreakLoop => break,
@@ -428,7 +431,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     },
                 );
 
-                if let Some(ret) = run_block(body, ctx, loop_scope)? {
+                if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
                     match ret {
                         InstrRet::ContinueLoop => {}
                         InstrRet::BreakLoop => break,
@@ -457,7 +460,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 break;
             }
 
-            if let Some(ret) = run_block(body, ctx, ScopeContent::new())? {
+            if let Some(ret) = run_block(body, ctx, None)? {
                 match ret {
                     InstrRet::ContinueLoop => {}
                     InstrRet::BreakLoop => break,
@@ -494,7 +497,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 )?;
 
                 if cmp {
-                    run_block(body, ctx, ScopeContent::new())?;
+                    run_block(body, ctx, None)?;
                     break;
                 }
             }
@@ -555,7 +558,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             },
                         );
 
-                        run_block(catch_body, ctx, scope)?;
+                        run_block(catch_body, ctx, Some(scope))?;
                     }
                     _ => return Err(err),
                 }
@@ -621,7 +624,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::DoBlock(block) => {
-            run_block(block, ctx, ScopeContent::new())?;
+            run_block(block, ctx, None)?;
         }
 
         Instruction::Imported(program) => {

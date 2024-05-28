@@ -13,7 +13,7 @@ use reshell_parser::ast::{
 };
 
 use crate::{
-    context::{Context, DepsScopeCreationData, ScopeContent},
+    context::{Context, DepsScopeCreationData},
     display::value_to_str,
     errors::{ExecErrorNature, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
@@ -236,8 +236,7 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
         ctx.create_and_push_scope_with_deps(
             RuntimeCodeRange::Parsed(*name_declared_at),
             DepsScopeCreationData::CapturedDeps(captured_deps.clone()),
-            // This scope won't be used anyway, it is only here to provide access to the deps scope
-            ScopeContent::new(),
+            None,
             parent_scopes.clone(),
             None,
         );

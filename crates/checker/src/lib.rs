@@ -182,9 +182,9 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             mutable,
             init_expr,
         } => {
-            if state.curr_scope().vars.contains_key(&name.data) {
-                return Err(CheckerError::new(name.at, "duplicate variable declaration"));
-            }
+            // if state.curr_scope().vars.contains_key(&name.data) {
+            //     return Err(CheckerError::new(name.at, "duplicate variable declaration"));
+            // }
 
             if let Some(init_expr) = init_expr {
                 check_expr(&init_expr.data, state)?;
