@@ -467,9 +467,10 @@ pub fn program() -> impl Parser<Program> {
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let cmd_raw = filter(|c| {
-            c.is_alphanumeric() || c == '_' || c == '-' || c == '/' || c == '.' || c == '~'
-        })
+        let cmd_raw = filter(|c|
+            // The first part of the condition is to accelerate computation
+            c.is_alphanumeric() || !(c.is_whitespace() || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}')
+        )
         .repeated()
         .at_least(1)
         .collect_string();
