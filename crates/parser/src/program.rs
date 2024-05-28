@@ -625,9 +625,8 @@ pub fn program(
                     )
                     .then_ignore(msnl)
                     .then_ignore(char('{').critical_expectation())
-                    .then_ignore(msnl)
                     .then(
-                        just("case")
+                        msnl.ignore_then(just("case"))
                             .ignore_then(ms)
                             .ignore_then(
                                 expr.clone()
@@ -645,17 +644,16 @@ pub fn program(
                             .map(|(matches, then)| SwitchExprCase { matches, then })
                             .repeated_vec(),
                     )
+                    .then_ignore(msnl)
+                    .then_ignore(just("else").critical("expected an 'else' fallback"))
+                    .then_ignore(msnl)
+                    .then_ignore(just("->").critical("expected an arrow (->)"))
+                    .then_ignore(msnl)
                     .then(
-                        msnl.ignore_then(just("else").critical("expected an 'else' fallback"))
-                            .then_ignore(msnl)
-                            .then_ignore(just("->").critical("expected an arrow (->)"))
-                            .then_ignore(msnl)
-                            .ignore_then(
-                                expr.clone()
-                                    .map(Box::new)
-                                    .spanned()
-                                    .critical("expected an expression to evaluate to"),
-                            ),
+                        expr.clone()
+                            .map(Box::new)
+                            .spanned()
+                            .critical("expected an expression to evaluate to"),
                     )
                     .then_ignore(msnl)
                     .then_ignore(char('}').critical_expectation())
@@ -1170,9 +1168,8 @@ pub fn program(
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('{').critical_expectation())
-                .then_ignore(msnl)
                 .then(
-                    just("case")
+                    msnl.ignore_then(just("case"))
                         .ignore_then(ms)
                         .ignore_then(
                             expr.clone()
