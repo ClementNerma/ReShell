@@ -76,6 +76,12 @@ pub enum Instruction {
 
     Throw(Eaten<Expr>),
 
+    Try {
+        call: Eaten<FnCall>,
+        catch_var: Eaten<String>,
+        catch_body: Eaten<Block>,
+    },
+
     CmdAliasDecl {
         name: Eaten<String>,
         content: Eaten<SingleCmdCall>,
@@ -129,6 +135,12 @@ pub enum ExprInnerContent {
         elsif: Vec<Eaten<ElsIfExpr>>,
         els: Eaten<Box<Expr>>,
     },
+    // TODO
+    // Try {
+    //     call: Eaten<FnCall>,
+    //     catch_var: Eaten<String>,
+    //     catch_body: Eaten<Box<Expr>>,
+    // },
 }
 
 #[derive(Debug, Clone)]

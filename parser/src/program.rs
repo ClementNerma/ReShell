@@ -334,7 +334,7 @@ pub fn program() -> impl Parser<Program> {
                     )
                 }),
             // Function calls
-            fn_call.spanned().map(Value::FnCall),
+            fn_call.clone().spanned().map(Value::FnCall),
             // Command calls
             just("$(")
                 .ignore_then(cmd_call.clone().spanned())
@@ -912,6 +912,28 @@ pub fn program() -> impl Parser<Program> {
                 .ignore_then(s)
                 .ignore_then(expr.spanned())
                 .map(Instruction::Throw),
+            //
+            // Try/Catch
+            //
+            just("try")
+                .ignore_then(s)
+                .ignore_then(fn_call.spanned().critical("expected a function call"))
+                .then_ignore(s.critical("expected a space followed by 'catch'"))
+                .then_ignore(just("catch").critical("expected the 'catch' keyword"))
+                .then_ignore(s.critical("expected a space followed by the catch variable"))
+                .then(
+                    ident
+                        .clone()
+                        .spanned()
+                        .critical("expected a variable to catch the throw value in"),
+                )
+                .then_ignore(ms)
+                .then(block.clone().spanned().critical("expected a block"))
+                .map(|((call, catch_var), catch_body)| Instruction::Try {
+                    call,
+                    catch_var,
+                    catch_body,
+                }),
             //
             // Aliases declaration
             //
