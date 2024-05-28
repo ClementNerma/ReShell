@@ -1,7 +1,8 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Eaten, FileId};
+use reshell_checker::{CheckerOutput, Dependency};
 use reshell_parser::ast::{SingleCmdCall, ValueType};
 
 use crate::{
@@ -19,6 +20,7 @@ pub struct Context {
     current_scope: u64,
     files_map: FilesMap,
     home_dir: Option<PathBuf>,
+    fn_deps: IndexMap<CodeRange, IndexSet<Dependency>>,
 }
 
 impl Context {
@@ -29,6 +31,16 @@ impl Context {
             current_scope: 0,
             files_map: FilesMap::new(),
             home_dir,
+            fn_deps: IndexMap::new(),
+        }
+    }
+
+    pub(crate) fn append_checker_output(&mut self, checker_output: CheckerOutput) {
+        let CheckerOutput { fn_deps } = checker_output;
+
+        for (fn_decl, deps) in fn_deps {
+            let dup = self.fn_deps.insert(fn_decl, deps);
+            assert!(dup.is_none());
         }
     }
 
@@ -137,9 +149,7 @@ impl Context {
     }
 
     pub fn pop_scope(&mut self) {
-        let current_scope = self.current_scope();
-
-        // TODO: garbage collection!
+        let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 
         let prev_scope = current_scope
             .call_stack_entry
@@ -153,15 +163,7 @@ impl Context {
                 .last()
                 .copied()
                 .expect("unexpected: cannot pop a scope without parents"),
-        }
-
-        // self.current_scope = match current_scope.parent_scopes.last() {
-        //     Some(parent_scope_id) => *parent_scope_id,
-        //     None => {
-        //         assert!(current_scope.id != 0);
-        //         0
-        //     }
-        // };
+        };
     }
 
     pub fn current_source_file(&self) -> Option<&SourceFile> {
@@ -211,21 +213,6 @@ impl Context {
         self.visible_scopes()
             .find_map(|scope| scope.content.vars.get(&name.data))
     }
-
-    // pub fn get_var_value<'s>(&'s self, name: &Eaten<String>) -> ExecResult<RwLockReadGuard<'s, RuntimeValue>> {
-    //     let var = self
-    //         .get_visible_var(name)
-    //         .ok_or_else(|| self.error(name.at, "variable not found"))?;
-
-    //     let located_val = var
-    //         .read()
-    //         .value
-    //         .as_ref()
-    //         .ok_or_else(|| self.error(name.at, "variable does not have a value yet"))?;
-
-    //     // TODO: unsolvable problem?
-    //     todo!()
-    // }
 }
 
 #[derive(Debug, Clone)]

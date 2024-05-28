@@ -5,7 +5,3 @@ use reshell_runtime::context::Context;
 
 pub static RUNTIME_CONTEXT: Lazy<Arc<RwLock<Context>>> =
     Lazy::new(|| Arc::new(RwLock::new(Context::new(None))));
-
-pub fn with_writable_rt_ctx(func: impl FnOnce(&mut Context)) {
-    func(&mut RUNTIME_CONTEXT.write().unwrap())
-}

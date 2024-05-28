@@ -1,6 +1,7 @@
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError};
+use reshell_checker::CheckerError;
 use reshell_runtime::{
     context::{CallStackEntry, ScopeRange},
     display::dbg_loc,
@@ -9,15 +10,18 @@ use reshell_runtime::{
 };
 
 pub enum ReportableError {
-    ParsingError(ParsingError),
-    ExecError(ExecError),
+    Parsing(ParsingError),
+    Checking(CheckerError),
+    Runtime(ExecError),
 }
 
 pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let (at, msg) = match err {
-        ReportableError::ParsingError(err) => parsing_error(err),
+        ReportableError::Parsing(err) => parsing_error(err),
 
-        ReportableError::ExecError(err) => match &err.content {
+        ReportableError::Checking(err) => checking_error(err),
+
+        ReportableError::Runtime(err) => match &err.content {
             ExecErrorContent::Str(str) => (err.at, str.to_string()),
             ExecErrorContent::String(string) => (err.at, string.clone()),
             ExecErrorContent::ParsingErr(err) => parsing_error(err),
@@ -29,8 +33,9 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     };
 
     let call_stack = match err {
-        ReportableError::ParsingError(_) => None,
-        ReportableError::ExecError(err) => Some(&err.call_stack),
+        ReportableError::Parsing(_) => None,
+        ReportableError::Checking(_) => None,
+        ReportableError::Runtime(err) => Some(&err.call_stack),
     };
 
     let (source_file, offset, len, msg) = match at.start.file_id {
@@ -87,7 +92,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let mut bottom = String::new();
 
-    if let ReportableError::ExecError(ExecError {
+    if let ReportableError::Runtime(ExecError {
         scope_range: ScopeRange::CodeRange(range),
         ..
     }) = err
@@ -112,15 +117,18 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         }
     }
 
-    let inner = Report::build(ReportKind::Error, display_file.clone(), offset)
-        .with_label(
-            Label::new((display_file.clone(), offset..(offset + len)))
-                .with_message(msg.fg(ariadne::Color::Red).to_string())
-                .with_color(ariadne::Color::Red),
-        )
-        .finish();
+    let mut inner = Report::build(ReportKind::Error, display_file.clone(), offset).with_label(
+        Label::new((display_file.clone(), offset..(offset + len)))
+            .with_message(msg.fg(ariadne::Color::Red).to_string())
+            .with_color(ariadne::Color::Red),
+    );
+
+    if matches!(err, ReportableError::Checking(_)) {
+        inner = inner.with_note("Error was encountered before running the program");
+    }
 
     inner
+        .finish()
         .print((display_file, Source::from(source_file.content)))
         .unwrap();
 
@@ -145,4 +153,9 @@ fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
     };
 
     (err.inner().at(), msg)
+}
+
+fn checking_error(err: &CheckerError) -> (CodeRange, String) {
+    let CheckerError { at, msg } = err;
+    (*at, msg.clone())
 }

@@ -494,9 +494,9 @@ dependencies = [
 
 [[package]]
 name = "parsy"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d42fcd198b70f5297f4392a9a61f8f17aaf2d6b260183164a36aba31399a6987"
+checksum = "463fcd4aaf44978019adeb498472184c70152b572c341fdd72d8433c4e46446f"
 
 [[package]]
 name = "ppv-lite86"
@@ -645,8 +645,18 @@ dependencies = [
  "parsy",
  "reedline",
  "regex",
+ "reshell-checker",
  "reshell-parser",
  "reshell-runtime",
+]
+
+[[package]]
+name = "reshell-checker"
+version = "0.1.0"
+dependencies = [
+ "indexmap",
+ "parsy",
+ "reshell-parser",
 ]
 
 [[package]]
@@ -666,6 +676,7 @@ dependencies = [
  "indexmap",
  "parsy",
  "rand",
+ "reshell-checker",
  "reshell-parser",
  "terminal_size",
 ]

@@ -1,22 +1,26 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
-#![forbid(unused_crate_dependencies)]
+#![warn(unused_crate_dependencies)]
 // TEMPORARY
 #![allow(clippy::result_large_err)]
 
-use clap::Parser;
-use colored::Colorize;
-use parsy::{CodeRange, FileId, Location};
-use reshell_runtime::{
-    context::{ScopeContent, ScopeRange},
-    files_map::ScopableFilePath,
-};
-use state::{with_writable_rt_ctx, RUNTIME_CONTEXT};
 use std::fs;
+use std::process::ExitCode;
+
+use clap::Parser as _;
+use colored::Colorize;
+use parsy::Parser;
+use reshell_parser::ast::Program;
+use reshell_parser::program;
+use reshell_runtime::files_map::ScopableFilePath;
+
+use self::exec::{run_script, ExecOptions};
+use self::state::RUNTIME_CONTEXT;
 
 mod cmd;
 mod completer;
 mod edit_mode;
+mod exec;
 mod highlighter;
 mod hinter;
 mod history;
@@ -27,7 +31,7 @@ mod reports;
 mod state;
 mod validator;
 
-fn main() {
+fn main() -> ExitCode {
     let args = cmd::Args::parse();
 
     match dirs::home_dir() {
@@ -47,6 +51,13 @@ fn main() {
         }
     }
 
+    let eval_opts = ExecOptions {
+        check_only: args.check_only,
+        dbg_code_checking: args.dbg_code_checking,
+    };
+
+    let parser = program();
+
     if let Some(file_path) = args.exec_file {
         if !file_path.exists() {
             fail("Error: provided file was not found");
@@ -60,25 +71,47 @@ fn main() {
             fail("Failed to read thep rovided path");
         };
 
-        return run_script(ScopableFilePath::RealFile(file_path), &content, true);
+        let result = run_script(
+            &content,
+            ScopableFilePath::RealFile(file_path),
+            &parser,
+            eval_opts,
+        );
+
+        return match result {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(_) => ExitCode::FAILURE,
+        };
     }
 
     if let Some(input) = args.eval {
-        return run_script(ScopableFilePath::InMemory("input"), &input, true);
+        let result = run_script(
+            &input,
+            ScopableFilePath::InMemory("eval"),
+            &parser,
+            eval_opts,
+        );
+
+        return match result {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(_) => ExitCode::FAILURE,
+        };
     }
 
-    if !args.skip_init_script {
-        run_init_script();
+    if !args.skip_init_script && run_init_script(&parser).is_err() {
+        return ExitCode::FAILURE;
     }
 
     repl::start();
+
+    ExitCode::SUCCESS
 }
 
-fn run_init_script() {
+fn run_init_script(parser: &impl Parser<Program>) -> Result<(), ()> {
     let Some(home_dir) = dirs::home_dir() else {
-        return print_warn(
-            "Cannot run init script: failed to determine path to the user's home directory",
-        );
+        print_warn("Cannot run init script: failed to determine path to the user's home directory");
+
+        return Ok(());
     };
 
     let init_file = home_dir.join(INIT_SCRIPT_FILE_NAME);
@@ -88,46 +121,34 @@ fn run_init_script() {
         //     "Init script was not found at path {}",
         //     init_file.to_string_lossy().bright_magenta(),
         // ));
-        return;
+        return Ok(());
     }
 
     if !init_file.is_file() {
-        return print_err(&format!(
+        print_err(&format!(
             "Init script path ({}) exists but is not a file",
             init_file.to_string_lossy().bright_magenta()
         ));
+
+        return Ok(());
     }
 
     match fs::read_to_string(&init_file) {
-        Ok(source) => run_script(ScopableFilePath::RealFile(init_file), &source, false),
-        Err(err) => print_err(&format!(
-            "Failed to read init script at path {}: {err}",
-            init_file.to_string_lossy().bright_magenta()
-        )),
-    };
-}
+        Ok(source) => run_script(
+            &source,
+            ScopableFilePath::RealFile(init_file),
+            parser,
+            ExecOptions::default(),
+        )
+        .map_err(|_| ()),
 
-fn run_script(file_path: ScopableFilePath, content: &str, exit_on_fail: bool) {
-    with_writable_rt_ctx(|ctx| {
-        let file_id = ctx.register_file(file_path, content.to_string());
+        Err(err) => {
+            print_err(&format!(
+                "Failed to read init script at path {}: {err}",
+                init_file.to_string_lossy().bright_magenta()
+            ));
 
-        ctx.create_and_push_scope(
-            ScopeRange::CodeRange(CodeRange::new(
-                Location {
-                    file_id: FileId::SourceFile(file_id),
-                    offset: 0,
-                },
-                content.len(),
-            )),
-            ScopeContent::new(),
-        );
-    });
-
-    if let Err(err) = repl::eval(content, &reshell_parser::program()) {
-        reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
-
-        if exit_on_fail {
-            std::process::exit(1);
+            Err(())
         }
     }
 }

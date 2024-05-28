@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
+use reshell_checker::CheckerOutput;
 use reshell_parser::ast::{Block, ElsIf, Function, Instruction, Program, SwitchCase};
 
 use crate::{
@@ -19,8 +20,17 @@ use crate::{
     },
 };
 
-pub fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
-    let instr_ret = run_block_in_current_scope(&program.content.data, ctx)?;
+pub fn run_program(
+    program: &Program,
+    checker_output: CheckerOutput,
+    scope_content: ScopeContent,
+    ctx: &mut Context,
+) -> ExecResult<()> {
+    let Program { content } = program;
+
+    ctx.append_checker_output(checker_output);
+
+    let instr_ret: Option<InstrRet> = run_block(&content.data, ctx, scope_content)?;
 
     match instr_ret {
         None => Ok(()),
@@ -28,7 +38,24 @@ pub fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> Exe
     }
 }
 
-pub fn run_block(
+// pub fn run_program_in_current_scope(
+//     program: &Program,
+//     checker_output: CheckerOutput,
+//     ctx: &mut Context,
+// ) -> ExecResult<()> {
+//     let Program { content } = program;
+
+//     ctx.append_checker_output(checker_output);
+
+//     let instr_ret = run_block_in_current_scope(&content.data, ctx)?;
+
+//     match instr_ret {
+//         None => Ok(()),
+//         Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
+//     }
+// }
+
+fn run_block(
     block: &Block,
     ctx: &mut Context,
     content: ScopeContent,
@@ -47,7 +74,7 @@ pub fn run_block(
     Ok(instr_ret)
 }
 
-pub fn run_called_block(
+pub(crate) fn run_called_block(
     block: &Block,
     ctx: &mut Context,
     content: ScopeContent,
@@ -124,13 +151,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             list_push,
             expr,
         } => {
-            let Some(var) = ctx.get_visible_var(name).cloned() else {
-                return Err(ctx.error(name.at, "variable not found"));
-            };
+            // We can expect() thanks to the checker
+            let var = ctx.get_visible_var(name).cloned().expect("internal error: variable not alive (this is a bug either in the checker or in the garbage collector)");
 
-            if !var.read().is_mut {
-                return Err(ctx.error(name.at, "this variable is not set as mutable"));
-            }
+            // Same goes here
+            assert!(var.read().is_mut);
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
