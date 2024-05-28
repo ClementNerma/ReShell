@@ -65,7 +65,7 @@
 					"name": "constant"
 				},
 				{
-					"match": "\\b(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do|try|catch)\\b",
+					"match": "\\b(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|try|catch)\\b",
 					"name": "keyword"
 				},
 				{
