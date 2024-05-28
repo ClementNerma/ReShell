@@ -1,3 +1,7 @@
+//!
+//! List of methods for the builtin types
+//! 
+
 mod command;
 mod datetime;
 mod duration;

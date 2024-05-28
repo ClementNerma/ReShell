@@ -1,3 +1,7 @@
+//!
+//! Function to call to generate completions
+//!
+
 use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
