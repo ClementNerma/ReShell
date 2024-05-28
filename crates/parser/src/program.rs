@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use parsy::{
     atoms::{alphanumeric, digits},
@@ -361,7 +364,11 @@ pub fn program(
                 .not_followed_by(possible_ident_char)
                 .collect_string()
                 .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
-        ));
+        ))
+        .followed_by(silent_choice((
+            filter(|c| c.is_whitespace() || c == ',' || DELIMITER_CHARS.contains(&c)),
+            end(),
+        )));
 
         let computed_string = char('"')
             .ignore_then(
@@ -688,9 +695,8 @@ pub fn program(
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let dchars = delimiter_chars();
         let cmd_raw = not(just("->")).ignore_then(
-            filter(move |c| !c.is_whitespace() && !dchars.contains(&c))
+            filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
                 .repeated()
                 .at_least(1)
                 .collect_string(),
@@ -700,12 +706,7 @@ pub fn program(
             // Direct
             just("@direct")
                 .ignore_then(ms)
-                .ignore_then(
-                    cmd_raw
-                        .clone()
-                        .critical("expected a command name")
-                        .spanned(),
-                )
+                .ignore_then(cmd_raw.critical("expected a command name").spanned())
                 .map(CmdPath::Direct),
             // Call variable
             char('(')
@@ -726,12 +727,12 @@ pub fn program(
                 .spanned()
                 .map(CmdPath::ComputedString),
             // Raw string
-            cmd_raw.clone().spanned().map(CmdPath::RawString),
+            cmd_raw.spanned().map(CmdPath::RawString),
         ));
 
         let cmd_env_var_value = choice::<_, CmdEnvVarValue>((
             // Raw
-            cmd_raw.clone().spanned().map(CmdEnvVarValue::Raw),
+            cmd_raw.spanned().map(CmdEnvVarValue::Raw),
             // Computed string
             computed_string
                 .clone()
@@ -759,8 +760,6 @@ pub fn program(
             )
             .map(|(name, value)| CmdEnvVar { name, value });
 
-        let dchars = delimiter_chars();
-
         let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
             just("--")
                 .ignore_then(
@@ -774,7 +773,7 @@ pub fn program(
                 .map(CmdFlagNameArg::Short),
         ))
         .followed_by(silent_choice((
-            filter(move |c| c.is_whitespace() || dchars.contains(&c)),
+            filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
             char('='),
             end(),
         )));
@@ -813,7 +812,7 @@ pub fn program(
             // Variables
             var_name.spanned().map(CmdValueMakingArg::VarName),
             // Raw argument (but not flags, which aren't value making arguments)
-            cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw),
+            cmd_raw.spanned().map(CmdValueMakingArg::Raw),
         ));
 
         cmd_flag_arg.finish(
@@ -1274,11 +1273,11 @@ pub fn program(
     outer
 }
 
-pub fn delimiter_chars() -> HashSet<char> {
+pub static DELIMITER_CHARS: LazyLock<HashSet<char>> = LazyLock::new(|| {
     HashSet::from([
         '(', ')', '[', ']', '{', '}', '<', '>', ';', '?', '|', '\'', '"', '`', '$', '#',
     ])
-}
+});
 
 // Usage: .debug(simple_debug) after any parser
 #[allow(dead_code)]
