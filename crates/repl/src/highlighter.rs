@@ -381,7 +381,7 @@ fn highlight(input: &str) -> StyledText {
     }
 }
 
-struct CommandsChecker {
+pub struct CommandsChecker {
     for_path: Vec<String>,
     entries: HashMap<String, bool>
 }
@@ -396,11 +396,13 @@ impl CommandsChecker {
 
     pub fn update(&mut self, bin_resolver: &mut BinariesResolver) {
         if &self.for_path != bin_resolver.path_dirs() {
-            *self = Self {
-                for_path: bin_resolver.path_dirs().clone(),
-                entries: bin_resolver.entries().keys().map(|key| (key.clone(), true)).collect()
-            }
+            self.for_path = bin_resolver.path_dirs().clone();
+            self.update(bin_resolver);
         }
+    }
+
+    pub fn clear(&mut self, bin_resolver: &mut BinariesResolver) {
+        self.entries = bin_resolver.entries().keys().map(|key| (key.clone(), true)).collect();
     }
 
     pub fn check(&mut self, ctx: &mut Context, name: &str) -> bool {
@@ -420,4 +422,5 @@ impl CommandsChecker {
     }
 }
 
-static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> = LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));
+pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> = LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));
+

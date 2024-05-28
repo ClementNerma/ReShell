@@ -23,7 +23,8 @@ use crate::{
     args::ExecArgs,
     completer, edit_mode,
     exec::run_script,
-    highlighter, hinter, history,
+    highlighter::{self, COMMANDS_CHECKER},
+    hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
     utils::validator,
@@ -86,6 +87,11 @@ pub fn start(
         }
 
         // Prepare line reading
+        COMMANDS_CHECKER
+            .lock()
+            .unwrap()
+            .clear(ctx.binaries_resolver());
+
         let prev = SHARED_CONTEXT.lock().unwrap().replace(ctx);
         assert!(prev.is_none());
 
