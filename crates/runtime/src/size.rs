@@ -589,8 +589,12 @@ impl ComputableSize for EscapableChar {
 
 impl ComputableSize for Expr {
     fn compute_heap_size(&self) -> usize {
-        let Self { inner, right_ops } = self;
-        inner.compute_heap_size() + right_ops.compute_heap_size()
+        let Self {
+            inner,
+            right_ops,
+            method_calls,
+        } = self;
+        inner.compute_heap_size() + right_ops.compute_heap_size() + method_calls.compute_heap_size()
     }
 }
 
