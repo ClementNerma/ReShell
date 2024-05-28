@@ -1,9 +1,9 @@
-use std::{collections::{HashMap, HashSet}, path::PathBuf};
+use std::{collections::{HashMap, HashSet}, path::PathBuf,  rc::Rc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
-use reshell_parser::ast::ValueType;
+use reshell_parser::ast::{ValueType, FnSignature, Block};
 
 use crate::{
     conf::RuntimeConf,
@@ -31,7 +31,9 @@ pub struct Context {
     deps: HashMap<CodeRange, HashSet<Dependency>>,
     type_aliases: HashMap<CodeRange, Eaten<ValueType>>,
     type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
-    type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>
+    type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
+    fn_signatures: HashMap<CodeRange, Rc<Eaten<FnSignature>>>,
+    fn_bodies: HashMap<CodeRange, Rc<Eaten<Block>>>
 }
 
 impl Context {
@@ -76,6 +78,8 @@ impl Context {
             type_aliases: HashMap::new(),
             type_aliases_usages: HashMap::new(),
             type_aliases_decl: HashMap::new(),
+            fn_signatures: HashMap::new(),
+            fn_bodies: HashMap::new(),
             conf,
         }
     }
@@ -125,12 +129,14 @@ impl Context {
     // =============== Non-public functions =============== //
 
     pub fn append_checker_output(&mut self, checker_output: CheckerOutput) {
-        let CheckerOutput { deps, type_aliases, type_aliases_usages, type_aliases_decl } = checker_output;        
+        let CheckerOutput { deps, type_aliases, type_aliases_usages, type_aliases_decl, fn_signatures, fn_bodies } = checker_output;
 
         self.deps.extend(deps);
         self.type_aliases.extend(type_aliases);
         self.type_aliases_usages.extend(type_aliases_usages);
         self.type_aliases_decl.extend(type_aliases_decl);
+        self.fn_signatures.extend(fn_signatures.into_iter().map(|(at, signature)| (at, Rc::new(signature))));
+        self.fn_bodies.extend(fn_bodies.into_iter().map(|(at, body)| (at, Rc::new(body))));
     }
 
     pub fn generate_scope_id(&mut self) -> u64 {
@@ -360,6 +366,14 @@ impl Context {
         let type_alias_at = self.type_aliases_usages.get(name)?;
         
         Some(self.type_aliases.get(type_alias_at).unwrap())
+    }
+
+    pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Rc<Eaten<FnSignature>>> {
+        self.fn_signatures.get(&from.at).map(Rc::clone)
+    }
+
+    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Rc<Eaten<Block>>> {
+        self.fn_bodies.get(&from.at).map(Rc::clone)
     }
 
     pub fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {

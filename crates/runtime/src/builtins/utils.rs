@@ -6,8 +6,8 @@ use crate::{
     errors::ExecResult,
     functions::{call_fn_value, FnCallResult, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    typechecker::check_fn_equality,
-    values::{LocatedValue, RuntimeValue},
+    typechecker::check_fn_signature_equality,
+    values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
 pub fn forge_internal_loc() -> CodeRange {
@@ -49,7 +49,12 @@ pub fn call_fn_checked(
         }
     };
 
-    if !check_fn_equality(&func.signature, expected_signature, ctx)? {
+    let signature = match &func.signature {
+        RuntimeFnSignature::Shared(shared) => &shared.data,
+        RuntimeFnSignature::Owned(owned) => owned,
+    };
+
+    if !check_fn_signature_equality(signature, expected_signature, ctx)? {
         return Err(ctx.error(
             loc_val.from,
             format!(

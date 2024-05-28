@@ -92,7 +92,7 @@ impl PrettyPrintable for SingleValueType {
                 end: Colored::with_color("}", Color::Magenta),
                 suffix: None,
             },
-            Self::Function(signature) => signature.generate_pretty_data(ctx),
+            Self::Function(signature) => signature.data().generate_pretty_data(ctx),
             Self::TypeAlias(name) => PrintablePiece::Join(vec![
                 PrintablePiece::colored_atomic(format!("{} (", name.data), Color::Magenta),
                 // TODO: find a way to display the type based on this value's parent scopes :|
@@ -251,7 +251,7 @@ impl PrettyPrintable for RuntimeValue {
             },
 
             RuntimeValue::Function(func) => PrintablePiece::Join(vec![
-                func.signature.generate_pretty_data(ctx),
+                func.signature.inner().generate_pretty_data(ctx),
                 PrintablePiece::colored_atomic(" { ... }", Color::BrightBlack),
             ]),
 

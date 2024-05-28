@@ -18,7 +18,7 @@ use crate::{
     props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
         are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeCmdAlias,
-        RuntimeFnBody, RuntimeFnValue, RuntimeValue,
+        RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -424,24 +424,35 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::FnDecl { name, content } => {
+            // We can do this thanks to the checker
+            assert!(!ctx.current_scope_content_mut().fns.contains_key(&name.data));
+
             let parent_scopes = ctx.generate_parent_scopes();
 
             let captured_deps = ctx.capture_deps(content.body.data.code_range);
 
+            let body = ctx
+                .get_fn_body(&content.body)
+                .expect("internal error: unregistered function body");
+
+            let signature = ctx
+                .get_fn_signature(&content.signature)
+                .expect("internal error: unregistered function signature");
+
             let fns = &mut ctx.current_scope_content_mut().fns;
 
-            // We can do this thanks to the checker
-            assert!(!fns.contains_key(&name.data));
-
-            let Function { signature, body } = content;
+            let Function {
+                signature: _,
+                body: _,
+            } = content;
 
             fns.insert(
                 name.data.clone(),
                 ScopeFn {
                     declared_at: name.at,
                     value: GcReadOnlyCell::new(RuntimeFnValue {
-                        body: RuntimeFnBody::Block(body.clone()),
-                        signature: signature.clone(),
+                        body: RuntimeFnBody::Block(body),
+                        signature: RuntimeFnSignature::Shared(signature),
                         parent_scopes,
                         captured_deps,
                     }),

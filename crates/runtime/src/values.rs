@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::{collections::HashMap, fmt::Debug};
 
 use indexmap::IndexSet;
@@ -11,13 +12,27 @@ use crate::context::{ScopeFn, ScopeVar};
 use crate::gc::GcReadOnlyCell;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
-// TODO: this struct is ultra expensive to clone, put it inside an Arc<> or something?
 #[derive(Debug)]
 pub struct RuntimeFnValue {
-    pub signature: FnSignature,
+    pub signature: RuntimeFnSignature,
     pub body: RuntimeFnBody,
     pub parent_scopes: IndexSet<u64>,
     pub captured_deps: CapturedDependencies,
+}
+
+#[derive(Debug)]
+pub enum RuntimeFnSignature {
+    Shared(Rc<Eaten<FnSignature>>),
+    Owned(FnSignature),
+}
+
+impl RuntimeFnSignature {
+    pub fn inner(&self) -> &FnSignature {
+        match &self {
+            RuntimeFnSignature::Shared(shared) => &shared.data,
+            RuntimeFnSignature::Owned(owned) => owned,
+        }
+    }
 }
 
 // TODO: this struct is pretty expensive to clone, put it inside an Arc<> or something?
@@ -45,10 +60,8 @@ pub struct CapturedDependencies {
     pub cmd_aliases: HashMap<Dependency, RuntimeCmdAlias>,
 }
 
-#[derive(Clone)]
 pub enum RuntimeFnBody {
-    // TODO: put a GcCell here
-    Block(Eaten<Block>),
+    Block(Rc<Eaten<Block>>),
     Internal(InternalFnBody),
 }
 
@@ -116,7 +129,10 @@ impl RuntimeValue {
             ),
             RuntimeValue::Function(content) => {
                 // TODO: performance
-                SingleValueType::Function(content.signature.clone())
+                SingleValueType::Function(match &content.signature {
+                    RuntimeFnSignature::Shared(shared) => MaybeEaten::Eaten(Eaten::clone(shared)),
+                    RuntimeFnSignature::Owned(owned) => MaybeEaten::Raw(owned.clone()),
+                })
             }
             RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
         }

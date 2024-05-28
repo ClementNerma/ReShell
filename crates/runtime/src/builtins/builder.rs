@@ -6,7 +6,10 @@ use reshell_parser::ast::FnSignature;
 use crate::{
     context::{ScopeContent, ScopeFn, ScopeVar},
     gc::{GcCell, GcReadOnlyCell},
-    values::{CapturedDependencies, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{
+        CapturedDependencies, LocatedValue, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
+        RuntimeValue,
+    },
 };
 
 use super::{
@@ -32,10 +35,10 @@ pub fn build_native_lib_content() -> ScopeContent {
                     ScopeFn {
                         declared_at: forge_internal_loc(),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
-                            signature: FnSignature {
+                            signature: RuntimeFnSignature::Owned(FnSignature {
                                 args: forge_internal_token(args),
                                 ret_type: None, // TODO
-                            },
+                            }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
                             captured_deps: CapturedDependencies::default(),

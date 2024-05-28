@@ -105,7 +105,7 @@ pub struct SwitchCase {
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub signature: FnSignature,
+    pub signature: Eaten<FnSignature>,
     pub body: Eaten<Block>,
 }
 
@@ -202,7 +202,7 @@ pub enum SingleValueType {
     Error,
     UntypedStruct,
     TypedStruct(Vec<MaybeEaten<StructTypeMember>>),
-    Function(FnSignature),
+    Function(MaybeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
 }
 

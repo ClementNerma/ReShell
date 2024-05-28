@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten, FileId, Location};
-use reshell_parser::ast::ValueType;
+use reshell_parser::ast::{Block, FnSignature, ValueType};
 
 use crate::{errors::CheckerResult, CheckerError};
 
@@ -16,6 +16,8 @@ pub struct CheckerOutput {
     pub type_aliases: HashMap<CodeRange, Eaten<ValueType>>,
     pub type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
     pub type_aliases_decl: HashMap<CodeRange, HashMap<String, CodeRange>>,
+    pub fn_signatures: HashMap<CodeRange, Eaten<FnSignature>>,
+    pub fn_bodies: HashMap<CodeRange, Eaten<Block>>,
 }
 
 impl State {
@@ -27,6 +29,8 @@ impl State {
                 type_aliases: HashMap::new(),
                 type_aliases_usages: HashMap::new(),
                 type_aliases_decl: HashMap::new(),
+                fn_signatures: HashMap::new(),
+                fn_bodies: HashMap::new(),
             },
         }
     }
@@ -174,6 +178,16 @@ impl State {
             .insert(name.clone(), *type_alias);
 
         Ok(())
+    }
+
+    pub fn register_function_body(&mut self, body: Eaten<Block>) {
+        let dup = self.collected.fn_bodies.insert(body.at, body);
+        assert!(dup.is_none());
+    }
+
+    pub fn register_function_signature(&mut self, signature: Eaten<FnSignature>) {
+        let dup = self.collected.fn_signatures.insert(signature.at, signature);
+        assert!(dup.is_none());
     }
 }
 
