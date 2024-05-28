@@ -76,7 +76,7 @@ pub fn run_cmd(
                 let CmdEnvVar { name, value } = &env_var.data;
 
                 let value = match &value.data {
-                    CmdEnvVarValue::Raw(raw) => raw.data.clone(),
+                    CmdEnvVarValue::Raw(raw) => treat_cmd_raw(raw, ctx)?,
                     CmdEnvVarValue::ComputedString(computed_str) => {
                         eval_computed_string(computed_str, ctx)?
                     }
@@ -135,7 +135,9 @@ pub fn run_cmd(
             .and_then(|item| item.pipe_type)
             .map(|pipe_type| pipe_type.data);
 
-        let child = Command::new(&path.data)
+        let cmd_path = treat_cmd_raw(path, ctx)?;
+
+        let child = Command::new(&cmd_path)
             .envs(env_vars)
             .args(args.clone())
             .stdin(match children.last_mut() {
@@ -288,31 +290,9 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::CmdCall(call) => Ok(CmdArgResult::Single(RuntimeValue::String(
             run_cmd(call, ctx, true)?.unwrap(),
         ))),
-        CmdArg::Raw(raw) => {
-            Ok(CmdArgResult::Single(RuntimeValue::String(
-                if raw.data == "~" {
-                    // TODO: how to handle invalid UTF-8 paths?
-                    ctx.home_dir()
-                        .ok_or_else(|| {
-                            ctx.error(raw.at, "home directory was not defined in context")
-                        })?
-                        .to_string_lossy()
-                        .to_string()
-                } else if let Some(rest) = raw.data.strip_prefix("~/") {
-                    // TODO: how to handle invalid UTF-8 paths?
-                    format!(
-                        "{}/{rest}",
-                        ctx.home_dir()
-                            .ok_or_else(
-                                || ctx.error(raw.at, "home directory was not defined in context")
-                            )?
-                            .to_string_lossy()
-                    )
-                } else {
-                    raw.data.clone()
-                },
-            )))
-        }
+        CmdArg::Raw(raw) => Ok(CmdArgResult::Single(RuntimeValue::String(treat_cmd_raw(
+            raw, ctx,
+        )?))),
         CmdArg::SpreadVar(var_name) => {
             let value = ctx.get_var_value(var_name)?;
 
@@ -323,6 +303,28 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             Ok(CmdArgResult::Spreaded(items.clone()))
         }
     }
+}
+
+fn treat_cmd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {
+    let out = if raw.data == "~" {
+        // TODO: how to handle invalid UTF-8 paths?
+        ctx.home_dir()
+            .ok_or_else(|| ctx.error(raw.at, "home directory was not defined in context"))?
+            .to_string_lossy()
+            .to_string()
+    } else if let Some(rest) = raw.data.strip_prefix("~/") {
+        // TODO: how to handle invalid UTF-8 paths?
+        format!(
+            "{}/{rest}",
+            ctx.home_dir()
+                .ok_or_else(|| ctx.error(raw.at, "home directory was not defined in context"))?
+                .to_string_lossy()
+        )
+    } else {
+        raw.data.clone()
+    };
+
+    Ok(out)
 }
 
 pub enum CmdArgResult {
