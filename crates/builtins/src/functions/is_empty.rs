@@ -2,7 +2,7 @@ crate::define_internal_fn!(
     "isEmpty",
 
     (
-        value: RequiredArg<Union4Type<StringType, UntypedListType, UntypedMapType, SpreadType>> = Arg::positional("value")
+        value: RequiredArg<Union4Type<StringType, UntypedListType, UntypedMapType, SpreadType>> = Arg::method_self()
     )
 
     -> Some(BoolType::direct_underlying_type())
