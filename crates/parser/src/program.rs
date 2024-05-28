@@ -838,7 +838,7 @@ pub fn program(
                     ms.ignore_then(
                         choice::<_, CmdPipeType>((
                             just("!|").to(CmdPipeType::Stderr),
-                            just("|>").to(CmdPipeType::Value),
+                            just("->").to(CmdPipeType::Value),
                             char('|').to(CmdPipeType::Stdout),
                         ))
                         .spanned(),
