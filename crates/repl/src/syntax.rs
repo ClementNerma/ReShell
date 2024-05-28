@@ -1,3 +1,9 @@
+///
+/// Syntax highlighting for ReShell's scripting language
+///
+/// Regular expressions work as usual, except for the `^` and `$` symbol which are delimited differently
+/// `^` refers to the nearest nested rule opening, or to the beginning of input if nesting level is zero
+///
 use std::{collections::HashMap, ops::Deref};
 
 use nu_ansi_term::Style;
