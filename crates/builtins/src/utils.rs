@@ -58,7 +58,7 @@ pub fn call_fn_checked(
         RuntimeFnSignature::Owned(owned) => owned,
     };
 
-    if !check_fn_signature_equality(signature, expected_signature, ctx)? {
+    if !check_fn_signature_equality(signature, expected_signature, ctx) {
         return Err(ctx.error(
             loc_val.from,
             format!(
