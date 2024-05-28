@@ -51,7 +51,7 @@ fn run() -> Runner {
                         at,
                         ctx,
                     )?
-                    .write_all(content.as_bytes())
+                    .write_all(format!("{content}\n").as_bytes())
                     .with_context(
                         || format!("failed to append to file '{}'", path.display()),
                         at,
