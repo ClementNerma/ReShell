@@ -36,6 +36,10 @@ impl Colored {
         Self(content, Some(color))
     }
 
+    pub fn colorless(content: String) -> Self {
+        Self(content, None)
+    }
+
     fn len_chars(&self) -> usize {
         self.0.chars().count()
     }
@@ -109,8 +113,8 @@ impl PrintablePiece {
         }
     }
 
-    fn fits_in_line(&self, max_line_size: usize) -> bool {
-        self.len_chars() <= max_line_size
+    fn fits_in_line(&self, max_line_size: usize, current_ident: usize) -> bool {
+        self.len_chars() + current_ident <= max_line_size
     }
 
     pub fn render(&self, opts: PrettyPrintOptions, mut w: impl FnMut(&Colored)) {
@@ -144,7 +148,7 @@ impl PrintablePiece {
                 end,
                 suffix,
             } => {
-                if pretty && self.fits_in_line(max_line_size) {
+                if pretty && self.fits_in_line(max_line_size, current_ident) {
                     let space = Colored(" ".to_string(), None);
 
                     w(begin);

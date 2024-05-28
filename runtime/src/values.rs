@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+};
 
 use parsy::{CodeRange, Eaten, MaybeEaten};
 use reshell_parser::ast::{Block, FnSignature, SingleValueType, StructTypeMember, ValueType};
@@ -38,8 +41,8 @@ pub enum RuntimeValue {
     String(String),
     List(Vec<RuntimeValue>),
     Range { from: usize, to: usize },
-    Map(HashMap<String, RuntimeValue>),
-    Struct(HashMap<String, RuntimeValue>),
+    Map(BTreeMap<String, RuntimeValue>),
+    Struct(BTreeMap<String, RuntimeValue>),
     Function(RuntimeFnValue),
     Error { at: CodeRange, msg: String },
 }
