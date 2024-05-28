@@ -5,7 +5,7 @@ use std::{collections::HashMap, env::VarError, path::Path};
 use fork::{fork, Fork};
 use glob::glob;
 use parsy::{CodeRange, Eaten, FileId, Location, Parser};
-use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
+use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, MaybeEaten, SingleValueType, ValueType};
 use reshell_parser::program;
 
 use crate::context::{Context, Scope, ScopeFn, ScopeVar};
@@ -61,7 +61,7 @@ macro_rules! native_fn {
                                     names: forge_arg_names!($arg_name, $(--$arg_long)? $(-$arg_short)?),
                                     is_rest: arg_rest!($($rest_type)?),
                                     is_optional: false,
-                                    typ: Some(forge_internal_token(ValueType::Single(forge_internal_token(SingleValueType::$arg_type)))),
+                                    typ: Some(forge_internal_token(ValueType::Single(MaybeEaten::Raw(SingleValueType::$arg_type)))),
                                 }
                             ),*
                         ],
@@ -129,13 +129,13 @@ macro_rules! value_type {
 
     ($typ: ident $(| $other_typ: ident),+) => {
         Some(forge_internal_token(Box::new(ValueType::Union(
-            vec![ forge_internal_token(SingleValueType::$typ), $( forge_internal_token(SingleValueType::$other_typ) ),+ ]
+            vec![ MaybeEaten::Raw(SingleValueType::$typ), $( MaybeEaten::Raw(SingleValueType::$other_typ) ),+ ]
         ))))
     };
 
     ($typ: ident) => {
         Some(forge_internal_token(Box::new(ValueType::Single(
-            forge_internal_token(SingleValueType::$typ),
+            MaybeEaten::Raw(SingleValueType::$typ),
         ))))
     };
 }
@@ -493,11 +493,13 @@ pub fn render_prompt(
             is_optional: false,
             is_rest: false,
             typ: Some(forge_internal_token(ValueType::Single(
-                forge_internal_token(SingleValueType::Struct),
+                // TODO: fully typed struct
+                MaybeEaten::Raw(SingleValueType::UntypedStruct),
             ))),
         }],
         ret_type: Some(forge_internal_token(Box::new(ValueType::Single(
-            forge_internal_token(SingleValueType::Struct),
+            // TODO: fully typed struct
+            MaybeEaten::Raw(SingleValueType::UntypedStruct),
         )))),
     };
 

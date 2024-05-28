@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fmt::Debug};
 
 use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::{Block, FnSignature, SingleValueType};
+use reshell_parser::ast::{
+    Block, FnSignature, MaybeEaten, SingleValueType, StructTypeMember, ValueType,
+};
 
 use crate::{context::Context, errors::ExecResult};
 
@@ -55,7 +57,19 @@ impl RuntimeValue {
             RuntimeValue::List(_) => SingleValueType::List,
             RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
             RuntimeValue::Map(_) => SingleValueType::Map,
-            RuntimeValue::Struct(_) => SingleValueType::Struct,
+            RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
+                members
+                    .iter()
+                    .map(|(name, value)| {
+                        MaybeEaten::Raw(StructTypeMember {
+                            name: MaybeEaten::Raw(name.clone()),
+                            typ: MaybeEaten::Raw(ValueType::Single(MaybeEaten::Raw(
+                                value.get_type(),
+                            ))),
+                        })
+                    })
+                    .collect(),
+            ),
             RuntimeValue::Function(RuntimeFnValue { signature, body: _ }) => {
                 // TODO: performance
                 SingleValueType::Function(signature.clone())

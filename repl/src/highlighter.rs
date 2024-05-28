@@ -6,7 +6,8 @@ use reshell_parser::{
         Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
         ComputedStringPiece, ElsIf, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnArgNames,
         FnCall, FnCallArg, FnSignature, Instruction, LiteralValue, Program, PropAccess,
-        PropAccessNature, SingleCmdCall, SingleValueType, SwitchCase, Value, ValueType,
+        PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase, Value,
+        ValueType,
     },
     program,
 };
@@ -298,10 +299,10 @@ impl Highlight for FnArgNames {
 impl Highlight for ValueType {
     fn highlight(&self, h: &mut HighlightList) {
         match self {
-            ValueType::Single(single) => single.highlight(h),
+            ValueType::Single(single) => single.eaten().unwrap().highlight(h),
             ValueType::Union(types) => {
                 for member in types {
-                    member.highlight(h);
+                    member.eaten().unwrap().highlight(h);
                 }
             }
         }
@@ -321,10 +322,33 @@ impl Highlight for Eaten<SingleValueType> {
             | SingleValueType::Range
             | SingleValueType::Map
             | SingleValueType::Error
-            | SingleValueType::Struct => h.push(&TYPE_NAME, self.at),
+            | SingleValueType::UntypedStruct => h.push(&TYPE_NAME, self.at),
+            SingleValueType::TypedStruct(members) => {
+                if members.is_empty() {
+                    h.push(&TYPE_NAME, self.at);
+                    return;
+                }
+
+                h.push_everything_until(&TYPE_NAME, members.first().unwrap().eaten().unwrap().at);
+
+                for member in members {
+                    h.push_everything_until(&KEYWORD, member.eaten().unwrap().at);
+                    member.inner().highlight(h);
+                }
+            }
             SingleValueType::Function(signature) => signature.highlight(h),
             SingleValueType::TypeAlias(_) => h.push(&VAR_NAME, self.at),
         }
+    }
+}
+
+impl Highlight for StructTypeMember {
+    fn highlight(&self, h: &mut HighlightList) {
+        let Self { name, typ } = &self;
+
+        h.push(&VAR_NAME, name.eaten().unwrap().at);
+        h.push_everything_until(&KEYWORD, typ.eaten().unwrap().at);
+        typ.inner().highlight(h);
     }
 }
 
