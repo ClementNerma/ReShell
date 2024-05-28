@@ -9,6 +9,8 @@ pub struct Program {
 
 #[derive(Debug, Clone)]
 pub struct Block {
+    pub id: u64,
+    pub visible_scopes: Vec<u64>,
     pub instructions: Vec<Eaten<Instruction>>,
 }
 

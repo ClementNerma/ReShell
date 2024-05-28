@@ -5,9 +5,9 @@ use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
-    context::{Context, Scope, ScopeFn, ScopeVar},
+    context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar},
     display::readable_value_type,
-    errors::ExecResult,
+    errors::{ExecResult, StackTraceEntry},
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
@@ -17,15 +17,15 @@ use crate::{
     },
 };
 
-pub fn run(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
-    let scopes_at_start = ctx.scopes().len();
+// pub fn run(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
+//     let scopes_at_start = ctx.scopes().len();
 
-    let scope = run_program(program, ctx, init_scope)?;
+//     let scope = run_program(program, ctx, init_scope)?;
 
-    assert!(ctx.scopes().len() == scopes_at_start);
+//     assert!(ctx.scopes().len() == scopes_at_start);
 
-    Ok(scope)
-}
+//     Ok(scope)
+// }
 
 pub fn run_in_existing_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
     let scopes_at_start = ctx.scopes().len();
@@ -37,14 +37,14 @@ pub fn run_in_existing_scope(program: &Program, ctx: &mut Context) -> ExecResult
     Ok(())
 }
 
-pub fn run_program(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
-    let (scope, instr_ret) = run_block(&program.content.data, ctx, init_scope)?;
+// pub fn run_program(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
+//     let (scope, instr_ret) = run_block(&program.content.data, ctx, init_scope)?;
 
-    match instr_ret {
-        None => Ok(scope),
-        Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
-    }
-}
+//     match instr_ret {
+//         None => Ok(scope),
+//         Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
+//     }
+// }
 
 fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
     let instr_ret = run_block_in_current_scope(&program.content.data, ctx)?;
@@ -58,9 +58,31 @@ fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecRes
 pub fn run_block(
     block: &Block,
     ctx: &mut Context,
-    block_scope: Scope,
+    content: ScopeContent,
 ) -> ExecResult<(Scope, Option<InstrRet>)> {
-    ctx.push_scope(block_scope);
+    run_block_with_options(block, ctx, content, None)
+}
+
+pub fn run_block_with_options(
+    block: &Block,
+    ctx: &mut Context,
+    content: ScopeContent,
+    history_entry: Option<StackTraceEntry>,
+) -> ExecResult<(Scope, Option<InstrRet>)> {
+    let Block {
+        id,
+        visible_scopes,
+        instructions: _,
+    } = block;
+
+    ctx.push_scope(Scope {
+        id: *id,
+        // TODO: performance
+        visible_scopes: visible_scopes.clone(),
+        in_file_id: ctx.current_file_id(),
+        history_entry,
+        content,
+    });
 
     let instr_ret = run_block_in_current_scope(block, ctx)?;
 
@@ -68,7 +90,13 @@ pub fn run_block(
 }
 
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
-    for instr in &block.instructions {
+    let Block {
+        id: _,
+        visible_scopes: _,
+        instructions,
+    } = block;
+
+    for instr in instructions {
         if let Some(ret) = run_instr(instr, ctx)? {
             return Ok(Some(ret));
         }
@@ -86,7 +114,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             mutable,
             init_expr,
         } => {
-            if ctx.current_scope().vars.contains_key(&name.data) {
+            if ctx.current_scope().content.vars.contains_key(&name.data) {
                 return Err(ctx.error(name.at, "duplicate variable declaration".to_string()));
             }
 
@@ -98,7 +126,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 .transpose()?;
 
             // TODO: ugly access
-            ctx.current_scope_mut().vars.insert(
+            ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
                 ScopeVar {
                     // name: name.clone(),
@@ -117,7 +145,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             expr,
         } => {
             let Some(var) = ctx
-                .get_var(name) else {
+                .get_visible_var(name) else {
                     return Err(ctx.error(name.at, "variable not found"));
                 };
 
@@ -134,7 +162,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let assign_value = eval_expr(&expr.data, ctx)?;
 
-            if ctx.get_var(name).unwrap().value.is_none() {
+            if ctx.get_visible_var(name).unwrap().value.is_none() {
                 if let Some(first) = prop_acc.first() {
                     return Err(ctx.error(
                         first.at,
@@ -142,12 +170,18 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     ));
                 }
 
-                ctx.get_var_mut(name).unwrap().value =
+                ctx.get_visible_var_mut(name).unwrap().value =
                     Some(LocatedValue::new(assign_value, expr.at));
             } else {
                 let suite = make_prop_access_suite(prop_acc.iter().map(|eaten| &eaten.data), ctx)?;
 
-                let left = &mut ctx.get_var_mut(name).unwrap().value.as_mut().unwrap().value;
+                let left = &mut ctx
+                    .get_visible_var_mut(name)
+                    .unwrap()
+                    .value
+                    .as_mut()
+                    .unwrap()
+                    .value;
 
                 let left = match eval_prop_access_suite(
                     left,
@@ -202,7 +236,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             };
 
             if cond_val {
-                run_block(&body.data, ctx, ctx.create_scope())?;
+                run_block(&body.data, ctx, ScopeContent::new())?;
             } else {
                 let mut run = false;
 
@@ -215,7 +249,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     };
 
                     if cond_val {
-                        run_block(&body.data, ctx, ctx.create_scope())?;
+                        run_block(&body.data, ctx, ScopeContent::new())?;
                         run = true;
                         break;
                     }
@@ -223,7 +257,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                 if !run {
                     if let Some(els) = els {
-                        run_block(&els.data, ctx, ctx.create_scope())?;
+                        run_block(&els.data, ctx, ScopeContent::new())?;
                     }
                 }
             }
@@ -237,7 +271,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             match eval_expr(&iter_on.data, ctx)? {
                 RuntimeValue::List(list) => {
                     for item in &list {
-                        let mut loop_scope = ctx.create_scope();
+                        let mut loop_scope = ScopeContent::new();
 
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
@@ -268,7 +302,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                 RuntimeValue::Range { from, to } => {
                     for i in from..=to {
-                        let mut loop_scope = ctx.create_scope();
+                        let mut loop_scope = ScopeContent::new();
 
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
@@ -332,7 +366,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     from: _,
                     typ: InstrRetType::BreakLoop,
                 }),
-            ) = run_block(&body.data, ctx, ctx.create_scope())?
+            ) = run_block(&body.data, ctx, ScopeContent::new())?
             {
                 break;
             }
@@ -371,7 +405,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     })?;
 
                 if cmp {
-                    run_block(&body.data, ctx, ctx.create_scope())?;
+                    run_block(&body.data, ctx, ScopeContent::new())?;
                     break;
                 }
             }
@@ -382,7 +416,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             signature,
             body,
         } => {
-            let fns = &mut ctx.current_scope_mut().fns;
+            let fns = &mut ctx.current_scope_content_mut().fns;
 
             if fns.contains_key(&name.data) {
                 return Err(ctx.error(name.at, "duplicate name declaration".to_string()));
@@ -428,7 +462,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         } => match call_fn(call, ctx)? {
             FnCallResult::Success { returned: _ } => {}
             FnCallResult::Thrown(LocatedValue { value, from }) => {
-                let mut scope = ctx.create_scope();
+                let mut scope = ScopeContent::new();
 
                 scope.vars.insert(
                     catch_var.data.clone(),
@@ -445,7 +479,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         },
 
         Instruction::CmdAliasDecl { name, content } => {
-            let aliases = &mut ctx.current_scope_mut().aliases;
+            let aliases = &mut ctx.current_scope_content_mut().aliases;
 
             if aliases.contains_key(&name.data) {
                 return Err(ctx.error(name.at, "duplicate alias declaration".to_string()));
@@ -455,7 +489,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::TypeAliasDecl { name, content } => {
-            let aliases = &mut ctx.current_scope_mut().types;
+            let aliases = &mut ctx.current_scope_content_mut().types;
 
             if aliases.contains_key(&name.data) {
                 return Err(ctx.error(name.at, "duplicate type alias declaration".to_string()));
@@ -469,7 +503,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::BaseBlock(block) => {
-            run_block(&block.data, ctx, ctx.create_scope())?;
+            run_block(&block.data, ctx, ScopeContent::new())?;
         }
     }
 

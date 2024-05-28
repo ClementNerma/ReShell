@@ -6,7 +6,10 @@
 
 use clap::Parser;
 use colored::Colorize;
-use reshell_runtime::files_map::ScopableFilePath;
+use reshell_runtime::{
+    context::{Scope, ScopeContent},
+    files_map::ScopableFilePath,
+};
 use state::{with_writable_rt_ctx, RUNTIME_CONTEXT};
 use std::fs;
 
@@ -101,9 +104,17 @@ fn run_init_script() {
     };
 }
 
-fn run_script(file: ScopableFilePath, content: &str, exit_on_fail: bool) {
+fn run_script(file_path: ScopableFilePath, content: &str, exit_on_fail: bool) {
     with_writable_rt_ctx(|ctx| {
-        ctx.push_file_scope(file, content.to_string());
+        let file_id = ctx.register_file(file_path, content.to_string());
+
+        ctx.push_scope(Scope {
+            id: 0, // TODO: this means it's a duplicate with native lib, should this be changed?
+            in_file_id: file_id,
+            visible_scopes: vec![],
+            content: ScopeContent::new(),
+            history_entry: None,
+        });
     });
 
     if let Err(err) = repl::eval(content, &reshell_parser::program()) {

@@ -280,7 +280,9 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             Ok(RuntimeValue::Struct(props))
         }
         Value::Variable(name) => ctx.get_var_value(name).map(|value| value.clone()),
-        Value::FnAsValue(name) => Ok(RuntimeValue::Function(ctx.get_fn_value(name)?.clone())),
+        Value::FnAsValue(name) => Ok(RuntimeValue::Function(
+            ctx.get_visible_fn_value(name)?.clone(),
+        )),
         Value::FnCall(call) => Ok(fail_if_thrown(call_fn(call, ctx)?, ctx)?
             .ok_or_else(|| ctx.error(value.at, "this function call didn't return any value"))?
             .value),

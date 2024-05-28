@@ -4,6 +4,7 @@ use parsy::{FileId, Parser};
 use reedline::{Reedline, Signal};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
+    context::{Scope, ScopeContent},
     errors::{ExecErrorContent, ExecResult},
     exec::run_in_existing_scope,
     files_map::ScopableFilePath,
@@ -33,7 +34,15 @@ pub fn start() {
     let parser = reshell_parser::program();
 
     with_writable_rt_ctx(|ctx| {
-        ctx.push_file_scope(ScopableFilePath::InMemory("repl"), String::new());
+        let file_id = ctx.register_file(ScopableFilePath::InMemory("repl"), String::new());
+
+        ctx.push_scope(Scope {
+            id: 0,
+            in_file_id: file_id,
+            visible_scopes: vec![],
+            content: ScopeContent::new(),
+            history_entry: None,
+        });
     });
 
     let mut last_cmd_status = None;
