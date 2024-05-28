@@ -82,11 +82,16 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Comments
                 simple("(#.*)$", [DarkGray]),
                 
-                // Variable declaration
+                // Mutable variable declaration
                 simple("\\b(let)\\s+(mut)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)", [Magenta, Magenta, Red, LightYellow]),
                 simple("\\b(let)\\s+(mut)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Magenta, Red]),
                 simple("\\b(let)\\s+(mut)\\b", [Magenta, Magenta]),
                 
+                // Immutable variable declaration
+                simple("\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)", [Magenta, Red, LightYellow]),
+                simple("\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Red]),
+                simple("\\b(let)\\b", [Magenta]),
+
                 // For loop
                 simple("\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(in)\\b", [Magenta, Red, Magenta]),
                 simple("\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Red]),
