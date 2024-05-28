@@ -58,14 +58,6 @@ impl BinariesResolver {
     }
 
     pub fn resolve_binary_path(&mut self, name: &str) -> Result<PathBuf, String> {
-        self.resolve_binary_path_inner(name, false)
-    }
-
-    fn resolve_binary_path_inner(
-        &mut self,
-        name: &str,
-        already_retrying: bool,
-    ) -> Result<PathBuf, String> {
         if name.contains('/') || name.contains('\\') {
             let path = Path::new(name);
 
@@ -76,8 +68,16 @@ impl BinariesResolver {
             };
         };
 
-        let resolved = match self.entries.get(name) {
-            Some(path) => path.clone(),
+        match self.entries.get(name) {
+            Some(path) => {
+                if !path.exists() {
+                    self.entries.remove(name);
+                    return self.resolve_binary_path(name);
+                }
+
+                Ok(path.to_owned())
+            }
+
             None => {
                 let resolved = self
                     .path_dirs
@@ -144,20 +144,8 @@ impl BinariesResolver {
 
                 self.entries.insert(name.to_owned(), resolved.clone());
 
-                resolved
+                Ok(resolved)
             }
-        };
-
-        if resolved.is_file() {
-            Ok(resolved.to_owned())
-        } else {
-            if already_retrying {
-                return Err(format!("command '{name}' was not found"));
-            }
-
-            self.entries.remove(name);
-
-            self.resolve_binary_path_inner(name, already_retrying)
         }
     }
 }
