@@ -8,7 +8,7 @@ use reshell_checker::{
 };
 use reshell_parser::{
     ast::{
-        FnSignature, FunctionBody, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+        CmdCall, FnSignature, FunctionBody, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
         ValueType,
     },
     files::FilesMap,
@@ -590,6 +590,16 @@ impl Context {
                 from.at,
                 "developed command call data is missing (= bug in checker)",
             ),
+        }
+    }
+
+    /// Get a specific command call used as a value
+    /// Avoids cloning the entire (heavy) [`Eaten<CmdCall>`]
+    pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Rc<Eaten<CmdCall>> {
+        match self.collected.cmd_call_values.get(&at) {
+            Some(cmd_call) => Rc::clone(cmd_call),
+
+            None => self.panic(at, "command call data is missing (= bug in checker)"),
         }
     }
 

@@ -86,6 +86,12 @@ declare_basic_type_handlers!(
         _ => Err("expected an error".to_owned())
     },
 
+    CmdCallType (CmdCall) = CodeRange => value: match value {
+        RuntimeValue::CmdCall { content_at } => Ok(content_at),
+
+        _ => Err("expected a command call".to_owned())
+    },
+
     UntypedListType (List) = GcCell<Vec<RuntimeValue>> => value: match value {
         RuntimeValue::List(items) => Ok(items),
         _ => Err("expected a list".to_owned())
