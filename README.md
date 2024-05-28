@@ -1,6 +1,6 @@
 # The ReShell Project
 
-**WARNING:** This project is under heavy development and many things are either non-functional or may produce unexpected results. **Please use at your own risks!**
+**WARNING:** This project is under heavy development and many things are either non-functional or may produce unexpected results. The Git history is also a mess. **Please use at your own risks!**
 
 The ReShell project aims to provide a complete alternative to popular shells such as *sh (sh, bash, zsh, ksh, ...), PowerShell or Batch.
 
