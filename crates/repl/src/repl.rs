@@ -104,7 +104,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
                 if let Some(value) = ctx.take_wandering_value() {
                     println!(
                         "{}",
-                        value.render_colored(ctx, PrettyPrintOptions::inline())
+                        value.render_colored(ctx, PrettyPrintOptions::multiline())
                     )
                 }
             }

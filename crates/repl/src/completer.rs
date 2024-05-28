@@ -109,7 +109,7 @@ impl RlCompleter for Completer {
                 .collect::<Vec<_>>();
         }
 
-        if !after_space {
+        if !after_space && !word.contains(['/', '\\']) {
             let word_lc = word.to_lowercase();
 
             return completion_data
