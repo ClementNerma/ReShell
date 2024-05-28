@@ -3,7 +3,7 @@ use colored::{Color, Colorize};
 use crate::context::Context;
 
 pub trait PrettyPrintable {
-    fn generate_pretty_data(&self, ctx: &Context) -> PrintablePiece;
+    fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece;
 
     fn render_uncolored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
@@ -51,20 +51,20 @@ impl Colored {
     }
 }
 
-pub enum PrintablePiece {
+pub enum PrettyPrintablePiece {
     Atomic(Colored),
     Suite(Vec<Colored>),
     List {
         begin: Colored,
-        items: Vec<PrintablePiece>,
+        items: Vec<PrettyPrintablePiece>,
         sep: Colored,
         end: Colored,
-        suffix: Option<Box<PrintablePiece>>,
+        suffix: Option<Box<PrettyPrintablePiece>>,
     },
-    Join(Vec<PrintablePiece>),
+    Join(Vec<PrettyPrintablePiece>),
 }
 
-impl PrintablePiece {
+impl PrettyPrintablePiece {
     pub fn colored_atomic(content: impl Into<String>, color: Color) -> Self {
         Self::Atomic(Colored(content.into(), Some(color)))
     }
@@ -99,16 +99,16 @@ impl PrettyPrintOptions {
     }
 }
 
-impl PrintablePiece {
+impl PrettyPrintablePiece {
     fn len_chars(&self) -> usize {
         match self {
-            PrintablePiece::Atomic(atom) => atom.len_chars(),
+            PrettyPrintablePiece::Atomic(atom) => atom.len_chars(),
 
-            PrintablePiece::Suite(items) => {
+            PrettyPrintablePiece::Suite(items) => {
                 items.iter().map(|item| item.len_chars()).sum::<usize>()
             }
 
-            PrintablePiece::List {
+            PrettyPrintablePiece::List {
                 begin,
                 items,
                 sep,
@@ -129,7 +129,9 @@ impl PrintablePiece {
                     }
             }
 
-            PrintablePiece::Join(pieces) => pieces.iter().map(PrintablePiece::len_chars).sum(),
+            PrettyPrintablePiece::Join(pieces) => {
+                pieces.iter().map(PrettyPrintablePiece::len_chars).sum()
+            }
         }
     }
 
@@ -156,15 +158,15 @@ impl PrintablePiece {
         } = opts;
 
         match self {
-            PrintablePiece::Atomic(atom) => w(atom),
+            PrettyPrintablePiece::Atomic(atom) => w(atom),
 
-            PrintablePiece::Suite(items) => {
+            PrettyPrintablePiece::Suite(items) => {
                 for item in items {
                     w(item);
                 }
             }
 
-            PrintablePiece::List {
+            PrettyPrintablePiece::List {
                 begin,
                 items,
                 sep,
@@ -212,7 +214,7 @@ impl PrintablePiece {
                 }
             }
 
-            PrintablePiece::Join(pieces) => {
+            PrettyPrintablePiece::Join(pieces) => {
                 for piece in pieces {
                     piece.render_inner(opts, w, current_ident);
                 }

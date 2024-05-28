@@ -168,7 +168,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
 
                 |at, Args { content }, _, ctx| {
                     match at {
-                        RuntimeCodeRange::CodeRange(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
+                        RuntimeCodeRange::Parsed(at) => Ok(Some(RuntimeValue::Error { at, msg: content })),
                         RuntimeCodeRange::Internal => Err(ctx.error(at, "cannot generate an error from an internal location"))
                     }
                 }

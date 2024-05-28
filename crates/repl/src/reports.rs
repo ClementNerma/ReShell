@@ -41,12 +41,12 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let (at, msg) = match err {
         ReportableError::Parsing(err) => {
             let (at, err) = parsing_error(err);
-            (RuntimeCodeRange::CodeRange(at), err)
+            (RuntimeCodeRange::Parsed(at), err)
         }
 
         ReportableError::Checking(err) => {
             let (at, err) = checking_error(err);
-            (RuntimeCodeRange::CodeRange(at), err)
+            (RuntimeCodeRange::Parsed(at), err)
         }
 
         ReportableError::Runtime(err, _) => match &err.nature {
@@ -63,7 +63,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             ),
             ExecErrorNature::ParsingErr(err) => {
                 let (at, err) = parsing_error(err);
-                (RuntimeCodeRange::CodeRange(at), err)
+                (RuntimeCodeRange::Parsed(at), err)
             }
             ExecErrorNature::CommandFailed {
                 message,
@@ -86,7 +86,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     };
 
     let (source_file, offset, len, msg) = match at {
-        RuntimeCodeRange::CodeRange(at) => match at.start.file_id {
+        RuntimeCodeRange::Parsed(at) => match at.start.file_id {
             FileId::None => unreachable!("internal error: got 'None' file ID in error"),
             FileId::Internal => unreachable!("internal error: got internal file ID in error"),
 
@@ -143,7 +143,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let mut bottom = String::new();
 
     if let ReportableError::Runtime(err, _) = err {
-        if let RuntimeCodeRange::CodeRange(range) = err.scope_range {
+        if let RuntimeCodeRange::Parsed(range) = err.scope_range {
             let curr_scope_msg = format!("* In scope : {}", dbg_loc(range, files).bright_magenta());
             bottom = format!("{}", curr_scope_msg.bright_yellow());
         }

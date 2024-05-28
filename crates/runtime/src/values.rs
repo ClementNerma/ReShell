@@ -9,8 +9,9 @@ use reshell_parser::ast::{
     StructTypeMember, ValueType,
 };
 
+use crate::cmd::CmdSingleArgResult;
 use crate::context::{ScopeCmdAlias, ScopeFn, ScopeVar};
-use crate::functions::ParsedFnCallArg;
+use crate::functions::ValidatedFnCallArg;
 use crate::gc::GcReadOnlyCell;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
@@ -59,7 +60,7 @@ pub enum RuntimeFnBody {
 
 pub struct InternalFnCallData<'c> {
     pub call_at: RuntimeCodeRange,
-    pub args: HashMap<String, ParsedFnCallArg>,
+    pub args: HashMap<String, ValidatedFnCallArg>,
     pub ctx: &'c mut Context,
 }
 
@@ -92,6 +93,7 @@ pub enum RuntimeValue {
     Map(GcCell<HashMap<String, RuntimeValue>>),
     Struct(GcCell<HashMap<String, RuntimeValue>>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
+    ArgSpread(GcReadOnlyCell<Vec<CmdSingleArgResult>>),
 }
 
 impl RuntimeValue {
@@ -128,6 +130,7 @@ impl RuntimeValue {
                 })
             }
             RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
+            RuntimeValue::ArgSpread(_) => SingleValueType::ArgSpread,
         }
     }
 
@@ -144,7 +147,8 @@ impl RuntimeValue {
             RuntimeValue::List(_)
             | RuntimeValue::Map(_)
             | RuntimeValue::Struct(_)
-            | RuntimeValue::Function(_) => false,
+            | RuntimeValue::Function(_)
+            | RuntimeValue::ArgSpread(_) => false,
         }
     }
 }
@@ -170,9 +174,22 @@ pub fn are_values_equal(
         (RuntimeValue::Null, _) => Ok(matches!(right, RuntimeValue::Null)),
 
         (RuntimeValue::Error { at: _, msg: _ }, _) | (_, RuntimeValue::Error { at: _, msg: _ }) => {
-            Err(NotComparableTypes)
+            Err(NotComparableTypes {
+                reason: "cannot compare errors",
+            })
         }
-        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Err(NotComparableTypes),
+
+        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => {
+            Err(NotComparableTypes {
+                reason: "cannot compare functions",
+            })
+        }
+
+        (RuntimeValue::ArgSpread(_), _) | (_, RuntimeValue::ArgSpread(_)) => {
+            Err(NotComparableTypes {
+                reason: "cannot compare arguments spreads",
+            })
+        }
 
         (RuntimeValue::Bool(a), RuntimeValue::Bool(b)) => Ok(a == b),
         (RuntimeValue::Bool(_), _) | (_, RuntimeValue::Bool(_)) => Ok(false),
@@ -216,7 +233,7 @@ pub fn are_values_equal(
                         None => false,
                         Some(b_value) => match are_values_equal(a_value, b_value) {
                             Ok(equal) => equal,
-                            Err(NotComparableTypes) => false,
+                            Err(NotComparableTypes { reason: _ }) => false,
                         },
                     })
             })
@@ -230,7 +247,7 @@ pub fn are_values_equal(
                         None => false,
                         Some(b_value) => match are_values_equal(a_value, b_value) {
                             Ok(equal) => equal,
-                            Err(NotComparableTypes) => false,
+                            Err(NotComparableTypes { reason: _ }) => false,
                         },
                     })
             })
@@ -239,4 +256,6 @@ pub fn are_values_equal(
     }
 }
 
-pub struct NotComparableTypes;
+pub struct NotComparableTypes {
+    pub reason: &'static str,
+}

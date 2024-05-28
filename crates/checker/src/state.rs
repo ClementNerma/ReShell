@@ -100,7 +100,7 @@ impl State {
                     DependencyType::CmdAlias => scope
                     .cmd_aliases
                     .get(&item.data)
-                    .map(|alias_at| FetchedDependency::new(RuntimeCodeRange::CodeRange( *alias_at), false)),
+                    .map(|alias_at| FetchedDependency::new(RuntimeCodeRange::Parsed( *alias_at), false)),
             })
             .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))?;
 

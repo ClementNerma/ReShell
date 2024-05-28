@@ -244,7 +244,7 @@ macro_rules! define_internal_fn {
             context::Context,
             errors::ExecResult,
             values::{RuntimeValue, LocatedValue, InternalFnCallData},
-            functions::ParsedFnCallArg
+            functions::ValidatedFnCallArg
         };
 
         #[allow(unused_imports)]
@@ -261,7 +261,7 @@ macro_rules! define_internal_fn {
             ),*
         }
 
-        fn parse_args(call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ParsedFnCallArg>)
+        fn parse_args(call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ValidatedFnCallArg>)
             -> Result<($args_struct_name, $args_loc_struct_name), (RuntimeCodeRange, String)>
         {
             struct PlaceholderArgsAt {

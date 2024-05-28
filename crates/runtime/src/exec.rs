@@ -65,7 +65,7 @@ fn run_block(
         code_range,
     } = block;
 
-    ctx.create_and_push_scope(RuntimeCodeRange::CodeRange(*code_range), content);
+    ctx.create_and_push_scope(RuntimeCodeRange::Parsed(*code_range), content);
 
     let result = run_block_in_current_scope(block, ctx);
 
@@ -103,7 +103,7 @@ pub(crate) fn run_body_with_deps(
     } = block;
 
     ctx.create_and_push_scope_with_deps(
-        RuntimeCodeRange::CodeRange(*code_range),
+        RuntimeCodeRange::Parsed(*code_range),
         DepsScopeCreationData::CapturedDeps(captured_deps),
         content,
         parent_scopes,
@@ -137,14 +137,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 .as_ref()
                 .map(|expr| {
                     eval_expr(&expr.data, ctx)
-                        .map(|value| LocatedValue::new(value, RuntimeCodeRange::CodeRange(expr.at)))
+                        .map(|value| LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at)))
                 })
                 .transpose()?;
 
             ctx.current_scope_content_mut().vars.insert(
                 name.data.clone(),
                 ScopeVar {
-                    name_at: RuntimeCodeRange::CodeRange(name.at),
+                    name_at: RuntimeCodeRange::Parsed(name.at),
                     is_mut: mutable.is_some(),
                     value: GcCell::new(init_value),
                 },
@@ -175,7 +175,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                 *var.value.write(name.at, ctx)? = Some(LocatedValue::new(
                     assign_value,
-                    RuntimeCodeRange::CodeRange(expr.at),
+                    RuntimeCodeRange::Parsed(expr.at),
                 ));
             } else {
                 eval_props_access(
@@ -291,11 +291,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
-                            name_at: RuntimeCodeRange::CodeRange(iter_var.at),
+                            name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
                             value: GcCell::new(Some(LocatedValue::new(
                                 item.clone(),
-                                RuntimeCodeRange::CodeRange(iter_var.at),
+                                RuntimeCodeRange::Parsed(iter_var.at),
                             ))),
                         },
                     );
@@ -319,11 +319,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     loop_scope.vars.insert(
                         iter_var.data.clone(),
                         ScopeVar {
-                            name_at: RuntimeCodeRange::CodeRange(iter_var.at),
+                            name_at: RuntimeCodeRange::Parsed(iter_var.at),
                             is_mut: false,
                             value: GcCell::new(Some(LocatedValue::new(
                                 RuntimeValue::Int(i as i64),
-                                RuntimeCodeRange::CodeRange(iter_var.at),
+                                RuntimeCodeRange::Parsed(iter_var.at),
                             ))),
                         },
                     );
@@ -380,11 +380,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     key_iter_var.data.clone(),
                     ScopeVar {
-                        name_at: RuntimeCodeRange::CodeRange(key_iter_var.at),
+                        name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
                         is_mut: false,
                         value: GcCell::new(Some(LocatedValue::new(
                             RuntimeValue::String(key.clone()),
-                            RuntimeCodeRange::CodeRange(key_iter_var.at),
+                            RuntimeCodeRange::Parsed(key_iter_var.at),
                         ))),
                     },
                 );
@@ -392,11 +392,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 loop_scope.vars.insert(
                     value_iter_var.data.clone(),
                     ScopeVar {
-                        name_at: RuntimeCodeRange::CodeRange(value_iter_var.at),
+                        name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
                         is_mut: false,
                         value: GcCell::new(Some(LocatedValue::new(
                             value.clone(),
-                            RuntimeCodeRange::CodeRange(value_iter_var.at),
+                            RuntimeCodeRange::Parsed(value_iter_var.at),
                         ))),
                     },
                 );
@@ -449,12 +449,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             for SwitchCase { cond, body } in cases {
                 let case_value = eval_expr(&cond.data, ctx)?;
 
-                let cmp =
-                    are_values_equal(&switch_on, &case_value).map_err(|NotComparableTypes| {
+                let cmp = are_values_equal(&switch_on, &case_value).map_err(
+                    |NotComparableTypes { reason }| {
                         ctx.error(
                             cond.at,
                             format!(
-                                "cannot compare {} and {}",
+                                "cannot compare {} and {}: {reason}",
                                 switch_on
                                     .get_type()
                                     .render_colored(ctx, PrettyPrintOptions::inline()),
@@ -463,7 +463,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                     .render_colored(ctx, PrettyPrintOptions::inline())
                             ),
                         )
-                    })?;
+                    },
+                )?;
 
                 if cmp {
                     run_block(&body.data, ctx, ScopeContent::new())?;
@@ -493,7 +494,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             fns.insert(
                 name.data.clone(),
                 ScopeFn {
-                    name_at: RuntimeCodeRange::CodeRange(name.at),
+                    name_at: RuntimeCodeRange::Parsed(name.at),
                     value: GcReadOnlyCell::new(RuntimeFnValue {
                         body: RuntimeFnBody::Block(body),
                         signature: RuntimeFnSignature::Shared(signature),
@@ -509,7 +510,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 expr.as_ref()
                     .map(|expr| {
                         eval_expr(&expr.data, ctx).map(|value| {
-                            LocatedValue::new(value, RuntimeCodeRange::CodeRange(expr.at))
+                            LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))
                         })
                     })
                     .transpose()?,
@@ -522,7 +523,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             return Err(ctx.error(
                 instr.at,
                 ExecErrorNature::Thrown {
-                    value: LocatedValue::new(value, RuntimeCodeRange::CodeRange(expr.at)),
+                    value: LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at)),
                 },
             ));
         }
@@ -540,7 +541,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         scope.vars.insert(
                             catch_var.data.clone(),
                             ScopeVar {
-                                name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                                name_at: RuntimeCodeRange::Parsed(catch_var.at),
                                 is_mut: false,
                                 value: GcCell::new(Some(value)),
                             },

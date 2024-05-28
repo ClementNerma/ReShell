@@ -167,19 +167,20 @@ fn apply_double_op(
         }
 
         DoubleOp::Eq | DoubleOp::Neq => {
-            let cmp = are_values_equal(&left, &right).map_err(|NotComparableTypes| {
-                ctx.error(
-                    op.at,
-                    format!(
-                        "cannot compare {} and {}",
-                        left.get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
-                        right
-                            .get_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
-                    ),
-                )
-            })?;
+            let cmp =
+                are_values_equal(&left, &right).map_err(|NotComparableTypes { reason }| {
+                    ctx.error(
+                        op.at,
+                        format!(
+                            "cannot compare {} and {}: {reason}",
+                            left.get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline()),
+                            right
+                                .get_type()
+                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        ),
+                    )
+                })?;
 
             RuntimeValue::Bool(if op.data == DoubleOp::Eq { cmp } else { !cmp })
         }
@@ -314,13 +315,13 @@ fn eval_expr_inner_content(
                     scope.vars.insert(
                         catch_var.data.clone(),
                         ScopeVar {
-                            name_at: RuntimeCodeRange::CodeRange(catch_var.at),
+                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
                             is_mut: false,
                             value: GcCell::new(Some(value)),
                         },
                     );
 
-                    ctx.create_and_push_scope(RuntimeCodeRange::CodeRange(catch_expr.at), scope);
+                    ctx.create_and_push_scope(RuntimeCodeRange::Parsed(catch_expr.at), scope);
 
                     let result = eval_expr(&catch_expr.data, ctx);
 
