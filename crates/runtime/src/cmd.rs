@@ -7,9 +7,8 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg,
-    CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg, FlagValueSeparator, RuntimeCodeRange,
-    SingleCmdCall,
+    CmdArg, CmdCall, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe,
+    CmdPipeType, CmdValueMakingArg, FlagValueSeparator, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
@@ -147,11 +146,13 @@ pub fn run_cmd(
         };
 
         let child = exec_cmd(
-            &cmd_name,
-            args,
-            pipe_type,
-            next_pipe_type,
-            params,
+            ExecCmdArgs {
+                name: &cmd_name,
+                args,
+                pipe_type,
+                next_pipe_type,
+                params,
+            },
             &mut children,
             ctx,
         )?;
@@ -161,7 +162,7 @@ pub fn run_cmd(
 
     let mut last_output = None;
 
-    for (child, at) in children.into_iter().rev() {
+    for (i, (child, at)) in children.into_iter().rev().enumerate() {
         let output = child.wait_with_output();
 
         ctx.reset_ctrl_c_press_indicator();
@@ -192,7 +193,9 @@ pub fn run_cmd(
             ));
         }
 
-        last_output = Some(output.stdout);
+        if i == 0 {
+            last_output = Some(output.stdout);
+        }
     }
 
     let captured = if capture.is_some() {
@@ -330,8 +333,10 @@ fn complete_cmd_data(
     for env_var in &env_vars.data {
         let CmdEnvVar { name, value } = &env_var.data;
 
+        let LocatedValue { value, from } = eval_cmd_value_making_arg(&value.data, ctx)?;
+
         out.env_vars
-            .insert(name.data.clone(), compute_env_var_value(&value.data, ctx)?);
+            .insert(name.data.clone(), value_to_str(&value, from, ctx)?);
     }
 
     for arg in &args.data {
@@ -402,15 +407,27 @@ enum EvaluatedCmdTarget {
     Function(GcReadOnlyCell<RuntimeFnValue>),
 }
 
-fn exec_cmd(
-    name: &Eaten<String>,
+struct ExecCmdArgs<'a> {
+    name: &'a Eaten<String>,
     args: EvaluatedCmdArgs,
     pipe_type: Option<Eaten<CmdPipeType>>,
     next_pipe_type: Option<CmdPipeType>,
     params: CmdExecParams,
+}
+
+fn exec_cmd(
+    args: ExecCmdArgs,
     children: &mut [(Child, CodeRange)],
     ctx: &mut Context,
 ) -> ExecResult<Child> {
+    let ExecCmdArgs {
+        name,
+        args,
+        pipe_type,
+        next_pipe_type,
+        params,
+    } = args;
+
     let CmdExecParams { capture } = params;
 
     let EvaluatedCmdArgs { env_vars, args } = args;
@@ -542,14 +559,6 @@ fn append_cmd_arg_as_string(
     }
 
     Ok(())
-}
-
-fn compute_env_var_value(value: &CmdEnvVarValue, ctx: &mut Context) -> ExecResult<String> {
-    match value {
-        CmdEnvVarValue::Raw(raw) => treat_cwd_raw(raw, ctx),
-        CmdEnvVarValue::ComputedString(computed_str) => eval_computed_string(computed_str, ctx),
-        CmdEnvVarValue::Expr(expr) => value_to_str(&eval_expr(&expr.data, ctx)?, expr.at, ctx),
-    }
 }
 
 pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult> {

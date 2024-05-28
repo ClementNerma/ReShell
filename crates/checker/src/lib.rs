@@ -19,11 +19,11 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
-    Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagValueArg, CmdPath,
-    CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
-    ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall,
-    FnCallArg, FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue,
-    Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
+    Block, CmdArg, CmdCall, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType,
+    CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr,
+    ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg,
+    FnFlagArgNames, FnSignature, Function, FunctionBody, Instruction, LiteralValue, Program,
+    PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp,
     SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
 };
 
@@ -892,15 +892,7 @@ fn check_single_cmd_call(
 fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> CheckerResult {
     let CmdEnvVar { name: _, value } = &cmd_env_var.data;
 
-    match &value.data {
-        CmdEnvVarValue::Raw(_) => Ok(()),
-
-        CmdEnvVarValue::ComputedString(computed_string) => {
-            check_computed_string(computed_string, state)
-        }
-
-        CmdEnvVarValue::Expr(expr) => check_expr(&expr.data, state),
-    }
+    check_cmd_value_making_arg(&value.data, state)
 }
 
 fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
