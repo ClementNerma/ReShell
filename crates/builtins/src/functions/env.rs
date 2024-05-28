@@ -10,7 +10,7 @@ crate::define_internal_fn!(
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(NullableType::<StringType>::direct_underlying_type())
 );
 
 fn run() -> Runner {
@@ -22,12 +22,9 @@ fn run() -> Runner {
              ..
          },
          ctx| {
-            let var_value = std::env::var_os(&var_name).ok_or_else(|| {
-                ctx.throw(
-                    var_name_at,
-                    format!("environment variable '{var_name}' is not set"),
-                )
-            })?;
+            let Some(var_value) = std::env::var_os(&var_name) else {
+                return Ok(Some(RuntimeValue::Null));
+            };
 
             let var_value = if lossy {
                 var_value.to_string_lossy().into_owned()
