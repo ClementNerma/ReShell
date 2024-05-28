@@ -10,7 +10,6 @@ mod canonicalize;
 mod cd;
 mod current_dir;
 mod current_script_path;
-mod datetime;
 mod dbg;
 mod dbg_type;
 mod dir_exists;
@@ -22,16 +21,14 @@ mod file_exists;
 mod glob;
 mod human_size;
 mod inspect;
-mod make_map;
+mod map;
 mod mkdir;
 mod parent_dir;
 mod parse_json;
 mod path_exists;
-mod progress_bar;
 mod range;
 mod read_dir;
 mod read_file;
-mod regex;
 mod rm;
 mod run;
 mod run_fn;
@@ -44,12 +41,13 @@ mod term_rows;
 mod to_json;
 mod to_string;
 mod transform;
+mod typemakers;
 mod values;
 mod whereis;
 mod which;
 mod write_file;
 
-pub(crate) use self::{datetime::DateTimeValue, progress_bar::ProgressBarValue, regex::RegexValue};
+pub(crate) use self::typemakers::types::*;
 
 use crate::helper::InternalFunction;
 
@@ -64,7 +62,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::cd::build_fn(),
         self::current_dir::build_fn(),
         self::current_script_path::build_fn(),
-        self::datetime::build_fn(),
         self::dbg::build_fn(),
         self::dbg_type::build_fn(),
         self::dir_exists::build_fn(),
@@ -76,16 +73,14 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::glob::build_fn(),
         self::human_size::build_fn(),
         self::inspect::build_fn(),
-        self::make_map::build_fn(),
+        self::map::build_fn(),
         self::mkdir::build_fn(),
         self::parent_dir::build_fn(),
         self::parse_json::build_fn(),
         self::path_exists::build_fn(),
-        self::progress_bar::build_fn(),
         self::range::build_fn(),
         self::read_dir::build_fn(),
         self::read_file::build_fn(),
-        self::regex::build_fn(),
         self::rm::build_fn(),
         self::run_fn::build_fn(),
         self::set_env::build_fn(),
@@ -103,4 +98,10 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::which::build_fn(),
         self::write_file::build_fn(),
     ]
+    .into_iter()
+    .chain(
+        // Add typemaking functions
+        self::typemakers::native_typemaking_functions().into_iter(),
+    )
+    .collect()
 }
