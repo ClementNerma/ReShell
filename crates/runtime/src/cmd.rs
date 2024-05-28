@@ -15,11 +15,12 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
-    functions::{call_fn, call_fn_value, FnCallResult, FnPossibleCallArgs},
+    functions::{call_fn, call_fn_value, FnPossibleCallArgs},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     values::{RuntimeCmdAlias, RuntimeValue},
 };
 
+// TODO: this should be able to return an InstrRet
 pub fn run_cmd(
     call: &Eaten<CmdCall>,
     ctx: &mut Context,

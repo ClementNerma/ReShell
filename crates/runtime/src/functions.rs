@@ -103,7 +103,7 @@ pub fn call_fn_value(
                         return Err(ctx.error(from, "not in a loop"))
                     }
                     InstrRetType::FnReturn(value) => value,
-                    InstrRetType::Throwed(value) => return Ok(FnCallResult::Thrown(value)),
+                    InstrRetType::Thrown(value) => return Ok(FnCallResult::Thrown(value)),
                 },
 
                 None => None,

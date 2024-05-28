@@ -507,7 +507,7 @@ pub fn generate_native_lib() -> Scope {
             eprintln!(
                 "=== Runtime stats ===\nCall stack size: {}\nAlive scopes: {}",
                 ctx.current_scope().call_stack.history().len(),
-                ctx.scopes().len()
+                ctx.scopes().len(),
             );
 
             Ok(None)
