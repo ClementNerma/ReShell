@@ -10,7 +10,7 @@ dyn-clone = "1.0.17"
 glob = "0.3.1"
 indexmap = "2.2.5"
 indicatif = "0.17.8"
-parsy = "0.5.5"
+parsy = "0.5.6"
 pomsky = "0.11.0"
 regex = "1.10.3"
 reshell-parser = { path = "../parser" }
