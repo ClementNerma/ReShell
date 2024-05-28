@@ -286,7 +286,7 @@ pub enum LiteralValue {
     Boolean(bool),
     Integer(i64),
     Float(f64),
-    // String(String),
+    String(String),
 }
 
 #[derive(Debug, Clone)]
@@ -309,6 +309,8 @@ pub enum EscapableChar {
     Newline,
     CarriageReturn,
     DoubleQuote,
+    BackQuote,
+    SingleQuote,
     Backslash,
     DollarSign,
 }

@@ -655,6 +655,7 @@ fn check_literal_value(lit_value: &Eaten<LiteralValue>, _: &mut State) -> Checke
         LiteralValue::Boolean(_) => Ok(()),
         LiteralValue::Integer(_) => Ok(()),
         LiteralValue::Float(_) => Ok(()),
+        LiteralValue::String(_) => Ok(()),
     }
 }
 
