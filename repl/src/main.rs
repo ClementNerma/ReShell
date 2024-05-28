@@ -12,7 +12,6 @@ mod cmd;
 mod completer;
 mod editor;
 mod highlighter;
-mod highlighting;
 mod hinter;
 mod history;
 mod keybindings;
