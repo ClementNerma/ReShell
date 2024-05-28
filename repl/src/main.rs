@@ -27,9 +27,12 @@ fn main() {
     match dirs::home_dir() {
         Some(home_dir) => {
             if home_dir.is_dir() {
-            RUNTIME_CONTEXT.write().unwrap().set_home_dir(home_dir);
+                RUNTIME_CONTEXT.write().unwrap().set_home_dir(home_dir);
             } else {
-                print_warn(&format!("Determined path to home directory was {} but it does not exist", home_dir.to_string_lossy().bright_magenta()));
+                print_warn(&format!(
+                    "Determined path to home directory was {} but it does not exist",
+                    home_dir.to_string_lossy().bright_magenta()
+                ));
             }
         }
 
@@ -51,11 +54,15 @@ fn main() {
             fail("Failed to read thep rovided path");
         };
 
-        return run_script(ScopableFilePath::RealFile(file_path.clone()), &content);
+        return run_script(
+            ScopableFilePath::RealFile(file_path.clone()),
+            &content,
+            true,
+        );
     }
 
     if let Some(input) = args.eval {
-        return run_script(ScopableFilePath::InMemory("input"), &input);
+        return run_script(ScopableFilePath::InMemory("input"), &input, true);
     }
 
     if !args.skip_init_script {
@@ -89,7 +96,7 @@ fn run_init_script() {
     }
 
     match fs::read_to_string(&init_file) {
-        Ok(source) => run_script(ScopableFilePath::RealFile(init_file), &source),
+        Ok(source) => run_script(ScopableFilePath::RealFile(init_file), &source, false),
         Err(err) => print_err(&format!(
             "Failed to read init script at path {}: {err}",
             init_file.to_string_lossy().bright_magenta()
@@ -97,7 +104,7 @@ fn run_init_script() {
     };
 }
 
-fn run_script(file: ScopableFilePath, content: &str) {
+fn run_script(file: ScopableFilePath, content: &str, exit_on_fail: bool) {
     with_writable_rt_ctx(|ctx| {
         ctx.push_file_scope(file, content.to_string());
     });
@@ -107,7 +114,10 @@ fn run_script(file: ScopableFilePath, content: &str) {
             &err,
             &RUNTIME_CONTEXT.read().unwrap().files_map(),
         ));
-        std::process::exit(1);
+
+        if exit_on_fail {
+            std::process::exit(1);
+        }
     }
 }
 

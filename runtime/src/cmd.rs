@@ -211,7 +211,13 @@ pub fn run_cmd(
 
     Ok(if capture_stdout {
         // TODO: what to do if not valid UTF8?
-        Some(String::from_utf8_lossy(&last_output.unwrap()).into_owned())
+        let mut out = String::from_utf8_lossy(&last_output.unwrap()).into_owned();
+
+        if out.ends_with('\n') {
+            out.pop();
+        }
+
+        Some(out)
     } else {
         None
     })
