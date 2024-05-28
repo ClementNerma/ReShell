@@ -1,3 +1,7 @@
+//!
+//! Custom type definitions
+//!
+
 use crate::helper::InternalFunction;
 
 mod datetime;

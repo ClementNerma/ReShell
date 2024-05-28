@@ -8,6 +8,9 @@ use reshell_runtime::{
     values::CustomValueType,
 };
 
+/// Time duration
+///
+/// Backed by an STD [`Duration`]
 #[derive(Debug, Clone)]
 pub struct DurationValue {
     pub inner: Duration,

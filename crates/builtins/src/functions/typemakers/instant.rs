@@ -27,6 +27,9 @@ fn run() -> Runner {
     })
 }
 
+/// Time instant
+///
+/// Backed by an STD [`Instant`]
 #[derive(Debug, Clone)]
 pub struct InstantValue {
     pub inner: Instant,

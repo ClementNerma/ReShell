@@ -77,6 +77,7 @@ fn run() -> Runner {
     )
 }
 
+/// Progress bar displayer
 #[derive(Debug, Clone)]
 pub struct ProgressBarValue {
     pub inner: ProgressBar,

@@ -67,6 +67,9 @@ fn run() -> Runner {
     )
 }
 
+/// Regular expression
+///
+/// Backed with a thread-shared [`Regex`]
 #[derive(Debug, Clone)]
 pub struct RegexValue {
     inner: Arc<Regex>,
