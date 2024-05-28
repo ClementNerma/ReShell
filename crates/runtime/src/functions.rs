@@ -313,7 +313,7 @@ fn parse_fn_call_args(
         }
 
         if arg.is_optional {
-            if arg.typ.is_none() && !is_native_fn {
+            if !is_native_fn {
                 out.insert(
                     arg_name,
                     ValidatedFnCallArg {
