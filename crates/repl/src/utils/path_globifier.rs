@@ -140,7 +140,7 @@ fn globify(input: &str) -> String {
             } else if is_last {
                 globified_segments.push(String::from('*'))
             }
-        } else if curr_segment == "." || curr_segment == ".." {
+        } else if curr_segment == "." || curr_segment == ".." || curr_segment.contains(':') {
             globified_segments.push(curr_segment);
         } else {
             // TODO: don't add stars if there is already one at the beginning or the end
