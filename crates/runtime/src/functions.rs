@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, FnArg, FnArgNames, FnCall, FnCallArg,
-    RuntimeCodeRange, SingleValueType, ValueType,
+    RuntimeCodeRange,
 };
 
 use crate::{
@@ -212,19 +212,19 @@ fn parse_fn_call_args(
 
                 match value {
                     None => {
-                        if matching_arg.typ.is_none()
-                            || matches!(&matching_arg.typ, Some(typ) if is_type_bool(typ.data()))
-                        {
-                            out.insert(
-                                fn_arg_var_name(matching_arg),
-                                ValidatedFnCallArg {
-                                    decl_name_at: fn_arg_var_at(matching_arg),
-                                    arg_value_at: RuntimeCodeRange::Parsed(name.at),
-                                    value: RuntimeValue::Bool(true),
-                                },
-                            );
-                        } else if !matching_arg.is_optional {
-                            return Err(ctx.error(name.at, "this flag requires a value"));
+                        if !matching_arg.is_optional {
+                            if matching_arg.typ.is_none() {
+                                out.insert(
+                                    fn_arg_var_name(matching_arg),
+                                    ValidatedFnCallArg {
+                                        decl_name_at: fn_arg_var_at(matching_arg),
+                                        arg_value_at: RuntimeCodeRange::Parsed(name.at),
+                                        value: RuntimeValue::Bool(true),
+                                    },
+                                );
+                            } else {
+                                return Err(ctx.error(name.at, "this flag requires a value"));
+                            }
                         }
                     }
 
@@ -313,7 +313,7 @@ fn parse_fn_call_args(
         }
 
         if arg.is_optional {
-            if !is_native_fn {
+            if arg.typ.is_none() && !is_native_fn {
                 out.insert(
                     arg_name,
                     ValidatedFnCallArg {
@@ -342,21 +342,17 @@ fn parse_fn_call_args(
             continue;
         }
 
-        if arg.names.is_flag() {
-            let is_bool_type = matches!(&arg.typ, Some(typ) if is_type_bool(typ.data()));
+        if arg.names.is_flag() && arg.typ.is_none() {
+            out.insert(
+                arg_name,
+                ValidatedFnCallArg {
+                    decl_name_at: fn_arg_var_at(arg),
+                    arg_value_at: RuntimeCodeRange::Internal,
+                    value: RuntimeValue::Bool(false),
+                },
+            );
 
-            if is_bool_type {
-                out.insert(
-                    arg_name,
-                    ValidatedFnCallArg {
-                        decl_name_at: fn_arg_var_at(arg),
-                        arg_value_at: RuntimeCodeRange::Internal,
-                        value: RuntimeValue::Bool(false),
-                    },
-                );
-
-                continue;
-            }
+            continue;
         }
 
         return Err(ctx.error(
@@ -479,13 +475,6 @@ fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
         FnArgNames::ShortFlag(short) => short.at(),
         FnArgNames::LongFlag(long) => long.at(),
         FnArgNames::LongAndShortFlag { long, short: _ } => long.at(),
-    }
-}
-
-fn is_type_bool(typ: &ValueType) -> bool {
-    match typ {
-        ValueType::Single(maybe_eaten) => matches!(maybe_eaten.data(), SingleValueType::Bool),
-        ValueType::Union(_) => false,
     }
 }
 
