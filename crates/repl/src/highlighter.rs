@@ -172,10 +172,10 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
                 // Method names
                 Rule::Simple(SimpleRule {
-                    matches: Regex::new("(\\.)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
+                    matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)").unwrap(),
                     inside: None,
                     preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->)\\s*$").unwrap()),
-                    followed_by: None,
+                    followed_by: Some(Regex::new("\\s|$").unwrap()),
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
                         let method_exists = ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|(method_name, _)| method_name == &matched[2]));
