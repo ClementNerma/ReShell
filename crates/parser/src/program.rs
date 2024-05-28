@@ -179,7 +179,6 @@ pub fn program(
         let fn_flag_arg_names = choice::<_, FnFlagArgNames>((
             // Long *and* short flags
             fn_arg_long_flag
-                .clone()
                 .map(RuntimeEaten::Parsed)
                 .then_ignore(ms)
                 .then_ignore(char('('))
@@ -408,7 +407,7 @@ pub fn program(
         let value = choice::<_, Value>((
             just("null").map(|_| Value::Null),
             // Literals
-            literal_value.clone().spanned().map(Value::Literal),
+            literal_value.spanned().map(Value::Literal),
             // Computed strings
             computed_string.clone().spanned().map(Value::ComputedString),
             // Lists
@@ -782,10 +781,7 @@ pub fn program(
 
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
             // Literal values
-            literal_value
-                .clone()
-                .spanned()
-                .map(CmdValueMakingArg::LiteralValue),
+            literal_value.spanned().map(CmdValueMakingArg::LiteralValue),
             // Computed strings
             computed_string
                 .clone()

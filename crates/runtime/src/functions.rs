@@ -170,7 +170,7 @@ fn parse_fn_call_args(
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
-    let is_method = func.signature.inner().args.data().get(0).is_some_and(|arg| matches!(arg, FnArg::Positional { name, is_optional: _, typ: _ } if name.data() == "self"));
+    let is_method = func.signature.inner().args.data().first().is_some_and(|arg| matches!(arg, FnArg::Positional { name, is_optional: _, typ: _ } if name.data() == "self"));
 
     let mut call_args = flatten_fn_call_args(call_at, is_method, call_args, ctx)?;
 
