@@ -11,7 +11,7 @@ crate::define_internal_fn!(
 
     (
         path: OptionalArg<StringType> = Arg::positional("path"),
-        lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
+        lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
     -> Some(DetachedListType::<StringType>::direct_underlying_type())
@@ -52,7 +52,7 @@ fn run() -> Runner {
                     ctx.error(at, format!("Failed to read directory entry: {err}"))
                 })?;
 
-                let path = if lossy == Some(true) {
+                let path = if lossy {
                     item.path()
                         .to_str()
                         .ok_or_else(|| {

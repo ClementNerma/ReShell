@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "currentDir",
 
     (
-        lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
+        lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
     -> Some(StringType::direct_underlying_type())
@@ -19,7 +19,9 @@ fn run() -> Runner {
         let current_dir =
             std::env::current_dir().context("failed to get current directory", at, ctx)?;
 
-        let current_dir = if lossy != Some(true) {
+        let current_dir = if lossy {
+            current_dir.to_string_lossy().to_string()
+        } else {
             current_dir
                 .to_str()
                 .with_context(
@@ -33,8 +35,6 @@ fn run() -> Runner {
                     ctx,
                 )?
                 .to_string()
-        } else {
-            current_dir.to_string_lossy().to_string()
         };
 
         Ok(Some(RuntimeValue::String(current_dir)))

@@ -7,7 +7,7 @@ crate::define_internal_fn!(
 
     (
         var_name: RequiredArg<StringType> = Arg::positional("var_name"),
-        lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
+        lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
     -> Some(StringType::direct_underlying_type())
@@ -29,7 +29,7 @@ fn run() -> Runner {
                 )
             })?;
 
-            let var_value = if lossy == Some(true) {
+            let var_value = if lossy {
                 var_value.to_string_lossy().into_owned()
             } else {
                 var_value

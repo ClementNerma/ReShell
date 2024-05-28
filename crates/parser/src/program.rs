@@ -439,7 +439,7 @@ pub fn program(
             // Variables
             var_name.spanned().map(Value::Variable),
             // Commands
-            just("@{")
+            just("@(")
                 .ignore_then(msnl)
                 .ignore_then(
                     cmd_call
@@ -448,7 +448,7 @@ pub fn program(
                         .critical("expected a command call"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_expectation())
+                .then_ignore(char(')').critical_expectation())
                 .map(Value::CmdCall),
             // Function as value
             char('@')

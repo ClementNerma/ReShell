@@ -11,8 +11,8 @@ crate::define_internal_fn!(
 
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
-        parents: OptionalArg<BoolType> = Arg::long_and_short_flag("parents", 'p'),
-        ignore_if_exists: OptionalArg<BoolType> = Arg::long_and_short_flag("ignore-if-exists", 'e')
+        parents: PresenceFlag = Arg::long_and_short_flag("parents", 'p'),
+        ignore_if_exists: PresenceFlag = Arg::long_and_short_flag("ignore-if-exists", 'e')
     )
 
     -> None
@@ -31,7 +31,7 @@ fn run() -> Runner {
             let path = Path::new(&path);
 
             if path.is_dir() {
-                return if ignore_if_exists == Some(true) {
+                return if ignore_if_exists {
                     Ok(None)
                 } else {
                     Err(ctx.error(
@@ -51,7 +51,7 @@ fn run() -> Runner {
                 ));
             }
 
-            let result = if parents == Some(true) {
+            let result = if parents {
                 fs::create_dir_all(path)
             } else {
                 fs::create_dir(path)

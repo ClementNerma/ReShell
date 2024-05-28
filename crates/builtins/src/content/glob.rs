@@ -12,8 +12,8 @@ crate::define_internal_fn!(
 
     (
         pattern: RequiredArg<StringType> = Arg::positional("pattern"),
-        case_sensitive: OptionalArg<BoolType> = Arg::long_flag("case-sensitive"),
-        lossy: OptionalArg<BoolType> = Arg::long_flag("lossy")
+        case_sensitive: PresenceFlag = Arg::long_flag("case-sensitive"),
+        lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
     -> Some(DetachedListType::<StringType>::direct_underlying_type())
@@ -34,7 +34,7 @@ fn run() -> Runner {
          ctx| {
             let mut options = MatchOptions::default();
 
-            if case_sensitive == Some(true) {
+            if case_sensitive {
                 options.case_sensitive = true;
             }
 
@@ -46,7 +46,7 @@ fn run() -> Runner {
                 .map(|path| -> ExecResult<RuntimeValue> {
                     let path = path.context("failed to access path during glob", at, ctx)?;
 
-                    if lossy == Some(true) {
+                    if lossy {
                         return Ok(RuntimeValue::String(path.to_string_lossy().to_string()));
                     }
 
