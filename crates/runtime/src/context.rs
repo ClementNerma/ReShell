@@ -61,6 +61,9 @@ pub struct Context {
     /// ID of the current scope
     current_scope: u64,
 
+    /// ID of the current program's main scope
+    program_main_scope: Option<u64>,
+
     /// Map of all files, used for reporting
     files_map: FilesMap,
 
@@ -150,6 +153,7 @@ impl Context {
             scopes_id_counter: FIRST_SCOPE_ID,
             scopes,
             current_scope: FIRST_SCOPE_ID,
+            program_main_scope: None,
             files_map,
             home_dir: conf.initial_home_dir.clone(),
             deps: HashMap::new(),
@@ -239,70 +243,68 @@ impl Context {
             .rev()
     }
 
-    /// (Internal) Generate a checker scope from a runtime scope
-    fn generate_checker_scope(&self, scope: &Scope) -> CheckerScope {
-        assert!(scope.id == NATIVE_LIB_SCOPE_ID || scope.id == FIRST_SCOPE_ID);
+    /// Generate checker scopes from current runtime scope hierarchy
+    pub fn generate_checker_scopes(&self) -> Vec<CheckerScope> {
+        self.generate_parent_scopes_list()
+            .iter()
+            .map(|scope_id| {
+                let scope = self.scopes.get(scope_id).unwrap();
 
-        let Scope { range, content, .. } = &scope;
+                let Scope { range, content, .. } = &scope;
 
-        let ScopeContent {
-            vars,
-            fns,
-            cmd_aliases,
-        } = &content;
+                let ScopeContent {
+                    vars,
+                    fns,
+                    cmd_aliases,
+                } = &content;
 
-        CheckerScope {
-            code_range: *range,
+                CheckerScope {
+                    code_range: *range,
 
-            special_scope_type: None,
+                    special_scope_type: None,
 
-            cmd_aliases: cmd_aliases
-                .iter()
-                .map(|(key, value)| {
-                    (
-                        key.clone(),
-                        DeclaredCmdAlias::ready(value.name_at, value.value.alias_content.at),
-                    )
-                })
-                .collect(),
+                    cmd_aliases: cmd_aliases
+                        .iter()
+                        .map(|(key, value)| {
+                            (
+                                key.clone(),
+                                DeclaredCmdAlias::ready(
+                                    value.name_at,
+                                    value.value.alias_content.at,
+                                ),
+                            )
+                        })
+                        .collect(),
 
-            type_aliases: match range {
-                RuntimeCodeRange::Internal => Default::default(),
-                RuntimeCodeRange::Parsed(range) => self
-                    .type_aliases_decl_by_scope
-                    .get(range)
-                    .cloned()
-                    .unwrap_or_default(),
-            },
+                    type_aliases: match range {
+                        RuntimeCodeRange::Internal => Default::default(),
+                        RuntimeCodeRange::Parsed(range) => self
+                            .type_aliases_decl_by_scope
+                            .get(range)
+                            .cloned()
+                            .unwrap_or_default(),
+                    },
 
-            fns: fns
-                .iter()
-                .map(|(name, scope_fn)| (name.clone(), DeclaredFn::new(scope_fn.name_at)))
-                .collect(),
+                    fns: fns
+                        .iter()
+                        .map(|(name, scope_fn)| (name.clone(), DeclaredFn::new(scope_fn.name_at)))
+                        .collect(),
 
-            vars: vars
-                .iter()
-                .map(|(name, decl)| {
-                    (
-                        name.clone(),
-                        DeclaredVar {
-                            is_mut: decl.is_mut,
-                            name_at: decl.name_at,
-                        },
-                    )
-                })
-                .collect(),
-        }
-    }
-
-    /// Get the native library scope (only scope to never be removed) for checker
-    pub fn native_lib_scope_for_checker(&self) -> CheckerScope {
-        self.generate_checker_scope(self.scopes.get(&NATIVE_LIB_SCOPE_ID).unwrap())
-    }
-
-    /// Get the very first user scope (only scope to never be removed) for checker
-    pub fn first_scope_for_checker(&self) -> CheckerScope {
-        self.generate_checker_scope(self.scopes.get(&FIRST_SCOPE_ID).unwrap())
+                    vars: vars
+                        .iter()
+                        .map(|(name, decl)| {
+                            (
+                                name.clone(),
+                                DeclaredVar {
+                                    is_mut: decl.is_mut,
+                                    name_at: decl.name_at,
+                                },
+                            )
+                        })
+                        .collect(),
+                }
+            })
+            .collect()
     }
 
     /// Get content of the (immutable) native library scope
@@ -312,16 +314,23 @@ impl Context {
 
     /// Prepare the current context to run a new program
     /// Requires the program to have already been checked
-    pub fn prepare_for_new_program(&mut self, program: &Program, checker_output: CheckerOutput) {
+    pub fn prepare_for_new_program(
+        &mut self,
+        program: &Eaten<Program>,
+        checker_output: CheckerOutput,
+    ) {
+        // Create a new scope for this program
+        let scope_id =
+            self.create_and_push_scope(RuntimeCodeRange::Parsed(program.at), ScopeContent::new());
+
         // Reset scope
-        self.current_scope = FIRST_SCOPE_ID;
+        self.current_scope = scope_id;
+
+        // Remember the program's main scope
+        self.program_main_scope = Some(scope_id);
 
         // Clear the previous wandering value
         self.clear_wandering_value();
-
-        // Update the current scope's range
-        self.scopes.get_mut(&self.current_scope).unwrap().range =
-            RuntimeCodeRange::Parsed(program.content.at);
 
         // Merge the checker's output
         let CheckerOutput {
@@ -356,6 +365,15 @@ impl Context {
                 .into_iter()
                 .map(|(at, body)| (at, Rc::new(body))),
         );
+    }
+
+    /// (Internal) Reset to the program's main scope after execution
+    pub(crate) fn reset_to_program_main_scope(&mut self) {
+        let scope_id = self.program_main_scope.unwrap();
+        assert!(self.scopes.contains_key(&scope_id));
+
+        self.current_scope = scope_id;
+        // self.program_main_scope = None;
     }
 
     /// Generate an error object
@@ -523,7 +541,8 @@ impl Context {
 
     /// (Crate-private) Remove the current scope and get its dependency scope's content
     pub(crate) fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
-        assert!(self.current_scope > FIRST_SCOPE_ID);
+        // assert!(self.current_scope > FIRST_SCOPE_ID);
+        assert!(self.current_scope > self.program_main_scope.unwrap());
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 
@@ -720,6 +739,33 @@ impl Context {
     pub fn take_wandering_value(&mut self) -> Option<RuntimeValue> {
         self.wandering_value.take()
     }
+
+    /// Generate a [`CheckerOutput`] for running a new program
+    /// TODO: try to find a way to avoid having to do this expensive cloning?
+    pub fn generate_checker_output(&self) -> CheckerOutput {
+        CheckerOutput {
+            deps: self.deps.clone(),
+            cmd_calls: self.cmd_calls.clone(),
+            type_aliases_decl: self.type_aliases_decl.clone(),
+            type_aliases_usages: self.type_aliases_usages.clone(),
+            type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
+            fn_signatures: self
+                .fn_signatures
+                .iter()
+                .map(|(key, value)| (*key, Eaten::clone(value)))
+                .collect(),
+            fn_bodies: self
+                .fn_bodies
+                .iter()
+                .map(|(key, value)| (*key, Eaten::clone(value)))
+                .collect(),
+            cmd_aliases: self
+                .cmd_aliases
+                .iter()
+                .map(|(key, value)| (*key, Eaten::clone(value)))
+                .collect(),
+        }
+    }
 }
 
 /// Runtime scope
@@ -889,6 +935,7 @@ impl ComputableSize for Context {
             scopes,
             deps_scopes,
             current_scope,
+            program_main_scope,
             files_map,
             home_dir,
             deps,
@@ -908,6 +955,7 @@ impl ComputableSize for Context {
             + scopes.compute_heap_size()
             + deps_scopes.compute_heap_size()
             + current_scope.compute_heap_size()
+            + program_main_scope.compute_heap_size()
             + files_map.compute_heap_size()
             + home_dir.compute_heap_size()
             + deps.compute_heap_size()

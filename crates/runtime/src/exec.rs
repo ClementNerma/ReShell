@@ -26,21 +26,18 @@ use crate::{
 };
 
 pub fn run_program(
-    program: &Program,
+    program: &Eaten<Program>,
     checker_output: CheckerOutput,
     ctx: &mut Context,
 ) -> ExecResult<()> {
     // Reset Ctrl+C requests
     ctx.reset_ctrl_c_press_indicator();
 
-    let Program { content } = program;
+    let Program { content } = &program.data;
 
-    match program.content.at.start.file_id {
+    match content.at.start.file_id {
         FileId::None | FileId::Internal | FileId::Custom(_) => {
-            return Err(ctx.error(
-                program.content.at,
-                "program must be backed by a source file",
-            ))
+            return Err(ctx.error(content.at, "program must be backed by a source file"))
         }
 
         FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
@@ -48,16 +45,14 @@ pub fn run_program(
 
     ctx.prepare_for_new_program(program, checker_output);
 
-    run_block_in_current_scope(&content.data, ctx).map(|result| {
-        assert_eq!(ctx.current_scope().id, FIRST_SCOPE_ID);
-
-        match result {
-            None => (),
-            Some(_) => ctx.panic(
-                program.content.at,
-                "this instruction shouldn't have been allowed to run here",
-            ),
+    run_block_in_current_scope(&content.data, ctx).map(|result| match result {
+        None => {
+            ctx.reset_to_program_main_scope();
         }
+        Some(_) => ctx.panic(
+            content.at,
+            "this instruction shouldn't have been allowed to run here",
+        ),
     })
 }
 

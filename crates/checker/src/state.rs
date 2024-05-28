@@ -69,7 +69,7 @@ pub struct CheckerOutput {
 }
 
 /// Developed command call
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DevelopedSingleCmdCall {
     /// Location that can be found in the related [`Eaten::<SingleCmdCall>::at`]
     pub at: CodeRange,
