@@ -382,20 +382,22 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 }
 
 fn treat_cmd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {
-    let out = if raw.data == "~" {
-        // TODO: how to handle invalid UTF-8 paths?
+    let home_dir = || {
         ctx.home_dir()
             .ok_or_else(|| ctx.error(raw.at, "home directory was not defined in context"))?
-            .to_string_lossy()
-            .to_string()
+            .to_str()
+            .ok_or_else(|| {
+                ctx.error(
+                    raw.at,
+                    "home directory path contains invalid UTF-8 characters",
+                )
+            })
+    };
+
+    let out = if raw.data == "~" {
+        home_dir()?.to_owned()
     } else if let Some(rest) = raw.data.strip_prefix("~/") {
-        // TODO: how to handle invalid UTF-8 paths?
-        format!(
-            "{}/{rest}",
-            ctx.home_dir()
-                .ok_or_else(|| ctx.error(raw.at, "home directory was not defined in context"))?
-                .to_string_lossy()
-        )
+        format!("{}/{rest}", home_dir()?)
     } else {
         raw.data.clone()
     };
