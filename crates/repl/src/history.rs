@@ -224,10 +224,12 @@ impl RlHistory for History {
             .unwrap_or(usize::MAX);
 
         let filter = |(id, cmd): (&HistoryItemId, &String)| {
+            let cmd_lc = cmd.to_lowercase();
+
             let str_matches = match &command_line {
-                Some(CommandLineSearch::Prefix(p)) => cmd.starts_with(p),
-                Some(CommandLineSearch::Substring(p)) => cmd.contains(p),
-                Some(CommandLineSearch::Exact(p)) => cmd == p,
+                Some(CommandLineSearch::Prefix(p)) => cmd_lc.starts_with(&p.to_lowercase()),
+                Some(CommandLineSearch::Substring(p)) => cmd_lc.contains(&p.to_lowercase()),
+                Some(CommandLineSearch::Exact(p)) => cmd_lc == p.to_lowercase(),
                 None => true,
             };
 
@@ -236,7 +238,7 @@ impl RlHistory for History {
             }
 
             if let Some(str) = &filter.not_command_line {
-                if cmd == str {
+                if &cmd_lc == str {
                     return None;
                 }
             }
