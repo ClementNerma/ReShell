@@ -203,16 +203,6 @@ pub struct InternalFunction {
     pub run: InternalFnBody,
 }
 
-// type FnArgsParser<T> =
-//     fn(CodeRange, HashMap<Eaten<String>, RuntimeValue>) -> Result<T, (CodeRange, String)>;
-
-type InternalFunctionBody<T, L> = fn(
-    call_at: CodeRange,
-    args: T,
-    args_at: L,
-    ctx: &mut Context,
-) -> ExecResult<Option<RuntimeValue>>;
-
 #[macro_export]
 macro_rules! define_internal_fn {
     ($args_struct_name: ident [$args_loc_struct_name: ident] ( $( $arg_name: ident: $arg_handler: ty => $gen: expr ),* ), $run: expr) => {{
