@@ -371,27 +371,33 @@ fn parse_fn_call_args(
                 let is_null_for_optional =
                     *is_optional && matches!(loc_val.value, RuntimeValue::Null);
 
-                if !is_null_for_optional
-                    && !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx)
-                {
-                    let is_method_self_arg = func.is_method && name.data() == "self";
+                if !is_null_for_optional {
+                    if let Some(typ) = typ {
+                        if !check_if_single_type_fits_type(
+                            &loc_val.value.get_type(),
+                            typ.data(),
+                            ctx,
+                        ) {
+                            let is_method_self_arg = func.is_method && name.data() == "self";
 
-                    return Err(ctx.error(
-                        loc_val.from,
-                        format!(
-                            "type mismatch: {} '{}', found '{}'",
-                            if is_method_self_arg {
-                                "method can only be applied on type".to_owned()
-                            } else {
-                                format!("argument '{}' expected type", name.data())
-                            },
-                            typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
-                            loc_val
-                                .value
-                                .get_type()
-                                .render_colored(ctx, PrettyPrintOptions::inline())
-                        ),
-                    ));
+                            return Err(ctx.error(
+                                loc_val.from,
+                                format!(
+                                    "type mismatch: {} '{}', found '{}'",
+                                    if is_method_self_arg {
+                                        "method can only be applied on type".to_owned()
+                                    } else {
+                                        format!("argument '{}' expected type", name.data())
+                                    },
+                                    typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
+                                    loc_val
+                                        .value
+                                        .get_type()
+                                        .render_colored(ctx, PrettyPrintOptions::inline())
+                                ),
+                            ));
+                        }
+                    }
                 }
 
                 out.insert(

@@ -316,13 +316,18 @@ impl PrettyPrintable for FnArg {
                     out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
                 }
 
-                out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                out.push(typ.data().generate_pretty_data(ctx));
+                if let Some(typ) = typ {
+                    out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
+                    out.push(typ.data().generate_pretty_data(ctx));
+                }
 
                 PrettyPrintablePiece::Join(out)
             }
 
-            FnArg::PresenceFlag(FnPresenceFlagArg { names }) => names.generate_pretty_data(ctx),
+            FnArg::PresenceFlag(FnPresenceFlagArg { names }) => PrettyPrintablePiece::Join(vec![
+                names.generate_pretty_data(ctx),
+                PrettyPrintablePiece::colored_atomic("?", Color::White),
+            ]),
 
             FnArg::NormalFlag(FnNormalFlagArg {
                 names,

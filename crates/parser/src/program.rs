@@ -217,14 +217,17 @@ pub fn program(
                 .map(RuntimeEaten::Parsed)
                 .then_ignore(msnl)
                 .then(char('?').or_not())
-                .then_ignore(char(':').critical("expected ':' semicolon for argument's type"))
-                .then_ignore(msnl)
                 .then(
-                    value_type
-                        .clone()
-                        .critical("expected a type for the argument")
-                        .spanned()
-                        .map(RuntimeEaten::Parsed),
+                    char(':')
+                        .ignore_then(msnl)
+                        .ignore_then(
+                            value_type
+                                .clone()
+                                .critical("expected a type for the argument")
+                                .spanned()
+                                .map(RuntimeEaten::Parsed),
+                        )
+                        .or_not(),
                 )
                 .map(|((name, is_optional), typ)| {
                     FnArg::Positional(FnPositionalArg {
