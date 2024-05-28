@@ -4,7 +4,7 @@ use std::{
 };
 
 use parsy::{
-    atoms::{alphanumeric, any_char, digits},
+    atoms::{alphanumeric, digits},
     char, choice, end, filter, just, late, lookahead, newline, not, recursive, silent_choice,
     whitespaces, FileId, Parser,
 };
