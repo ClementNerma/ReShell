@@ -225,13 +225,13 @@ fn parse_fn_call_args(
                             };
 
                             out.insert(
-                                        var_name,
-                                        ValidatedFnCallArg {
-                                            decl_name_at: fn_arg_var_at(arg),
-                                            arg_value_at: RuntimeCodeRange::Parsed(name.at),
-                                            value: RuntimeValue::Bool(true),
-                                        },
-                                    );
+                                var_name,
+                                ValidatedFnCallArg {
+                                    decl_name_at: fn_arg_var_at(arg),
+                                    arg_value_at: RuntimeCodeRange::Parsed(name.at),
+                                    value: RuntimeValue::Bool(true),
+                                },
+                            );
 
                             if let Some(FlagArgValueResult { value, value_sep: _ }) = value {
                                 value_on_hold = Some(CmdSingleArgResult::Basic(value));
