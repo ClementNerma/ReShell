@@ -83,12 +83,12 @@ fn highlight(input: &str) -> StyledText {
                             "\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b" => [Blue],
                             "\\s*(=)" => [LightYellow]
                 ),
-                // Expressions
-                rule!(@group "in-expressions"),
                 // Keywords
                 rule!(@simple "\\b(while|if|else|continue|break|throw|try|catch|do|return)\\b" => [Magenta]),
+                // Expressions
+                rule!(@group "in-expressions"),
                 // Command names
-                rule!(@simple "\\b([a-zA-Z0-9_-]+)\\b" => [Blue])
+                rule!(@simple "(?:^|\\n)\\s*([^\\s\\(\\)\\[\\]\\{\\}<>\\=\\;\\!\\?\\&\\'\\\"\\$]+)" => [Blue]),
             ]),
             ("in-expressions", vec![
                 // Types
@@ -104,7 +104,7 @@ fn highlight(input: &str) -> StyledText {
                 // Flags
                 rule!(@simple "\\s(\\-[\\-a-zA-Z0-9_]*)" => [LightYellow]),
                 // Number
-                rule!(@simple "\\b(\\d+(?:\\.\\d+)?)\\b" => [LightYellow]),
+                rule!(@simple "(\\d+(?:\\.\\d+)?)" => [LightYellow]),
                 // Symbols and operators
                 rule!(@simple "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => [LightYellow]),
                 // Strings
