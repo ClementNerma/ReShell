@@ -32,12 +32,12 @@ pub trait PrettyPrintable {
 pub struct Colored(pub String, pub Option<Color>);
 
 impl Colored {
-    pub fn with_color(content: String, color: Color) -> Self {
-        Self(content, Some(color))
+    pub fn with_color(content: impl Into<String>, color: Color) -> Self {
+        Self(content.into(), Some(color))
     }
 
-    pub fn colorless(content: String) -> Self {
-        Self(content, None)
+    pub fn colorless(content: impl Into<String>) -> Self {
+        Self(content.into(), None)
     }
 
     pub fn empty() -> Self {
@@ -63,8 +63,8 @@ pub enum PrintablePiece {
 }
 
 impl PrintablePiece {
-    pub fn colored_atomic(content: String, color: Color) -> Self {
-        Self::Atomic(Colored(content, Some(color)))
+    pub fn colored_atomic(content: impl Into<String>, color: Color) -> Self {
+        Self::Atomic(Colored(content.into(), Some(color)))
     }
 }
 
