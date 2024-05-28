@@ -77,7 +77,7 @@ impl PrettyPrintable for SingleValueType {
                 PrettyPrintablePiece::colored_atomic(" ( ", Color::BrightGreen),
                 ctx
                     .get_type_alias(name)
-                    .unwrap_or_else(|| panic!("internal error: type alias not found while generating pretty data for value type\n> Debug location: {name:?}"))
+                    .unwrap_or_else(|| ctx.panic(name.at, format!("Type alias '{}' not found while generating pretty data for value type", name.data)))
                     .data
                     .generate_pretty_data(ctx),
                 PrettyPrintablePiece::colored_atomic(" )", Color::BrightGreen),
