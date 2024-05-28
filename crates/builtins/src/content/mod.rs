@@ -56,7 +56,6 @@ mod reverse;
 mod rm;
 mod runtime;
 mod set_env;
-mod size_of;
 mod slice;
 mod sort;
 mod split;
@@ -147,7 +146,6 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             self::reverse::build_fn(),
             self::rm::build_fn(),
             self::set_env::build_fn(),
-            self::size_of::build_fn(),
             self::slice::build_fn(),
             self::sort::build_fn(),
             self::split::build_fn(),

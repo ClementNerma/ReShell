@@ -6,7 +6,6 @@ use reshell_runtime::{
     errors::ExecErrorInfoType,
     gc_cell,
     pretty::{PrettyPrintable, PrettyPrintablePiece},
-    size::ComputableSize,
     values::CustomValueType,
 };
 
@@ -89,13 +88,6 @@ impl RegexValue {
 impl CustomValueType for RegexValue {
     fn typename(&self) -> &'static str {
         "regex"
-    }
-}
-
-impl ComputableSize for RegexValue {
-    fn compute_heap_size(&self) -> usize {
-        // NOTE: Low estimate
-        self.inner.as_str().len()
     }
 }
 

@@ -23,7 +23,6 @@ use crate::{
     display::dbg_loc,
     errors::{ExecError, ExecErrorNature, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
-    size::ComputableSize,
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
@@ -932,38 +931,4 @@ pub enum DepsScopeCreationData {
 
     /// Use already-built dependency scope
     Retrieved(ScopeContent),
-}
-
-impl ComputableSize for CallStack {
-    fn compute_heap_size(&self) -> usize {
-        let Self { history } = self;
-        history.compute_heap_size()
-    }
-}
-
-impl ComputableSize for Context {
-    fn compute_heap_size(&self) -> usize {
-        let Self {
-            conf,
-            scopes_id_counter,
-            scopes,
-            deps_scopes,
-            current_scope,
-            program_main_scope,
-            collected,
-            long_flags_var_name,
-            wandering_value,
-            bin_resolver: _,
-        } = self;
-
-        conf.compute_heap_size()
-            + scopes_id_counter.compute_heap_size()
-            + scopes.compute_heap_size()
-            + deps_scopes.compute_heap_size()
-            + current_scope.compute_heap_size()
-            + program_main_scope.compute_heap_size()
-            + collected.compute_heap_size()
-            + long_flags_var_name.compute_heap_size()
-            + wandering_value.compute_heap_size()
-    }
 }

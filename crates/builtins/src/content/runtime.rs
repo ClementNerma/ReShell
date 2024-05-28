@@ -1,9 +1,8 @@
 use std::collections::BTreeMap;
 
 use indexmap::IndexSet;
-use reshell_runtime::size::ComputableSize;
 
-use crate::{content::human_size::human_size, define_internal_fn};
+use crate::define_internal_fn;
 
 define_internal_fn!(
     "__runtime",
@@ -27,25 +26,9 @@ fn run() -> Runner {
          },
          _,
          ctx| {
-            let mut out = vec!["=============== Runtime stats ===============".to_string()];
+            let mut out = vec![];
 
             if print_stats {
-                out.push(format!(
-                    "=> Total context memory usage : {}",
-                    human_size(ctx.compute_total_size().try_into().unwrap(), None)
-                ));
-
-                out.push(format!(
-                    "=> Native library memory usage: {}",
-                    human_size(
-                        ctx.native_lib_scope_content()
-                            .compute_total_size()
-                            .try_into()
-                            .unwrap(),
-                        None
-                    )
-                ));
-
                 out.push(format!(
                     "=> Current scope ID           : {}",
                     ctx.current_scope().id
@@ -70,8 +53,6 @@ fn run() -> Runner {
                     out.push(format!("     |> {bin}: {}", path.display()));
                 }
             }
-
-            out.push("=============================================".to_string());
 
             if clear_bin_path_cache {
                 ctx.binaries_resolver().clear();
