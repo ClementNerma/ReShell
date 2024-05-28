@@ -831,7 +831,26 @@ pub fn program(
             // Direct
             just("direct")
                 .ignore_then(ms)
-                .ignore_then(cmd_raw_string.critical("expected a command name").spanned())
+                .ignore_then(
+                    // Command name
+                    filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+                        .repeated()
+                        .at_least(1)
+                        .followed_by(choice((
+                            end(),
+                            filter(|c| {
+                                c.is_whitespace()
+                                    || c == ';'
+                                    || c == '|'
+                                    || c == '#'
+                                    || c == ')'
+                                    || c == '}'
+                            })
+                            .to(()),
+                        )))
+                        .collect_string()
+                        .spanned(),
+                )
                 .map(CmdPath::Direct),
             // Method
             char('.').ignore_then(ident.spanned()).map(CmdPath::Method),

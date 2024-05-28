@@ -495,7 +495,7 @@ fn evaluate_cmd_target(
     }
 
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
-        CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_raw_string(cc_str, ctx)?),
+        CmdPath::Direct(name) => name.clone(),
         CmdPath::Method(_) => unreachable!(),
         CmdPath::Raw(name) | CmdPath::LiteralString(name) => name.forge_here(name.data.to_owned()),
         CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
