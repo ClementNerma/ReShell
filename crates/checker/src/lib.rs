@@ -925,7 +925,21 @@ fn check_single_cmd_call(
     let target_type = match &path.data {
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
 
-        CmdPath::Method(_) => CmdPathTargetType::Function,
+        CmdPath::Method(name) => {
+            if !state.scopes().any(|scope| {
+                scope
+                    .methods
+                    .values()
+                    .any(|methods| methods.contains_key(&name.data))
+            }) {
+                return Err(CheckerError::new(
+                    name.at,
+                    format!("no method named '{}' found for any type", name.data),
+                ));
+            }
+
+            CmdPathTargetType::Function
+        }
 
         CmdPath::Literal(name) => find_if_cmd_or_fn(
             &name.forge_here(name.data.to_owned()),
