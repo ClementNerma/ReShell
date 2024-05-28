@@ -109,7 +109,7 @@ fn highlight(input: &str) -> StyledText {
                 rule!(@simple "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => [LightYellow]),
                 // Strings
                 rule!(@nested "(\")" => Green, "(\")" => Green, vec![
-                    // TODO
+                    rule!(@simple "(.+)" => [LightGreen])
                 ])
             ],
         )]
