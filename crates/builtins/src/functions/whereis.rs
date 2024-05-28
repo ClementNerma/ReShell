@@ -21,7 +21,7 @@ fn run() -> Runner {
             let path = ctx
                 .binaries_resolver()
                 .resolve_binary_path(&command)
-                .map_err(|err| ctx.error(command_at, format!("command not found: {err}")))?;
+                .map_err(|err| ctx.error(command_at, err))?;
 
             let path = if lossy {
                 path.to_string_lossy().into_owned()
