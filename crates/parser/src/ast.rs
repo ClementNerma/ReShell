@@ -400,20 +400,20 @@ pub struct CmdEnvVar {
 
 #[derive(Debug, Clone)]
 pub enum CmdPath {
-    Direct(Eaten<CmdComputedString>),
+    Direct(Eaten<CmdRawString>),
     Method(Eaten<String>),
     ComputedString(Eaten<ComputedString>),
-    CmdComputedString(Eaten<CmdComputedString>),
+    CmdRawString(Eaten<CmdRawString>),
 }
 
 #[derive(Debug, Clone)]
 
-pub struct CmdComputedString {
-    pub pieces: Vec<Eaten<CmdComputedStringPiece>>,
+pub struct CmdRawString {
+    pub pieces: Vec<Eaten<CmdRawStringPiece>>,
 }
 
 #[derive(Debug, Clone)]
-pub enum CmdComputedStringPiece {
+pub enum CmdRawStringPiece {
     Literal(String),
     Escaped(char),
     Variable(Eaten<String>),
@@ -439,7 +439,7 @@ pub enum CmdValueMakingArg {
     InlineCmdCall(Eaten<CmdCall>),
     CmdOutput(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
-    CmdComputedString(Eaten<CmdComputedString>),
+    CmdRawString(Eaten<CmdRawString>),
     Variable(Eaten<String>),
     Closure(Eaten<Function>),
 }

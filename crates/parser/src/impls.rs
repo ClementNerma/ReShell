@@ -1,7 +1,7 @@
 use parsy::{CodeRange, Eaten};
 
 use crate::ast::{
-    CmdComputedString, CmdComputedStringPiece, CmdFlagNameArg, EscapableChar, FnFlagArgNames,
+    CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgNames,
     MethodApplyableType, RuntimeCodeRange, RuntimeEaten, SingleValueType,
 };
 
@@ -91,7 +91,7 @@ impl EscapableChar {
     }
 }
 
-impl CmdComputedString {
+impl CmdRawString {
     pub fn only_literal(&self) -> Option<&str> {
         if self.pieces.len() != 1 {
             return None;
@@ -100,8 +100,8 @@ impl CmdComputedString {
         let only_piece = self.pieces.first().unwrap();
 
         match &only_piece.data {
-            CmdComputedStringPiece::Literal(lit) => Some(lit),
-            CmdComputedStringPiece::Escaped(_) | CmdComputedStringPiece::Variable(_) => None,
+            CmdRawStringPiece::Literal(lit) => Some(lit),
+            CmdRawStringPiece::Escaped(_) | CmdRawStringPiece::Variable(_) => None,
         }
     }
 }

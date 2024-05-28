@@ -20,14 +20,14 @@ use std::collections::{HashMap, HashSet};
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar,
-        CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdSpreadArg, CmdValueMakingArg,
-        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
-        ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall,
-        FnCallArg, FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue,
-        MapDestructBinding, Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase,
-        SwitchExprCase, Value, ValueType, VarDeclType,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath,
+        CmdPipe, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
+        ExprInnerContent, ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
+        FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding,
+        Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+        SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase,
+        Value, ValueType, VarDeclType,
     },
     scope::AstScopeId,
 };
@@ -944,7 +944,7 @@ fn check_single_cmd_call(
         CmdPath::Direct(_) => CmdPathTargetType::ExternalCommand,
         CmdPath::Method(_) => CmdPathTargetType::Function,
         CmdPath::ComputedString(_) => CmdPathTargetType::ExternalCommand,
-        CmdPath::CmdComputedString(name) => match name.data.only_literal() {
+        CmdPath::CmdRawString(name) => match name.data.only_literal() {
             Some(lit) => find_if_cmd_or_fn(
                 &name.forge_here(lit.to_owned()),
                 &mut developed_aliases,
@@ -1087,22 +1087,20 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::ParenExpr(expr) => check_expr(&expr.data, state),
 
-        CmdValueMakingArg::CmdComputedString(cc_str) => {
-            check_cmd_computed_string(&cc_str.data, state)
-        }
+        CmdValueMakingArg::CmdRawString(cc_str) => check_cmd_raw_string(&cc_str.data, state),
 
         CmdValueMakingArg::Closure(func) => check_function(&func.data, state),
     }
 }
 
-fn check_cmd_computed_string(cc_str: &CmdComputedString, state: &mut State) -> CheckerResult {
-    let CmdComputedString { pieces } = cc_str;
+fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResult {
+    let CmdRawString { pieces } = cc_str;
 
     for piece in pieces {
         match &piece.data {
-            CmdComputedStringPiece::Literal(_) => {}
-            CmdComputedStringPiece::Escaped(_) => {}
-            CmdComputedStringPiece::Variable(var) => {
+            CmdRawStringPiece::Literal(_) => {}
+            CmdRawStringPiece::Escaped(_) => {}
+            CmdRawStringPiece::Variable(var) => {
                 state.register_usage(var, DependencyType::Variable)?;
             }
         }

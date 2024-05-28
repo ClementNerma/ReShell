@@ -11,10 +11,10 @@ use parsy::{
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdComputedString, CmdComputedStringPiece, CmdEnvVar,
-        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdSpreadArg,
-        CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
-        EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg,
+        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
+        CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
+        ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
         ExprInnerDirectChaining, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
         FnCallNature, FnFlagArgNames, FnSignature, Function, Instruction, LiteralValue,
         MapDestructBinding, Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall,
@@ -776,32 +776,28 @@ pub fn program(
                 .map(|(inner, right_ops)| Expr { inner, right_ops }),
         );
 
-        let cmd_computed_string = not(just("->")).ignore_then(
-            choice::<_, CmdComputedStringPiece>((
+        let cmd_raw_string = not(just("->")).ignore_then(
+            choice::<_, CmdRawStringPiece>((
                 // Expressions
-                var_name.spanned().map(CmdComputedStringPiece::Variable),
+                var_name.spanned().map(CmdRawStringPiece::Variable),
                 // Literal character suites
                 filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
                     .repeated()
                     .at_least(1)
                     .collect_string()
-                    .map(CmdComputedStringPiece::Literal),
+                    .map(CmdRawStringPiece::Literal),
             ))
             .spanned()
             .repeated_vec()
             .at_least(1)
-            .map(|pieces| CmdComputedString { pieces }),
+            .map(|pieces| CmdRawString { pieces }),
         );
 
         let cmd_path = choice::<_, CmdPath>((
             // Direct
             just("direct")
                 .ignore_then(ms)
-                .ignore_then(
-                    cmd_computed_string
-                        .critical("expected a command name")
-                        .spanned(),
-                )
+                .ignore_then(cmd_raw_string.critical("expected a command name").spanned())
                 .map(CmdPath::Direct),
             // Method
             char('.').ignore_then(ident.spanned()).map(CmdPath::Method),
@@ -811,9 +807,7 @@ pub fn program(
                 .spanned()
                 .map(CmdPath::ComputedString),
             // Command computable string
-            cmd_computed_string
-                .spanned()
-                .map(CmdPath::CmdComputedString),
+            cmd_raw_string.spanned().map(CmdPath::CmdRawString),
         ));
 
         let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
@@ -861,9 +855,9 @@ pub fn program(
             // Closures
             closure.clone().spanned().map(CmdValueMakingArg::Closure),
             // Raw argument (but not flags, which aren't value making arguments)
-            cmd_computed_string
+            cmd_raw_string
                 .spanned()
-                .map(CmdValueMakingArg::CmdComputedString),
+                .map(CmdValueMakingArg::CmdRawString),
         ));
 
         let cmd_env_var = ident
