@@ -318,7 +318,6 @@ pub enum LiteralValue {
 }
 
 #[derive(Debug, Clone)]
-
 pub struct ComputedString {
     pub pieces: Vec<Eaten<ComputedStringPiece>>,
 }
