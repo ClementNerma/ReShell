@@ -1,8 +1,10 @@
 use std::borrow::Cow;
 
 use colored::Color;
-use parsy::{CodeRange, FileId};
-use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
+use parsy::{CodeRange, FileId, MaybeEaten};
+use reshell_parser::ast::{
+    FnArg, FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType,
+};
 
 use crate::{
     context::Context,
@@ -64,11 +66,19 @@ pub fn readable_single_type(
         SingleValueType::Range => "range".into(),
         SingleValueType::Map => "map".into(),
         SingleValueType::UntypedStruct => "struct".into(),
-        SingleValueType::TypedStruct(_) =>
-        // TODO: full type
-        {
-            "struct".into()
-        }
+        SingleValueType::TypedStruct(members) => format!(
+            "struct {{ {} }}",
+            members
+                .iter()
+                .map(MaybeEaten::data)
+                .map(|member| {
+                    let StructTypeMember { name, typ } = member;
+                    format!("{}: {}", name.data(), readable_type(typ.data()))
+                })
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+        .into(),
         SingleValueType::Function(signature) => {
             format!("fn{}", signature.render(PrettyPrintOptions::inline())).into()
         }
