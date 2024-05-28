@@ -706,6 +706,7 @@ pub fn program() -> impl Parser<Program> {
 
         let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
             just("--")
+                .not_followed_by(char('-'))
                 .ignore_then(cmd_raw.clone())
                 .map(CmdFlagNameArg::Long),
             just("-")
@@ -755,7 +756,7 @@ pub fn program() -> impl Parser<Program> {
             // Variables
             var_name.clone().spanned().map(CmdValueMakingArg::VarName),
             // Raw argument
-            cmd_raw.spanned().map(CmdValueMakingArg::Raw),
+            cmd_raw.clone().spanned().map(CmdValueMakingArg::Raw),
         ));
 
         cmd_flag_arg.finish(
@@ -776,6 +777,10 @@ pub fn program() -> impl Parser<Program> {
         let cmd_arg = choice::<_, CmdArg>((
             // Flag arguments
             cmd_flag_arg.map(CmdArg::Flag),
+            // Rest separator
+            just("--")
+                .not_followed_by(cmd_raw)
+                .to(CmdArg::RestSeparator),
             // Spread
             just("$...")
                 .ignore_then(
