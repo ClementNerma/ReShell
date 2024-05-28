@@ -387,7 +387,10 @@ pub fn program(
                     // Escaped
                     escapable_char.map(ComputedStringPiece::Escaped),
                     // Expressions
-                    var_name.spanned().map(ComputedStringPiece::Variable),
+                    char('$')
+                        .ignore_then(ident.critical("expected an identifier after '$' symbol (did you want to escape it with a backslash?)"))
+                        .spanned()
+                        .map(ComputedStringPiece::Variable),
                     // Expressions
                     char('`')
                         .ignore_then(
