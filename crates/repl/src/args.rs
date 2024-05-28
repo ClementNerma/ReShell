@@ -3,6 +3,12 @@ use std::path::PathBuf;
 use clap::Parser;
 
 #[derive(Parser)]
+#[clap(
+    name = "ReShell",
+    version,
+    about,
+    about = "ReShell, a modern shell program"
+)]
 pub struct Args {
     #[clap(help = "Execute a script file")]
     pub exec_file: Option<PathBuf>,
