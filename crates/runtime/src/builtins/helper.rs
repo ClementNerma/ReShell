@@ -223,8 +223,10 @@ macro_rules! define_internal_fn {
         }
 
         struct $args_loc_struct_name {
-            #[allow(dead_code)]
-            $( $arg_name: Option<CodeRange> ),*
+            $(
+                #[allow(dead_code)]
+                $arg_name: Option<CodeRange>
+            ),*
         }
 
         fn build_args_decl() -> Vec<FnArg> {

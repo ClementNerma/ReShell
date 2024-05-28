@@ -1,3 +1,5 @@
+use std::{fmt::Display, marker::PhantomData};
+
 use indexmap::IndexMap;
 use parsy::{CodeRange, MaybeEaten};
 use reshell_parser::ast::{FnSignature, SingleValueType, ValueType};
@@ -33,6 +35,17 @@ macro_rules! declare_basic_types {
                 fn new_direct() -> Self {
                     Self
                 }
+            }
+        )+
+    };
+}
+
+macro_rules! implement_specific_int_types {
+    ($($int_type: ident),+) => {
+        $(
+            impl SpecificIntType for $int_type {
+                const MIN: Self = Self::MIN;
+                const MAX: Self = Self::MAX;
             }
         )+
     };
@@ -91,6 +104,44 @@ declare_basic_types!(
         _ => Err("expected a struct".to_owned())
     }
 );
+
+pub struct ExactIntType<From: SpecificIntType> {
+    _f: PhantomData<From>,
+}
+
+impl<From: SpecificIntType> ArgSingleTyping for ExactIntType<From> {
+    fn arg_single_type() -> SingleValueType {
+        SingleValueType::Int
+    }
+
+    type Parsed = From;
+
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        match value {
+            RuntimeValue::Int(int) => From::try_from(int).map_err(|_| {
+                format!(
+                    "expected an integer between {} and {}",
+                    From::MIN,
+                    From::MAX
+                )
+            }),
+            _ => Err("expected an integer".to_owned()),
+        }
+    }
+}
+
+impl<From: SpecificIntType> ArgSingleTypingDirectCreation for ExactIntType<From> {
+    fn new_direct() -> Self {
+        Self { _f: PhantomData }
+    }
+}
+
+pub trait SpecificIntType: TryFrom<i64> + Display {
+    const MIN: Self;
+    const MAX: Self;
+}
+
+implement_specific_int_types!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
 
 pub struct DetachedListType<Inner: ArgTyping> {
     inner: Inner,
