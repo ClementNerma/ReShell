@@ -106,11 +106,6 @@ impl Highlight for Eaten<Instruction> {
                 h.push(&COMMENT, content.at);
             }
 
-            Instruction::Include(path) => {
-                h.push_until(&KEYWORD, self.at, path.at);
-                path.data.highlight(h);
-            }
-
             Instruction::DeclareVar {
                 name,
                 mutable: _,

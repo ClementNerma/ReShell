@@ -1,10 +1,7 @@
-use std::{fmt::Debug, fs};
+use std::fmt::Debug;
 
-use parsy::{Eaten, FileId, Parser};
-use reshell_parser::{
-    ast::{Block, ElsIf, Instruction, Program},
-    program,
-};
+use parsy::Eaten;
+use reshell_parser::ast::{Block, ElsIf, Instruction, Program};
 
 use crate::{
     cmd::run_cmd,
@@ -12,14 +9,13 @@ use crate::{
     display::readable_value_type,
     errors::ExecResult,
     expr::eval_expr,
-    files_map::ScopableFilePath,
     values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
 
 pub fn run(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
     let scopes_at_start = ctx.scopes().len();
 
-    let (scope, _) = run_program(program, ctx, init_scope)?;
+    let scope = run_program(program, ctx, init_scope)?;
 
     assert!(ctx.scopes().len() == scopes_at_start);
 
@@ -36,19 +32,16 @@ pub fn run_in_existing_scope(program: &Program, ctx: &mut Context) -> ExecResult
     Ok(())
 }
 
-fn run_program(
-    program: &Program,
-    ctx: &mut Context,
-    init_scope: Scope,
-) -> ExecResult<(Scope, Option<InstrRet>)> {
-    run_block(&program.content.data, ctx, init_scope)
+pub fn run_program(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
+    let (scope, instr_ret) = run_block(&program.content.data, ctx, init_scope)?;
+    assert!(instr_ret.is_none());
+    Ok(scope)
 }
 
-fn run_program_in_current_scope(
-    program: &Program,
-    ctx: &mut Context,
-) -> ExecResult<Option<InstrRet>> {
-    run_block_in_current_scope(&program.content.data, ctx)
+fn run_program_in_current_scope(program: &Program, ctx: &mut Context) -> ExecResult<()> {
+    let instr_ret = run_block_in_current_scope(&program.content.data, ctx)?;
+    assert!(instr_ret.is_none());
+    Ok(())
 }
 
 pub fn run_block(
@@ -76,73 +69,6 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     match &instr.data {
         Instruction::Comment { content: _ } => {}
-
-        Instruction::Include(path_expr) => {
-            let file_path = match eval_expr(&path_expr.data, ctx)? {
-                RuntimeValue::String(path) => path,
-                value => {
-                    return Err(ctx.error(
-                        instr.at,
-                        format!(
-                            "expected a path (string), found a {}",
-                            readable_value_type(&value)
-                        ),
-                    ))
-                }
-            };
-
-            let from_dir = match ctx.current_file_path() {
-                Some(path) => path.parent().unwrap().to_path_buf(),
-                None => std::env::current_dir().map_err(|err| {
-                    ctx.error(
-                        instr.at,
-                        format!("failed to get current working directory: {err}"),
-                    )
-                })?,
-            };
-
-            let file_path = from_dir.join(file_path);
-
-            if !file_path.exists() {
-                return Err(ctx.error(
-                    path_expr.at,
-                    format!("path '{}' does not exist", file_path.display()),
-                ));
-            }
-
-            if !file_path.is_file() {
-                return Err(ctx.error(
-                    path_expr.at,
-                    format!("path '{}' exists but is not a file", file_path.display()),
-                ));
-            }
-
-            let source = fs::read_to_string(&file_path).map_err(|err| {
-                ctx.error(
-                    instr.at,
-                    format!(
-                        "failed to read content of file '{}': {}",
-                        file_path.display(),
-                        err
-                    ),
-                )
-            })?;
-
-            let file_scope = ctx.create_file_scope(
-                ScopableFilePath::RealFile(file_path.clone()),
-                source.clone(),
-            );
-
-            let parsed = program()
-                .parse_str_as_file(&source, FileId::Id(file_scope.in_file_id))
-                .map_err(|err| ctx.error(instr.at, err))?;
-
-            let (_, instr_ret) = run_program(&parsed.data, ctx, file_scope)?;
-
-            if let Some(instr_ret) = instr_ret {
-                return Ok(Some(instr_ret));
-            }
-        }
 
         Instruction::DeclareVar {
             name,

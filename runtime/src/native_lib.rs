@@ -1,14 +1,17 @@
+use std::fs;
 use std::time::Instant;
 use std::{collections::HashMap, env::VarError, path::Path};
 
 use fork::{fork, Fork};
 use glob::glob;
-use parsy::{CodeRange, Eaten, FileId, Location};
+use parsy::{CodeRange, Eaten, FileId, Location, Parser};
 use reshell_parser::ast::{FnArg, FnArgNames, FnSignature, SingleValueType, ValueType};
+use reshell_parser::program;
 
 use crate::context::{Context, Scope, ScopeFn, ScopeVar};
 use crate::display::{dbg_fn_signature, dbg_loc, dbg_value, readable_value_type};
 use crate::errors::ExecResult;
+use crate::exec::run_program;
 use crate::files_map::ScopableFilePath;
 use crate::functions::{call_fn_value, FnPossibleCallArgs};
 use crate::typechecker::check_fn_equality;
@@ -317,6 +320,60 @@ pub fn generate_native_lib() -> Scope {
                 Ok(()) => Ok(None),
                 Err(err) => Err(ctx.error(path_at, format!("failed to change current directory: {err}")))
             }
+        }),
+        //
+        // Include another script
+        //
+        native_fn!(include (path: String [path_at]) [ctx, at] {
+            let from_dir = match ctx.current_file_path() {
+                Some(path) => path.parent().unwrap().to_path_buf(),
+                None => std::env::current_dir().map_err(|err| {
+                    ctx.error(
+                        at,
+                        format!("failed to get current working directory: {err}"),
+                    )
+                })?,
+            };
+
+            let file_path = from_dir.join(path);
+
+            if !file_path.exists() {
+                return Err(ctx.error(
+                    path_at,
+                    format!("path '{}' does not exist", file_path.display()),
+                ));
+            }
+
+            if !file_path.is_file() {
+                return Err(ctx.error(
+                    path_at,
+                    format!("path '{}' exists but is not a file", file_path.display()),
+                ));
+            }
+
+            let source = fs::read_to_string(&file_path).map_err(|err| {
+                ctx.error(
+                    at,
+                    format!(
+                        "failed to read content of file '{}': {}",
+                        file_path.display(),
+                        err
+                    ),
+                )
+            })?;
+
+            let file_scope = ctx.create_file_scope(
+                ScopableFilePath::RealFile(file_path.clone()),
+                source.clone(),
+            );
+
+            let parsed = program()
+                .parse_str_as_file(&source, FileId::Id(file_scope.in_file_id))
+                .map_err(|err| ctx.error(at, err))?;
+
+            run_program(&parsed.data, ctx, file_scope)?;
+
+            Ok(None)
         }),
         //
         // check if path exists
