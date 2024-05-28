@@ -8,8 +8,9 @@ use parsy::{
 
 use crate::ast::{
     CmdCallMethod, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr,
-    EscapableChar, ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess,
-    PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase, ValueType,
+    EscapableChar, ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function,
+    PropAccess, PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase,
+    ValueType,
 };
 
 use super::ast::{
@@ -378,9 +379,11 @@ pub fn program() -> impl Parser<Program> {
                         .or_not(),
                 )
                 .then(block.clone().spanned())
-                .map(|((args, ret_type), body)| Value::Closure {
-                    signature: FnSignature { args, ret_type },
-                    body,
+                .map(|((args, ret_type), body)| {
+                    Value::Closure(Function {
+                        signature: FnSignature { args, ret_type },
+                        body,
+                    })
                 }),
         ));
 
@@ -913,8 +916,7 @@ pub fn program() -> impl Parser<Program> {
                 )
                 .map(|((name, signature), body)| Instruction::FnDecl {
                     name,
-                    signature,
-                    body,
+                    content: Function { signature, body },
                 }),
             //
             // Function return

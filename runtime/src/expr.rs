@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerContent, ExprOp, LiteralValue, PropAccess, SingleOp, Value,
+    ExprInnerContent, ExprOp, Function, LiteralValue, PropAccess, SingleOp, Value,
 };
 
 use crate::{
@@ -352,7 +352,7 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
                 } => Ok(RuntimeValue::Bool(false)),
             },
         },
-        Value::Closure { signature, body } => {
+        Value::Closure(Function { signature, body }) => {
             Ok(RuntimeValue::Function(GcCell::new(RuntimeFnValue {
                 signature: signature.clone(),
                 // TODO: compute and store which values this references

@@ -61,8 +61,7 @@ pub enum Instruction {
 
     FnDecl {
         name: Eaten<String>,
-        signature: FnSignature,
-        body: Eaten<Block>,
+        content: Function,
     },
 
     FnReturn {
@@ -101,6 +100,12 @@ pub struct ElsIf {
 #[derive(Debug, Clone)]
 pub struct SwitchCase {
     pub cond: Eaten<Expr>,
+    pub body: Eaten<Block>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub signature: FnSignature,
     pub body: Eaten<Block>,
 }
 
@@ -174,10 +179,7 @@ pub enum Value {
     CmdOutput(Eaten<CmdCall>),
     CmdSuccess(Eaten<CmdCall>),
     FnAsValue(Eaten<String>),
-    Closure {
-        signature: FnSignature,
-        body: Eaten<Block>,
-    },
+    Closure(Function),
 }
 
 #[derive(Debug, Clone)]
