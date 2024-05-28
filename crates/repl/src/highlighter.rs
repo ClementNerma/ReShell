@@ -238,8 +238,8 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Method calls
                 method_call(),
 
-                // Raw arguments
-                simple("(.)", [Green]),
+                // Expressions
+                include_group("expressions")
             ]),
             ("literal-strings", vec![
                 // Escaped characters
