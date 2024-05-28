@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, Expr, ExprInner, ExprInnerContent, ExprOp,
-    LiteralValue, PropAccess, PropAccessNature, SingleOp, Value,
+    LiteralValue, PropAccess, SingleOp, Value,
 };
 
 use crate::{
@@ -12,6 +12,7 @@ use crate::{
     display::{readable_value_type, value_to_str},
     errors::{ExecErrorContent, ExecResult},
     functions::call_fn,
+    props::{eval_prop_access_nature, PropAccessPolicy},
     typechecker::check_if_single_type_fits_single,
     values::{RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
@@ -183,6 +184,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     let ExprInner { content, prop_acc } = &inner.data;
 
     let mut left = eval_expr_inner_content(&content.data, ctx)?;
+    let mut left = &mut left;
 
     for acc in prop_acc {
         let PropAccess { nature, nullable } = &acc.data;
@@ -191,97 +193,10 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
             continue;
         }
 
-        match &nature.data {
-            PropAccessNature::Key(key_expr) => match &left {
-                RuntimeValue::List(list) => {
-                    let index = match eval_expr(&key_expr.data, ctx)? {
-                        RuntimeValue::Int(index) => index as usize,
-
-                        value => {
-                            return Err(ctx.error(
-                                key_expr.at,
-                                format!(
-                                    "expected an index (integer), found a {}",
-                                    readable_value_type(&value, ctx)
-                                ),
-                            ))
-                        }
-                    };
-
-                    left = list
-                        .get(index)
-                        .ok_or_else(|| {
-                            ctx.error(key_expr.at, format!("index '{index}' is out-of-bounds"))
-                        })?
-                        // TODO: performance
-                        .clone();
-                }
-
-                RuntimeValue::Map(map) => {
-                    let key = match eval_expr(&key_expr.data, ctx)? {
-                        RuntimeValue::String(key) => key,
-                        value => {
-                            return Err(ctx.error(
-                                key_expr.at,
-                                format!(
-                                    "expected a key (string), found a {}",
-                                    readable_value_type(&value, ctx)
-                                ),
-                            ))
-                        }
-                    };
-
-                    left = map
-                        .get(&key)
-                        .ok_or_else(|| {
-                            ctx.error(key_expr.at, format!("key '{key}' was not found"))
-                        })?
-                        // TODO: performance
-                        .clone();
-                }
-
-                _ => {
-                    return Err(ctx.error(
-                        acc.at,
-                        format!(
-                            "left operand is not a map nor a list, but a {}",
-                            readable_value_type(&left, ctx)
-                        ),
-                    ))
-                }
-            },
-
-            PropAccessNature::Prop(key) => match &left {
-                RuntimeValue::Struct(content) => {
-                    left = content
-                        .get(&key.data)
-                        .ok_or_else(|| {
-                            ctx.error(
-                                key.at,
-                                format!(
-                                    "property '{}' does not exist on the provided object",
-                                    key.data
-                                ),
-                            )
-                        })?
-                        // TODO: performance
-                        .clone();
-                }
-
-                _ => {
-                    return Err(ctx.error(
-                        acc.at,
-                        format!(
-                            "left operand is not a struct, but a {}",
-                            readable_value_type(&left, ctx)
-                        ),
-                    ))
-                }
-            },
-        }
+        left = eval_prop_access_nature(left, nature, PropAccessPolicy::ExistingOnly, ctx)?;
     }
 
-    Ok(left)
+    Ok(left.clone())
 }
 
 fn eval_expr_inner_content(

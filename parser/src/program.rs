@@ -432,14 +432,13 @@ pub fn program() -> impl Parser<Program> {
                 .map(PropAccessNature::Key),
         ));
 
-        let prop_access =
-            char('?')
-                .or_not()
-                .then(prop_access_nature.spanned())
-                .map(|(nullable, nature)| PropAccess {
-                    nullable: nullable.is_some(),
-                    nature,
-                });
+        let prop_access = char('?')
+            .or_not()
+            .then(prop_access_nature.clone().spanned())
+            .map(|(nullable, nature)| PropAccess {
+                nullable: nullable.is_some(),
+                nature,
+            });
 
         let expr_inner = expr_inner_content
             .spanned()
@@ -639,6 +638,7 @@ pub fn program() -> impl Parser<Program> {
             //
             var_name
                 .spanned()
+                .then(prop_access_nature.spanned().repeated_vec())
                 .then_ignore(ms)
                 .then_ignore(char('='))
                 .then_ignore(msnl)
@@ -647,7 +647,11 @@ pub fn program() -> impl Parser<Program> {
                         .spanned()
                         .critical("expected an expression to assign"),
                 )
-                .map(|(name, expr)| Instruction::AssignVar { name, expr }),
+                .map(|((name, prop_acc), expr)| Instruction::AssignVar {
+                    name,
+                    prop_acc,
+                    expr,
+                }),
             //
             // Conditionals
             //

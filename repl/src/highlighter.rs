@@ -133,9 +133,18 @@ impl Highlight for Eaten<Instruction> {
                 }
             }
 
-            Instruction::AssignVar { name, expr } => {
+            Instruction::AssignVar {
+                name,
+                prop_acc,
+                expr,
+            } => {
                 h.push(&VAR_NAME, name.at);
+
                 expr.data.highlight(h);
+
+                for acc in prop_acc {
+                    acc.data.highlight(h);
+                }
             }
 
             Instruction::IfCond {
