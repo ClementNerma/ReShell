@@ -393,10 +393,6 @@ impl PrettyPrintable for CmdSingleArgResult {
 
                 PrettyPrintablePiece::Join(join)
             }
-
-            CmdSingleArgResult::RestSeparator(_) => {
-                PrettyPrintablePiece::colored_atomic("--", Color::Yellow)
-            }
         }
     }
 }

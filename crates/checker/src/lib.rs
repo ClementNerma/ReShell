@@ -916,8 +916,6 @@ fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
             state.register_usage(var, DependencyType::Variable)?;
             Ok(())
         }
-
-        CmdArg::RestSeparator(_) => Ok(()),
     }
 }
 
@@ -959,7 +957,11 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     let mut vars = HashMap::new();
 
     for arg in &args.data {
-        let CheckedFnArg { name_at, var_name } = check_fn_arg(arg, state)?;
+        let CheckedFnArg {
+            name_at,
+            var_name,
+            is_rest: _,
+        } = check_fn_arg(arg, state)?;
 
         let dup = vars.insert(
             var_name,
@@ -969,9 +971,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
             },
         );
 
-        if dup.is_some() {
-            return Err(CheckerError::new(name_at, "Duplicate argument name"));
-        }
+        assert!(dup.is_none());
     }
 
     state.prepare_deps(body.at);
@@ -998,7 +998,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 }
 
 fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
-    let (name, name_at, alt_var_name) = match arg {
+    let (name, name_at, alt_var_name, is_rest) = match arg {
         FnArg::Positional {
             name,
             is_optional: _,
@@ -1008,20 +1008,24 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 check_value_type(typ.data(), state)?;
             }
 
-            (name.data().clone(), name.at(), None)
+            (name.data().clone(), name.at(), None, false)
         }
 
         FnArg::PresenceFlag { names } => match names {
-            FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None),
+            FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None, false),
+
             FnFlagArgNames::LongFlag(long) => (
                 long.data().clone(),
                 long.at(),
                 Some(long_flag_var_name(long.data())),
+                false,
             ),
+
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
                 long.data().clone(),
                 long.at(),
                 Some(long_flag_var_name(long.data())),
+                false,
             ),
         },
 
@@ -1035,21 +1039,27 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             }
 
             match names {
-                FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None),
+                FnFlagArgNames::ShortFlag(short) => {
+                    (short.data().to_string(), short.at(), None, false)
+                }
+
                 FnFlagArgNames::LongFlag(long) => (
                     long.data().clone(),
                     long.at(),
                     Some(long_flag_var_name(long.data())),
+                    false,
                 ),
+
                 FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
                     long.data().clone(),
                     long.at(),
                     Some(long_flag_var_name(long.data())),
+                    false,
                 ),
             }
         }
 
-        FnArg::Rest { name } => (name.data().clone(), name.at(), None),
+        FnArg::Rest { name } => (name.data().clone(), name.at(), None, true),
     };
 
     Ok(CheckedFnArg {
@@ -1058,12 +1068,14 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             RuntimeCodeRange::Parsed(at) => at,
             RuntimeCodeRange::Internal => unreachable!(),
         },
+        is_rest,
     })
 }
 
 struct CheckedFnArg {
     name_at: CodeRange,
     var_name: String,
+    is_rest: bool,
 }
 
 /// Compute the variable name for a long flag
@@ -1162,9 +1174,25 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     };
 
     let mut used_idents = HashSet::new();
+    let mut rest_arg_name_at = None;
 
     for arg in &args.data {
-        let CheckedFnArg { var_name, name_at } = check_fn_arg(arg, state)?;
+        let CheckedFnArg {
+            var_name,
+            name_at,
+            is_rest,
+        } = check_fn_arg(arg, state)?;
+
+        if let Some(rest_arg_name_at) = rest_arg_name_at {
+            return Err(CheckerError::new(
+                rest_arg_name_at,
+                "rest argument must be the very last of the function",
+            ));
+        }
+
+        if is_rest {
+            rest_arg_name_at = Some(name_at);
+        }
 
         if !used_idents.insert(var_name) {
             return Err(CheckerError::new(

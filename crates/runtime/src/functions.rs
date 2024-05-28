@@ -178,7 +178,7 @@ fn parse_fn_call_args(
     call_args.reverse();
 
     let mut out = HashMap::<String, ValidatedFnCallArg>::new();
-    let mut rest_args = None::<Vec<CmdSingleArgResult>>;
+    let mut rest_args = Vec::<CmdSingleArgResult>::new();
 
     let mut positional_fn_args = fn_args.iter().filter_map(|fn_arg| match fn_arg {
         FnArg::Positional {
@@ -198,27 +198,15 @@ fn parse_fn_call_args(
 
     let mut value_on_hold = None::<CmdSingleArgResult>;
 
+    let has_rest_argument = fn_args.iter().any(|arg| matches!(arg, FnArg::Rest { name: _ }));
+
     'iter: while let Some(arg_result) = value_on_hold.take().or_else(|| call_args.pop()) {
-        if let Some(ref mut rest) = rest_args {
-            rest.push(arg_result);
+        if !rest_args.is_empty() {
+            rest_args.push(arg_result);
             continue;
         }
 
         match arg_result {
-            CmdSingleArgResult::RestSeparator(eaten) => {
-                let has_rest_arg = fn_args
-                    .iter()
-                    .any(|arg| matches!(arg, FnArg::Rest { name: _ }));
-
-                if !has_rest_arg {
-                    return Err(
-                        ctx.error(eaten.at, "called function does not have a rest argument")
-                    );
-                }
-
-                rest_args = Some(vec![]);
-            }
-
             CmdSingleArgResult::Flag { name, value } => {
                 for arg in fn_args {
                     match arg {
@@ -230,12 +218,12 @@ fn parse_fn_call_args(
                             if let Some(FlagArgValueResult { value, value_sep }) = value {
                                 // Skip the flag if was associated the `false` value using the `=` sign
                                 
-                                let mut is_true_with_eq = false;
+                                let mut is_true_with_eq_sign = false;
 
                                 if value_sep == FlagValueSeparator::Equal {
                                     if let RuntimeValue::Bool(bool) = &value.value {
                                         if *bool {
-                                            is_true_with_eq = true;
+                                            is_true_with_eq_sign = true;
                                         } else {
                                             continue 'iter;
                                         }
@@ -244,7 +232,7 @@ fn parse_fn_call_args(
 
                                 // Just set the flag normally if it's the `true` value with the `=` sign
                                 // (which is equivalent to not providing a value at all)
-                                if !is_true_with_eq {
+                                if !is_true_with_eq_sign {
                                     value_on_hold = Some(CmdSingleArgResult::Basic(value));
                                 }
                             }
@@ -323,6 +311,11 @@ fn parse_fn_call_args(
                     }
                 }
 
+                if has_rest_argument {
+                    rest_args.push(CmdSingleArgResult::Flag { name, value });
+                    continue;
+                }
+
                 return Err(ctx.error(
                     name.at,
                     "unknown flag provided",
@@ -330,9 +323,14 @@ fn parse_fn_call_args(
             }
 
             CmdSingleArgResult::Basic(loc_val) => {
-                let (name, typ) = positional_fn_args
-                    .next()
-                    .ok_or_else(|| ctx.error(loc_val.from, "too many arguments provided"))?;
+                let Some((name, typ)) = positional_fn_args.next() else {
+                    if has_rest_argument {
+                        rest_args.push(CmdSingleArgResult::Basic(loc_val));
+                        continue;
+                    }
+
+                    return Err(ctx.error(loc_val.from, "too many arguments provided"));
+                };
 
                 if let Some(typ) = typ {
                     if !check_if_single_type_fits_type(&loc_val.value.get_type(), typ.data(), ctx) {
@@ -428,10 +426,15 @@ fn parse_fn_call_args(
                         decl_name_at: fn_arg_var_at(arg),
                         arg_value_at: call_at,
                         value: RuntimeValue::ArgSpread(GcReadOnlyCell::new(
-                            rest_args.take().unwrap_or_default(),
+                            rest_args,
                         )),
                     },
                 );
+
+                // Rest argument is the last of a function's
+                // This 'break' prevents having to deal with 'rest_args' being
+                // potentially re-borrowed in the next loop's iteration
+                break;
             }
         }
     }

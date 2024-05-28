@@ -523,11 +523,7 @@ fn append_cmd_arg_as_string(
             )?),
 
             CmdSingleArgResult::Flag { name, value } => {
-                let name = match &name.data {
-                    CmdFlagNameArg::Short(short) => format!("-{short}"),
-                    CmdFlagNameArg::Long(long) => format!("--{long}"),
-                    CmdFlagNameArg::LongNoConvert(long) => format!("--{long}"),
-                };
+                let name = name.data.back_to_string();
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
@@ -553,11 +549,6 @@ fn append_cmd_arg_as_string(
                     }
                 }
             }
-
-            CmdSingleArgResult::RestSeparator(_) => {
-                // TODO: make this a constant in the parser or something
-                args_str.push("--".to_owned());
-            }
         },
 
         CmdArgResult::Spreaded(items) => {
@@ -579,10 +570,6 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
     match arg {
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
             .map(|value| CmdArgResult::Single(CmdSingleArgResult::Basic(value))),
-
-        CmdArg::RestSeparator(eaten) => Ok(CmdArgResult::Single(
-            CmdSingleArgResult::RestSeparator(*eaten),
-        )),
 
         CmdArg::Flag(CmdFlagArg { name, value }) => {
             Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
@@ -750,7 +737,6 @@ pub enum CmdSingleArgResult {
         name: Eaten<CmdFlagNameArg>,
         value: Option<FlagArgValueResult>,
     },
-    RestSeparator(Eaten<()>),
 }
 
 #[derive(Debug, Clone)]
