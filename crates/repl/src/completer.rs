@@ -91,7 +91,7 @@ pub fn generate_completions(
         return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
             complete_path(word, span, ctx)
         } else {
-            complete_var_name(s_word, next_char, Some("$"), span, ctx)
+            complete_var_name(s_word, Some("$"), span, ctx)
         };
     }
 
@@ -305,14 +305,11 @@ fn build_cmd_completions(
 
 fn complete_var_name(
     word: &str,
-    next_char: Option<char>,
     add_prefix: Option<&str>,
     span: Span,
     ctx: &Context,
 ) -> Vec<Suggestion> {
     let word = word.to_lowercase();
-
-    let append_whitespace = next_char != Some(' ');
 
     let results = ctx
         .visible_scopes_content()
@@ -335,7 +332,7 @@ fn complete_var_name(
                     ),
                     extra: None,
                     span,
-                    append_whitespace,
+                    append_whitespace: false,
                 },
             )
         })
