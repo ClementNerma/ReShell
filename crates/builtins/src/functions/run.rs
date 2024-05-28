@@ -11,7 +11,8 @@ define_internal_fn!(
     (
         cmd_call: RequiredArg<CmdCallType> = Arg::method_self(),
         silent: PresenceFlag = Arg::long_flag("silent"),
-        ignore_failure: PresenceFlag = Arg::long_flag("ignore-failure")
+        ignore_failure: PresenceFlag = Arg::long_flag("ignore-failure"),
+        capture_stderr: PresenceFlag = Arg::long_flag("capture-stderr")
     )
 
     -> None
@@ -24,6 +25,7 @@ fn run() -> Runner {
              cmd_call,
              silent,
              ignore_failure,
+             capture_stderr,
          },
          _,
          ctx| {
@@ -34,10 +36,16 @@ fn run() -> Runner {
                 ctx,
                 CmdExecParams {
                     capture: if silent {
-                        Some(CmdPipeCapture::Both)
+                        Some(if capture_stderr {
+                            CmdPipeCapture::Stderr
+                        } else {
+                            CmdPipeCapture::Stdout
+                        })
                     } else {
                         None
                     },
+
+                    silent,
                 },
             ) {
                 Ok(_) => Ok(None),

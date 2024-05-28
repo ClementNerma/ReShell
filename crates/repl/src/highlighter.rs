@@ -167,7 +167,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
                 // Markers
-                simple("\\b(direct|include|output)(?:\\s|$)", [Magenta]),
+                simple("\\b(direct|include)(?:\\s|$)", [Magenta]),
 
                 // Normalized flags
                 simple_followed_by("\\s((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
@@ -212,7 +212,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 Rule::Simple(SimpleRule {
                     matches: Regex::new("([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\b(?:direct|output)\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {

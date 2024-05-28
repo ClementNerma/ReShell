@@ -540,8 +540,6 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
 
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
-        Instruction::Expr(expr) => check_expr(&expr.data, state)?,
-
         Instruction::Include(program) => {
             let Program { content } = &program.data;
             let Block {
@@ -873,63 +871,18 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
 fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult {
     let CmdCall { base, pipes } = &cmd_call.data;
 
-    let mut chain_type = match base {
-        CmdCallBase::OutputOf(call) => {
-            let target_type = check_single_cmd_call(call, state)?;
-
-            match target_type {
-                CmdPathTargetType::Function => {
-                    return Err(CheckerError::new(call.at, "cannot use the 'output' keyword on a function ; call the function directly instead"));
-                }
-
-                CmdPathTargetType::ExternalCommand => {}
-            }
-
-            CmdCallTargetType::OutputOfCommand
+    match base {
+        CmdCallBase::Expr(expr) => {
+            check_expr(&expr.data, state)?;
         }
 
         CmdCallBase::SingleCmdCall(call) => {
-            CmdCallTargetType::from(check_single_cmd_call(call, state)?)
+            check_single_cmd_call(call, state)?;
         }
-    };
+    }
 
-    for CmdPipe { pipe_type, cmd } in pipes.iter() {
-        let call_type = CmdCallTargetType::from(check_single_cmd_call(cmd, state)?);
-
-        match (chain_type, call_type) {
-            (CmdCallTargetType::OutputOfCommand, CmdCallTargetType::ExternalCommand) => {
-                return Err(CheckerError::new(
-                    pipe_type.at,
-                    "cannot pipe a command's output string into an external command ; try to remove the 'output' keyword",
-                ))
-            }
-
-            (CmdCallTargetType::Function, CmdCallTargetType::ExternalCommand) => {
-                return Err(CheckerError::new(
-                    pipe_type.at,
-                    "cannot pipe a function's output into an external command",
-                ))
-            }
-
-            (CmdCallTargetType::ExternalCommand, CmdCallTargetType::Function) => {
-                return Err(CheckerError::new(
-                    pipe_type.at,
-                    "cannot pipe an external command's output into a function",
-                ))
-            }
-
-            (CmdCallTargetType::Function | CmdCallTargetType::OutputOfCommand, CmdCallTargetType::Function)
-            | (CmdCallTargetType::ExternalCommand, CmdCallTargetType::ExternalCommand) => {
-                // OK
-            }
-
-            (_, CmdCallTargetType::OutputOfCommand) => {
-                // Impossible as "OutputOfCommand" is only possible for the FIRST single command call in the chain
-                unreachable!()
-            }
-        }
-
-        chain_type = call_type;
+    for CmdPipe { pipe_type: _, cmd } in pipes.iter() {
+        check_single_cmd_call(cmd, state)?;
     }
 
     Ok(())
@@ -967,14 +920,25 @@ fn check_single_cmd_call(
         check_cmd_arg(arg, state)?;
     }
 
+    let is_function = match target_type {
+        CmdPathTargetType::Function => true,
+        CmdPathTargetType::ExternalCommand => false,
+    };
+
+    if is_function {
+        if let Some(env_var) = env_vars.data.first() {
+            return Err(CheckerError::new(
+                env_var.at,
+                "environment variables are not supported for function calls",
+            ));
+        }
+    }
+
     state.register_developed_single_cmd_call(
         single_cmd_call,
         DevelopedSingleCmdCall {
             at: single_cmd_call.at,
-            is_function: match target_type {
-                CmdPathTargetType::Function => true,
-                CmdPathTargetType::ExternalCommand => false,
-            },
+            is_function,
             developed_aliases,
         },
     );
@@ -1418,20 +1382,4 @@ fn check_fn_signature(
 enum CmdPathTargetType {
     Function,
     ExternalCommand,
-}
-
-#[derive(Clone, Copy)]
-enum CmdCallTargetType {
-    Function,
-    ExternalCommand,
-    OutputOfCommand,
-}
-
-impl From<CmdPathTargetType> for CmdCallTargetType {
-    fn from(value: CmdPathTargetType) -> Self {
-        match value {
-            CmdPathTargetType::Function => Self::Function,
-            CmdPathTargetType::ExternalCommand => Self::ExternalCommand,
-        }
-    }
 }
