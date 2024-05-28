@@ -468,7 +468,7 @@ fn complete_path(path: &[UnescapedSegment], span: Span, ctx: &Context) -> Vec<Su
             ),
 
             Some(GlobPathStartsWith::CurrentDir) => {
-                escape_str(&path_str, Some(&format!("./{MAIN_SEPARATOR}")))
+                escape_str(&path_str, Some(&format!(".{MAIN_SEPARATOR}")))
             }
 
             None => escape_str(&path_str, None),
