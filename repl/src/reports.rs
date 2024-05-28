@@ -1,7 +1,10 @@
 use std::ops::Range;
 
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
-use parsy::{CodeRange, CriticalErrorMsg, FileId, ParserExpectation, ParsingError};
+use parsy::{
+    CodeRange, CriticalErrorMsgContent, CriticalErrorNature, FileId, ParserExpectation,
+    ParsingError,
+};
 use reshell_runtime::{
     errors::{ExecError, ExecErrorContent},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
@@ -129,17 +132,24 @@ pub fn parsing_error_report(err: &ParsingError, files: &FilesMap) -> ReplReport 
         err.inner().at(),
         match err.critical() {
             Some(msg) => match msg {
-                CriticalErrorMsg::Inherit => parser_expection_to_str(err.inner().expected()),
-                CriticalErrorMsg::UnexpectedEndOfInput => format!(
-                    "unexpected end of input ({})",
-                    parser_expection_to_str(err.inner().expected())
-                ),
-                CriticalErrorMsg::Custom(msg) => msg.to_string(),
+                CriticalErrorNature::Direct(content) => critical_error_msg_to_str(content, err),
+                CriticalErrorNature::UnexpectedEndOfInput(content) => critical_error_msg_to_str(content, err)
+                // format!(
+                //     "unexpected end of input ({})",
+                //     critical_error_msg_to_str(content, err)
+                // ),
             },
             None => parser_expection_to_str(err.inner().expected()),
         },
         files,
     )
+}
+
+fn critical_error_msg_to_str(content: &CriticalErrorMsgContent, err: &ParsingError) -> String {
+    match content {
+        CriticalErrorMsgContent::Inherit => parser_expection_to_str(err.inner().expected()),
+        CriticalErrorMsgContent::Custom(msg) => msg.to_string(),
+    }
 }
 
 fn parser_expection_to_str(err: &ParserExpectation) -> String {
