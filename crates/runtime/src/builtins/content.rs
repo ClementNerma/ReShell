@@ -56,7 +56,6 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     Args [ArgsAt] ( value: RequiredArg<AnyType> => Arg::positional("value") ),
 
                     |at, Args { value }, _, ctx| {
-                        // TODO: disable color if we're not in a terminal
                         let at = format!("dbg [{}]:", dbg_loc(at, ctx.files_map()));
 
                         println!("{} {}", at.bright_magenta(), value.render_colored(ctx, PrettyPrintOptions {
