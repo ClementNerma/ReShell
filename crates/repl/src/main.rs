@@ -26,12 +26,10 @@ mod exec;
 mod highlighter;
 mod hinter;
 mod history;
-mod nesting;
 mod prompt;
 mod repl;
 mod reports;
-mod syntax;
-mod validator;
+mod utils;
 
 fn main() -> ExitCode {
     let now = Instant::now();

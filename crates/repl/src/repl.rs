@@ -21,7 +21,8 @@ use crate::{
     highlighter, hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
-    validator, Timings,
+    utils::validator,
+    Timings,
 };
 
 pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<ExitCode> {
@@ -69,8 +70,6 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
 
         let prompt = Prompt::new(prompt_rendering);
 
-        completion_data.lock().unwrap().update_with(ctx);
-
         if show_timings {
             println!("* Time to interaction: {:?}", line_start.elapsed());
         }
@@ -95,6 +94,8 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             &parser,
             ctx,
         );
+
+        completion_data.lock().unwrap().update_with(ctx);
 
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),

@@ -5,7 +5,7 @@ use once_cell::sync::Lazy;
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
-use crate::syntax::{
+use crate::utils::syntax::{
     HighlightPiece, Highlighter as SyntaxHighlighter, NestingRule, Rule, RuleSet, SimpleRule,
     ValidatedRuleSet,
 };
