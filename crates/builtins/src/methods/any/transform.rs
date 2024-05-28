@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "transform",
 
     (
-        value: RequiredArg<AnyType> = Arg::positional("value"),
+        value: RequiredArg<AnyType> = Arg::method_self(),
         transform_fn: RequiredArg<TypedFunctionType> = transform_fn_type()
     )
 

@@ -23,7 +23,6 @@ mod file_exists;
 mod file_size;
 mod glob;
 mod human_size;
-mod inspect;
 mod map;
 mod mkdir;
 mod parent_dir;
@@ -38,12 +37,8 @@ mod run;
 mod run_fn;
 mod runtime;
 mod set_env;
-mod struct_to_map;
 mod term_cols;
 mod term_rows;
-mod to_json;
-mod to_string;
-mod transform;
 mod typemakers;
 mod whereis;
 mod which;
@@ -76,7 +71,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::file_size::build_fn(),
         self::glob::build_fn(),
         self::human_size::build_fn(),
-        self::inspect::build_fn(),
         self::map::build_fn(),
         self::mkdir::build_fn(),
         self::parent_dir::build_fn(),
@@ -91,12 +85,8 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::set_env::build_fn(),
         self::run::build_fn(),
         self::runtime::build_fn(),
-        self::struct_to_map::build_fn(),
         self::term_cols::build_fn(),
         self::term_rows::build_fn(),
-        self::to_json::build_fn(),
-        self::to_string::build_fn(),
-        self::transform::build_fn(),
         self::whereis::build_fn(),
         self::which::build_fn(),
         self::write_file::build_fn(),
