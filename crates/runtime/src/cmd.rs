@@ -233,9 +233,7 @@ pub fn run_cmd(
                                 })?,
                         };
 
-                        let typ = first_arg.value.get_type();
-
-                        let method = find_applicable_method(call_at, &name, &typ, ctx)?;
+                        let method = find_applicable_method(call_at, &name, &first_arg.value, ctx)?;
 
                         method.value.clone()
                     }
