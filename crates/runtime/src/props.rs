@@ -1,3 +1,5 @@
+use std::collections::hash_map::{Entry, VacantEntry};
+
 use parsy::Eaten;
 use reshell_parser::ast::PropAccessNature;
 
@@ -9,15 +11,20 @@ use crate::{
     values::RuntimeValue,
 };
 
-pub fn eval_props_access<'ast, T>(
-    left: &mut RuntimeValue,
+pub enum PropAssignment<'c> {
+    Existing(&'c mut RuntimeValue),
+    ToBeCreated(VacantEntry<'c, String, RuntimeValue>),
+}
+
+pub fn eval_props_access<'ast, 'c, T>(
+    left: &'c mut RuntimeValue,
     accesses: impl ExactSizeIterator<Item = &'ast Eaten<PropAccessNature>>,
     policy: PropAccessPolicy,
-    ctx: &mut Context,
-    finalize: impl FnOnce(&mut RuntimeValue, &mut Context) -> T,
+    ctx: &'c mut Context,
+    finalize: impl FnOnce(PropAssignment, &mut Context) -> T,
 ) -> ExecResult<T> {
     if accesses.len() == 0 {
-        return Ok(finalize(left, ctx));
+        return Ok(finalize(PropAssignment::Existing(left), ctx));
     }
 
     let mut left = left.clone();
@@ -58,7 +65,8 @@ pub fn eval_props_access<'ast, T>(
                                     )
                                 }
                             },
-                            None => return Ok(finalize(value, ctx)),
+
+                            None => return Ok(finalize(PropAssignment::Existing(value), ctx)),
                         },
 
                         None => {
@@ -86,6 +94,8 @@ pub fn eval_props_access<'ast, T>(
                     };
 
                     // TODO: HACK: find a more proper way to to that
+                    // Basically when creating a new property in a map the cell is initialized at 'null'
+                    // even if the assignment fails
                     if policy == PropAccessPolicy::TrailingAccessMayNotExist
                         && !map.read().contains_key(&key)
                     {
@@ -94,22 +104,41 @@ pub fn eval_props_access<'ast, T>(
 
                     let mut map = map.write();
 
-                    match map.get_mut(&key) {
-                        Some(value) => match next_acc {
-                            Some(next_acc) => match value.is_primitive() {
-                                false => left = value.clone(),
+                    match map.entry(key.clone()) {
+                        Entry::Occupied(mut entry) => match next_acc {
+                            Some(next_acc) => match entry.get().is_primitive() {
+                                false => left = entry.get().clone(),
                                 true => {
                                     return Err(
                                         ctx.error(next_acc.at, "left operand is a primitive")
                                     )
                                 }
                             },
-                            None => return Ok(finalize(value, ctx)),
+
+                            None => {
+                                return Ok(finalize(PropAssignment::Existing(entry.get_mut()), ctx))
+                            }
                         },
 
-                        None => {
-                            return Err(ctx.error(key_expr.at, format!("key '{key}' was not found")))
-                        }
+                        Entry::Vacant(entry) => match next_acc {
+                            Some(next_acc) => {
+                                return Err(
+                                    ctx.error(next_acc.at, format!("key '{key}' was not found"))
+                                )
+                            }
+
+                            None => match policy {
+                                PropAccessPolicy::ExistingOnly => {
+                                    return Err(
+                                        ctx.error(acc.at, format!("key '{key}' was not found"))
+                                    )
+                                }
+
+                                PropAccessPolicy::TrailingAccessMayNotExist => {
+                                    return Ok(finalize(PropAssignment::ToBeCreated(entry), ctx));
+                                }
+                            },
+                        },
                     }
                 }
 
@@ -139,7 +168,7 @@ pub fn eval_props_access<'ast, T>(
                                     )
                                 }
                             },
-                            None => return Ok(finalize(value, ctx)),
+                            None => return Ok(finalize(PropAssignment::Existing(value), ctx)),
                         },
 
                         None => {

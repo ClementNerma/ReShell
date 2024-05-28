@@ -15,7 +15,7 @@ use crate::{
     functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_props_access, PropAccessPolicy},
+    props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
         are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeCmdAlias,
         RuntimeFnBody, RuntimeFnValue, RuntimeValue,
@@ -189,33 +189,46 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 eval_props_access(
                     &mut var.value.write().as_mut().unwrap().value,
                     prop_acc.iter(),
-                    PropAccessPolicy::TrailingAccessMayNotExist,
+                    match list_push {
+                        Some(_) => PropAccessPolicy::ExistingOnly,
+                        None => PropAccessPolicy::TrailingAccessMayNotExist,
+                    },
                     ctx,
                     |left, ctx| match list_push {
                         None => {
-                            *left = assign_value;
+                            match left {
+                                PropAssignment::Existing(existing) => *existing = assign_value,
+                                PropAssignment::ToBeCreated(entry) => {
+                                    entry.insert(assign_value);
+                                }
+                            }
+
                             Ok(())
                         }
 
                         Some(list_push) => match left {
-                            RuntimeValue::List(list) => {
-                                list.write().push(assign_value);
-                                Ok(())
-                            }
+                            PropAssignment::Existing(existing) => match existing {
+                                RuntimeValue::List(list) => {
+                                    list.write().push(assign_value);
+                                    Ok(())
+                                }
 
-                            _ => {
-                                let left_type = left
-                                    .get_type()
-                                    .render_colored(ctx, PrettyPrintOptions::inline());
+                                _ => {
+                                    let left_type = existing
+                                        .get_type()
+                                        .render_colored(ctx, PrettyPrintOptions::inline());
 
-                                Err(ctx.error(
-                                    list_push.at,
-                                    format!(
-                                        "cannot push a value as this is not a list but a {}",
-                                        left_type
-                                    ),
-                                ))
-                            }
+                                    Err(ctx.error(
+                                        list_push.at,
+                                        format!(
+                                            "cannot push a value as this is not a list but a {}",
+                                            left_type
+                                        ),
+                                    ))
+                                }
+                            },
+
+                            PropAssignment::ToBeCreated(_) => unreachable!(),
                         },
                     },
                 )??;

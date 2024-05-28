@@ -14,7 +14,7 @@ use crate::{
     functions::{call_fn, FnCallResult},
     gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_props_access, PropAccessPolicy},
+    props::{eval_props_access, PropAccessPolicy, PropAssignment},
     values::{
         are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
         RuntimeValue,
@@ -207,14 +207,15 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
             continue;
         }
 
-        // TODO: this may be slow for such a widely-used function
         left = eval_props_access(
             &mut left,
             [nature].into_iter(),
             PropAccessPolicy::ExistingOnly,
             ctx,
-            // TODO: don't clone here
-            |d, _| d.clone(),
+            |d, _| match d {
+                PropAssignment::Existing(d) => d.clone(),
+                PropAssignment::ToBeCreated(_) => unreachable!(),
+            },
         )?;
     }
 
