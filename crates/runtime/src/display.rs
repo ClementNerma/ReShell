@@ -311,7 +311,7 @@ impl PrettyPrintable for FnSignature {
         let Self { args, ret_type } = self;
 
         PrettyPrintablePiece::List {
-            begin: Colored::with_color("fn(", Color::Blue),
+            begin: Colored::with_color("fn(", Color::BrightMagenta),
             items: args
                 .data()
                 .iter()
@@ -465,7 +465,7 @@ fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
         '"'.to_owned(),
         Color::BrightGreen,
     )];
-    
+
     let mut shift = 0;
 
     while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '"']) {

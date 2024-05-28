@@ -14,8 +14,17 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { var_name, value }, _, _| {
+    Runner::new(|at, Args { var_name, value }, _, ctx| {
+        let is_path_var = var_name.to_ascii_lowercase() == "PATH";
+
         std::env::set_var(var_name, value);
+
+        if is_path_var {
+            ctx.binaries_resolver()
+                .refresh()
+                .map_err(|err| ctx.error(at, err.to_string()))?;
+        }
+
         Ok(None)
     })
 }

@@ -71,19 +71,19 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
         match char {
             '#' => {
-                if !matches!(opened.last(), Some(("\"", _))) {
+                if opened.last() != opened_strings.last() {
                     commenting = true;
                 }
             }
 
             '\\' => {
-                if matches!(opened.last(), Some(("\"", _))) {
+                if opened.last() == opened_strings.last() {
                     escaping = true;
                 }
             }
 
             '(' => {
-                if let Some(("\"", _)) = opened.last() {
+                if opened.last() == opened_strings.last() {
                     if let Some(("$", prev_offset)) = prev_char {
                         open(
                             &mut output,
@@ -100,13 +100,13 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             }
 
             '[' | '{' => {
-                if !matches!(opened.last(), Some(("\"", _))) {
+                if opened.last() != opened_strings.last() {
                     open(&mut output, &mut opened, offset, char_as_str);
                 }
             }
 
             ')' | ']' | '}' => {
-                if matches!(opened.last(), Some(("\"", _))) {
+                if opened.last() == opened_strings.last() {
                     continue;
                 }
 
@@ -136,7 +136,7 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 );
             }
 
-            '"' => {
+            '"' | '\'' => {
                 if let Some((opening_str, opening_offset)) = opened_strings.last().copied() {
                     if opened.last().copied() == Some((opening_str, opening_offset)) {
                         push(
@@ -262,7 +262,8 @@ pub enum NestingOpeningType {
     Block,
     List,
     ExprWithParen,
-    String,
+    LiteralString,
+    ComputedString,
     ExprInString,
     CmdCallInString,
 }
@@ -273,11 +274,12 @@ impl NestingOpeningType {
             "{" => Ok(NestingOpeningType::Block),
             "[" => Ok(NestingOpeningType::List),
             "(" => Ok(NestingOpeningType::ExprWithParen),
-            "\"" => Ok(NestingOpeningType::String),
+            "'" => Ok(NestingOpeningType::LiteralString),
+            "\"" => Ok(NestingOpeningType::ComputedString),
             "`" => Ok(NestingOpeningType::ExprInString),
             "$(" => Ok(NestingOpeningType::CmdCallInString),
             _ => Err(format!(
-                "Internal error: unrecognized opening type: '{str}'"
+                "Internal error: unrecognized opening type: >{str}<"
             )),
         }
     }

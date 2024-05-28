@@ -138,7 +138,14 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Invalid characters
                 invalid_chars.clone()
             ]),
-            ("strings", vec![
+            ("literal-strings", vec![
+                // Escaped characters
+                simple("(\\\\.)", [Cyan]),
+
+                // Any other character
+                simple("(.)", [Green]),
+            ]),
+            ("computed-strings", vec![
                 // Escaped characters
                 simple("(\\\\.)", [Cyan]),
 
@@ -216,11 +223,19 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 ]
             }),
 
-            (NestingOpeningType::String, NestedContentRules {
+            (NestingOpeningType::LiteralString, NestedContentRules {
                 opening_style: Style::new().fg(Green),
                 closing_style: Style::new().fg(Green),
                 rules: vec![
-                    include_group("strings")
+                    include_group("literal-strings")
+                ]
+            }),
+
+            (NestingOpeningType::ComputedString, NestedContentRules {
+                opening_style: Style::new().fg(Green),
+                closing_style: Style::new().fg(Green),
+                rules: vec![
+                    include_group("computed-strings")
                 ]
             }),
 
