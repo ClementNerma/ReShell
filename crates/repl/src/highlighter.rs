@@ -3,7 +3,7 @@ use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
 use crate::logic::{
-    nesting::{handle_nesting, NestingCharAction},
+    nesting::{handle_nesting, NestingAction, NestingActionType},
     syntax_highlighter::SyntaxHighlighter,
 };
 
@@ -20,29 +20,41 @@ impl RlHighlighter for Highlighter {
 }
 
 fn highlight(input: &str) -> StyledText {
+    // TODO: nested highlighting
+    // e.g. between $( and ) or ${ and }
+
     let mut h = SyntaxHighlighter::new(input);
 
-    for (c, offset, nesting_action) in handle_nesting(input) {
-        let style = match nesting_action {
-            NestingCharAction::OpeningPrefix
-            | NestingCharAction::Opening
-            | NestingCharAction::Closing => Style::new().fg(match c {
-                '"' => Color::Green,
-                _ => Color::LightBlue,
-            }),
+    for action in handle_nesting(input) {
+        let NestingAction {
+            offset,
+            len,
+            action_type,
+        } = action;
 
-            NestingCharAction::Unclosed => Style::new().fg(Color::Red),
+        let style = match action_type {
+            NestingActionType::Opening | NestingActionType::Closing => {
+                Style::new().fg(if &input[offset..offset + len] == "\"" {
+                    Color::Green
+                } else {
+                    Color::LightBlue
+                })
+            }
 
-            NestingCharAction::ClosingWithoutOpening => {
+            NestingActionType::Unclosed => Style::new().fg(Color::Red),
+
+            NestingActionType::ClosingWithoutOpening => {
                 Style::new().fg(Color::Red).on(Color::White)
             }
 
-            NestingCharAction::Escaping => Style::new().fg(Color::Cyan),
+            NestingActionType::Escaping => Style::new().fg(Color::Cyan),
 
-            NestingCharAction::InvalidEscape => Style::new().fg(Color::Red),
+            NestingActionType::InvalidEscape => Style::new().fg(Color::Red),
+
+            NestingActionType::StringPiece => Style::new().fg(Color::Green),
         };
 
-        h.range(offset, c.len_utf8(), style);
+        h.range(offset, len, style);
     }
 
     macro_rules! highlight {
@@ -114,14 +126,11 @@ fn highlight(input: &str) -> StyledText {
         // function calls
         "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\(" => LightBlue,
 
-        // command expression opening
-        "\\s(\\$)\\(" => Red,
-
         // symbols and operators
-        "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue,
+        "([&\\|,;=!<>\\?\\+\\-\\*\\/:]+)" => Blue
 
-        // raw arguments
-        "(.)" => Green
+        // // raw arguments
+        // "(.)" => Green
     );
 
     h.finalize(Style::default())
