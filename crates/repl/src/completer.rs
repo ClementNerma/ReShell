@@ -526,5 +526,5 @@ fn escape_raw(str: &str) -> Cow<str> {
 }
 
 fn needs_escaping(c: char) -> bool {
-    c.is_whitespace() || DELIMITER_CHARS.contains(&c)
+    c.is_whitespace() || DELIMITER_CHARS.contains(&c) || c == '\\'
 }
