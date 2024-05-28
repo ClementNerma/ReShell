@@ -1,4 +1,5 @@
 mod command;
+mod datetime;
 mod list;
 mod map;
 mod progress_bar;
@@ -12,6 +13,7 @@ use crate::helper::InternalFunction;
 pub fn native_methods() -> Vec<InternalFunction> {
     vec![
         self::command::succeeds::build_fn(),
+        self::datetime::to_string::build_fn(),
         self::list::append::build_fn(),
         self::list::at::build_fn(),
         self::list::contains::build_fn(),

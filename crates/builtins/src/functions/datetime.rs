@@ -1,5 +1,11 @@
+use colored::Color;
+use reshell_runtime::{
+    display::pretty_print_string,
+    gc::GcReadOnlyCell,
+    pretty::{PrettyPrintable, PrettyPrintablePiece},
+    values::CustomValueType,
+};
 use time::{
-    format_description::{self, well_known::Rfc2822},
     util::local_offset::{set_soundness, Soundness},
     OffsetDateTime, UtcOffset,
 };
@@ -9,38 +15,20 @@ use crate::define_internal_fn;
 define_internal_fn!(
     "datetime",
 
-    (
-        format: OptionalArg<StringType> = Arg::positional("format")
-    )
+    ()
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(CustomType::<DateTimeValue>::direct_underlying_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|at, Args { format }, ArgsAt { format: format_at }, ctx| {
+    Runner::new(|_, Args {}, ArgsAt {}, _| {
         let offset = get_utc_offset();
 
         let now = OffsetDateTime::now_utc().to_offset(offset);
 
-        let out = match format {
-            Some(format) => {
-                let format = format_description::parse(&format).map_err(|err| {
-                    ctx.throw(
-                        format_at.unwrap(),
-                        format!("Failed to parse date/time formatting: {err}"),
-                    )
-                })?;
-
-                now.format(&format)
-                    .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?
-            }
-
-            None => now
-                .format(&Rfc2822)
-                .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?,
-        };
-
-        Ok(Some(RuntimeValue::String(out)))
+        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
+            DateTimeValue { inner: now },
+        )))))
     })
 }
 
@@ -58,4 +46,32 @@ pub fn get_utc_offset() -> UtcOffset {
     }
 
     offset
+}
+
+#[derive(Debug, Clone)]
+pub struct DateTimeValue {
+    pub inner: OffsetDateTime,
+}
+
+impl CustomValueType for DateTimeValue {
+    fn typename(&self) -> &'static str {
+        "DateTime"
+    }
+
+    fn typename_static() -> &'static str
+    where
+        Self: Sized,
+    {
+        "DateTime"
+    }
+}
+
+impl PrettyPrintable for DateTimeValue {
+    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+        PrettyPrintablePiece::Join(vec![
+            PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
+            pretty_print_string(&self.inner.to_string()),
+            PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+        ])
+    }
 }

@@ -20,30 +20,6 @@ crate::define_internal_fn!(
     -> None // TODO: new type handler for custom
 );
 
-#[derive(Debug, Clone)]
-pub struct ProgressBarValue {
-    pub inner: ProgressBar,
-}
-
-impl CustomValueType for ProgressBarValue {
-    fn typename(&self) -> &'static str {
-        "ProgressBar"
-    }
-
-    fn typename_static() -> &'static str
-    where
-        Self: Sized,
-    {
-        "ProgressBar"
-    }
-}
-
-impl PrettyPrintable for ProgressBarValue {
-    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
-        PrettyPrintablePiece::colored_atomic("<progress bar>", Color::BrightBlack)
-    }
-}
-
 fn run() -> Runner {
     Runner::new(
         |_,
@@ -99,4 +75,28 @@ fn run() -> Runner {
             )))))
         },
     )
+}
+
+#[derive(Debug, Clone)]
+pub struct ProgressBarValue {
+    pub inner: ProgressBar,
+}
+
+impl CustomValueType for ProgressBarValue {
+    fn typename(&self) -> &'static str {
+        "ProgressBar"
+    }
+
+    fn typename_static() -> &'static str
+    where
+        Self: Sized,
+    {
+        "ProgressBar"
+    }
+}
+
+impl PrettyPrintable for ProgressBarValue {
+    fn generate_pretty_data(&self, _: &Context) -> PrettyPrintablePiece {
+        PrettyPrintablePiece::colored_atomic("<progress bar>", Color::BrightBlack)
+    }
 }
