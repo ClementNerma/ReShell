@@ -7,8 +7,9 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe,
-    CmdPipeType, CmdValueMakingArg, FlagValueSeparator, RuntimeCodeRange, SingleCmdCall,
+    CmdArg, CmdCall, CmdComputedString, CmdComputedStringPiece, CmdEnvVar, CmdFlagArg,
+    CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdValueMakingArg,
+    FlagValueSeparator, RuntimeCodeRange, SingleCmdCall,
 };
 
 use crate::{
@@ -362,13 +363,12 @@ fn evaluate_cmd_target(
 
     if developed.is_function {
         let func = match &cmd_path.data {
-            CmdPath::RawString(name) => GcReadOnlyCell::clone(ctx.get_visible_fn_value(name)?),
-
             CmdPath::Expr(expr) => {
                 let value = eval_expr(&expr.data, ctx)?;
 
                 match value {
                     RuntimeValue::Function(func) => func,
+
                     _ => {
                         return Err(ctx.error(
                             cmd_path.at,
@@ -383,17 +383,29 @@ fn evaluate_cmd_target(
                 }
             }
 
-            CmdPath::Direct(_) | CmdPath::ComputedString(_) => unreachable!(),
+            CmdPath::CmdComputedString(cc_str) => {
+                assert!(cc_str.data.only_literal().is_some());
+
+                let string = eval_cmd_computed_string(cc_str, ctx)?;
+
+                GcReadOnlyCell::clone(ctx.get_visible_fn_value(&cc_str.forge_here(string))?)
+            }
+
+            CmdPath::Direct(_) | CmdPath::ComputedString(_) => {
+                unreachable!()
+            }
         };
 
         return Ok(EvaluatedCmdTarget::Function(func));
     }
 
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
-        CmdPath::RawString(raw) => raw.clone(),
-        CmdPath::Direct(direct) => direct.clone(),
+        CmdPath::Direct(cc_str) => cc_str.forge_here(eval_cmd_computed_string(cc_str, ctx)?),
         CmdPath::Expr(_) => unreachable!(),
         CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
+        CmdPath::CmdComputedString(cc_str) => {
+            cc_str.forge_here(eval_cmd_computed_string(cc_str, ctx)?)
+        }
     }))
 }
 
@@ -649,14 +661,9 @@ pub fn eval_cmd_value_making_arg(
             RuntimeValue::String(eval_computed_string(computed_str, ctx)?),
         ),
 
-        CmdValueMakingArg::VarName(name) => (
-            name.at,
-            ctx.get_visible_var(name)
-                .unwrap_or_else(|| ctx.panic(name.at, "variable was not found (= bug in checker)"))
-                .value
-                .read(name.at)
-                .value
-                .clone(),
+        CmdValueMakingArg::CmdComputedString(computed_str) => (
+            computed_str.at,
+            RuntimeValue::String(eval_cmd_computed_string(computed_str, ctx)?),
         ),
 
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
@@ -675,11 +682,43 @@ pub fn eval_cmd_value_making_arg(
                 RuntimeValue::String(cmd_result.as_captured().unwrap()),
             )
         }
-
-        CmdValueMakingArg::Raw(raw) => (raw.at, RuntimeValue::String(treat_cwd_raw(raw, ctx)?)),
     };
 
     Ok(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at)))
+}
+
+pub fn eval_cmd_computed_string(
+    value: &Eaten<CmdComputedString>,
+    ctx: &mut Context,
+) -> ExecResult<String> {
+    value
+        .data
+        .pieces
+        .iter()
+        .map(|piece| eval_cmd_computed_string_piece(piece, ctx))
+        .collect::<Result<String, _>>()
+}
+
+fn eval_cmd_computed_string_piece(
+    piece: &Eaten<CmdComputedStringPiece>,
+    ctx: &mut Context,
+) -> ExecResult<String> {
+    match &piece.data {
+        CmdComputedStringPiece::Literal(str) => Ok(str.clone()),
+        CmdComputedStringPiece::Escaped(char) => Ok(char.to_string()),
+        CmdComputedStringPiece::Variable(var_name) => Ok(value_to_str(
+            &ctx.get_visible_var(var_name)
+                .unwrap_or_else(|| {
+                    ctx.panic(var_name.at, "variable was not found (= bug in checker)")
+                })
+                .value
+                .read(var_name.at)
+                .value,
+            "only stringifyable variables can be used inside computable strings",
+            var_name.at,
+            ctx,
+        )?),
+    }
 }
 
 fn treat_cwd_raw(raw: &Eaten<String>, ctx: &Context) -> ExecResult<String> {

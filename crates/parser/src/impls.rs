@@ -1,8 +1,8 @@
 use parsy::{CodeRange, CodeRangeComparisonError, Eaten};
 
 use crate::ast::{
-    CmdFlagNameArg, EscapableChar, FnArg, FnFlagArgNames, FnSignature, RuntimeCodeRange,
-    RuntimeEaten,
+    CmdComputedString, CmdComputedStringPiece, CmdFlagNameArg, EscapableChar, FnArg,
+    FnFlagArgNames, FnSignature, RuntimeCodeRange, RuntimeEaten,
 };
 
 impl FnFlagArgNames {
@@ -114,6 +114,21 @@ impl EscapableChar {
             EscapableChar::SingleQuote => '\'',
             EscapableChar::Backslash => '\\',
             EscapableChar::DollarSign => '$',
+        }
+    }
+}
+
+impl CmdComputedString {
+    pub fn only_literal(&self) -> Option<&str> {
+        if self.pieces.len() != 1 {
+            return None;
+        }
+
+        let only_piece = self.pieces.first().unwrap();
+
+        match &only_piece.data {
+            CmdComputedStringPiece::Literal(lit) => Some(lit),
+            CmdComputedStringPiece::Escaped(_) | CmdComputedStringPiece::Variable(_) => None,
         }
     }
 }

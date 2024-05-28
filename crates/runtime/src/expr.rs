@@ -552,7 +552,9 @@ fn eval_computed_string_piece(
         .to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name)
-                .ok_or_else(|| ctx.error(var_name.at, "variable was not found"))?
+                .unwrap_or_else(|| {
+                    ctx.panic(var_name.at, "variable was not found (= bug in checker)")
+                })
                 .value
                 .read(var_name.at)
                 .value,
