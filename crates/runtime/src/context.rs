@@ -1,4 +1,8 @@
-use std::{collections::HashMap, path::PathBuf, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    rc::Rc,
+};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
@@ -166,21 +170,28 @@ impl Context {
         &mut self.bin_resolver
     }
 
-    /// Get the  list of all scopes visible by the current one
+    /// Get the list of all scopes visible by a given one
     /// Iterating in visibility order
-    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
-        let current_scope = self.current_scope();
-
-        current_scope
+    fn visible_scopes_for<'a, 'b: 'a>(
+        &'a self,
+        scope: &'b Scope,
+    ) -> impl DoubleEndedIterator<Item = &'a Scope> {
+        scope
             .parent_scopes
             // Iterate over all parent scopes
             .iter()
             // Remove scopes that are already dropped (= not referenced anymore)
             .filter_map(|scope_id| self.scopes.get(scope_id))
             // Add the current scope
-            .chain([current_scope])
+            .chain([scope])
             // Latest scopes in history are the first one to see
             .rev()
+    }
+
+    /// Get the list of all scopes visible by the current one
+    /// Iterating in visibility order
+    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
+        self.visible_scopes_for(self.current_scope())
     }
 
     /// Get the  list of all scopes' content visible by the current one
@@ -700,7 +711,6 @@ impl Context {
             let Some(decl_scope) = self
                 .visible_scopes()
                 .find(|scope| scope.ast_scope_id == *declared_in)
-                .map(|scope| &scope.content)
             else {
                 self.panic(
                     body_content_at,
@@ -714,6 +724,7 @@ impl Context {
             match dep_type {
                 DependencyType::Variable => {
                     let var = decl_scope
+                    .content
                         .vars
                         .get(name)
                         .unwrap_or_else(|| self.panic(
@@ -729,6 +740,7 @@ impl Context {
 
                 DependencyType::Function => {
                     let func = decl_scope
+                    .content
                         .fns
                         .get(name)
                         .unwrap_or_else(|| self.panic(
@@ -743,11 +755,29 @@ impl Context {
                 }
 
                 DependencyType::Method => {
-                    todo!()
+                    let mut on_types = HashSet::new();
+
+                    for scope in self.visible_scopes_for(decl_scope) {
+                        for ((method_name, on_type), method) in &scope.content.methods {
+                            if name == method_name {
+                                if on_types.insert(on_type.clone()) {
+                                    captured_deps.methods.insert(
+                                        Dependency {
+                                            name: name.clone(),
+                                            declared_in: method.decl_scope_id,
+                                            dep_type: DependencyType::Method,
+                                        },
+                                        method.clone(),
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
 
                 DependencyType::CmdAlias => {
                     let cmd_alias = decl_scope
+                    .content
                         .cmd_aliases
                         .get(name)
                         .unwrap_or_else(|| self.panic(
