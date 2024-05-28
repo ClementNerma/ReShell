@@ -25,6 +25,16 @@
 							]
 						},
 						{
+							"begin": "\\$\\(",
+							"end": "\\)",
+							"name": "string.quoted.single",
+							"patterns": [
+								{
+									"include": "#core"
+								}
+							]
+						},
+						{
 							"match": "\\\\.",
 							"name": "constant.character.escape"
 						},
