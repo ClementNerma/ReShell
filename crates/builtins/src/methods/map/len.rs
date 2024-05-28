@@ -14,7 +14,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { content }, args_at, ctx| {
-        let len = content.read(args_at.content);
+        let len = content.read(args_at.content).len();
 
         let len = i64::try_from(len).map_err(|_| {
             ctx.throw(
