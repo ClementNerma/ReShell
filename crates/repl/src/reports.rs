@@ -133,7 +133,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                         content: src.to_string(),
                     },
                     0,
-                    src.as_bytes().len(),
+                    src.len(),
                     msg,
                 )
             }
@@ -141,11 +141,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             FileId::SourceFile(id) => {
                 let file = files.get_file(id).unwrap();
 
-                let offset = at.start.offset();
-                let offset = file.content[..offset].chars().count();
-                let len = file.content[offset..offset + at.len].chars().count();
-
-                (file.clone(), offset, len, msg)
+                (file.clone(), at.start.offset(), at.len, msg)
             }
         },
 
@@ -159,7 +155,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                     content: src.to_string(),
                 },
                 0,
-                src.as_bytes().len(),
+                src.len(),
                 msg,
             )
         }
@@ -173,8 +169,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let nature = format!("{}", nature.bright_red());
 
     let source = source_file.content;
-
-    let offset = source.chars().take(offset).map(char::len_utf8).sum();
 
     let line = source[..offset].chars().filter(|&c| c == '\n').count();
 
@@ -241,7 +235,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 annotation_type: AnnotationType::Error,
                 range: (
                     offset - extract_start_offset,
-                    offset - extract_start_offset + len.max(1),
+                    offset - extract_start_offset
+                        + source[offset..offset + len.max(1)].chars().count(),
                 ),
             }],
         }],
@@ -306,7 +301,7 @@ fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
         None => parser_expection_to_str(err.inner().expected()),
     };
 
-    (err.inner().at(), msg)
+    (CodeRange::new(err.inner().at(), 0), msg)
 }
 
 fn checking_error(err: &CheckerError) -> (CodeRange, String) {
