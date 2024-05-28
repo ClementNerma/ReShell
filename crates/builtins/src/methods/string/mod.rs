@@ -5,6 +5,7 @@ pub mod find_str;
 pub mod is_empty;
 pub mod len;
 pub mod lines;
+pub mod replace;
 pub mod reverse;
 pub mod split;
 pub mod starts_with;

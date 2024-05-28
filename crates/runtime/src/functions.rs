@@ -34,8 +34,10 @@ pub fn eval_fn_call(
             let piped = piped.as_ref().unwrap();
 
             let typ = piped.value.get_type();
-            let typ =
-                MethodApplyableType::from_single_value_type(typ.clone()).ok_or_else(|| {
+
+            let method = MethodApplyableType::from_single_value_type(typ.clone())
+                .and_then(|typ| ctx.get_visible_method(&call.data.name, &typ))
+                .ok_or_else(|| {
                     ctx.error(
                         call.at,
                         format!(
@@ -45,7 +47,7 @@ pub fn eval_fn_call(
                     )
                 })?;
 
-            ctx.get_visible_method_value(&call.data.name, &typ)?.clone()
+            method.value.clone()
         }
 
         FnCallNature::Variable => {
