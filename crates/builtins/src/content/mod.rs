@@ -27,6 +27,7 @@ mod inspect;
 mod join;
 mod keys;
 mod len;
+mod lines;
 mod ls;
 mod make_map;
 mod map;
@@ -89,6 +90,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::inspect::build_fn(),
             self::join::build_fn(),
             self::len::build_fn(),
+            self::lines::build_fn(),
             self::filter::build_fn(),
             self::map::build_fn(),
             self::ls::build_fn(),

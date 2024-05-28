@@ -484,6 +484,7 @@ fn eval_computed_string_piece(
         ComputedStringPiece::Literal(str) => Ok(str.clone()),
         ComputedStringPiece::Escaped(char) => Ok(match char {
             EscapableChar::Newline => '\n',
+            EscapableChar::CarriageReturn => '\r',
             EscapableChar::DoubleQuote => '"',
             EscapableChar::Backslash => '\\',
             EscapableChar::DollarSign => '$',

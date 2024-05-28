@@ -337,9 +337,10 @@ pub fn program(
 
         let escapable_char = choice((
             char('n').to(EscapableChar::Newline),
+            char('r').to(EscapableChar::CarriageReturn),
             char('"').to(EscapableChar::DoubleQuote),
-            char('\\').to(EscapableChar::Backslash),
             char('$').to(EscapableChar::DollarSign),
+            char('\\').to(EscapableChar::Backslash),
         ));
 
         let computed_string = char('"')

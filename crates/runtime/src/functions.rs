@@ -462,9 +462,9 @@ fn flatten_fn_call_args(
     let mut treat_call_type = |call_type: Option<FnCallType>| -> ExecResult<()> {
         match call_type {
             None => {
-                if is_method {
-                    return Err(ctx.error(call_at, "cannot call a method like a normal function"));
-                }
+                // if is_method {
+                //     return Err(ctx.error(call_at, "cannot call a method like a normal function"));
+                // }
             },
 
             // Methods can be called through the value piping operator
