@@ -183,35 +183,6 @@ impl<Inner: ArgTypingDirectCreation> ArgSingleTypingDirectCreation for DetachedL
     }
 }
 
-// pub struct UntypedFunctionType;
-
-// impl ArgSingleTypingDirectCreation for UntypedFunctionType {
-//     fn new_single_direct() -> Self {
-//         Self
-//     }
-// }
-
-// impl ArgSingleTyping for UntypedFunctionType {
-//     fn underlying_single_type(&self) -> SingleValueType {
-//         SingleValueType::Function(MaybeEaten::Raw(
-//             // Universal signature (TODO: doesn't work :p)
-//             FnSignature {
-//                 args: forge_internal_token(vec![]),
-//                 ret_type: None,
-//             },
-//         ))
-//     }
-
-//     type Parsed = GcReadOnlyCell<RuntimeFnValue>;
-
-//     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-//         match value {
-//             RuntimeValue::Function(func) => Ok(func),
-//             _ => Err("expected a function".to_owned()),
-//         }
-//     }
-// }
-
 pub struct MapType;
 
 impl ArgSingleTyping for MapType {
