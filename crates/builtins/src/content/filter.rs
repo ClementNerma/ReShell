@@ -10,7 +10,7 @@ crate::define_internal_fn!(
     "filter",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list"),
+        list: RequiredArg<UntypedListType> = Arg::method_self(),
         filter: RequiredArg<TypedFunctionType> = filter_type()
     )
 

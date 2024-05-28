@@ -5,10 +5,10 @@ crate::define_internal_fn!(
     // list keys from a map
     //
 
-    "mapValues",
+    "values",
 
     (
-        map: RequiredArg<UntypedMapType> = Arg::positional("map")
+        map: RequiredArg<UntypedMapType> = Arg::method_self()
     )
 
     -> Some(DetachedListType::<AnyType>::direct_underlying_type())

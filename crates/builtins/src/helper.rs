@@ -123,16 +123,16 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
         Self::direct(ArgNames::Positional(name))
     }
 
-    // pub fn short_flag(short: char) -> Self {
-    //     Self::direct(ArgNames::Flag(ArgFlagNames::Short(short)))
-    // }
-
     pub fn long_flag(long: &'static str) -> Self {
         Self::direct(ArgNames::Flag(ArgFlagNames::Long(long)))
     }
 
     pub fn long_and_short_flag(long: &'static str, short: char) -> Self {
         Self::direct(ArgNames::Flag(ArgFlagNames::LongAndShort(long, short)))
+    }
+
+    pub fn method_self() -> Self {
+        Self::positional("self")
     }
 }
 

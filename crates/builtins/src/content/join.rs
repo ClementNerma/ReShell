@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "join",
 
     (
-        list: RequiredArg<DetachedListType<StringType>> = Arg::positional("list"),
+        list: RequiredArg<DetachedListType<StringType>> = Arg::method_self(),
         glue: RequiredArg<StringType> = Arg::positional("glue")
     )
 

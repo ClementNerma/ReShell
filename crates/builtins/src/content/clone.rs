@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "clone",
 
     (
-        value: RequiredArg<AnyType> = Arg::positional("value")
+        value: RequiredArg<AnyType> = Arg::method_self()
     )
 
     -> Some(AnyType::direct_underlying_type())

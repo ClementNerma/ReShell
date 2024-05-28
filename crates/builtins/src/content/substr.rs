@@ -2,7 +2,7 @@ crate::define_internal_fn!(
     "substr",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("string"),
+        string: RequiredArg<StringType> = Arg::method_self(),
         from: RequiredArg<ExactIntType<usize>> = Arg::positional("from"),
         to: OptionalArg<ExactIntType<usize>> = Arg::positional("to")
     )

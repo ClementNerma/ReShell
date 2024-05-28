@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "replace",
 
     (
-        source: RequiredArg<StringType> = Arg::positional("source"),
+        source: RequiredArg<StringType> = Arg::method_self(),
         lookfor: RequiredArg<StringType> = Arg::positional("lookfor"),
         replacement: RequiredArg<StringType> = Arg::positional("replacement")
     )

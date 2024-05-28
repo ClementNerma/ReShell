@@ -6,7 +6,7 @@ crate::define_internal_fn!(
     "pop",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::positional("list")
+        list: RequiredArg<UntypedListType> = Arg::method_self()
     )
 
     -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type())

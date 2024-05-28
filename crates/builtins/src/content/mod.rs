@@ -18,15 +18,15 @@ mod error;
 mod exit;
 mod file_exists;
 mod filter;
+mod find_str;
 mod glob;
 mod human_size;
 mod join;
+mod keys;
 mod len;
 mod ls;
 mod make_map;
 mod map;
-mod map_keys;
-mod map_values;
 mod mkdir;
 mod path_exists;
 mod pop;
@@ -42,12 +42,12 @@ mod size_of;
 mod slice;
 mod sort;
 mod split;
-mod string_pos;
 mod struct_to_map;
 mod substr;
 mod take;
 mod term_cols;
 mod term_rows;
+mod values;
 mod write_file;
 
 use crate::builder::BuiltinVar;
@@ -82,8 +82,8 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::map::build_fn(),
             self::ls::build_fn(),
             self::make_map::build_fn(),
-            self::map_keys::build_fn(),
-            self::map_values::build_fn(),
+            self::keys::build_fn(),
+            self::values::build_fn(),
             self::mkdir::build_fn(),
             self::path_exists::build_fn(),
             self::pop::build_fn(),
@@ -100,7 +100,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
             self::slice::build_fn(),
             self::sort::build_fn(),
             self::split::build_fn(),
-            self::string_pos::build_fn(),
+            self::find_str::build_fn(),
             self::struct_to_map::build_fn(),
             self::substr::build_fn(),
             self::take::build_fn(),
