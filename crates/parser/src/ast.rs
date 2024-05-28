@@ -259,7 +259,7 @@ pub enum SingleValueType {
     Custom(&'static str),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MethodApplyableType {
     Bool,
     Int,
