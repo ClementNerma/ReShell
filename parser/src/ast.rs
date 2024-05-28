@@ -246,11 +246,19 @@ pub struct ComputedString {
 
 #[derive(Debug, Clone)]
 pub enum ComputedStringPiece {
-    Literal(Eaten<String>),
-    Escaped(Eaten<char>),
+    Literal(String),
+    Escaped(EscapableChar),
     Variable(Eaten<String>),
     Expr(Eaten<Expr>),
     CmdCall(Eaten<CmdCall>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum EscapableChar {
+    Newline,
+    DoubleQuote,
+    Backslash,
+    DollarSign,
 }
 
 #[derive(Debug, Clone)]

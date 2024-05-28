@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
 use parsy::{
-    atoms::{alphanumeric, any_char, digits},
+    atoms::{alphanumeric, digits},
     char, choice, end, filter, just, late, lookahead, not, recursive, whitespaces, MaybeEaten,
     Parser,
 };
 
 use crate::ast::{
-    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, ExprInnerContent, FnArg,
-    FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess, PropAccessNature, SingleCmdCall,
-    SingleValueType, StructTypeMember, ValueType,
+    CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, EscapableChar,
+    ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess,
+    PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, ValueType,
 };
 
 use super::ast::{
@@ -249,13 +249,19 @@ pub fn program() -> impl Parser<Program> {
                 .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
         ));
 
+        let escapable_char = choice((
+            char('n').to(EscapableChar::Newline),
+            char('"').to(EscapableChar::DoubleQuote),
+            char('\\').to(EscapableChar::Backslash),
+            char('$').to(EscapableChar::DollarSign),
+        ));
+
         let computed_string = char('"')
             .ignore_then(
                 choice::<_, ComputedStringPiece>((
                     // Escaped
                     char('\\')
-                        .ignore_then(any_char())
-                        .spanned()
+                        .ignore_then(escapable_char.critical("this character is not escapable"))
                         .map(ComputedStringPiece::Escaped),
                     // Expressions
                     var_name
@@ -284,12 +290,7 @@ pub fn program() -> impl Parser<Program> {
                         .repeated()
                         .at_least(1)
                         .collect_string()
-                        .spanned()
                         .map(ComputedStringPiece::Literal),
-                    // '$' symbol
-                    char('$')
-                        .spanned()
-                        .map(|lit| ComputedStringPiece::Literal(lit.map(|c| c.to_string()))),
                 ))
                 .spanned()
                 .repeated_vec(),
