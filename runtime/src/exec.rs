@@ -6,10 +6,10 @@ use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 use crate::{
     cmd::run_cmd,
     context::{Context, Scope, ScopeContent, ScopeFn, ScopeVar},
-    display::readable_value_type,
     errors::{ExecResult, StackTraceEntry},
     expr::eval_expr,
     functions::{call_fn, FnCallResult},
+    pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
     values::{
         are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
@@ -144,10 +144,9 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             list_push,
             expr,
         } => {
-            let Some(var) = ctx
-                .get_visible_var(name) else {
-                    return Err(ctx.error(name.at, "variable not found"));
-                };
+            let Some(var) = ctx.get_visible_var(name) else {
+                return Err(ctx.error(name.at, "variable not found"));
+            };
 
             if !var.is_mut {
                 return Err(ctx.error(name.at, "this variable is not set as mutable"));
@@ -201,7 +200,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         }
 
                         _ => {
-                            let left_type = readable_value_type(left);
+                            let left_type =
+                                left.get_type().render_colored(PrettyPrintOptions::inline());
 
                             return Err(ctx.error(
                                 list_push.at,
@@ -222,18 +222,19 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             elsif,
             els,
         } => {
-            let cond_val = match eval_expr(&cond.data, ctx)? {
-                RuntimeValue::Bool(bool) => bool,
-                value => {
-                    return Err(ctx.error(
-                        cond.at,
-                        format!(
+            let cond_val =
+                match eval_expr(&cond.data, ctx)? {
+                    RuntimeValue::Bool(bool) => bool,
+                    value => {
+                        return Err(ctx.error(
+                            cond.at,
+                            format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value)
+                            value.get_type().render_colored(PrettyPrintOptions::inline())
                         ),
-                    ))
-                }
-            };
+                        ))
+                    }
+                };
 
             if cond_val {
                 run_block(&body.data, ctx, ScopeContent::new())?;
@@ -245,7 +246,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
                     let cond_val = eval_expr(&cond.data, ctx)?;
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", readable_value_type(&cond_val))));
+                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.get_type().render_colored(PrettyPrintOptions::inline()))));
                     };
 
                     if cond_val {
@@ -335,7 +336,9 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         iter_on.at,
                         format!(
                             "expected a list or range to iterate on, found a {} instead",
-                            readable_value_type(&value)
+                            value
+                                .get_type()
+                                .render_colored(PrettyPrintOptions::inline())
                         ),
                     ))
                 }
@@ -343,18 +346,19 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::WhileLoop { cond, body } => loop {
-            let cond_val = match eval_expr(&cond.data, ctx)? {
-                RuntimeValue::Bool(bool) => bool,
-                value => {
-                    return Err(ctx.error(
-                        cond.at,
-                        format!(
+            let cond_val =
+                match eval_expr(&cond.data, ctx)? {
+                    RuntimeValue::Bool(bool) => bool,
+                    value => {
+                        return Err(ctx.error(
+                            cond.at,
+                            format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            readable_value_type(&value)
+                            value.get_type().render_colored(PrettyPrintOptions::inline())
                         ),
-                    ))
-                }
-            };
+                        ))
+                    }
+                };
 
             if !cond_val {
                 break;
@@ -398,8 +402,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             cond.at,
                             format!(
                                 "cannot compare {} and {}",
-                                readable_value_type(&switch_on),
-                                readable_value_type(&case_value)
+                                switch_on
+                                    .get_type()
+                                    .render_colored(PrettyPrintOptions::inline()),
+                                case_value
+                                    .get_type()
+                                    .render_colored(PrettyPrintOptions::inline())
                             ),
                         )
                     })?;

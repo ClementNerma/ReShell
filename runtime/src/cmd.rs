@@ -12,10 +12,11 @@ use reshell_parser::ast::{
 
 use crate::{
     context::Context,
-    display::{readable_value_type, value_to_str},
+    display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     expr::{eval_computed_string, eval_expr, eval_literal_value},
     functions::call_fn,
+    pretty::{PrettyPrintOptions, PrettyPrintable},
     values::RuntimeValue,
 };
 
@@ -371,7 +372,9 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                     var_name.at,
                     format!(
                         "expected a list to spread, found a {}",
-                        readable_value_type(value)
+                        value
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline())
                     ),
                 ));
             };

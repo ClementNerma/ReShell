@@ -3,7 +3,7 @@ use colored::{Color, Colorize};
 pub trait PrettyPrintable {
     fn generate_pretty_data(&self) -> PrintablePiece;
 
-    fn render(&self, opts: PrettyPrintOptions) -> String {
+    fn render_uncolored(&self, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
         self.generate_pretty_data()
@@ -57,7 +57,7 @@ pub enum PrintablePiece {
         items: Vec<PrintablePiece>,
         sep: Colored,
         end: Colored,
-        suffix: Option<Colored>,
+        suffix: Option<Box<PrintablePiece>>,
     },
     Join(Vec<PrintablePiece>),
 }
@@ -196,7 +196,7 @@ impl PrintablePiece {
                     w(end);
 
                     if let Some(suffix) = suffix {
-                        w(suffix);
+                        suffix.render_inner(opts, w, current_ident);
                     }
                 }
             }

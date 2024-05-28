@@ -1,9 +1,6 @@
 use glob::{glob_with, MatchOptions};
 use reedline::{ColumnarMenu, Completer as RlCompleter, ReedlineMenu, Span, Suggestion};
-use reshell_runtime::{
-    display::readable_value_type,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-};
+use reshell_runtime::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::state::RUNTIME_CONTEXT;
 
@@ -56,7 +53,11 @@ impl RlCompleter for Completer {
                 .map(|(name, item)| Suggestion {
                     value: format!("${name}"),
                     description: Some(match &item.value {
-                        Some(located_val) => readable_value_type(&located_val.value).into_owned(),
+                        Some(located_val) => located_val
+                            .value
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline()),
+
                         None => "<value not set>".to_string(),
                     }),
                     extra: None,
@@ -76,7 +77,11 @@ impl RlCompleter for Completer {
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("@{name}"),
-                    description: Some(item.value.signature.render(PrettyPrintOptions::inline())),
+                    description: Some(
+                        item.value
+                            .signature
+                            .render_uncolored(PrettyPrintOptions::inline()),
+                    ),
                     extra: None,
                     span,
                     append_whitespace: true,

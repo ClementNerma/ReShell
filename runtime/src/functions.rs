@@ -8,7 +8,6 @@ use reshell_parser::ast::{
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult},
     context::{Context, ScopeContent, ScopeVar},
-    display::{readable_type, readable_value_type},
     errors::{ExecResult, StackTraceEntry},
     exec::{run_block_with_options, InstrRet, InstrRetType},
     expr::eval_expr,
@@ -26,7 +25,9 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
                     call.data.name.at,
                     format!(
                         "expected a function, found a {} instead",
-                        readable_value_type(value)
+                        value
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline())
                     ),
                 ))
             }
@@ -99,7 +100,7 @@ pub fn call_fn_value(
                 call_at,
                 format!(
                     "function call did not return any value, was expected to return a {}",
-                    readable_type(&ret_type.data)
+                    ret_type.data.render_colored(PrettyPrintOptions::inline())
                 ),
             ));
         };
@@ -109,8 +110,11 @@ pub fn call_fn_value(
                 call_at,
                 format!(
                     "function call returned a {}, was expected to return a {}",
-                    readable_value_type(&ret_val.value),
-                    readable_type(&ret_type.data)
+                    ret_val
+                        .value
+                        .get_type()
+                        .render_colored(PrettyPrintOptions::inline()),
+                    ret_type.data.render_colored(PrettyPrintOptions::inline())
                 ),
             ));
         }
@@ -236,29 +240,29 @@ fn parse_fn_call_args(
 
         let Some(fn_arg) = fn_arg else {
             match opened_rest {
-                None => {
-                    return Err(ctx.error(call_arg_at, "too many arguments provided"))
-                },
+                None => return Err(ctx.error(call_arg_at, "too many arguments provided")),
 
                 Some(ref mut opened_rest_values) => {
                     match call_arg {
                         FnPossibleCallArg::Parsed(parsed) => match parsed {
-                            FnCallArg::Expr(expr) => opened_rest_values.push(eval_expr(&expr.data, ctx)?),
-                        FnCallArg::CmdArg(cmd_arg) => match eval_cmd_arg(&cmd_arg.data, ctx)? {
-                            CmdArgResult::Single(single) => opened_rest_values.push(single),
-                            CmdArgResult::Spreaded(mut items) => {
-                                opened_rest_values.append(&mut items);
+                            FnCallArg::Expr(expr) => {
+                                opened_rest_values.push(eval_expr(&expr.data, ctx)?)
                             }
-                        },
+                            FnCallArg::CmdArg(cmd_arg) => match eval_cmd_arg(&cmd_arg.data, ctx)? {
+                                CmdArgResult::Single(single) => opened_rest_values.push(single),
+                                CmdArgResult::Spreaded(mut items) => {
+                                    opened_rest_values.append(&mut items);
+                                }
+                            },
                         },
                         FnPossibleCallArg::Direct(value) => opened_rest_values.push(
                             // TODO: improve performance
-                            value.value.clone()
+                            value.value.clone(),
                         ),
                     }
 
                     continue;
-                },
+                }
             }
         };
 
@@ -288,8 +292,12 @@ fn parse_fn_call_args(
                     format!(
                         "type mismatch for argument '{}': expected a {}, found a {}",
                         fn_arg_var_name(fn_arg),
-                        readable_type(&expected_type.data),
-                        readable_value_type(&arg_value)
+                        expected_type
+                            .data
+                            .render_colored(PrettyPrintOptions::inline()),
+                        arg_value
+                            .get_type()
+                            .render_colored(PrettyPrintOptions::inline())
                     ),
                 ));
             }
@@ -397,7 +405,7 @@ pub fn fail_if_thrown(
             from,
             format!(
                 "function call thrown a value: {}",
-                value.render(PrettyPrintOptions::inline())
+                value.render_uncolored(PrettyPrintOptions::inline())
             ),
         )),
     }
