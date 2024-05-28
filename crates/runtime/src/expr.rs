@@ -15,9 +15,9 @@ use crate::{
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
-    props::{eval_props_access, PropAccessPolicy, PropAssignment},
+    props::{eval_props_access, PropAccessPolicy, PropAssignmentMode},
     values::{
-        are_values_equal, value_to_str, LocatedValue, NotComparableTypes, RuntimeFnBody,
+        are_values_equal, value_to_str, LocatedValue, NotComparableTypesErr, RuntimeFnBody,
         RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
     },
 };
@@ -214,7 +214,7 @@ fn apply_double_op(
             let right = right(ctx)?;
 
             let cmp =
-                are_values_equal(&left, &right).map_err(|NotComparableTypes { reason }| {
+                are_values_equal(&left, &right).map_err(|NotComparableTypesErr { reason }| {
                     ctx.error(
                         op.at,
                         format!(
@@ -289,8 +289,9 @@ fn eval_expr_inner_direct_chaining(
                 PropAccessPolicy::Read,
                 ctx,
                 |d, _| match d {
-                    PropAssignment::ReadExisting(d) => d.clone(),
-                    PropAssignment::WriteExisting(_) | PropAssignment::Create(_) => {
+                    PropAssignmentMode::OnlyReadExisting(d) => d.clone(),
+                    PropAssignmentMode::OnlyWriteExisting(_)
+                    | PropAssignmentMode::WriteExistingOrCreate(_) => {
                         unreachable!()
                     }
                 },
@@ -406,7 +407,7 @@ fn eval_expr_inner_content(
                 let case_value = eval_expr(&matches.data, ctx)?;
 
                 let cmp = are_values_equal(&switch_on, &case_value).map_err(
-                    |NotComparableTypes { reason }| {
+                    |NotComparableTypesErr { reason }| {
                         ctx.error(
                             matches.at,
                             format!(

@@ -21,6 +21,7 @@ use crate::{
     pretty::{PrettyPrintOptions, PrettyPrintable},
 };
 
+/// Runtime function value
 #[derive(Debug)]
 pub struct RuntimeFnValue {
     pub signature: RuntimeFnSignature,
@@ -33,10 +34,17 @@ pub struct RuntimeFnValue {
     pub captured_deps: GcOnceCell<CapturedDependencies>,
 }
 
+/// Runtime function signature
 #[derive(Debug)]
 pub enum RuntimeFnSignature {
     Shared(Arc<Eaten<FnSignature>>),
     Owned(FnSignature),
+}
+
+/// Runtime function body
+pub enum RuntimeFnBody {
+    Block(Arc<Eaten<Block>>),
+    Internal(InternalFnBody),
 }
 
 impl RuntimeFnSignature {
@@ -48,37 +56,6 @@ impl RuntimeFnSignature {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct RuntimeCmdAlias {
-    pub name_declared_at: CodeRange,
-    pub name: String,
-    pub content: Arc<Eaten<SingleCmdCall>>,
-    pub content_scope_id: AstScopeId,
-    pub parent_scopes: IndexSet<u64>,
-    pub captured_deps: CapturedDependencies,
-}
-
-#[derive(Default, Debug, Clone)]
-pub struct CapturedDependencies {
-    pub vars: HashMap<Dependency, ScopeVar>,
-    pub fns: HashMap<Dependency, ScopeFn>,
-    pub methods: HashMap<Dependency, ScopeMethod>,
-    pub cmd_aliases: HashMap<Dependency, ScopeCmdAlias>,
-}
-
-pub enum RuntimeFnBody {
-    Block(Arc<Eaten<Block>>),
-    Internal(InternalFnBody),
-}
-
-pub struct InternalFnCallData<'c> {
-    pub call_at: RuntimeCodeRange,
-    pub args: HashMap<String, ValidatedFnCallArg>,
-    pub ctx: &'c mut Context,
-}
-
-pub type InternalFnBody = fn(InternalFnCallData) -> ExecResult<Option<LocatedValue>>;
-
 impl Debug for RuntimeFnBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -88,10 +65,65 @@ impl Debug for RuntimeFnBody {
     }
 }
 
+/// Internal function call data
+///
+/// Used when an internal component calls a function.
+pub struct InternalFnCallData<'c> {
+    /// Call's location (can be internal)
+    pub call_at: RuntimeCodeRange,
+
+    /// Named arguments
+    pub args: HashMap<String, ValidatedFnCallArg>,
+
+    /// Runtime context
+    pub ctx: &'c mut Context,
+}
+
+/// Body of an internal function (used for e.g. builtin functions)
+pub type InternalFnBody = fn(InternalFnCallData) -> ExecResult<Option<LocatedValue>>;
+
+/// Runtime command alias
+#[derive(Debug, Clone)]
+pub struct RuntimeCmdAlias {
+    /// Location of the command alias' name inside its declaration
+    pub name_declared_at: CodeRange,
+
+    /// Name of the alias
+    pub name: String,
+
+    /// Content of the alias
+    pub content: Arc<Eaten<SingleCmdCall>>,
+
+    /// Content scope ID
+    pub content_scope_id: AstScopeId,
+
+    /// Parent scopes of the alias' declaration
+    pub parent_scopes: IndexSet<u64>,
+
+    /// Captured depenencies for evaluation
+    pub captured_deps: CapturedDependencies,
+}
+
+/// Captured dependencies for a given item
+#[derive(Default, Debug, Clone)]
+pub struct CapturedDependencies {
+    /// Scoped variables
+    pub vars: HashMap<Dependency, ScopeVar>,
+
+    /// Scoped functions
+    pub fns: HashMap<Dependency, ScopeFn>,
+
+    /// Scoped methods
+    pub methods: HashMap<Dependency, ScopeMethod>,
+
+    /// Scoped command aliases
+    pub cmd_aliases: HashMap<Dependency, ScopeCmdAlias>,
+}
+
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
     // Primitives
-    // These can be cloned cheaply
+    // These can be cloned pretty cheaply
     Null,
     Bool(bool),
     Int(i64),
@@ -114,6 +146,7 @@ pub enum RuntimeValue {
 }
 
 impl RuntimeValue {
+    /// Compute the type of a runtime value
     pub fn get_type(&self) -> SingleValueType {
         match self {
             RuntimeValue::Null => SingleValueType::Null,
@@ -163,6 +196,7 @@ impl RuntimeValue {
         }
     }
 
+    /// Check if a value is a container (e.g. list, map, struct)
     pub fn is_container(&self) -> bool {
         match self {
             RuntimeValue::Null
@@ -182,7 +216,7 @@ impl RuntimeValue {
     }
 }
 
-/// Custom value type
+/// Custom value type (used for e.g. custom builtin types)
 pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone + Send + Sync {
     fn typename(&self) -> &'static str;
 
@@ -191,28 +225,40 @@ pub trait CustomValueType: Any + Debug + PrettyPrintable + DynClone + Send + Syn
         Self: Sized;
 }
 
+/// Content of an error value
 #[derive(Debug, Clone)]
 pub struct ErrorValueContent {
+    /// Error location
     pub at: CodeRange,
+
+    /// Data attached to the error
     pub data: RuntimeValue,
 }
 
+/// Runtime value with a location
 #[derive(Debug, Clone)]
 pub struct LocatedValue {
+    /// The value itself
     pub value: RuntimeValue,
+
+    /// Where the value comes from
     pub from: RuntimeCodeRange,
 }
 
 impl LocatedValue {
+    /// Create a located value
     pub fn new(value: RuntimeValue, from: RuntimeCodeRange) -> Self {
         Self { value, from }
     }
 }
 
+/// Check if two values are equal
+///
+/// Nested comparisons will be performed for containers
 pub fn are_values_equal(
     left: &RuntimeValue,
     right: &RuntimeValue,
-) -> Result<bool, NotComparableTypes> {
+) -> Result<bool, NotComparableTypesErr> {
     match (left, right) {
         (_, RuntimeValue::Null) => Ok(matches!(left, RuntimeValue::Null)),
         (RuntimeValue::Null, _) => Ok(matches!(right, RuntimeValue::Null)),
@@ -263,7 +309,7 @@ pub fn are_values_equal(
                     None => false,
                     Some(b_value) => match are_values_equal(a_value, b_value) {
                         Ok(equal) => equal,
-                        Err(NotComparableTypes { reason: _ }) => false,
+                        Err(NotComparableTypesErr { reason: _ }) => false,
                     },
                 }))
         }
@@ -278,49 +324,55 @@ pub fn are_values_equal(
                     None => false,
                     Some(b_value) => match are_values_equal(a_value, b_value) {
                         Ok(equal) => equal,
-                        Err(NotComparableTypes { reason: _ }) => false,
+                        Err(NotComparableTypesErr { reason: _ }) => false,
                     },
                 }))
         }
         (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
 
-        (RuntimeValue::Error(_), RuntimeValue::Error(_)) => Err(NotComparableTypes {
+        (RuntimeValue::Error(_), RuntimeValue::Error(_)) => Err(NotComparableTypesErr {
             reason: "cannot compare errors",
         }),
         (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Ok(false),
 
         (RuntimeValue::CmdCall { content_at: _ }, RuntimeValue::CmdCall { content_at: _ }) => {
-            Err(NotComparableTypes {
+            Err(NotComparableTypesErr {
                 reason: "cannot compare command calls",
             })
         }
         (RuntimeValue::CmdCall { content_at: _ }, _)
         | (_, RuntimeValue::CmdCall { content_at: _ }) => Ok(false),
 
-        (RuntimeValue::Function(_), RuntimeValue::Function(_)) => Err(NotComparableTypes {
+        (RuntimeValue::Function(_), RuntimeValue::Function(_)) => Err(NotComparableTypesErr {
             reason: "cannot compare functions",
         }),
         (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Ok(false),
 
-        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypes {
+        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypesErr {
             reason: "cannot compare value arguments",
         }),
         (RuntimeValue::CmdArg(_), _) | (_, RuntimeValue::CmdArg(_)) => Ok(false),
 
-        (RuntimeValue::Custom(_), RuntimeValue::Custom(_)) => Err(NotComparableTypes {
+        (RuntimeValue::Custom(_), RuntimeValue::Custom(_)) => Err(NotComparableTypesErr {
             reason: "cannot compare custom types",
         }),
         // (RuntimeValue::Custom(_), _) | (_, RuntimeValue::Custom(_)) => Ok(false),
     }
 }
 
-pub struct NotComparableTypes {
+/// Error returned when two values are not comparable
+pub struct NotComparableTypesErr {
     pub reason: &'static str,
 }
 
+/// Convert a value to a string, when possible
+///
+/// `value`: the value to convert to a string
+/// `err_tip`: tip to provide with the error if the conversion is not possible
+/// `at`: where the conversion happens (to locate the error in case of conversion issue)
 pub fn value_to_str(
     value: &RuntimeValue,
-    err_msg: impl Into<String>,
+    err_tip: impl Into<String>,
     at: impl Into<RuntimeCodeRange>,
     ctx: &Context,
 ) -> ExecResult<String> {
@@ -351,7 +403,7 @@ pub fn value_to_str(
             )
             .with_info(
                 ExecInfoType::Tip,
-                err_msg,
+                err_tip,
             )),
     }
 }

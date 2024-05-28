@@ -2,9 +2,14 @@ use colored::{Color, Colorize};
 
 use crate::context::Context;
 
+/// Trait enabling pretty-printing for custom types
+///
+/// It will allow to generate configurable displayable data
 pub trait PrettyPrintable {
+    /// Generate pretty-printing data for later processing
     fn generate_pretty_data(&self, ctx: &Context) -> PrettyPrintablePiece;
 
+    /// Render as an uncolored string
     fn render_uncolored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
@@ -16,6 +21,7 @@ pub trait PrettyPrintable {
         out
     }
 
+    /// Render as a colored string (useful for terminal output)
     fn render_colored(&self, ctx: &Context, opts: PrettyPrintOptions) -> String {
         let mut out = String::new();
 
@@ -31,6 +37,7 @@ pub trait PrettyPrintable {
     }
 }
 
+/// Colored string
 pub struct Colored(pub String, pub Option<Color>);
 
 impl Colored {
@@ -51,9 +58,16 @@ impl Colored {
     }
 }
 
+/// Pretty-printable piece
 pub enum PrettyPrintablePiece {
+    /// Atom: a simple string with a single color
     Atomic(Colored),
+
+    /// Suite: a chain of atoms
     Suite(Vec<Colored>),
+
+    /// List: a list with a beginning and end pieces, and a value separator
+    /// Will be printed differently depending on the configuration
     List {
         begin: Colored,
         items: Vec<PrettyPrintablePiece>,
@@ -61,25 +75,39 @@ pub enum PrettyPrintablePiece {
         end: Colored,
         suffix: Option<Box<PrettyPrintablePiece>>,
     },
+
+    /// Join: a chain of pretty-printable pieces
     Join(Vec<PrettyPrintablePiece>),
 }
 
 impl PrettyPrintablePiece {
+    /// Create an atom
     pub fn colored_atomic(content: impl Into<String>, color: Color) -> Self {
         Self::Atomic(Colored(content.into(), Some(color)))
     }
 }
 
+/// Options for pretty-printing
 #[derive(Clone, Copy)]
 pub struct PrettyPrintOptions {
+    /// Display in a pretty manner.
+    ///
+    /// Will add spacing and newlines to improve readability.
     pub pretty: bool,
+
+    /// How many spaces to represent a tab with
     pub tab_size: usize,
-    // pub colors: bool,
+
+    /// Ideal maximum line size
+    ///
+    /// Some lines may be larger than this limit, consider it a "best-effort"
     pub max_line_size: usize,
+
     pub line_prefix_size: usize,
 }
 
 impl PrettyPrintOptions {
+    /// Render in a single line, without most readibility spaces
     pub fn inline() -> Self {
         Self {
             pretty: false,
@@ -89,6 +117,7 @@ impl PrettyPrintOptions {
         }
     }
 
+    /// Render on multiple lines and add spaces if it can improve readability
     pub fn multiline() -> Self {
         Self {
             pretty: true,
@@ -100,7 +129,10 @@ impl PrettyPrintOptions {
 }
 
 impl PrettyPrintablePiece {
-    fn len_chars(&self) -> usize {
+    /// Compute how much characters will be displayed when rendering this piece on a single line
+    ///
+    /// Used to determine if this piece should be rendered on multiple lines (if this option is enabled)
+    fn display_chars_count(&self) -> usize {
         match self {
             PrettyPrintablePiece::Atomic(atom) => atom.len_chars(),
 
@@ -116,7 +148,7 @@ impl PrettyPrintablePiece {
                 suffix,
             } => {
                 begin.len_chars()
-                    + items.iter().map(Self::len_chars).sum::<usize>()
+                    + items.iter().map(Self::display_chars_count).sum::<usize>()
                     + if items.is_empty() {
                         0
                     } else {
@@ -124,21 +156,25 @@ impl PrettyPrintablePiece {
                     }
                     + end.len_chars()
                     + match suffix {
-                        Some(suffix) => suffix.len_chars(),
+                        Some(suffix) => suffix.display_chars_count(),
                         None => 0,
                     }
             }
 
-            PrettyPrintablePiece::Join(pieces) => {
-                pieces.iter().map(PrettyPrintablePiece::len_chars).sum()
-            }
+            PrettyPrintablePiece::Join(pieces) => pieces
+                .iter()
+                .map(PrettyPrintablePiece::display_chars_count)
+                .sum(),
         }
     }
 
     fn fits_in_line(&self, max_line_size: usize, prefix_size: usize) -> bool {
-        self.len_chars() + prefix_size <= max_line_size
+        self.display_chars_count() + prefix_size <= max_line_size
     }
 
+    /// Render this piece using a processing function
+    ///
+    /// Avoids unnecessary heap allocations (some will still happen)
     pub fn render(&self, opts: PrettyPrintOptions, mut w: impl FnMut(&Colored)) {
         self.render_inner(opts, &mut w, 0);
     }
@@ -152,7 +188,6 @@ impl PrettyPrintablePiece {
         let PrettyPrintOptions {
             pretty,
             tab_size,
-            // colors,
             max_line_size,
             line_prefix_size,
         } = opts;

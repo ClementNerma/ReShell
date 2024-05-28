@@ -1,4 +1,4 @@
-use reshell_runtime::values::{are_values_equal, NotComparableTypes};
+use reshell_runtime::values::{are_values_equal, NotComparableTypesErr};
 
 use crate::define_internal_fn;
 
@@ -21,7 +21,7 @@ fn run() -> Runner {
             match are_values_equal(item, &value) {
                 Ok(true) => return Ok(Some(RuntimeValue::Bool(true))),
                 Ok(false) => {}
-                Err(NotComparableTypes { reason }) => return Err(ctx.throw(at, reason)),
+                Err(NotComparableTypesErr { reason }) => return Err(ctx.throw(at, reason)),
             }
         }
 

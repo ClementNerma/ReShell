@@ -1,8 +1,12 @@
 use std::path::PathBuf;
 
+/// Runtime configuration
 #[derive(Debug)]
 pub struct RuntimeConf {
+    /// Maximum call recursion
     pub call_stack_limit: usize,
+
+    /// History configuration
     pub history: HistoryConf,
 }
 
@@ -15,11 +19,14 @@ impl Default for RuntimeConf {
     }
 }
 
+/// History configuration
 #[derive(Debug, Clone)]
 pub struct HistoryConf {
+    /// Enable the history
     pub enabled: bool,
+
+    /// Use a custom location instead of the builtin one
     pub custom_location: Option<PathBuf>,
-    // pub capacity: usize,
 }
 
 impl Default for HistoryConf {
@@ -27,7 +34,6 @@ impl Default for HistoryConf {
         Self {
             enabled: true,
             custom_location: None,
-            // capacity: 100_000,
         }
     }
 }
