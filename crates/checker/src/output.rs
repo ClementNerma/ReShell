@@ -5,7 +5,7 @@ use std::{
 
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
-    ast::{CmdCall, FnSignature, FunctionBody, SingleCmdCall, ValueType},
+    ast::{Block, CmdCall, FnSignature, SingleCmdCall, ValueType},
     scope::AstScopeId,
 };
 
@@ -59,7 +59,7 @@ pub struct CheckerOutput {
     /// Body of all functions and closures
     ///
     /// Maps the body's location to its content
-    pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<FunctionBody>>>,
+    pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<Block>>>,
 
     /// List of command aliases
     ///

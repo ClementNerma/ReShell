@@ -24,7 +24,7 @@ use reshell_parser::{
         CmdFlagValueArg, CmdPath, CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece,
         DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent,
         ExprInnerDirectChaining, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature,
-        Function, FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
+        Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
         RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
         SwitchCase, Value, ValueType,
     },
@@ -1041,8 +1041,6 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     let checked_args = check_fn_signature(signature, state)?;
 
-    let fn_body_scope_id = body.data.ast_scope_id();
-
     let mut vars = HashMap::with_capacity(checked_args.len());
 
     for checked_arg in checked_args {
@@ -1055,7 +1053,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         let dup = vars.insert(
             var_name,
             DeclaredVar {
-                scope_id: fn_body_scope_id,
+                scope_id: body.data.scope_id,
                 is_mut: false,
             },
         );
@@ -1063,7 +1061,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         assert!(dup.is_none());
     }
 
-    state.prepare_deps(fn_body_scope_id);
+    state.prepare_deps(body.data.scope_id);
 
     let fill_scope = |scope: &mut CheckerScope| {
         scope.special_scope_type = Some(SpecialScopeType::Function);
@@ -1073,17 +1071,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
     };
 
-    match &body.data {
-        FunctionBody::Expr { content, scope_id } => {
-            // Check expr
-            check_expr_with(content, *scope_id, state, fill_scope)
-        }
-
-        FunctionBody::Block(block) => {
-            // Check block
-            check_block_with(block, state, fill_scope)
-        }
-    }
+    check_block_with(body, state, fill_scope)
 }
 
 fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {

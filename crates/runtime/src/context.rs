@@ -11,8 +11,8 @@ use reshell_checker::{
 };
 use reshell_parser::{
     ast::{
-        CmdCall, FnSignature, FunctionBody, MethodApplyableType, Program, RuntimeCodeRange,
-        RuntimeEaten, SingleCmdCall, ValueType,
+        Block, CmdCall, FnSignature, MethodApplyableType, Program, RuntimeCodeRange, RuntimeEaten,
+        SingleCmdCall, ValueType,
     },
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
@@ -607,7 +607,7 @@ impl Context {
 
     /// Get a specific function's body from its location
     /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
-    pub fn get_fn_body(&self, from: &Eaten<FunctionBody>) -> Option<Rc<Eaten<FunctionBody>>> {
+    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Rc<Eaten<Block>>> {
         self.collected.fn_bodies.get(&from.at).map(Rc::clone)
     }
 

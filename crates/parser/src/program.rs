@@ -16,9 +16,8 @@ use crate::{
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
         ExprInner, ExprInnerChaining, ExprInnerContent, ExprInnerDirectChaining, ExprOp,
         FlagValueSeparator, FnArg, FnCall, FnCallArg, FnFlagArgNames, FnSignature, Function,
-        FunctionBody, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
-        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase,
-        Value, ValueType,
+        Instruction, LiteralValue, Program, PropAccess, PropAccessNature, RuntimeEaten,
+        SingleCmdCall, SingleOp, SingleValueType, StructTypeMember, SwitchCase, Value, ValueType,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -48,7 +47,7 @@ pub fn program(
         let block = char('{')
             .critical_expectation()
             .ignore_then(msnl)
-            .ignore_then(raw_block)
+            .ignore_then(raw_block.clone())
             .then_ignore(msnl)
             .then_ignore(char('}').critical_expectation());
 
@@ -415,8 +414,6 @@ pub fn program(
             .then_ignore(char('"').critical_expectation())
             .map(|pieces| ComputedString { pieces });
 
-        let scope_id_gen_bis = scope_id_gen.clone();
-
         let value = choice::<_, Value>((
             just("null").map(|_| Value::Null),
             // Literals
@@ -482,48 +479,31 @@ pub fn program(
                 .spanned()
                 .map(Value::FnAsValue),
             // Closures
-            char('|')
+            char('{')
+                .ignore_then(ms)
                 .ignore_then(
                     fn_arg
                         .clone()
                         .separated_by(char(',').padded_by(msnl))
                         .spanned()
-                        .map(RuntimeEaten::Parsed),
+                        .map(RuntimeEaten::Parsed)
+                        .map(|args| FnSignature {
+                            args,
+                            ret_type: None,
+                        })
+                        .spanned(),
                 )
-                .then_ignore(char('|').critical("unclosed function arguments list"))
+                .then_ignore(ms)
+                .then_ignore(just("->").critical_expectation())
                 .then_ignore(ms)
                 .then(
-                    just("->")
-                        .ignore_then(ms)
-                        .ignore_then(
-                            value_type
-                                .clone()
-                                .map(Box::new)
-                                .spanned()
-                                .map(RuntimeEaten::Parsed)
-                                .critical("expected a type"),
-                        )
-                        .then_ignore(ms)
-                        .or_not(),
+                    raw_block
+                        .clone()
+                        .critical("expected a body for the closure")
+                        .spanned(),
                 )
-                .map(|(args, ret_type)| FnSignature { args, ret_type })
-                .spanned()
                 .then_ignore(ms)
-                .then(
-                    choice::<_, FunctionBody>((
-                        lookahead(char('{'))
-                            .ignore_then(block.clone().spanned())
-                            .map(FunctionBody::Block),
-                        expr.clone().map(Box::new).spanned().map(move |content| {
-                            FunctionBody::Expr {
-                                content,
-                                scope_id: scope_id_gen_bis.gen(),
-                            }
-                        }),
-                    ))
-                    .critical("expected a function body")
-                    .spanned(),
-                )
+                .then_ignore(char('}').critical_expectation())
                 .map(|(signature, body)| Value::Closure(Function { signature, body })),
         ));
 
@@ -1159,9 +1139,7 @@ pub fn program(
                     block
                         .clone()
                         .spanned()
-                        .critical("expected a body for the function")
-                        .map(FunctionBody::Block)
-                        .spanned(),
+                        .critical("expected a body for the function"),
                 )
                 .map(|((name, signature), body)| Instruction::FnDecl {
                     name,
