@@ -596,13 +596,9 @@ impl ComputableSize for Expr {
 
 impl ComputableSize for ExprInner {
     fn compute_heap_size(&self) -> usize {
-        let Self {
-            content,
-            chainings,
-            pipes,
-        } = self;
+        let Self { content, chainings } = self;
 
-        content.compute_heap_size() + chainings.compute_heap_size() + pipes.compute_heap_size()
+        content.compute_heap_size() + chainings.compute_heap_size()
     }
 }
 

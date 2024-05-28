@@ -643,17 +643,7 @@ pub fn program(
         let expr_inner = expr_inner_content
             .spanned()
             .then(expr_inner_chaining.spanned().repeated_vec())
-            .then(
-                msnl.ignore_then(just("->"))
-                    .ignore_then(msnl)
-                    .ignore_then(fn_call.clone().spanned())
-                    .separated_by(msnl),
-            )
-            .map(|((content, chainings), pipes)| ExprInner {
-                content,
-                chainings,
-                pipes,
-            });
+            .map(|(content, chainings)| ExprInner { content, chainings });
 
         let expr_op = double_op
             .spanned()

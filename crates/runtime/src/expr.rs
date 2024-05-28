@@ -198,11 +198,7 @@ fn apply_double_op(
 }
 
 fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let ExprInner {
-        content,
-        chainings,
-        pipes,
-    } = &inner.data;
+    let ExprInner { content, chainings } = &inner.data;
 
     let mut left = eval_expr_inner_content(&content.data, ctx)?;
 
@@ -230,8 +226,6 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                         }
                     },
                 )?;
-
-                // TODO: update left_at
             }
 
             ExprInnerChaining::MethodCall(fn_call) => {
@@ -246,21 +240,11 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
                 })?;
 
                 left = loc_val.value;
-
-                // TOOD: update left_at
             }
         }
     }
 
-    let mut left = LocatedValue::new(left, RuntimeCodeRange::Parsed(left_at));
-
-    for pipe in pipes {
-        // TODO: cover content + all chainings + previous calls
-        left = eval_fn_call_type(pipe, FnCallType::Piped(left), ctx)?
-            .ok_or_else(|| ctx.error(pipe.at, "method call did not return a value"))?;
-    }
-
-    Ok(left.value)
+    Ok(left)
 }
 
 fn eval_expr_inner_content(
