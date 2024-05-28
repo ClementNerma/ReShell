@@ -333,7 +333,7 @@ impl Highlight for Eaten<SingleValueType> {
 
                 for member in members {
                     h.push_everything_until(&KEYWORD, member.eaten().unwrap().at);
-                    member.inner().highlight(h);
+                    member.data().highlight(h);
                 }
             }
             SingleValueType::Function(signature) => signature.highlight(h),
@@ -348,7 +348,7 @@ impl Highlight for StructTypeMember {
 
         h.push(&VAR_NAME, name.eaten().unwrap().at);
         h.push_everything_until(&KEYWORD, typ.eaten().unwrap().at);
-        typ.inner().highlight(h);
+        typ.data().highlight(h);
     }
 }
 

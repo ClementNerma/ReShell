@@ -366,7 +366,7 @@ pub enum MaybeEaten<T> {
 }
 
 impl<T> MaybeEaten<T> {
-    pub fn inner(&self) -> &T {
+    pub fn data(&self) -> &T {
         match &self {
             Self::Eaten(eaten) => &eaten.data,
             Self::Raw(raw) => raw,
