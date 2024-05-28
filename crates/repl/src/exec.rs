@@ -13,8 +13,7 @@ pub fn run_script(
 ) -> Result<(), ReportableError> {
     let ExecArgs {
         print_ast,
-        print_checker_output,
-        only_check,
+        only_check: _, // TODO
     } = exec_args;
 
     let file_id = ctx.files_map().register_file(file_loc, input.to_string());
@@ -27,21 +26,5 @@ pub fn run_script(
         println!("AST: {parsed:#?}");
     }
 
-    let checker_output = reshell_checker::check(
-        &parsed.data,
-        ctx.generate_checker_scopes(),
-        Some(ctx.generate_checker_output()),
-    )
-    .map_err(ReportableError::Checking)?;
-
-    if print_checker_output {
-        println!("Checker output: {checker_output:#?}");
-    }
-
-    if only_check {
-        return Ok(());
-    }
-
-    run_program(&parsed, checker_output, ctx)
-        .map_err(|err| ReportableError::Runtime(err, Some(parsed)))
+    run_program(&parsed, ctx).map_err(|err| ReportableError::Runtime(err, Some(parsed)))
 }

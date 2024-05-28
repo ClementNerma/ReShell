@@ -2,7 +2,6 @@ use std::fmt::Debug;
 
 use indexmap::IndexSet;
 use parsy::{Eaten, FileId};
-use reshell_checker::output::CheckerOutput;
 use reshell_parser::ast::{Block, ElsIf, Instruction, Program, RuntimeCodeRange, SwitchCase};
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeMethod, ScopeVar,
     },
-    errors::{ExecError, ExecErrorNature, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecResult},
     expr::eval_expr,
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
@@ -23,11 +22,7 @@ use crate::{
     },
 };
 
-pub fn run_program(
-    program: &Eaten<Program>,
-    checker_output: CheckerOutput,
-    ctx: &mut Context,
-) -> ExecResult<()> {
+pub fn run_program(program: &Eaten<Program>, ctx: &mut Context) -> ExecResult<()> {
     // Reset Ctrl+C requests
     ctx.reset_ctrl_c_press_indicator();
 
@@ -41,7 +36,14 @@ pub fn run_program(
         FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
     }
 
-    ctx.prepare_for_new_program(program, checker_output);
+    // Check the program
+    ctx.prepare_for_new_program(program).map_err(|err| {
+        ctx.error(program.at, ExecErrorNature::CheckingErr(err))
+            .with_info(
+                ExecInfoType::Note,
+                "Error was encountered before running the program".to_owned(),
+            )
+    })?;
 
     run_block_in_current_scope(&content.data, ctx).map(|result| match result {
         None => {

@@ -220,6 +220,7 @@ pub fn start(
                         }
 
                         ExecErrorNature::ParsingErr(_)
+                        | ExecErrorNature::CheckingErr(_)
                         | ExecErrorNature::Thrown { at: _, message: _ }
                         | ExecErrorNature::Exit { code: _ }
                         | ExecErrorNature::CtrlC

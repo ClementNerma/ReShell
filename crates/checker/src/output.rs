@@ -94,47 +94,6 @@ impl CheckerOutput {
             cmd_call_values: HashMap::new(),
         }
     }
-
-    pub fn merge(&mut self, other: CheckerOutput) {
-        #[deny(unused_variables)]
-        let CheckerOutput {
-            deps,
-            type_aliases_decl,
-            type_aliases_usages,
-            type_aliases_decl_by_scope,
-            fn_signatures,
-            fn_bodies,
-            cmd_aliases,
-            cmd_calls,
-            cmd_call_values,
-        } = other;
-
-        self.deps.extend(deps);
-        self.type_aliases_decl.extend(type_aliases_decl);
-        self.type_aliases_usages.extend(type_aliases_usages);
-        self.type_aliases_decl_by_scope
-            .extend(type_aliases_decl_by_scope);
-        self.cmd_calls.extend(cmd_calls);
-        self.fn_signatures.extend(fn_signatures);
-        self.fn_bodies.extend(fn_bodies);
-        self.cmd_aliases.extend(cmd_aliases);
-        self.cmd_call_values.extend(cmd_call_values);
-    }
-
-    // TODO: find a way to avoid a massive cloning
-    pub fn reuse_in_checker(&self) -> Self {
-        Self {
-            deps: self.deps.clone(),
-            type_aliases_decl: self.type_aliases_decl.clone(),
-            type_aliases_usages: self.type_aliases_usages.clone(),
-            type_aliases_decl_by_scope: self.type_aliases_decl_by_scope.clone(),
-            fn_signatures: self.fn_signatures.clone(),
-            fn_bodies: self.fn_bodies.clone(),
-            cmd_aliases: self.cmd_aliases.clone(),
-            cmd_calls: self.cmd_calls.clone(),
-            cmd_call_values: self.cmd_call_values.clone(),
-        }
-    }
 }
 
 /// Developed command call

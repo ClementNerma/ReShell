@@ -40,6 +40,7 @@ fn run() -> Runner {
                 } => Ok(Some(RuntimeValue::Bool(false))),
 
                 ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::CheckingErr(_)
                 | ExecErrorNature::Thrown { message: _, at: _ }
                 | ExecErrorNature::Exit { code: _ }
                 | ExecErrorNature::CtrlC

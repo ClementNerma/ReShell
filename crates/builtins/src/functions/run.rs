@@ -68,6 +68,7 @@ fn run() -> Runner {
                         }
 
                         ExecErrorNature::ParsingErr(_)
+                        | ExecErrorNature::CheckingErr(_)
                         | ExecErrorNature::Thrown { message: _, at: _ }
                         | ExecErrorNature::Exit { code: _ }
                         | ExecErrorNature::CtrlC

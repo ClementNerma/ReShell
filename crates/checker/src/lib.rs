@@ -44,8 +44,8 @@ use crate::{errors::CheckerResult, output::*};
 pub fn check(
     program: &Program,
     scopes: Vec<CheckerScope>,
-    prev_output: Option<CheckerOutput>,
-) -> CheckerResult<CheckerOutput> {
+    prev_output: &mut CheckerOutput,
+) -> CheckerResult {
     let Program { content } = program;
 
     let mut state = State::new(prev_output);
@@ -56,7 +56,7 @@ pub fn check(
 
     check_block(content, &mut state)?;
 
-    Ok(state.consume())
+    Ok(())
 }
 
 fn check_block(block: &Eaten<Block>, state: &mut State) -> CheckerResult {

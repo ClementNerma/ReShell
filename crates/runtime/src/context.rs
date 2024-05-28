@@ -7,7 +7,7 @@ use reshell_checker::{
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
-    CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
+    CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
 };
 use reshell_parser::{
     ast::{
@@ -301,8 +301,14 @@ impl Context {
     pub fn prepare_for_new_program(
         &mut self,
         program: &Eaten<Program>,
-        checker_output: CheckerOutput,
-    ) {
+    ) -> Result<(), CheckerError> {
+        // Check the program
+        reshell_checker::check(
+            &program.data,
+            self.generate_checker_scopes(),
+            &mut self.collected,
+        )?;
+
         // Create a new scope for this program
         let scope_id =
             self.create_and_push_scope(program.data.content.data.scope_id, ScopeContent::new());
@@ -316,8 +322,7 @@ impl Context {
         // Clear the previous wandering value
         self.clear_wandering_value();
 
-        // Merge the checker's output
-        self.collected.merge(checker_output);
+        Ok(())
     }
 
     /// (Internal) Reset to the program's main scope after execution
@@ -783,11 +788,6 @@ impl Context {
     /// Use cases include e.g. REPL to display the wandering value after execution
     pub fn take_wandering_value(&mut self) -> Option<RuntimeValue> {
         self.wandering_value.take()
-    }
-
-    /// Generate a [`CheckerOutput`] for running a new program
-    pub fn generate_checker_output(&self) -> CheckerOutput {
-        self.collected.reuse_in_checker()
     }
 }
 
