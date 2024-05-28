@@ -2,39 +2,16 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
     let mut opened: Vec<(&str, usize)> = vec![];
     let mut opened_strings: Vec<(&str, usize)> = vec![];
     let mut output: Vec<NestingAction> = vec![];
-    let mut escaping: Option<(&str, usize)> = None;
+    let mut escaping = false;
 
     let mut offset = 0;
     let mut last_char: Option<(&str, usize)> = None;
     let mut prev_char: Option<(&str, usize)> = None;
 
-    let register_string_piece =
-        |output: &mut Vec<NestingAction>, opened: &mut Vec<(&str, usize)>, offset: usize| {
-            if let Some(("\"", string_opened_at)) = opened.last() {
-                let start_highlighting = output
-                    .iter()
-                    .rev()
-                    .find(|a| a.offset > *string_opened_at)
-                    .map(|a| a.offset + a.len)
-                    .unwrap_or(string_opened_at + 1);
-
-                if start_highlighting < offset {
-                    output.push(NestingAction::new(
-                        start_highlighting,
-                        offset - start_highlighting,
-                        NestingActionType::StringPiece,
-                    ));
-                }
-            }
-        };
-
     let push = |output: &mut Vec<NestingAction>,
-                opened: &mut Vec<(&str, usize)>,
                 offset: usize,
                 len: usize,
                 action_type: NestingActionType| {
-        register_string_piece(output, opened, offset);
-
         output.push(NestingAction::new(offset, len, action_type));
     };
 
@@ -42,12 +19,11 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                 opened: &mut Vec<(&'s str, usize)>,
                 offset: usize,
                 opening_str: &'s str| {
-        register_string_piece(output, opened, offset);
         opened.push((opening_str, offset));
         output.push(NestingAction::new(
             offset,
             opening_str.len(),
-            NestingActionType::Opening,
+            NestingActionType::Opening(NestingOpeningType::try_from_str(opening_str).unwrap()),
         ));
     };
 
@@ -61,40 +37,17 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
         last_char = Some((char_as_str, offset));
 
-        if let Some((escaping_str, escaping_offset)) = escaping.take() {
-            push(
-                &mut output,
-                &mut opened,
-                escaping_offset,
-                escaping_str.len(),
-                NestingActionType::Escaping,
-            );
-
-            push(
-                &mut output,
-                &mut opened,
-                offset,
-                char.len_utf8(),
-                NestingActionType::Escaping,
-            );
-
+        if escaping {
+            escaping = false;
             continue;
         }
 
         match char {
-            '\\' => match opened.last() {
-                Some(("\"", _)) => {
-                    escaping = Some((char_as_str, offset));
+            '\\' => {
+                if matches!(opened.last(), Some(("\"", _))) {
+                    escaping = true;
                 }
-
-                _ => push(
-                    &mut output,
-                    &mut opened,
-                    offset,
-                    1,
-                    NestingActionType::InvalidEscape,
-                ),
-            },
+            }
 
             '(' | '[' | '{' => {
                 if let Some(("\"", _)) = opened.last() {
@@ -125,7 +78,6 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
                     ) {
                         push(
                             &mut output,
-                            &mut opened,
                             offset,
                             1,
                             NestingActionType::Closing { opening_offset },
@@ -139,7 +91,6 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
                 push(
                     &mut output,
-                    &mut opened,
                     offset,
                     1,
                     NestingActionType::ClosingWithoutOpening,
@@ -149,14 +100,11 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             '"' => {
                 if let Some((opening_str, opening_offset)) = opened_strings.last().copied() {
                     if opened.last().copied() == Some((opening_str, opening_offset)) {
-                        // register_string_piece(&mut output, &mut opened, offset);
-
                         opened.pop();
                         opened_strings.pop();
 
                         push(
                             &mut output,
-                            &mut opened,
                             offset,
                             1,
                             NestingActionType::Closing { opening_offset },
@@ -183,14 +131,6 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
         ));
     }
 
-    if let Some((str, offset)) = escaping {
-        output.push(NestingAction::new(
-            offset,
-            str.len(),
-            NestingActionType::InvalidEscape,
-        ));
-    }
-
     output
 }
 
@@ -213,11 +153,34 @@ impl NestingAction {
 
 #[derive(Debug)]
 pub enum NestingActionType {
-    Opening,
+    Opening(NestingOpeningType),
     Closing { opening_offset: usize },
     Unclosed,
     ClosingWithoutOpening,
-    Escaping,
-    InvalidEscape,
-    StringPiece,
+}
+
+#[derive(Debug)]
+pub enum NestingOpeningType {
+    Block,
+    List,
+    ExprWithParen,
+    String,
+    ExprInString,
+    CmdCallInString,
+}
+
+impl NestingOpeningType {
+    fn try_from_str(str: &str) -> Result<Self, String> {
+        match str {
+            "{" => Ok(NestingOpeningType::Block),
+            "[" => Ok(NestingOpeningType::List),
+            "(" => Ok(NestingOpeningType::ExprWithParen),
+            "\"" => Ok(NestingOpeningType::String),
+            "$(" => Ok(NestingOpeningType::ExprInString),
+            "${" => Ok(NestingOpeningType::CmdCallInString),
+            _ => Err(format!(
+                "Internal error: unrecognized opening type: '{str}'"
+            )),
+        }
+    }
 }
