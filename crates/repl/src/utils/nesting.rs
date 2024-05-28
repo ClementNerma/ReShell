@@ -47,6 +47,12 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
     let mut last_char: Option<(&str, usize)> = None;
     let mut prev_char: Option<(&str, usize)> = None;
 
+    macro_rules! inside_string {
+        () => {
+            !opened_strings.is_empty() && opened.last() == opened_strings.last()
+        };
+    }
+
     for char in input.chars() {
         if let Some((last_str, last_offset)) = last_char {
             offset += last_str.len();
@@ -71,19 +77,19 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
 
         match char {
             '#' => {
-                if opened.last() != opened_strings.last() {
+                if !inside_string!() {
                     commenting = true;
                 }
             }
 
             '\\' => {
-                if opened.last() == opened_strings.last() {
+                if inside_string!() {
                     escaping = true;
                 }
             }
 
             '(' => {
-                if opened.last() == opened_strings.last() {
+                if inside_string!() {
                     if let Some(("$", prev_offset)) = prev_char {
                         open(
                             &mut output,
@@ -100,13 +106,13 @@ pub fn detect_nesting_actions<'s>(input: &'s str) -> Vec<NestingAction> {
             }
 
             '[' | '{' => {
-                if opened.last() != opened_strings.last() {
+                if !inside_string!() {
                     open(&mut output, &mut opened, offset, char_as_str);
                 }
             }
 
             ')' | ']' | '}' => {
-                if opened.last() == opened_strings.last() {
+                if inside_string!() {
                     continue;
                 }
 
