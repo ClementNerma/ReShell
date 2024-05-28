@@ -405,11 +405,9 @@ impl<A: TypingDirectCreation, B: TypingDirectCreation> SingleTypingDirectCreatio
 
 macro_rules! declare_typed_union_hanlder {
     ($handler_struct: ident ($($generic: ident),+) => $result_struct: ident) => {
+        #[allow(non_snake_case)]
         pub struct $handler_struct<$($generic: SingleTyping),+> {
-            $(
-                #[allow(non_snake_case)]
-                $generic: $generic
-            ),+
+            $( $generic: $generic ),+
         }
 
         impl<$($generic: SingleTyping),+> $handler_struct<$($generic,)+> {
@@ -433,7 +431,7 @@ macro_rules! declare_typed_union_hanlder {
                 $(
                     match self.$generic.parse(value.clone()) {
                         Ok(parsed) => return Ok($result_struct::$generic(parsed)),
-                        Err(err) => {
+                        Err(_) => {
                             // TODO
                         }
                     }
