@@ -1,5 +1,4 @@
-use parsy::MaybeEaten;
-use reshell_parser::ast::{FnArg, FnArgNames, SingleValueType, ValueType};
+use reshell_parser::ast::{FnArg, FnArgNames, RuntimeEaten, SingleValueType, ValueType};
 
 use reshell_runtime::values::{InternalFnBody, RuntimeValue};
 
@@ -44,7 +43,7 @@ pub trait ArgTyping {
 
 impl<T: ArgSingleTyping> ArgTyping for T {
     fn underlying_type(&self) -> ValueType {
-        ValueType::Single(MaybeEaten::Raw(self.underlying_single_type()))
+        ValueType::Single(RuntimeEaten::Raw(self.underlying_single_type()))
     }
 
     type Parsed = T::Parsed;

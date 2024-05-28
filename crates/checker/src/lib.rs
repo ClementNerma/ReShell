@@ -7,12 +7,12 @@ mod state;
 
 use std::collections::{HashMap, HashSet};
 
-use parsy::{Eaten, MaybeEaten};
+use parsy::Eaten;
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, ComputedString,
     ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp,
     FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, Function, Instruction, LiteralValue,
-    Program, PropAccess, PropAccessNature, SingleCmdCall, SingleOp, SingleValueType,
+    Program, PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
     StructTypeMember, SwitchCase, Value, ValueType,
 };
 
@@ -770,8 +770,8 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         }
 
         SingleValueType::Function(signature) => match signature {
-            MaybeEaten::Eaten(eaten) => check_fn_signature(eaten, state),
-            MaybeEaten::Raw(_) => Ok(()),
+            RuntimeEaten::Eaten(eaten) => check_fn_signature(eaten, state),
+            RuntimeEaten::Raw(_) => Ok(()),
         },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
