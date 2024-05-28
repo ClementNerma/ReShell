@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use parsy::{CodeRange, Eaten};
-use reshell_parser::ast::SingleCmdCall;
+use reshell_parser::ast::{SingleCmdCall, ValueType};
 
 use crate::{
     errors::{ExecError, ExecErrorContent, ExecResult},
@@ -58,6 +58,7 @@ impl Context {
             vars: HashMap::new(),
             fns: HashMap::new(),
             aliases: HashMap::new(),
+            types: HashMap::new(),
             in_file_id: self.scopes.last().unwrap().in_file_id,
         }
     }
@@ -86,6 +87,7 @@ impl Context {
             vars: HashMap::new(),
             fns: HashMap::new(),
             aliases: HashMap::new(),
+            types: HashMap::new(),
             in_file_id: self.files_map.register_file(path, content),
         }
     }
@@ -138,11 +140,18 @@ impl Context {
         self.scopes.iter().rev().flat_map(|scope| scope.fns.iter())
     }
 
-    pub fn all_aliases(&self) -> impl Iterator<Item = (&String, &SingleCmdCall)> {
+    pub fn all_cmd_aliases(&self) -> impl Iterator<Item = (&String, &SingleCmdCall)> {
         self.scopes
             .iter()
             .rev()
             .flat_map(|scope| scope.aliases.iter())
+    }
+
+    pub fn all_type_aliases(&self) -> impl Iterator<Item = (&String, &ValueType)> {
+        self.scopes
+            .iter()
+            .rev()
+            .flat_map(|scope| scope.types.iter())
     }
 
     pub fn get_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
@@ -193,6 +202,7 @@ pub struct Scope {
     pub vars: HashMap<String, ScopeVar>,
     pub fns: HashMap<String, ScopeFn>,
     pub aliases: HashMap<String, SingleCmdCall>,
+    pub types: HashMap<String, ValueType>,
     pub in_file_id: u64,
 }
 
@@ -202,6 +212,7 @@ impl Scope {
             vars: HashMap::new(),
             fns: HashMap::new(),
             aliases: HashMap::new(),
+            types: HashMap::new(),
             in_file_id,
         }
     }

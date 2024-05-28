@@ -236,7 +236,7 @@ fn develop_aliases<'a>(
         CmdPath::ComputedString(_) => return Cow::Borrowed(call),
     };
 
-    for (alias_name, alias_cmd) in ctx.all_aliases() {
+    for (alias_name, alias_cmd) in ctx.all_cmd_aliases() {
         if &cmd_path.data == alias_name {
             let mut call = call.clone();
 
@@ -340,7 +340,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
             let value = ctx.get_var_value(var_name)?;
 
             let RuntimeValue::List(items) = &value else {
-                return Err(ctx.error(var_name.at, format!("expected a list to spread, found a {}", readable_value_type(value))));
+                return Err(ctx.error(var_name.at, format!("expected a list to spread, found a {}", readable_value_type(value, ctx))));
             };
 
             Ok(CmdArgResult::Spreaded(items.clone()))

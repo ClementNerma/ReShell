@@ -551,7 +551,7 @@ pub fn render_prompt(
             ret_val.from,
             format!(
                 "expected the prompt generation function to return a struct, found a {}",
-                readable_value_type(&ret_val.value)
+                readable_value_type(&ret_val.value, ctx)
             ),
         ))
     };
@@ -572,7 +572,7 @@ pub fn render_prompt(
                         RuntimeValue::String(string) => Some(string.clone()),
                         value => return Err(ctx.error(
                             $from_at,
-                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), readable_value_type(&value))
+                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), readable_value_type(&value, ctx))
                         ))
                     }
                 };
@@ -606,20 +606,20 @@ fn call_fn_checked(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    dbg_fn_signature(&expected_signature),
-                    readable_value_type(&value)
+                    dbg_fn_signature(&expected_signature, ctx),
+                    readable_value_type(&value, ctx)
                 ),
             ))
         }
     };
 
-    if !check_fn_equality(&func.signature, &expected_signature) {
+    if !check_fn_equality(&func.signature, &expected_signature, ctx)? {
         return Err(ctx.error(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                dbg_fn_signature(&expected_signature),
-                readable_value_type(&loc_val.value)
+                dbg_fn_signature(&expected_signature, ctx),
+                readable_value_type(&loc_val.value, ctx)
             ),
         ));
     }

@@ -208,9 +208,16 @@ impl Highlight for Eaten<Instruction> {
                 expr.data.highlight(h);
             }
 
-            Instruction::AliasDecl { name, content } => {
+            Instruction::CmdAliasDecl { name, content } => {
                 h.push_everything_until(&KEYWORD, name.at);
                 h.push(&FN_NAME, name.at);
+                h.push_everything_until(&KEYWORD, content.at);
+                content.data.highlight(h);
+            }
+
+            Instruction::TypeAliasDecl { name, content } => {
+                h.push_everything_until(&KEYWORD, name.at);
+                h.push(&TYPE_NAME, name.at);
                 h.push_everything_until(&KEYWORD, content.at);
                 content.data.highlight(h);
             }
@@ -316,6 +323,7 @@ impl Highlight for Eaten<SingleValueType> {
             | SingleValueType::Error
             | SingleValueType::Struct => h.push(&TYPE_NAME, self.at),
             SingleValueType::Function(signature) => signature.highlight(h),
+            SingleValueType::TypeAlias(_) => h.push(&VAR_NAME, self.at),
         }
     }
 }

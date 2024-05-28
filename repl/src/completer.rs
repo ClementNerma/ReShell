@@ -55,7 +55,7 @@ impl RlCompleter for Completer {
                     description: Some(
                         match &item.value {
                             Some(located_val) => {
-                                readable_value_type(&located_val.value).into_owned()
+                                readable_value_type(&located_val.value, ctx).into_owned()
                             }
                             None => "<value not set>".to_string(),
                         }
@@ -78,7 +78,7 @@ impl RlCompleter for Completer {
                 .filter(|(name, _)| name.to_lowercase().contains(word_lc.as_str()))
                 .map(|(name, item)| Suggestion {
                     value: format!("@{name}"),
-                    description: Some(dbg_fn_signature(&item.value.signature)),
+                    description: Some(dbg_fn_signature(&item.value.signature, ctx)),
                     extra: None,
                     span,
                     append_whitespace: true,
