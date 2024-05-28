@@ -171,7 +171,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             annotations: vec![SourceAnnotation {
                 label: &msg,
                 annotation_type: AnnotationType::Error,
-                range: (offset, offset + len),
+                range: (offset, offset + len.max(1)),
             }],
         }],
         opt: FormatOptions {
