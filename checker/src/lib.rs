@@ -18,7 +18,7 @@ use reshell_parser::ast::{
 
 pub use self::{
     errors::CheckerError,
-    state::{DeclaredVar, Dependency, DependencyType, Scope},
+    state::{CheckerScope, DeclaredVar, Dependency, DependencyType},
 };
 
 use self::{errors::CheckerResult, state::State};
@@ -29,13 +29,20 @@ pub struct CheckerOutput {
     // TODO: scoped type aliases and cmd aliases???
 }
 
-pub fn check(program: &Program, native_lib_scope: Scope) -> CheckerResult<CheckerOutput> {
+pub fn check(
+    program: &Program,
+    native_lib_scope: CheckerScope,
+    mut first_scope: CheckerScope,
+) -> CheckerResult<CheckerOutput> {
     let Program { content } = program;
 
     let mut state = State::new();
     state.push_scope(native_lib_scope);
 
-    check_block(content, &mut state)?;
+    first_scope.code_range = content.data.code_range;
+    state.push_scope(first_scope);
+
+    check_block_without_push(content, &mut state)?;
 
     Ok(CheckerOutput {
         fn_deps: state.fn_deps,
@@ -49,14 +56,14 @@ fn check_block(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
 fn check_block_with(
     block: &Eaten<Block>,
     state: &mut State,
-    fill_scope: impl FnOnce(&mut Scope),
+    fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
     let Block {
-        instructions,
+        instructions: _,
         code_range,
     } = &block.data;
 
-    let mut scope = Scope {
+    let mut scope = CheckerScope {
         code_range: *code_range,
         fn_args_at: None, // can be changed with "fill_scope"
         vars: HashMap::new(),
@@ -68,6 +75,17 @@ fn check_block_with(
     fill_scope(&mut scope);
 
     state.push_scope(scope);
+
+    check_block_without_push(block, state)
+}
+
+fn check_block_without_push(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
+    let Block {
+        instructions,
+        code_range,
+    } = &block.data;
+
+    assert!(state.curr_scope().code_range == *code_range);
 
     for instr in instructions {
         check_instr(instr, state)?;

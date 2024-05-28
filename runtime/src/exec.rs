@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Eaten, FileId};
 use reshell_checker::CheckerOutput;
 use reshell_parser::ast::{Block, ElsIf, Function, Instruction, Program, SwitchCase};
 
@@ -23,37 +23,38 @@ use crate::{
 pub fn run_program(
     program: &Program,
     checker_output: CheckerOutput,
-    scope_content: ScopeContent,
     ctx: &mut Context,
 ) -> ExecResult<()> {
     let Program { content } = program;
 
+    match program.content.at.start.file_id {
+        FileId::None | FileId::Internal | FileId::Custom(_) => {
+            return Err(ctx.error(
+                program.content.at,
+                "program must be backed by a source file",
+            ))
+        }
+
+        FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
+    }
+
     ctx.append_checker_output(checker_output);
+    ctx.set_curr_scope_range(program.content.at);
 
-    let instr_ret: Option<InstrRet> = run_block(&content.data, ctx, scope_content)?;
+    match run_block_in_current_scope(&content.data, ctx) {
+        Ok(instr_ret) => match instr_ret {
+            None => Ok(()),
+            Some(instr_ret) => {
+                Err(ctx.error(instr_ret.from, "this instruction can't be used here"))
+            }
+        },
 
-    match instr_ret {
-        None => Ok(()),
-        Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
+        Err(err) => {
+            ctx.reset_to_first_scope();
+            Err(err)
+        }
     }
 }
-
-// pub fn run_program_in_current_scope(
-//     program: &Program,
-//     checker_output: CheckerOutput,
-//     ctx: &mut Context,
-// ) -> ExecResult<()> {
-//     let Program { content } = program;
-
-//     ctx.append_checker_output(checker_output);
-
-//     let instr_ret = run_block_in_current_scope(&content.data, ctx)?;
-
-//     match instr_ret {
-//         None => Ok(()),
-//         Some(instr_ret) => Err(ctx.error(instr_ret.from, "this instruction can't be used here")),
-//     }
-// }
 
 fn run_block(
     block: &Block,
@@ -67,11 +68,22 @@ fn run_block(
 
     ctx.create_and_push_scope(ScopeRange::CodeRange(*code_range), content);
 
-    let instr_ret = run_block_in_current_scope(block, ctx)?;
+    run_block_in_current_scope(block, ctx)
+}
 
-    ctx.pop_scope();
+fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
+    let Block {
+        instructions,
+        code_range: _,
+    } = block;
 
-    Ok(instr_ret)
+    for instr in instructions {
+        if let Some(ret) = run_instr(instr, ctx)? {
+            return Ok(Some(ret));
+        }
+    }
+
+    Ok(None)
 }
 
 pub(crate) fn run_fn_body(
@@ -102,21 +114,6 @@ pub(crate) fn run_fn_body(
     Ok(instr_ret)
 }
 
-fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
-    let Block {
-        instructions,
-        code_range: _,
-    } = block;
-
-    for instr in instructions {
-        if let Some(ret) = run_instr(instr, ctx)? {
-            return Ok(Some(ret));
-        }
-    }
-
-    Ok(None)
-}
-
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     match &instr.data {
         Instruction::Comment { content: _ } => {}
@@ -126,9 +123,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             mutable,
             init_expr,
         } => {
-            if ctx.current_scope().content.vars.contains_key(&name.data) {
-                return Err(ctx.error(name.at, "duplicate variable declaration".to_string()));
-            }
+            assert!(
+                !ctx.current_scope().content.vars.contains_key(&name.data),
+                "duplicate variable declaration (this is a bug in the checker)"
+            );
 
             let init_value = init_expr
                 .as_ref()
@@ -279,12 +277,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             },
                         );
 
-                        if let Some(InstrRet {
-                            from: _,
-                            typ: InstrRetType::BreakLoop,
-                        }) = run_block(&body.data, ctx, loop_scope)?
-                        {
-                            break;
+                        if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
+                            let InstrRet { typ, from: _ } = ret;
+
+                            if matches!(typ, InstrRetType::BreakLoop) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -305,12 +303,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             },
                         );
 
-                        if let Some(InstrRet {
-                            from: _,
-                            typ: InstrRetType::BreakLoop,
-                        }) = run_block(&body.data, ctx, loop_scope)?
-                        {
-                            break;
+                        if let Some(ret) = run_block(&body.data, ctx, loop_scope)? {
+                            let InstrRet { typ, from: _ } = ret;
+
+                            if matches!(typ, InstrRetType::BreakLoop) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -348,12 +346,12 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 break;
             }
 
-            if let Some(InstrRet {
-                from: _,
-                typ: InstrRetType::BreakLoop,
-            }) = run_block(&body.data, ctx, ScopeContent::new())?
-            {
-                break;
+            if let Some(ret) = run_block(&body.data, ctx, ScopeContent::new())? {
+                let InstrRet { typ, from: _ } = ret;
+
+                if matches!(typ, InstrRetType::BreakLoop) {
+                    break;
+                }
             }
         },
 

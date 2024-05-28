@@ -10,12 +10,10 @@ use std::process::ExitCode;
 use clap::Parser as _;
 use colored::Colorize;
 use parsy::Parser;
-use reshell_parser::ast::Program;
-use reshell_parser::program;
+use reshell_parser::{ast::Program, program};
 use reshell_runtime::files_map::ScopableFilePath;
 
-use self::exec::{run_script, ExecOptions};
-use self::state::RUNTIME_CONTEXT;
+use self::{exec::run_script, state::RUNTIME_CONTEXT};
 
 mod cmd;
 mod completer;
@@ -51,11 +49,6 @@ fn main() -> ExitCode {
         }
     }
 
-    let eval_opts = ExecOptions {
-        check_only: args.check_only,
-        dbg_code_checking: args.dbg_code_checking,
-    };
-
     let parser = program();
 
     if let Some(file_path) = args.exec_file {
@@ -71,35 +64,29 @@ fn main() -> ExitCode {
             fail("Failed to read thep rovided path");
         };
 
-        let result = run_script(
-            &content,
-            ScopableFilePath::RealFile(file_path),
-            &parser,
-            eval_opts,
-        );
-
-        return match result {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(_) => ExitCode::FAILURE,
+        return match run_script(&content, ScopableFilePath::RealFile(file_path), &parser) {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(err) => {
+                reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
+                ExitCode::FAILURE
+            }
         };
     }
 
     if let Some(input) = args.eval {
-        let result = run_script(
-            &input,
-            ScopableFilePath::InMemory("eval"),
-            &parser,
-            eval_opts,
-        );
-
-        return match result {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(_) => ExitCode::FAILURE,
+        return match run_script(&input, ScopableFilePath::InMemory("eval"), &parser) {
+            Ok(_) => ExitCode::SUCCESS,
+            Err(err) => {
+                reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
+                ExitCode::FAILURE
+            }
         };
     }
 
-    if !args.skip_init_script && run_init_script(&parser).is_err() {
-        return ExitCode::FAILURE;
+    if !args.skip_init_script {
+        if let Err(()) = run_init_script(&parser) {
+            return ExitCode::FAILURE;
+        }
     }
 
     repl::start();
@@ -110,7 +97,6 @@ fn main() -> ExitCode {
 fn run_init_script(parser: &impl Parser<Program>) -> Result<(), ()> {
     let Some(home_dir) = dirs::home_dir() else {
         print_warn("Cannot run init script: failed to determine path to the user's home directory");
-
         return Ok(());
     };
 
@@ -134,14 +120,6 @@ fn run_init_script(parser: &impl Parser<Program>) -> Result<(), ()> {
     }
 
     match fs::read_to_string(&init_file) {
-        Ok(source) => run_script(
-            &source,
-            ScopableFilePath::RealFile(init_file),
-            parser,
-            ExecOptions::default(),
-        )
-        .map_err(|_| ()),
-
         Err(err) => {
             print_err(&format!(
                 "Failed to read init script at path {}: {err}",
@@ -150,6 +128,14 @@ fn run_init_script(parser: &impl Parser<Program>) -> Result<(), ()> {
 
             Err(())
         }
+
+        Ok(source) => match run_script(&source, ScopableFilePath::RealFile(init_file), parser) {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
+                Err(())
+            }
+        },
     }
 }
 

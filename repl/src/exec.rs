@@ -1,48 +1,24 @@
+// TODO: if exec returns an error, reset the current scope's ID to the one just after the native lib's one
+// TODO: if exec returns an error instead of a popped scope, get the current scope from the ID mentioned above
+
 use once_cell::sync::Lazy;
-use parsy::{FileId, Parser};
+use parsy::{Eaten, FileId, Parser};
+use reshell_checker::{CheckerOutput, CheckerScope};
 use reshell_parser::ast::Program;
-use reshell_runtime::context::ScopeContent;
-use reshell_runtime::exec::run_program;
-use reshell_runtime::files_map::ScopableFilePath;
-use reshell_runtime::native_lib::generate_native_lib_for_checker;
+use reshell_runtime::{
+    exec::run_program, files_map::ScopableFilePath, native_lib::generate_native_lib,
+};
 
-use crate::reports::{self, ReportableError};
-use crate::state::RUNTIME_CONTEXT;
+use crate::{reports::ReportableError, state::RUNTIME_CONTEXT};
 
-static NATIVE_LIB_FOR_CHECKER: Lazy<reshell_checker::Scope> =
-    Lazy::new(generate_native_lib_for_checker);
+static NATIVE_LIB_FOR_CHECKER: Lazy<CheckerScope> =
+    Lazy::new(|| generate_native_lib().to_checker_scope());
 
-#[derive(Debug, Default, Clone, Copy)]
-pub struct ExecOptions {
-    pub check_only: bool,
-    pub dbg_code_checking: bool,
-}
-
-pub fn run_script(
-    input: &str,
-    file_id: ScopableFilePath,
-    parser: &impl Parser<Program>,
-    opts: ExecOptions,
-) -> Result<(), ReportableError> {
-    run_script_inner(input, file_id, parser, opts).map_err(|err| {
-        reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
-        err
-    })
-}
-
-// TODO: keep previous scopes in memory
-// TODO: use previous scopes' declarations in reshell_checker::check
-fn run_script_inner(
+pub fn code_check_script(
     input: &str,
     file_path: ScopableFilePath,
     parser: &impl Parser<Program>,
-    opts: ExecOptions,
-) -> Result<(), ReportableError> {
-    let ExecOptions {
-        check_only,
-        dbg_code_checking,
-    } = opts;
-
+) -> Result<(Eaten<Program>, CheckerOutput), ReportableError> {
     let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
 
     let file_id = ctx.register_file(file_path, input.to_string());
@@ -51,17 +27,23 @@ fn run_script_inner(
         .parse_str_as_file(input, FileId::SourceFile(file_id))
         .map_err(ReportableError::Parsing)?;
 
-    let checker_output = reshell_checker::check(&parsed.data, NATIVE_LIB_FOR_CHECKER.clone())
-        .map_err(ReportableError::Checking)?;
+    reshell_checker::check(
+        &parsed.data,
+        NATIVE_LIB_FOR_CHECKER.clone(),
+        ctx.first_scope().to_checker_scope(),
+    )
+    .map(|checker_out| (parsed, checker_out))
+    .map_err(ReportableError::Checking)
+}
 
-    if dbg_code_checking {
-        println!("{checker_output:#?}");
-    }
+pub fn run_script(
+    input: &str,
+    file_path: ScopableFilePath,
+    parser: &impl Parser<Program>,
+) -> Result<(), ReportableError> {
+    let (parsed, checker_output) = code_check_script(input, file_path, parser)?;
 
-    if check_only {
-        return Ok(());
-    }
+    let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
 
-    run_program(&parsed.data, checker_output, ScopeContent::new(), ctx)
-        .map_err(ReportableError::Runtime)
+    run_program(&parsed.data, checker_output, ctx).map_err(ReportableError::Runtime)
 }

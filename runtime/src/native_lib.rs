@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fs;
 use std::time::Instant;
 use std::{collections::HashMap, env::VarError, path::Path};
@@ -430,6 +429,8 @@ pub fn generate_native_lib() -> Scope {
                 .parse_str_as_file(&source, FileId::SourceFile(file_id))
                 .map_err(|err| ctx.error(at, err))?;
 
+            // TODO: checker
+
             // TODO: how to create a scope with an ID that doesn't conflict with existing scopes?
             todo!();
 
@@ -551,50 +552,11 @@ pub fn generate_native_lib() -> Scope {
 
     Scope {
         id: 0,
-        range: ScopeRange::Global,
+        range: ScopeRange::SourceLess,
         parent_scopes: IndexSet::new(),
         call_stack: CallStack::empty(),
         call_stack_entry: None,
         content,
-    }
-}
-
-pub fn generate_native_lib_for_checker() -> reshell_checker::Scope {
-    let Scope { content, .. } = generate_native_lib();
-
-    let ScopeContent {
-        vars,
-        fns,
-        cmd_aliases,
-        types,
-    } = content;
-
-    // For now
-    assert!(cmd_aliases.is_empty());
-    assert!(types.is_empty());
-    //////////
-
-    reshell_checker::Scope {
-        code_range: forge_internal_loc(),
-        fn_args_at: None,
-        cmd_aliases: HashSet::new(),
-        types: HashSet::new(),
-        fns: fns
-            .keys()
-            .map(|name| (name.clone(), forge_internal_loc()))
-            .collect(),
-        vars: vars
-            .into_iter()
-            .map(|(name, decl)| {
-                (
-                    name,
-                    reshell_checker::DeclaredVar {
-                        is_mut: decl.is_mut,
-                        name_at: forge_internal_loc(),
-                    },
-                )
-            })
-            .collect(),
     }
 }
 
@@ -799,13 +761,13 @@ pub struct PromptRendering {
 }
 
 fn forge_internal_loc() -> CodeRange {
-    CodeRange {
-        start: Location {
+    CodeRange::new(
+        Location {
             file_id: FileId::Internal,
             offset: 0,
         },
-        len: 0,
-    }
+        0,
+    )
 }
 
 fn forge_internal_token<T>(data: T) -> Eaten<T> {

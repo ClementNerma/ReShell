@@ -9,7 +9,7 @@ use reshell_runtime::{
 
 use crate::{
     completer, edit_mode,
-    exec::{run_script, ExecOptions},
+    exec::run_script,
     highlighter, hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
@@ -68,8 +68,11 @@ pub fn start() {
             &input,
             ScopableFilePath::InMemoryWithCounter("repl", counter),
             &parser,
-            ExecOptions::default(),
         );
+
+        if let Err(err) = &ret {
+            reports::print_error(err, RUNTIME_CONTEXT.read().unwrap().files_map());
+        }
 
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
