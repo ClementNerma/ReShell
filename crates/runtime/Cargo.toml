@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-colored = "2.0.4"
+colored = "2.1.0"
 indexmap = "2.1.0"
-parsy = "0.5.2"
+parsy = "0.5.3"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
 dunce = "1.0.4"

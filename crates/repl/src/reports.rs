@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 
-use annotate_snippets::{
-    display_list::{DisplayList, FormatOptions},
-    snippet::{Annotation, AnnotationType, Slice, Snippet, SourceAnnotation},
-};
+use annotate_snippets::{Annotation, AnnotationType, Renderer, Slice, Snippet, SourceAnnotation};
 use colored::Colorize;
 use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
@@ -246,13 +243,9 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 ),
             }],
         }],
-        opt: FormatOptions {
-            color: true,
-            ..Default::default()
-        },
     };
 
-    eprintln!("{}", DisplayList::from(snippet));
+    eprintln!("{}", Renderer::styled().render(snippet));
 
     let infos = match err {
         ReportableError::Parsing(_) => vec![],

@@ -41,11 +41,11 @@ fn run() -> Runner {
                 for diag in diag {
                     println!(
                         "{} for regex at {}: {}",
-                        dbg_loc(pattern_at, ctx.files_map()),
                         match diag.severity {
                             Severity::Warning => "WARNING".bright_yellow(),
                             Severity::Error => "ERROR".bright_red(),
                         },
+                        dbg_loc(pattern_at, ctx.files_map()),
                         diag.msg
                     );
                 }
