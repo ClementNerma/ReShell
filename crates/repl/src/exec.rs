@@ -40,5 +40,6 @@ pub fn run_script(
 ) -> Result<(), ReportableError> {
     let (parsed, checker_output) = code_check_script(input, file_path, parser, ctx)?;
 
-    run_program(&parsed.data, checker_output, ctx).map_err(ReportableError::Runtime)
+    run_program(&parsed.data, checker_output, ctx)
+        .map_err(|err| ReportableError::Runtime(err, Some(parsed)))
 }

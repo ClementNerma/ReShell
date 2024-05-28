@@ -4,6 +4,7 @@ use std::{
     time::Instant,
 };
 
+use colored::Colorize;
 use reedline::{Reedline, Signal};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
 use reshell_runtime::{
@@ -58,7 +59,7 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
                     return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
                 }
 
-                reports::print_error(&ReportableError::Runtime(err), ctx.files_map());
+                reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
                 PromptRendering::default()
             }
         };
@@ -92,6 +93,12 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             ctx,
         );
 
+        last_cmd_status = Some(LastCmdStatus {
+            success: ret.is_ok(),
+            duration_ms: start.elapsed().as_millis(),
+            exit_code: ret.as_ref().err().and_then(|err| err.exit_code()),
+        });
+
         match &ret {
             Ok(()) => {
                 if let Some(value) = ctx.take_wandering_value() {
@@ -103,21 +110,37 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             }
 
             Err(err) => {
-                if let ReportableError::Runtime(err) = &err {
+                if let ReportableError::Runtime(err, program) = &err {
+                    let program = program.as_ref().unwrap();
+
                     if let ExecErrorNature::Exit { code } = err.nature {
                         return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
+                    }
+
+                    // If we only run a single command (not more, no pipes, etc.) and it failed,
+                    // display a simpler error.
+                    if let ExecErrorNature::CommandFailed {
+                        message: _,
+                        exit_status,
+                    } = err.nature
+                    {
+                        if err.at.real() == Some(program.data.content.at) {
+                            eprintln!(
+                                "{} Command exited{}",
+                                "ERROR:".bright_red(),
+                                exit_status
+                                    .map(|code| format!(" with status code {code}"))
+                                    .unwrap_or_else(String::new)
+                            );
+
+                            continue;
+                        }
                     }
                 }
 
                 reports::print_error(err, ctx.files_map());
             }
         }
-
-        last_cmd_status = Some(LastCmdStatus {
-            success: ret.is_ok(),
-            duration_ms: start.elapsed().as_millis(),
-            exit_code: ret.err().and_then(|err| err.exit_code()),
-        });
     }
 }
 

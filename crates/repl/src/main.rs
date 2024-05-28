@@ -148,7 +148,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, &'static str> {
                             );
 
                             if let Err(err) = init_script_result {
-                                if let ReportableError::Runtime(err) = &err {
+                                if let ReportableError::Runtime(err, _) = &err {
                                     if let ExecErrorNature::Exit { code } = err.nature {
                                         return Ok(loose_exit_code(code.map(i32::from)));
                                     }
