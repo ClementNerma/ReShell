@@ -35,7 +35,7 @@ fn highlight(input: &str) -> StyledText {
 
     highlight!(
         ("flags") => "\\s(\\-\\-[a-zA-Z_][a-zA-Z0-9_]+|\\-[a-zA-Z])\\b" => Yellow,
-        ("keywords") => "\\b(let|mut|if|else|for|in|while|continue|break|fn|return|throw|alias|type|do)\\b" => Magenta,
+        ("keywords") => "\\b(let|mut|if|else|for|in|while|switch|case|continue|break|fn|return|throw|alias|type|do)\\b" => Magenta,
         ("types") => "\\b(any|bool|int|float|string|list|map|error|struct|fn)\\b" => Magenta,
         ("booleans") => "\\b(true|false)\\b" => LightYellow,
         ("null value") => "\\b(null)\\b" => LightYellow,

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use parsy::Eaten;
-use reshell_parser::ast::{Block, ElsIf, Instruction, Program};
+use reshell_parser::ast::{Block, ElsIf, Instruction, Program, SwitchCase};
 
 use crate::{
     cmd::run_cmd,
@@ -10,7 +10,10 @@ use crate::{
     errors::ExecResult,
     expr::eval_expr,
     props::{eval_prop_access_suite, make_prop_access_suite, PropAccessPolicy},
-    values::{LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{
+        are_values_equal, LocatedValue, NotComparableTypes, RuntimeFnBody, RuntimeFnValue,
+        RuntimeValue,
+    },
 };
 
 pub fn run(program: &Program, ctx: &mut Context, init_scope: Scope) -> ExecResult<Scope> {
@@ -316,7 +319,30 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
         Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
 
-        Instruction::Switch { cases: _ } => todo!(),
+        Instruction::Switch { expr, cases } => {
+            let switch_on = eval_expr(&expr.data, ctx)?;
+
+            for SwitchCase { cond, body } in cases {
+                let case_value = eval_expr(&cond.data, ctx)?;
+
+                let cmp =
+                    are_values_equal(&switch_on, &case_value).map_err(|NotComparableTypes| {
+                        ctx.error(
+                            cond.at,
+                            format!(
+                                "cannot compare {} and {}",
+                                readable_value_type(&switch_on),
+                                readable_value_type(&case_value)
+                            ),
+                        )
+                    })?;
+
+                if cmp {
+                    run_block(&body.data, ctx, ctx.create_scope())?;
+                    break;
+                }
+            }
+        }
 
         Instruction::FnDecl {
             name,

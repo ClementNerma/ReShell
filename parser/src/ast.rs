@@ -60,7 +60,8 @@ pub enum Instruction {
     LoopBreak,
 
     Switch {
-        cases: Vec<Eaten<SwitchCase>>,
+        expr: Eaten<Expr>,
+        cases: Vec<SwitchCase>,
     },
 
     FnDecl {

@@ -9,7 +9,7 @@ use parsy::{
 use crate::ast::{
     CmdEnvVar, CmdEnvVarValue, CmdPath, CmdPipe, CmdPipeType, ElsIfExpr, EscapableChar,
     ExprInnerContent, FnArg, FnArgNames, FnCall, FnCallArg, FnSignature, PropAccess,
-    PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, ValueType,
+    PropAccessNature, SingleCmdCall, SingleValueType, StructTypeMember, SwitchCase, ValueType,
 };
 
 use super::ast::{
@@ -845,7 +845,35 @@ pub fn program() -> impl Parser<Program> {
                 // .ignore_then(s.ignore_then(expr.clone().spanned()).or_not())
                 // .map(|ret| Instruction::LoopBreak { ret }),
                 .to(Instruction::LoopBreak),
-            // TODO: switch case
+            //
+            // Switch
+            //
+            just("switch")
+                .ignore_then(s)
+                .ignore_then(
+                    expr.clone()
+                        .spanned()
+                        .critical("expected an expression to switch on"),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('{').critical("expected an opening brace '{'"))
+                .then_ignore(msnl)
+                .then(
+                    just("case")
+                        .ignore_then(ms)
+                        .ignore_then(
+                            expr.clone()
+                                .spanned()
+                                .critical("expected an expression to match"),
+                        )
+                        .then_ignore(ms)
+                        .then(block.clone().spanned().critical("expected a block"))
+                        .map(|(cond, body)| SwitchCase { cond, body })
+                        .repeated_vec(),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('}').critical("expected a closing brace"))
+                .map(|(expr, cases)| Instruction::Switch { expr, cases }),
             //
             // Function declaration
             //
