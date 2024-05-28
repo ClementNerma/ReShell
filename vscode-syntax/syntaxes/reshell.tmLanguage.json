@@ -141,11 +141,15 @@
 					"name": "entity.name.function"
 				},
 				{
-					"match": "\\!",
+					"match": "!",
 					"name": "keyword.operator"
 				},
 				{
-					"match": "\\s([\\+\\-\\*\\/%=\\?]|&&|\\|\\||\\.\\.\\.)(?=\\s|$)",
+					"match": "\\s([\\+\\-\\*\\/%=\\?]|&&|\\!=|\\|\\||\\|)(?=\\s|$)",
+					"name": "keyword.operator"
+				},
+				{
+					"match": "(?<=[,\\s])\\.\\.\\.(?=\\$)",
 					"name": "keyword.operator"
 				},
 				{
