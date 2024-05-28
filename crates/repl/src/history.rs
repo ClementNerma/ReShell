@@ -1,17 +1,16 @@
 use reedline::{FileBackedHistory, History, ListMenu, ReedlineMenu};
+use reshell_runtime::conf::RuntimeConf;
 
 use crate::print_warn;
 
 pub static HISTORY_MENU_NAME: &str = "history_menu";
 
-pub fn create_history() -> Box<dyn History> {
-    // TODO: allow to customize:
-    // * Enabling/disabling the history
-    // * Path to the history file
-    // * Obfuscation the history file (?)
-    // * History capacity
+pub fn create_history(runtime_conf: &RuntimeConf) -> Box<dyn History> {
+    let capacity = runtime_conf.history_capacity;
 
-    let capacity = 1_000_000;
+    if !runtime_conf.history_enabled {
+        todo!("When #661 is merged");
+    }
 
     let history = match dirs::home_dir() {
         Some(dir) => match FileBackedHistory::with_file(capacity, dir.join(".rsh_history")) {
@@ -22,6 +21,7 @@ pub fn create_history() -> Box<dyn History> {
                 FileBackedHistory::new(capacity)
             }
         },
+
         None => {
             print_warn("Failed to determine path to the home directory");
             print_warn("History will not be saved for this session");
