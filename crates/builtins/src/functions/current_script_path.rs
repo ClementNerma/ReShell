@@ -1,5 +1,3 @@
-use std::fs;
-
 use parsy::FileId;
 use reshell_parser::files::SourceFileLocation;
 
@@ -34,7 +32,7 @@ fn run() -> Runner {
                 if path.is_absolute() {
                     path
                 } else {
-                    fs::canonicalize(&path).map_err(|err| {
+                    dunce::canonicalize(&path).map_err(|err| {
                         ctx.throw(
                             at,
                             format!("failed to canonicalize path '{}': {err}", path.display()),

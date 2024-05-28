@@ -28,3 +28,4 @@ rand = { version = "0.8.5", default-features = false, features = [
     "getrandom",
 ] }
 indexmap = "2.2.5"
+dunce = "1.0.4"
