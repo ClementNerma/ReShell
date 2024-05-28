@@ -87,17 +87,14 @@ pub fn start(ctx: &mut Context, timings: Timings, show_timings: bool) -> Option<
             ctx,
         );
 
-        match &ret {
-            Ok(()) => todo!(),
-            Err(err) => {
-                if let ReportableError::Runtime(err) = &err {
-                    if let ExecErrorNature::Exit { code } = err.nature {
-                        return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
-                    }
+        if let Err(err) = &ret {
+            if let ReportableError::Runtime(err) = &err {
+                if let ExecErrorNature::Exit { code } = err.nature {
+                    return Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS));
                 }
-
-                reports::print_error(err, ctx.files_map());
             }
+
+            reports::print_error(err, ctx.files_map());
         }
 
         last_cmd_status = Some(LastCmdStatus {

@@ -352,6 +352,8 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
                 .cmd_aliases
                 .insert(name.data.clone(), name.at);
 
+            state.register_cmd_alias(content.clone());
+
             state.collected.deps.insert(content.at, HashSet::new());
 
             state.push_scope(CheckerScope {
