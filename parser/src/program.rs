@@ -860,6 +860,7 @@ pub fn program() -> impl Parser<Program> {
 
     raw_block
         .spanned()
+        .padded()
         .full()
         .critical("unexpected symbol")
         .map(|content| Program { content })
