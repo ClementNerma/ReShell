@@ -238,12 +238,8 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Method calls
                 method_call(),
 
-                // TODO remove this HACK
-                // : Don't highlight commas as argument separators
-                simple("(,)", [Green]),
-
-                // Expressions
-                include_group("expressions")
+                // Any other character
+                simple("(.)", [Green]),
             ]),
             ("literal-strings", vec![
                 // Escaped characters
