@@ -76,7 +76,7 @@ pub fn run_cmd(
                 }
 
                 // TODO: handle non-success outputs (e.g. Thrown etc.)
-                let result = match nature {
+                let _result = match nature {
                     NonCmdCallNature::Function { is_var_name, name } => {
                         // TODO: handle non-success cases (e.g. Thrown)
                         call_fn(

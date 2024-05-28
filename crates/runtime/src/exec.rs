@@ -18,7 +18,7 @@ use crate::{
     props::{eval_props_access, PropAccessPolicy},
     values::{
         are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypes, RuntimeCmdAlias,
-        RuntimeFnBody, RuntimeFnValue, RuntimeTypeAlias, RuntimeValue,
+        RuntimeFnBody, RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -495,25 +495,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             );
         }
 
-        Instruction::TypeAliasDecl { name, content } => {
-            let parent_scopes = ctx.generate_parent_scopes();
-
-            let captured_deps = ctx.capture_deps(content.at);
-
-            let type_aliases = &mut ctx.current_scope_content_mut().type_aliases;
-
-            // We can do this thanks to the checker
-            assert!(!type_aliases.contains_key(&name.data));
-
-            type_aliases.insert(
-                name.data.clone(),
-                RuntimeTypeAlias {
-                    name_declared_at: name.at,
-                    alias_content: GcReadOnlyCell::new(content.data.clone()),
-                    parent_scopes,
-                    captured_deps,
-                },
-            );
+        Instruction::TypeAliasDecl {
+            name: _,
+            content: _,
+        } => {
+            // Nothing to do here as this was already put inside context before
         }
 
         Instruction::CmdCall(call) => {

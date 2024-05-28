@@ -4,6 +4,7 @@ use indexmap::{IndexMap, IndexSet};
 use once_cell::sync::Lazy;
 use parsy::{CodeRange, Eaten, FileId, Location};
 use reshell_checker::{CheckerOutput, CheckerScope, Dependency, DependencyType};
+use reshell_parser::ast::ValueType;
 
 use crate::{
     conf::RuntimeConf,
@@ -13,7 +14,7 @@ use crate::{
     gc::GcCell,
     native_lib::generate_native_lib,
     values::{
-        CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeTypeAlias,
+        CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, 
     },
 };
 
@@ -42,6 +43,9 @@ pub struct Context {
     files_map: FilesMap,
     home_dir: Option<PathBuf>,
     deps: IndexMap<CodeRange, IndexSet<Dependency>>,
+    type_aliases: IndexMap<CodeRange, Eaten<ValueType>>,
+    type_aliases_usages: IndexMap<Eaten<String>, CodeRange>,
+    type_aliases_decl: IndexMap<CodeRange, HashMap<String, CodeRange>>
 }
 
 impl Context {
@@ -65,6 +69,9 @@ impl Context {
             home_dir: conf.initial_home_dir.clone(),
             deps: IndexMap::new(),
             deps_scopes: HashMap::new(),
+            type_aliases: IndexMap::new(),
+            type_aliases_usages: IndexMap::new(),
+            type_aliases_decl: IndexMap::new(),
             conf,
         }
     }
@@ -81,24 +88,26 @@ impl Context {
         &self.files_map
     }
 
-    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
+    pub fn raw_visible_scopes(&self) -> impl DoubleEndedIterator<Item = &Scope> {
         let current_scope = self.current_scope();
 
-        current_scope
-            .parent_scopes
-            .iter()
+        current_scope.parent_scopes.iter()
             .filter_map(|scope_id| self.scopes.get(scope_id))
             .chain([current_scope])
+            .rev()
+    }
+
+    pub fn visible_scopes(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
+        self.raw_visible_scopes()
             .flat_map(|scope| {
                 [
+                    Some(&scope.content),
                     scope
                         .deps_scope
                         .map(|deps_scope_id| self.deps_scopes.get(&deps_scope_id).unwrap()),
-                    Some(&scope.content),
                 ]
             })
             .flatten()
-            .rev()
     }
 
     pub fn first_scope(&self) -> &Scope {
@@ -111,25 +120,29 @@ impl Context {
 
     // =============== Non-public functions =============== //
 
-    pub(crate) fn append_checker_output(&mut self, checker_output: CheckerOutput) {
-        let CheckerOutput { deps } = checker_output;        
+    pub fn append_checker_output(&mut self, checker_output: CheckerOutput) {
+        let CheckerOutput { deps, type_aliases, type_aliases_usages, type_aliases_decl } = checker_output;        
+
         self.deps.extend(deps);
+        self.type_aliases.extend(type_aliases);
+        self.type_aliases_usages.extend(type_aliases_usages);
+        self.type_aliases_decl.extend(type_aliases_decl);
     }
 
-    pub(crate) fn generate_scope_id(&mut self) -> u64 {
+    pub fn generate_scope_id(&mut self) -> u64 {
         self.scopes_id_counter += 1;
         self.scopes_id_counter
     }
 
-    pub(crate) fn set_curr_scope_range(&mut self, range: CodeRange) {
+    pub fn set_curr_scope_range(&mut self, range: CodeRange) {
         self.scopes.get_mut(&self.current_scope).unwrap().range = ScopeRange::CodeRange(range);
     }
 
-    pub(crate) fn reset_to_first_scope(&mut self) {
+    pub fn reset_to_first_scope(&mut self) {
         self.current_scope = FIRST_SCOPE_ID;
     }
 
-    pub(crate) fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
+    pub fn error(&self, at: CodeRange, content: impl Into<ExecErrorContent>) -> ExecError {
         let current_scope = self.current_scope();
 
         ExecError {
@@ -142,15 +155,15 @@ impl Context {
         }
     }
 
-    pub(crate) fn scopes(&self) -> &HashMap<u64, Scope> {
+    pub fn scopes(&self) -> &HashMap<u64, Scope> {
         &self.scopes
     }
 
-    pub(crate) fn home_dir(&self) -> Option<&PathBuf> {
+    pub fn home_dir(&self) -> Option<&PathBuf> {
         self.home_dir.as_ref()
     }
 
-    pub(crate) fn create_and_push_scope(
+    pub fn create_and_push_scope(
         &mut self,
         range: ScopeRange,
         content: ScopeContent,
@@ -173,7 +186,7 @@ impl Context {
         id
     }
 
-    pub(crate) fn create_and_push_scope_with_deps(
+    pub fn create_and_push_scope_with_deps(
         &mut self,
         range: ScopeRange,
         creation_data: DepsScopeCreationData,
@@ -187,8 +200,7 @@ impl Context {
                 let CapturedDependencies {
                     vars,
                     fns,
-                    cmd_aliases,
-                    type_aliases,
+                    cmd_aliases
                 } = captured_deps;
         
                 ScopeContent {
@@ -198,11 +210,6 @@ impl Context {
                         .collect(),
     
                     fns: fns
-                        .iter()
-                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
-                        .collect(),
-    
-                    type_aliases: type_aliases
                         .iter()
                         .map(|(dep, value)| (dep.name.clone(), value.clone()))
                         .collect(),
@@ -244,7 +251,7 @@ impl Context {
         self.push_scope(scope);
     }
 
-    pub(crate) fn push_scope(&mut self, scope: Scope) {
+    pub fn push_scope(&mut self, scope: Scope) {
         if let Some(file_id) = scope.source_file_id() {
             assert!(
                 self.files_map.has_file(file_id),
@@ -263,7 +270,7 @@ impl Context {
         self.scopes.insert(scope.id, scope);
     }
 
-    pub(crate) fn generate_parent_scopes(&self) -> IndexSet<u64> {
+    pub fn generate_parent_scopes(&self) -> IndexSet<u64> {
         let current_scope = self.current_scope();
 
         let mut parent_scopes = current_scope.parent_scopes.clone();
@@ -274,19 +281,19 @@ impl Context {
         parent_scopes
     }
 
-    pub(crate) fn current_scope(&self) -> &Scope {
+    pub fn current_scope(&self) -> &Scope {
         self.scopes.get(&self.current_scope).unwrap()
     }
 
-    pub(crate) fn current_scope_content_mut(&mut self) -> &mut ScopeContent {
+    pub fn current_scope_content_mut(&mut self) -> &mut ScopeContent {
         &mut self.scopes.get_mut(&self.current_scope).unwrap().content
     }
 
-    pub(crate) fn pop_scope(&mut self) {
+    pub fn pop_scope(&mut self) {
         self.pop_scope_and_get_deps();
     }
 
-    pub(crate) fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
+    pub fn pop_scope_and_get_deps(&mut self) -> Option<ScopeContent> {
         assert!(self.current_scope > FIRST_SCOPE_ID);
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
@@ -304,24 +311,24 @@ impl Context {
         deps_scope
     }
 
-    pub(crate) fn current_source_file(&self) -> Option<&SourceFile> {
+    pub fn current_source_file(&self) -> Option<&SourceFile> {
         self.current_scope()
             .source_file_id()
             .and_then(|file_id| self.files_map.get_file(file_id))
     }
 
-    pub(crate) fn current_file_path(&self) -> Option<&PathBuf> {
+    pub fn current_file_path(&self) -> Option<&PathBuf> {
         self.current_scope()
             .source_file_id()
             .and_then(|file_id| self.files_map.get_file_path(file_id))
     }
 
-    pub(crate) fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
+    pub fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
         self.visible_scopes()
             .find_map(|scope| scope.fns.get(&name.data))
     }
 
-    pub(crate) fn get_visible_fn_value<'s>(
+    pub fn get_visible_fn_value<'s>(
         &'s self,
         name: &Eaten<String>,
     ) -> ExecResult<&'s GcCell<RuntimeFnValue>> {
@@ -332,16 +339,21 @@ impl Context {
         Ok(&func.value)
     }
 
-    pub(crate) fn get_visible_var<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeVar> {
+    pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> Option<&'c ScopeVar> {
         self.visible_scopes()
             .find_map(|scope| scope.vars.get(&name.data))
     }
 
-    pub(crate) fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
+    pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> Option<&'c Eaten<ValueType>> {
+        let type_alias_at = self.type_aliases_usages.get(name)?;
+        
+        Some(self.type_aliases.get(type_alias_at).unwrap())
+    }
+
+    pub fn capture_deps(&self, body_content_at: CodeRange) -> CapturedDependencies {
         let mut captured_deps = CapturedDependencies {
             vars: HashMap::new(),
             fns: HashMap::new(),
-            type_aliases: HashMap::new(),
             cmd_aliases: HashMap::new(),
         };
 
@@ -405,23 +417,6 @@ impl Context {
                         .cmd_aliases
                         .insert(dep.clone(), cmd_alias.clone());
                 }
-
-                DependencyType::TypeAlias => {
-                    let type_alias = self
-                        .visible_scopes()
-                        .find_map(|scope| {
-                            scope
-                                
-                                .type_aliases
-                                .get(name)
-                                .filter(|alias| alias.name_declared_at == *declared_at)
-                        })
-                        .expect("internal error: cannot find type alias to capture (this is a bug in the checker)");
-
-                    captured_deps
-                        .type_aliases
-                        .insert(dep.clone(), type_alias.clone());
-                }
             };
         }
 
@@ -442,14 +437,14 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub(crate) fn in_file_id(&self) -> Option<FileId> {
+    pub fn in_file_id(&self) -> Option<FileId> {
         match self.range {
             ScopeRange::SourceLess => None,
             ScopeRange::CodeRange(range) => Some(range.start.file_id),
         }
     }
 
-    pub(crate) fn source_file_id(&self) -> Option<u64> {
+    pub fn source_file_id(&self) -> Option<u64> {
         match self.range {
             ScopeRange::SourceLess => None,
             ScopeRange::CodeRange(range) => match range.start.file_id {
@@ -459,14 +454,14 @@ impl Scope {
         }
     }
 
-    pub fn to_checker_scope(&self) -> CheckerScope {
+    pub fn to_checker_scope(&self, ctx: &Context) -> CheckerScope {
         let Scope { content, range, .. } = self;
 
         let ScopeContent {
             vars,
             fns,
             cmd_aliases,
-            type_aliases,
+            
         } = content;
 
         CheckerScope {
@@ -492,10 +487,10 @@ impl Scope {
                 .map(|(key, value)| (key.clone(), value.name_declared_at))
                 .collect(),
 
-            type_aliases: type_aliases
-                .iter()
-                .map(|(key, value)| (key.clone(), value.name_declared_at))
-                .collect(),
+            type_aliases: match range {
+                ScopeRange::SourceLess => Default::default(),
+                ScopeRange::CodeRange(range) => ctx.type_aliases_decl.get(range).cloned().unwrap_or_default(),
+            },
 
             fns: fns
                 .iter()
@@ -529,7 +524,6 @@ pub struct ScopeContent {
     pub vars: HashMap<String, ScopeVar>,
     pub fns: HashMap<String, ScopeFn>,
     pub cmd_aliases: HashMap<String, RuntimeCmdAlias>,
-    pub type_aliases: HashMap<String, RuntimeTypeAlias>,
 }
 
 impl ScopeContent {
@@ -538,7 +532,6 @@ impl ScopeContent {
             vars: HashMap::new(),
             fns: HashMap::new(),
             cmd_aliases: HashMap::new(),
-            type_aliases: HashMap::new(),
         }
     }
 }
@@ -568,11 +561,11 @@ pub struct CallStack {
 }
 
 impl CallStack {
-    pub(crate) fn empty() -> Self {
+    pub fn empty() -> Self {
         Self { history: vec![] }
     }
 
-    pub(crate) fn append(&mut self, entry: CallStackEntry) {
+    pub fn append(&mut self, entry: CallStackEntry) {
         self.history.push(entry);
     }
 

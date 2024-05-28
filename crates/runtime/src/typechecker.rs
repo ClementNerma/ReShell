@@ -1,6 +1,6 @@
 use reshell_parser::ast::{FnArgNames, FnSignature, SingleValueType, StructTypeMember, ValueType};
 
-use crate::{context::Context, errors::ExecResult};
+use crate::{context::Context, display::dbg_loc, errors::ExecResult};
 
 pub fn check_if_type_fits(
     value_type: &ValueType,
@@ -50,16 +50,18 @@ pub fn check_if_single_type_fits_single(
 ) -> ExecResult<bool> {
     match (value_type, into) {
         (_, SingleValueType::Any) => Ok(true),
-        (SingleValueType::Any, _) => Ok(true),
+        (SingleValueType::Any, _) => unreachable!(),
 
         (_, SingleValueType::TypeAlias(name)) => {
-            let (_, typ) = ctx
-                .visible_scopes()
-                .flat_map(|scope| scope.type_aliases.iter())
-                .find(|(typename, _)| typename == &&name.data)
-                .ok_or_else(|| ctx.error(name.at, format!("type '{}' was not found", name.data)))?;
+            let typ = ctx
+                .get_type_alias(name)
+                .unwrap_or_else(|| panic!(
+                    "type alias was not found (this is a bug in the checker)\nDetails:\n> {} (used at {})",
+                    name.data,
+                    dbg_loc(name.at, ctx.files_map()
+                )));
 
-            check_if_single_type_fits(value_type, &typ.alias_content, ctx)
+            check_if_single_type_fits(value_type, &typ.data, ctx)
         }
 
         (SingleValueType::TypeAlias(_), _) => {
