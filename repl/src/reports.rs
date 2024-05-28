@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use ariadne::{Fmt, Label, Report, ReportKind, Source};
 use parsy::{
     CodeRange, CriticalErrorMsgContent, CriticalErrorNature, FileId, ParserExpectation,
@@ -10,23 +8,33 @@ use reshell_runtime::{
     files_map::{FilesMap, ScopableFilePath, SourceFile},
 };
 
-use crate::repl::ReplError;
-
-pub struct ReplReport {
-    pub inner: Report<'static, (String, Range<usize>)>,
-    pub file: SourceFile,
-    pub display_file: String,
-    pub msg: String,
+pub enum ReportableError {
+    ParsingError(ParsingError),
+    ExecError(ExecError),
 }
 
-pub fn create_report(at: CodeRange, msg: String, files: &FilesMap) -> ReplReport {
-    match at.start.file_id {
+pub fn print_error(err: &ReportableError, files: &FilesMap) {
+    let (at, msg) = match err {
+        ReportableError::ParsingError(err) => parsing_error(err),
+
+        ReportableError::ExecError(err) => match &err.content {
+            ExecErrorContent::Str(str) => (err.at, str.to_string()),
+            ExecErrorContent::String(string) => (err.at, string.clone()),
+            ExecErrorContent::ParsingErr(err) => parsing_error(err),
+            ExecErrorContent::CommandFailed {
+                message,
+                exit_status: _,
+            } => (err.at, message.clone()),
+        },
+    };
+
+    let (source_file, offset, len, msg) = match at.start.file_id {
         FileId::None => unreachable!(),
 
         FileId::Internal => {
             let src = "<native code>";
 
-            create_report_raw(
+            (
                 SourceFile {
                     id: 0,
                     path: ScopableFilePath::InMemory("native"),
@@ -41,7 +49,7 @@ pub fn create_report(at: CodeRange, msg: String, files: &FilesMap) -> ReplReport
         FileId::SourceLess { name: _ } => {
             let src = "<source-less code>";
 
-            create_report_raw(
+            (
                 SourceFile {
                     id: 0,
                     path: ScopableFilePath::InMemory("source-less code"),
@@ -60,13 +68,11 @@ pub fn create_report(at: CodeRange, msg: String, files: &FilesMap) -> ReplReport
             let offset = file.content[..offset].chars().count();
             let len = file.content[offset..offset + at.len].chars().count();
 
-            create_report_raw(file.clone(), offset, len, msg)
+            (file.clone(), offset, len, msg)
         }
-    }
-}
+    };
 
-fn create_report_raw(file: SourceFile, offset: usize, len: usize, msg: String) -> ReplReport {
-    let display_file = match &file.path {
+    let display_file = match &source_file.path {
         ScopableFilePath::InMemory(in_mem) => format!("<{in_mem}>"),
         ScopableFilePath::RealFile(path) => path.to_string_lossy().to_string(),
     };
@@ -74,82 +80,14 @@ fn create_report_raw(file: SourceFile, offset: usize, len: usize, msg: String) -
     let inner = Report::build(ReportKind::Error, display_file.clone(), offset)
         .with_label(
             Label::new((display_file.clone(), offset..(offset + len)))
-                .with_message(msg.clone().fg(ariadne::Color::Red).to_string())
+                .with_message(msg.fg(ariadne::Color::Red).to_string())
                 .with_color(ariadne::Color::Red),
         )
         .finish();
 
-    ReplReport {
-        inner,
-        file,
-        display_file,
-        msg,
-    }
-}
-
-// pub fn report_to_str(report: ReplReport) -> String {
-//     let mut out = BufWriter::new(Vec::new());
-
-//     report
-//         .inner
-//         .write(
-//             (report.display_file, Source::from(report.file.content)),
-//             &mut out,
-//         )
-//         .unwrap();
-
-//     String::from_utf8(out.into_inner().unwrap()).unwrap()
-// }
-
-pub fn print_error_report(report: ReplReport) {
-    report
-        .inner
-        .print((report.display_file, Source::from(report.file.content)))
+    inner
+        .print((display_file, Source::from(source_file.content)))
         .unwrap();
-}
-
-pub fn repl_error_report(err: &ReplError, files: &FilesMap) -> ReplReport {
-    match err {
-        ReplError::ParsingError(err) => parsing_error_report(err, files),
-        ReplError::ExecError(err) => exec_error_report(err, files),
-    }
-}
-
-pub fn exec_error_report(err: &ExecError, files: &FilesMap) -> ReplReport {
-    match &err.content {
-        ExecErrorContent::Str(str) => create_report(err.at, str.to_string(), files),
-        ExecErrorContent::String(string) => create_report(err.at, string.clone(), files),
-        ExecErrorContent::ParsingErr(err) => parsing_error_report(err, files),
-        ExecErrorContent::CommandFailed {
-            message,
-            exit_status: _,
-        } => create_report(err.at, message.clone(), files),
-    }
-}
-
-pub fn parsing_error_report(err: &ParsingError, files: &FilesMap) -> ReplReport {
-    create_report(
-        err.inner().at(),
-        match err.critical() {
-            Some(msg) => match msg {
-                CriticalErrorNature::Direct(content) => critical_error_msg_to_str(content, err),
-                CriticalErrorNature::UnexpectedEndOfInput(content) => critical_error_msg_to_str(content, err)
-                // format!(
-                //     "unexpected end of input ({})",
-                //     critical_error_msg_to_str(content, err)
-                // ),
-            },
-            None => parser_expection_to_str(err.inner().expected()),
-        },
-        files,
-    )
-}
-
-fn critical_error_msg_to_str(content: &CriticalErrorMsgContent, err: &ParsingError) -> String {
-    match content {
-        CriticalErrorMsgContent::Inherit => parser_expection_to_str(err.inner().expected()),
-        CriticalErrorMsgContent::Custom(msg) => msg.to_string(),
-    }
 }
 
 fn parser_expection_to_str(err: &ParserExpectation) -> String {
@@ -161,4 +99,24 @@ fn parser_expection_to_str(err: &ParserExpectation) -> String {
             "Break (todo: move this not an error but something else)".to_string()
         }
     }
+}
+
+fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
+    let msg = match err.critical() {
+        Some(nature) => {
+            let content = match nature {
+                CriticalErrorNature::Direct(content) => content,
+                CriticalErrorNature::UnexpectedEndOfInput(content) => content,
+            };
+
+            match content {
+                CriticalErrorMsgContent::Inherit => parser_expection_to_str(err.inner().expected()),
+                CriticalErrorMsgContent::Custom(msg) => msg.to_string(),
+            }
+        }
+
+        None => parser_expection_to_str(err.inner().expected()),
+    };
+
+    (err.inner().at(), msg)
 }

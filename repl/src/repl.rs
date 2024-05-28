@@ -1,10 +1,10 @@
 use std::time::Instant;
 
-use parsy::{FileId, Parser, ParsingError};
+use parsy::{FileId, Parser};
 use reedline::{Reedline, Signal};
 use reshell_parser::ast::Program;
 use reshell_runtime::{
-    errors::{ExecError, ExecErrorContent, ExecResult},
+    errors::{ExecErrorContent, ExecResult},
     exec::run_in_existing_scope,
     files_map::ScopableFilePath,
     native_lib::{render_prompt, LastCmdStatus, PromptRendering},
@@ -13,7 +13,7 @@ use reshell_runtime::{
 use crate::{
     completer, edit_mode, highlighter, hinter, history,
     prompt::Prompt,
-    reports,
+    reports::{self, ReportableError},
     state::{with_writable_rt_ctx, RUNTIME_CONTEXT},
 };
 
@@ -42,11 +42,10 @@ pub fn start() {
         let prompt_rendering = match repl_try_render_prompt(last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
-                reports::print_error_report(reports::exec_error_report(
-                    &err,
+                reports::print_error(
+                    &ReportableError::ExecError(err),
                     RUNTIME_CONTEXT.read().unwrap().files_map(),
-                ));
-
+                );
                 PromptRendering::default()
             }
         };
@@ -75,8 +74,8 @@ pub fn start() {
             success: ret.is_ok(),
             duration_ms: start.elapsed().as_millis(),
             exit_code: ret.as_ref().err().and_then(|err| match err {
-                ReplError::ParsingError(_) => None,
-                ReplError::ExecError(err) => match err.content {
+                ReportableError::ParsingError(_) => None,
+                ReportableError::ExecError(err) => match err.content {
                     ExecErrorContent::Str(_) => None,
                     ExecErrorContent::String(_) => None,
                     ExecErrorContent::ParsingErr(_) => None,
@@ -89,10 +88,7 @@ pub fn start() {
         });
 
         if let Err(err) = ret {
-            reports::print_error_report(reports::repl_error_report(
-                &err,
-                RUNTIME_CONTEXT.read().unwrap().files_map(),
-            ));
+            reports::print_error(&err, RUNTIME_CONTEXT.read().unwrap().files_map());
         }
     }
 }
@@ -103,17 +99,12 @@ fn repl_try_render_prompt(
     render_prompt(&mut RUNTIME_CONTEXT.write().unwrap(), last_cmd_status)
 }
 
-pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), ReplError> {
+pub fn eval(input: &str, parser: &impl Parser<Program>) -> Result<(), ReportableError> {
     let ctx = &mut RUNTIME_CONTEXT.write().unwrap();
 
     let parsed = parser
         .parse_str_as_file(input, FileId::Id(ctx.current_scope().in_file_id))
-        .map_err(ReplError::ParsingError)?;
+        .map_err(ReportableError::ParsingError)?;
 
-    run_in_existing_scope(&parsed.data, ctx).map_err(ReplError::ExecError)
-}
-
-pub enum ReplError {
-    ParsingError(ParsingError),
-    ExecError(ExecError),
+    run_in_existing_scope(&parsed.data, ctx).map_err(ReportableError::ExecError)
 }
