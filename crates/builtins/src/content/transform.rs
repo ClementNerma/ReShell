@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         transform_fn: RequiredArg<TypedFunctionType> = transform_fn_type()
     )
 
-    -> Some(UntypedListType::direct_underlying_type())
+    -> Some(AnyType::direct_underlying_type())
 );
 
 fn transform_fn_type() -> RequiredArg<TypedFunctionType> {
