@@ -33,7 +33,7 @@ impl State {
     }
 
     pub fn push_scope(&mut self, scope: CheckerScope) {
-        assert!(scope.fn_args_at.is_none() || scope.deps);
+        assert!(scope.deps || !matches!(scope.typ, Some(ScopeType::Function { args_at: _ })));
 
         self.scopes.push(scope);
     }
@@ -48,6 +48,10 @@ impl State {
 
     pub fn curr_scope_mut(&mut self) -> &mut CheckerScope {
         self.scopes.last_mut().unwrap()
+    }
+
+    pub fn curr_scope_type(&self) -> Option<ScopeType> {
+        self.scopes.iter().rev().find_map(|scope| scope.typ)
     }
 
     fn current_deps_scope(&self) -> Option<&CheckerScope> {
@@ -72,28 +76,34 @@ impl State {
         &mut self,
         item: &Eaten<String>,
         dep_type: DependencyType,
-    ) -> CheckerResult {
-        self.register_usage_and_get(item, dep_type).map(|_| ())
-    }
-
-    pub fn register_usage_and_get(
-        &mut self,
-        item: &Eaten<String>,
-        dep_type: DependencyType,
-    ) -> CheckerResult {
-        let declared_at = self
+    ) -> CheckerResult<FetchedDependency> {
+        let dep = self
             .scopes
             .iter()
             .rev()
             .find_map(|scope| match dep_type {
-                DependencyType::Variable => scope.vars.get(&item.data).map(|var| var.name_at),
-                DependencyType::Function => scope.fns.get(&item.data).copied(),
-                DependencyType::CmdAlias => scope.cmd_aliases.get(&item.data).copied(),
+                DependencyType::Variable => scope
+                    .vars
+                    .get(&item.data)
+                    .map(|var| FetchedDependency::new(var.name_at, true)),
+                DependencyType::Function => scope
+                    .fns
+                    .get(&item.data)
+                    .map(|func_at| FetchedDependency::new(*func_at, false)),
+                DependencyType::CmdAlias => scope
+                    .cmd_aliases
+                    .get(&item.data)
+                    .map(|alias_at| FetchedDependency::new(*alias_at, false)),
             })
             .ok_or_else(|| CheckerError::new(item.at, format!("{dep_type} was not found")))?;
 
+        let FetchedDependency {
+            declared_at,
+            is_mut: _,
+        } = dep;
+
         if matches!(declared_at.start.file_id, FileId::Internal) {
-            return Ok(());
+            return Ok(dep);
         }
 
         if let Some(deps_scope) = self.current_deps_scope() {
@@ -108,11 +118,11 @@ impl State {
                 })?;
 
             if var_declared_in_deps_scope {
-                return Ok(());
+                return Ok(dep);
             }
 
-            if let Some(fn_args_at) = deps_scope.fn_args_at {
-                let var_declared_in_fn_args = fn_args_at
+            if let Some(ScopeType::Function { args_at }) = deps_scope.typ {
+                let var_declared_in_fn_args = args_at
                 .contains(declared_at)
                 .map_err(|err| {
                     CheckerError::new(
@@ -122,7 +132,7 @@ impl State {
                 })?;
 
                 if var_declared_in_fn_args {
-                    return Ok(());
+                    return Ok(dep);
                 }
             }
 
@@ -139,7 +149,7 @@ impl State {
                 });
         }
 
-        Ok(())
+        Ok(dep)
     }
 
     pub fn register_type_alias_usage(&mut self, name: &Eaten<String>) -> CheckerResult {
@@ -172,11 +182,17 @@ impl State {
 pub struct CheckerScope {
     pub deps: bool,
     pub code_range: CodeRange,
-    pub fn_args_at: Option<CodeRange>,
+    pub typ: Option<ScopeType>,
     pub vars: HashMap<String, DeclaredVar>,
     pub fns: HashMap<String, CodeRange>,
     pub cmd_aliases: HashMap<String, CodeRange>,
     pub type_aliases: HashMap<String, CodeRange>,
+}
+
+#[derive(Clone, Copy)]
+pub enum ScopeType {
+    Function { args_at: CodeRange },
+    Loop,
 }
 
 #[derive(Clone, Copy)]
@@ -205,6 +221,20 @@ impl std::fmt::Display for DependencyType {
             DependencyType::Variable => write!(f, "variable"),
             DependencyType::Function => write!(f, "function"),
             DependencyType::CmdAlias => write!(f, "command alias"),
+        }
+    }
+}
+
+pub struct FetchedDependency {
+    pub declared_at: CodeRange,
+    pub is_mut: bool,
+}
+
+impl FetchedDependency {
+    fn new(declared_at: CodeRange, is_mut: bool) -> Self {
+        Self {
+            declared_at,
+            is_mut,
         }
     }
 }
