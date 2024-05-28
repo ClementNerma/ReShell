@@ -108,17 +108,22 @@ fn segmentize(input: &str) -> Vec<Segment> {
     for one_match in VAR_IN_PATH_REGEX.captures_iter(input) {
         let extract = one_match.get(0).unwrap();
 
-        let escape = input[..extract.start()]
-            .chars()
-            .rev()
-            .filter(|c| *c == '\\')
-            .count();
+        let mut backslashes = 0;
 
-        if extract.start() > last_offset || escape % 2 != 0 {
-            out.push(Segment::Raw(&input[last_offset..extract.start()]));
+        for c in input[..extract.start()].chars().rev() {
+            if c == '\\' {
+                backslashes += 1;
+            } else {
+                break;
+            }
         }
 
-        out.push(Segment::VarName(one_match.get(1).unwrap().as_str()));
+        out.push(if extract.start() > last_offset || backslashes % 2 != 0 {
+            Segment::Raw(&input[last_offset..extract.end()])
+        } else {
+            Segment::VarName(one_match.get(1).unwrap().as_str())
+        });
+
         last_offset = extract.end();
     }
 
