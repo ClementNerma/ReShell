@@ -1,5 +1,7 @@
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
+    rc::Rc,
     sync::LazyLock,
 };
 
@@ -38,6 +40,8 @@ pub fn program(
     .repeated();
 
     let msnl = silent_choice((comment, filter(|c| c.is_whitespace()))).repeated();
+
+    let block_id = Rc::new(RefCell::new(0));
 
     let raw_block = recursive::<Block, _>(move |raw_block| {
         let s = whitespaces().no_newline().at_least_one();
@@ -1263,10 +1267,20 @@ pub fn program(
         );
 
         // Raw block
+        let block_id = Rc::clone(&block_id);
+
         instr
             .padded_by(msnl)
             .repeated_vec()
-            .map(|instructions| Block { instructions })
+            .map(move |instructions| {
+                let mut id = block_id.borrow_mut();
+                *id += 1;
+
+                Block {
+                    id: *id,
+                    instructions,
+                }
+            })
     });
 
     program.finish(
