@@ -112,21 +112,29 @@ pub fn program() -> impl Parser<Program> {
             ident.clone().spanned().map(SingleValueType::TypeAlias),
         ));
 
-        value_type.finish(
+        value_type.finish(choice((
+            // Single type
             single_value_type
                 .clone()
                 .spanned()
                 .map(MaybeEaten::Eaten)
-                .separated_by(char('|').padded())
-                .at_least(1)
-                .map(|mut types| {
-                    if types.len() > 1 {
-                        ValueType::Union(types)
-                    } else {
-                        ValueType::Single(types.remove(0))
-                    }
-                }),
-        );
+                .map(ValueType::Single),
+            // Type union
+            char('(')
+                .ignore_then(msnl)
+                .ignore_then(
+                    single_value_type
+                        .clone()
+                        .spanned()
+                        .map(MaybeEaten::Eaten)
+                        .separated_by(char('|').padded())
+                        .at_least(2)
+                        .critical("expected at least 2 types in union"),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char(')').critical("expected a closing parenthesis for type union"))
+                .map(ValueType::Union),
+        )));
 
         let fn_arg_long_flag = just("--")
             .ignore_then(
@@ -366,7 +374,13 @@ pub fn program() -> impl Parser<Program> {
                 .map(Value::FnAsValue),
             // Closures
             char('|')
-                .ignore_then(fn_arg.clone().separated_by(char(',').padded()).spanned())
+                .ignore_then(
+                    fn_arg
+                        .clone()
+                        .separated_by(char(',').padded())
+                        .spanned()
+                        .debug(simple_debug),
+                )
                 .then_ignore(char('|').critical("unclosed function arguments list"))
                 .then_ignore(ms)
                 .then(
@@ -1044,6 +1058,7 @@ pub fn program() -> impl Parser<Program> {
         .map(|content| Program { content })
 }
 
-// fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
-//     println!("{d:#?}");
-// }
+#[allow(dead_code)]
+fn simple_debug<T: std::fmt::Debug>(d: parsy::chainings::DebugType<'_, '_, T>) {
+    println!("{d:#?}");
+}
