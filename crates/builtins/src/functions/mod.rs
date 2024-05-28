@@ -8,8 +8,7 @@ mod ask;
 mod basename;
 mod canonicalize;
 mod cd;
-mod cmd_basic_arg;
-mod cmd_flag_arg;
+mod cmd_args;
 mod current_dir;
 mod current_script_path;
 mod dbg;
@@ -63,8 +62,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::basename::build_fn(),
         self::canonicalize::build_fn(),
         self::cd::build_fn(),
-        self::cmd_basic_arg::build_fn(),
-        self::cmd_flag_arg::build_fn(),
+        self::cmd_args::build_fn(),
         self::current_dir::build_fn(),
         self::current_script_path::build_fn(),
         self::dbg::build_fn(),
