@@ -30,7 +30,7 @@ pub fn render_prompt(
         .unwrap()
         .clone();
 
-    let prompt_var_value = prompt_var.value.read();
+    let prompt_var_value = prompt_var.value.read(prompt_var.name_at);
     let prompt_var_value = prompt_var_value.as_ref().unwrap();
 
     if matches!(prompt_var_value.value, RuntimeValue::Null) {
@@ -136,7 +136,7 @@ pub fn render_prompt(
             let mut out = PromptRendering::default();
 
             $(
-                out.$ident = match $from.read().get(stringify!($ident)) {
+                out.$ident = match $from.read($from_at).get(stringify!($ident)) {
                     None => return Err(ctx.error(
                         $from_at,
                         format!("missing option {} for prompt generation", stringify!($ident))

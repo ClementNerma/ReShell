@@ -264,10 +264,12 @@ impl CompletionDataScope {
                 .map(|(name, var)| {
                     (
                         name.clone(),
-                        var.value.read().as_ref().map(|loc_val| {
-                            loc_val
-                                .value
-                                .render_colored(ctx, PrettyPrintOptions::inline())
+                        var.value.with_ref(|value| {
+                            value.as_ref().map(|loc_val| {
+                                loc_val
+                                    .value
+                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                            })
                         }),
                     )
                 })

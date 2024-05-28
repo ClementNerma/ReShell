@@ -53,7 +53,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
                     };
 
-                    let mut list = list.write();
+                    let mut list = list.write(key_expr.at, ctx)?;
 
                     match list.get_mut(index) {
                         Some(value) => match next_acc {
@@ -93,16 +93,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                         }
                     };
 
-                    // TODO: HACK: find a more proper way to to that
-                    // Basically when creating a new property in a map the cell is initialized at 'null'
-                    // even if the assignment fails
-                    if policy == PropAccessPolicy::TrailingAccessMayNotExist
-                        && !map.read().contains_key(&key)
-                    {
-                        map.write().insert(key.clone(), RuntimeValue::Null);
-                    }
-
-                    let mut map = map.write();
+                    let mut map = map.write(key_expr.at, ctx)?;
 
                     match map.entry(key.clone()) {
                         Entry::Occupied(mut entry) => match next_acc {
@@ -156,7 +147,7 @@ pub fn eval_props_access<'ast, 'c, T>(
 
             PropAccessNature::Prop(prop) => match left {
                 RuntimeValue::Struct(content) => {
-                    let mut map = content.write();
+                    let mut map = content.write(prop.at, ctx)?;
 
                     match map.get_mut(&prop.data) {
                         Some(value) => match next_acc {
