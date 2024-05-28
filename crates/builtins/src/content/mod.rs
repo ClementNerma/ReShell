@@ -78,6 +78,7 @@ use reshell_runtime::values::RuntimeValue;
 use crate::{
     builder::{BuiltinVar, NativeLibDefinition, NativeLibParams},
     compat::PATH_VAR_SEP,
+    on_dir_jump::ON_DIR_JUMP_VAR_NAME,
     prompt::GEN_PROMPT_VAR_NAME,
 };
 
@@ -161,6 +162,12 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
             // Prompt generation variable
             BuiltinVar {
                 name: GEN_PROMPT_VAR_NAME,
+                is_mut: true,
+                init_value: RuntimeValue::Null,
+            },
+            // Directory jump listener
+            BuiltinVar {
+                name: ON_DIR_JUMP_VAR_NAME,
                 is_mut: true,
                 init_value: RuntimeValue::Null,
             },

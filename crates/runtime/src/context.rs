@@ -33,14 +33,9 @@ pub static FIRST_SCOPE_ID: u64 = 1;
 /// It contains runtime configuration as well as real-time runtime data
 /// It is designed to be reusable in order to run multiple programs in the same base scope
 /// (e.g. REPL scenario)
-#[derive(Debug)]
 pub struct Context {
-    /// Runtime configuration
-    conf: RuntimeConf,
-
-    /// Function to check if Ctrl+C was pressed
-    /// Indicator must be reset before the boolean is actually returned
-    take_ctrl_c_indicator: fn() -> bool,
+    /// Context configuration
+    conf: ContextCreationParams,
 
     /// Auto-incremented scopes ID counter
     /// When a counter is created, this is increased and assigned to the new scope
@@ -63,13 +58,6 @@ pub struct Context {
     /// ID of the current program's main scope
     program_main_scope: Option<u64>,
 
-    /// Map of all files, used for reporting
-    files_map: FilesMap,
-
-    /// Path to the current user's home directory
-    /// Used for tilde '~' expansion
-    home_dir: Option<PathBuf>,
-
     /// Data collected from the checker
     /// Whenever a new program is run, the new program's data is merged with the existing one
     collected: CheckerOutput,
@@ -89,13 +77,7 @@ pub struct Context {
 impl Context {
     /// Create a new context (runtime state)
     /// The native library's content can be generated using the dedicated crate
-    pub fn new(
-        conf: RuntimeConf,
-        files_map: FilesMap,
-        native_lib_content: ScopeContent,
-        take_ctrl_c_indicator: fn() -> bool,
-        home_dir: Option<PathBuf>,
-    ) -> Self {
+    pub fn new(conf: ContextCreationParams, native_lib_content: ScopeContent) -> Self {
         let scopes_to_add = [
             Scope {
                 id: NATIVE_LIB_SCOPE_ID,
@@ -129,12 +111,9 @@ impl Context {
             deps_scopes: HashMap::new(),
             current_scope: FIRST_SCOPE_ID,
             program_main_scope: None,
-            files_map,
-            home_dir,
             collected: CheckerOutput::empty(),
             wandering_value: None,
             long_flags_var_name: HashMap::new(),
-            take_ctrl_c_indicator,
             conf,
         }
     }
@@ -146,19 +125,19 @@ impl Context {
     }
 
     /// Get the runtime configuration
-    pub fn conf(&self) -> &RuntimeConf {
-        &self.conf
+    pub fn runtime_conf(&self) -> &RuntimeConf {
+        &self.conf.runtime_conf
     }
 
     /// (Semi-Private) Clear Ctrl+C press indicator
     pub(crate) fn reset_ctrl_c_press_indicator(&self) {
-        (self.take_ctrl_c_indicator)();
+        (self.conf.take_ctrl_c_indicator)();
     }
 
     /// (Semi-Private) Ensure Ctrl+C was not pressed
     /// Otherwise, return a Ctrl+C error
     pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
-        if (self.take_ctrl_c_indicator)() {
+        if (self.conf.take_ctrl_c_indicator)() {
             Err(self.error(at.into(), ExecErrorNature::CtrlC))
         } else {
             Ok(())
@@ -168,12 +147,12 @@ impl Context {
     /// Get path of the current user's home directory
     /// Used for tilde '~' expansion
     pub fn home_dir(&self) -> Option<&PathBuf> {
-        self.home_dir.as_ref()
+        self.conf.home_dir.as_ref()
     }
 
     /// Get read-only view of the files map
     pub fn files_map(&self) -> &FilesMap {
-        &self.files_map
+        &self.conf.files_map
     }
 
     /// Get the current program's main scope ID
@@ -433,15 +412,15 @@ impl Context {
     pub fn push_scope(&mut self, scope: Scope) {
         if let Some(file_id) = scope.source_file_id() {
             assert!(
-                self.files_map.get_file(file_id).is_some(),
+                self.conf.files_map.get_file(file_id).is_some(),
                 "Provided scope is associated to an unregistered file"
             );
         }
 
-        if scope.call_stack.history.len() > self.conf.call_stack_limit {
+        if scope.call_stack.history.len() > self.conf.runtime_conf.call_stack_limit {
             panic!(
                 "Maximum call stack size ({}) exceeded",
-                self.conf.call_stack_limit
+                self.conf.runtime_conf.call_stack_limit
             );
         }
 
@@ -653,7 +632,7 @@ impl Context {
                             body_content_at,
                             format!(
                                 "cannot find variable to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(*declared_at, &self.files_map)
+                                dbg_loc(*declared_at, &self.conf.files_map)
                             )
                         ));
 
@@ -676,7 +655,7 @@ impl Context {
                             body_content_at,
                             format!(
                                 "cannot find function to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(*declared_at, &self.files_map)
+                                dbg_loc(*declared_at, &self.conf.files_map)
                             )
                         ));
 
@@ -696,7 +675,7 @@ impl Context {
                             body_content_at,
                             format!(
                                 "cannot find command alias to capture (= bug in checker) '{name}' (declared at {})",
-                                dbg_loc(*declared_at, &self.files_map)
+                                dbg_loc(*declared_at, &self.conf.files_map)
                             )
                         ));
 
@@ -708,6 +687,11 @@ impl Context {
         }
 
         captured_deps
+    }
+
+    /// Trigger a directory jump event
+    pub fn trigger_directory_jump_event(&mut self, at: RuntimeCodeRange) -> ExecResult<()> {
+        (self.conf.on_dir_jump)(self, at)
     }
 
     /// Set the wandering value
@@ -759,6 +743,26 @@ pub struct Scope {
 
     /// Entire call stack
     pub call_stack: CallStack,
+}
+
+/// Context creation parameters
+pub struct ContextCreationParams {
+    /// Runtime configuration
+    pub runtime_conf: RuntimeConf,
+
+    /// Function to check if Ctrl+C was pressed
+    /// Indicator must be reset before the boolean is actually returned
+    pub take_ctrl_c_indicator: fn() -> bool,
+
+    /// Callback triggered when the current directory is changed by the shell
+    pub on_dir_jump: fn(&mut Context, RuntimeCodeRange) -> ExecResult<()>,
+
+    /// Map of all files, used for reporting
+    pub files_map: FilesMap,
+
+    /// Path to the current user's home directory
+    /// Used for tilde '~' expansion
+    pub home_dir: Option<PathBuf>,
 }
 
 impl Scope {
@@ -895,28 +899,22 @@ impl ComputableSize for Context {
     fn compute_heap_size(&self) -> usize {
         let Self {
             conf,
-            take_ctrl_c_indicator,
             scopes_id_counter,
             scopes,
             deps_scopes,
             current_scope,
             program_main_scope,
-            files_map,
-            home_dir,
             collected,
             long_flags_var_name,
             wandering_value,
         } = self;
 
         conf.compute_heap_size()
-            + std::mem::size_of_val::<fn() -> bool>(take_ctrl_c_indicator)
             + scopes_id_counter.compute_heap_size()
             + scopes.compute_heap_size()
             + deps_scopes.compute_heap_size()
             + current_scope.compute_heap_size()
             + program_main_scope.compute_heap_size()
-            + files_map.compute_heap_size()
-            + home_dir.compute_heap_size()
             + collected.compute_heap_size()
             + long_flags_var_name.compute_heap_size()
             + wandering_value.compute_heap_size()

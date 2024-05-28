@@ -41,7 +41,7 @@ pub fn start(
 
     // Create a line editor
     let line_editor = Reedline::create()
-        .with_history(history::create_history(ctx.conf()))
+        .with_history(history::create_history(ctx.runtime_conf()))
         .with_menu(history::create_history_menu())
         .with_highlighter(highlighter::create_highlighter())
         .with_hinter(hinter::create_hinter())

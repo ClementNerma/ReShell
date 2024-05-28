@@ -10,9 +10,12 @@ use clap::Parser as _;
 use colored::Colorize;
 use parsy::FileId;
 use reshell_builtins::builder::{build_native_lib_content, NativeLibParams};
+use reshell_builtins::on_dir_jump::trigger_directory_jump_event;
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_parser::files::{FilesMap, SourceFileLocation};
 use reshell_parser::program;
-use reshell_runtime::errors::ExecErrorNature;
+use reshell_runtime::context::ContextCreationParams;
+use reshell_runtime::errors::{ExecErrorNature, ExecResult};
 use reshell_runtime::{conf::RuntimeConf, context::Context};
 
 use self::cmd::Args;
@@ -119,14 +122,17 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     }
 
     let mut ctx = Context::new(
-        // TODO: allow to configure through CLI
-        RuntimeConf::default(),
-        files_map.clone(),
+        ContextCreationParams {
+            // TODO: allow to configure through CLI
+            runtime_conf: RuntimeConf::default(),
+            files_map: files_map.clone(),
+            take_ctrl_c_indicator: take_pending_ctrl_c_request,
+            home_dir: HOME_DIR.clone(),
+            on_dir_jump,
+        },
         build_native_lib_content(NativeLibParams {
             home_dir: HOME_DIR.clone(),
         }),
-        take_pending_ctrl_c_request,
-        HOME_DIR.clone(),
     );
 
     let parser = program(move |path, relative| files_map.load_file(&path, relative));
@@ -252,4 +258,15 @@ pub fn loose_exit_code(code: Option<i32>) -> ExitCode {
         },
         None => ExitCode::FAILURE,
     }
+}
+
+fn on_dir_jump(ctx: &mut Context, at: RuntimeCodeRange) -> ExecResult<()> {
+    let current_dir = std::env::current_dir().map_err(|err| {
+        ctx.error(
+            at,
+            format!("failed to get path to new current directory: {err}"),
+        )
+    })?;
+
+    trigger_directory_jump_event(ctx, &current_dir)
 }
