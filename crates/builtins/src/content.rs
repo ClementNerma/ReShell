@@ -499,7 +499,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                                 ctx
                             )?;
 
-                            expect_returned_value(ret, mapper_at, AnyType::new_direct(), ctx)
+                            Ok(expect_returned_value(ret, mapper_at, AnyType::new_direct(), ctx))
                         })
                         .collect::<Result<_, _>>()?;
 
@@ -542,7 +542,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                             ctx
                         )?;
 
-                        let keep = expect_returned_value(ret, filter_at, BoolType::new_direct(), ctx)?;
+                        let keep = expect_returned_value(ret, filter_at, BoolType::new_direct(), ctx);
 
                         if keep {
                             filtered.push(value.clone());

@@ -407,14 +407,16 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         Value::Closure(Function { signature, body }) => Ok(RuntimeValue::Function(
             GcReadOnlyCell::new(RuntimeFnValue {
                 signature: RuntimeFnSignature::Shared(
-                    ctx.get_fn_signature(signature)
-                        .expect("internal error: unregistered function signature"),
+                    ctx.get_fn_signature(signature).unwrap_or_else(|| {
+                        ctx.panic(signature.at, "unregistered function signature")
+                    }),
                 ),
 
                 body: RuntimeFnBody::Block(
                     ctx.get_fn_body(body)
-                        .expect("internal error: unregistered function body"),
+                        .unwrap_or_else(|| ctx.panic(body.at, "unregistered function body")),
                 ),
+
                 parent_scopes: ctx.generate_parent_scopes_list(),
                 captured_deps: ctx.capture_deps(body.data.code_range),
             }),

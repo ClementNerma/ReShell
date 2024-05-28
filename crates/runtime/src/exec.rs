@@ -45,9 +45,10 @@ pub fn run_program(
 
     let result = run_block_in_current_scope(&content.data, ctx).map(|result| match result {
         None => (),
-        Some(_) => {
-            unreachable!("internal error: this instruction shouldn't have been allowed to run here")
-        }
+        Some(_) => ctx.panic(
+            program.content.at,
+            "this instruction shouldn't have been allowed to run here",
+        ),
     });
 
     assert_eq!(ctx.current_scope().id, FIRST_SCOPE_ID);
@@ -157,8 +158,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             list_push,
             expr,
         } => {
-            // We can expect() thanks to the checker
-            let var = ctx.get_visible_var(name).cloned().unwrap_or_else(|| panic!("internal error: variable not alive (this is a bug either in the checker or in the garbage collector)\nDebug infos:\n> {name:?}"));
+            let var = ctx.get_visible_var(name).cloned().unwrap_or_else(|| ctx.panic(name.at, format!("variable not alive (this is a bug either in the checker or in the garbage collector): {name:?}")));
 
             // Same goes here
             assert!(var.is_mut);
@@ -483,11 +483,11 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let body = ctx
                 .get_fn_body(&content.body)
-                .expect("internal error: unregistered function body");
+                .unwrap_or_else(|| ctx.panic(content.body.at, "unregistered function body"));
 
-            let signature = ctx
-                .get_fn_signature(&content.signature)
-                .expect("internal error: unregistered function signature");
+            let signature = ctx.get_fn_signature(&content.signature).unwrap_or_else(|| {
+                ctx.panic(content.signature.at, "unregistered function signature")
+            });
 
             let fns = &mut ctx.current_scope_content_mut().fns;
 
@@ -567,7 +567,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let alias_content = ctx
                 .get_cmd_alias_content(content)
-                .expect("internal error: unregistered command alias");
+                .unwrap_or_else(|| ctx.panic(content.at, "unregistered command alias content"));
 
             let cmd_aliases = &mut ctx.current_scope_content_mut().cmd_aliases;
 

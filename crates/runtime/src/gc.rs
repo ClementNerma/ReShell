@@ -34,13 +34,14 @@ impl<T> GcCell<T> {
 
     pub fn write(&self, at: impl Into<RuntimeCodeRange>, ctx: &Context) -> ExecResult<RefMut<T>> {
         self.value.try_borrow_mut().map_err(|_| {
-            let borrowed_at = self
-                .read_lock
-                .borrow()
-                .expect("internal error: read lock is not available in GC cell");
+            let at = at.into();
+
+            let borrowed_at = self.read_lock.borrow().unwrap_or_else(|| {
+                ctx.panic(at, "write lock is not available in garbabe collector cell")
+            });
 
             ctx.error(
-                at.into(),
+                at,
                 format!(
                     "Failed to write as parent value is currently borrowed from {}",
                     dbg_loc(borrowed_at, ctx.files_map()).bright_magenta()
