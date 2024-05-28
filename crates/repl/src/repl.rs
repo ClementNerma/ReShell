@@ -108,9 +108,7 @@ pub fn start(
         let signal = loop {
             // If the thread is done, get the result
             if child.is_finished() {
-                break child
-                    .join()
-                    .map_err(|err| format!("Line reading thread panicked: {err:?}"))?;
+                break child.join().map_err(|_| "Line reading thread panicked!")?;
             }
 
             // Otherwise, check if a completion request has been sent

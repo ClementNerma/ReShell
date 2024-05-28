@@ -23,12 +23,12 @@ impl RlHighlighter for Highlighter {
 
 static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     /// Create a simple rule's inner content
-    fn simple_rule(regex: &'static str, colors: impl AsRef<[Color]>) -> SimpleRule {
-        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, followed_by: None, style: colors.as_ref().iter().map(|color| Style::new().fg(*color)).collect() }
+    fn simple_rule<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>) -> SimpleRule {
+        SimpleRule { matches: Regex::new(regex).unwrap(), inside: None, followed_by: None, style: colors.as_ref().iter().copied().map(S::into).collect() }
     }
 
     /// Create a simple rule
-    fn simple(regex: &'static str, colors: impl AsRef<[Color]>) -> Rule {
+    fn simple<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>) -> Rule {
         Rule::Simple(simple_rule(regex, colors))
     }
 
@@ -40,7 +40,7 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     // }
 
     /// Create a simple rule that must be followed by a specific nesting type
-    fn simple_followed_by(regex: &'static str, colors: impl AsRef<[Color]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
+    fn simple_followed_by<S: Into<Style> + Copy>(regex: &'static str, colors: impl AsRef<[S]>, followed_by: impl Into<HashSet<NestingOpeningType>>) -> Rule {
         let mut rule = simple_rule(regex, colors);
         rule.followed_by = Some(followed_by.into());
         Rule::Simple(rule)
@@ -59,6 +59,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
     
     // Import all available colors for ease of use
     use Color::*;
+
+    // Match remaining invalid characters
+    let invalid_chars = simple("([^\\s]+)", [Style::new().fg(White).on(Red)]);
 
     // Build the rule set
     let rule_set = RuleSet {
@@ -102,8 +105,8 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Argument names and structure keys
                 simple("\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*([:=])[^/\\\\]", [Red, LightYellow]),
                 
-                // Commands
-                include_group("commands")
+                // Commands (contains invalid characters as well)
+                include_group("commands"),
             ]),
             ("commands", vec![
                 // Command names
@@ -134,6 +137,9 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
                 // Raw arguments
                 simple("([^\\s\\(\\)\\[\\]\\{\\}<>=;\\!\\?\\&\\|'\"\\$]+)", [Green]),
+
+                // Invalid characters
+                invalid_chars.clone()
             ]),
             ("strings", vec![
                 // Escaped characters
@@ -164,6 +170,12 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
                 // Variables
                 simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
 
+                // Method calls
+                simple_followed_by("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Blue], [NestingOpeningType::ExprWithParen]),
+
+                // Struct member access
+                simple("(\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
+
                 // Functions as values
                 simple("(\\@(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Magenta]),
 
@@ -175,6 +187,12 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
                 // Flags
                 simple("(?:[\\(,\\s])(-[a-zA-Z0-9_-]*)(?:$|[,\\s\\)])", [LightYellow]),
+
+                // Argument names (by elimination we have reached them)
+                simple("(?:^|[\\|,]\\s*)([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s*[:,\\|]|$)", [Red]),
+
+                // Invalid characters
+                invalid_chars.clone()
             ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
@@ -235,7 +253,11 @@ static RULE_SET: LazyCell<Arc<ValidatedRuleSet>> = LazyCell::new(|| {
 
         closing_without_opening_style: Style::new().fg(White).on(Red),
 
-        unclosed_style: Style::new().fg(White).on(Red)
+        unclosed_style: Style::new().fg(White).on(Red),
+
+        // unmatched: vec![
+        //     simple("([^\\s]+)", [Style::new().fg(Color::White).on(Color::Red)])
+        // ]
     };
 
     Arc::new(ValidatedRuleSet::validate(rule_set).unwrap())
@@ -252,6 +274,8 @@ fn highlight(input: &str) -> StyledText {
             input[start..start + len].to_owned(),
         ));
     }
+
+
 
     out
 }
