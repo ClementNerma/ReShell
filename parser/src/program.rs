@@ -80,7 +80,9 @@ pub fn program() -> impl Parser<Program> {
             just("struct")
                 .not_followed_by(possible_ident_char.clone())
                 .to(SingleValueType::UntypedStruct),
-            fn_signature.clone().map(SingleValueType::Function),
+            just("fn")
+                .ignore_then(fn_signature.clone())
+                .map(SingleValueType::Function),
             ident.clone().spanned().map(SingleValueType::TypeAlias),
             ms.ignore_then(char('{'))
                 .ignore_then(msnl)
