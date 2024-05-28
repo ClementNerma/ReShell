@@ -63,12 +63,10 @@ pub fn call_fn(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<FnCallResu
 
 pub fn call_fn_value(
     call_at: CodeRange,
-    func: &GcCell<RuntimeFnValue>,
+    func: &RuntimeFnValue,
     call_args: FnPossibleCallArgs,
     ctx: &mut Context,
 ) -> ExecResult<FnCallResult> {
-    let func = func.read();
-
     let call_args = parse_fn_call_args(call_at, call_args, &func.signature.args.data, ctx)?;
 
     let returned = match &func.body {

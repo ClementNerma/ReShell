@@ -11,7 +11,7 @@ use crate::{
     display::value_to_str,
     errors::{ExecErrorContent, ExecResult},
     functions::{call_fn, fail_if_thrown},
-    gc::GcCell,
+    gc::{GcCell, GcReadOnlyCell},
     pretty::{PrettyPrintOptions, PrettyPrintable},
     props::{eval_props_access, PropAccessPolicy},
     values::{are_values_equal, NotComparableTypes, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
@@ -353,13 +353,15 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
             },
         },
         Value::Closure(Function { signature, body }) => {
-            Ok(RuntimeValue::Function(GcCell::new(RuntimeFnValue {
-                signature: signature.clone(),
-                // TODO: compute and store which values this references
-                body: RuntimeFnBody::Block(body.clone()),
-                parent_scopes: ctx.generate_parent_scopes(),
-                captured_deps: ctx.capture_deps(body.data.code_range),
-            })))
+            Ok(RuntimeValue::Function(GcReadOnlyCell::new(
+                RuntimeFnValue {
+                    signature: signature.clone(),
+                    // TODO: compute and store which values this references
+                    body: RuntimeFnBody::Block(body.clone()),
+                    parent_scopes: ctx.generate_parent_scopes(),
+                    captured_deps: ctx.capture_deps(body.data.code_range),
+                },
+            )))
         }
     }
 }

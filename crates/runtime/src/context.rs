@@ -11,7 +11,7 @@ use crate::{
     display::dbg_loc,
     errors::{ExecError, ExecErrorContent, ExecResult},
     files_map::{FilesMap, ScopableFilePath, SourceFile},
-    gc::GcCell,
+    gc::{GcCell, GcReadOnlyCell},
     native_lib::generate_native_lib,
     values::{
         CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, 
@@ -331,7 +331,7 @@ impl Context {
     pub fn get_visible_fn_value<'s>(
         &'s self,
         name: &Eaten<String>,
-    ) -> ExecResult<&'s GcCell<RuntimeFnValue>> {
+    ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
         let Some(func) = self.get_visible_fn(name) else {
             return Err(self.error(name.at, "function not found"));
         };
@@ -552,7 +552,7 @@ pub struct ScopeVar {
 #[derive(Debug, Clone)]
 pub struct ScopeFn {
     pub declared_at: CodeRange,
-    pub value: GcCell<RuntimeFnValue>,
+    pub value: GcReadOnlyCell<RuntimeFnValue>,
 }
 
 #[derive(Debug, Clone)]

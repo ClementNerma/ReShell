@@ -12,7 +12,7 @@ use crate::gc::GcReadOnlyCell;
 use crate::{context::Context, errors::ExecResult, gc::GcCell};
 
 // TODO: this struct is ultra expensive to clone, put it inside an Arc<> or something?
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RuntimeFnValue {
     pub signature: FnSignature,
     pub body: RuntimeFnBody,
@@ -83,7 +83,7 @@ pub enum RuntimeValue {
     List(GcCell<Vec<RuntimeValue>>),
     Map(GcCell<IndexMap<String, RuntimeValue>>),
     Struct(GcCell<IndexMap<String, RuntimeValue>>),
-    Function(GcCell<RuntimeFnValue>),
+    Function(GcReadOnlyCell<RuntimeFnValue>),
 }
 
 impl RuntimeValue {
@@ -113,7 +113,7 @@ impl RuntimeValue {
             ),
             RuntimeValue::Function(content) => {
                 // TODO: performance
-                SingleValueType::Function(content.read().signature.clone())
+                SingleValueType::Function(content.signature.clone())
             }
             RuntimeValue::Error { at: _, msg: _ } => SingleValueType::Error,
         }
