@@ -13,6 +13,11 @@ pub static ON_DIR_JUMP_VAR_NAME: &str = "onDirectoryJump";
 
 /// Render the prompt (used for the REPL)
 pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -> ExecResult<()> {
+    // Don't trigger for non-UTF-8 paths
+    let Some(new_current_dir) = new_current_dir.to_str() else {
+        return Ok(());
+    };
+
     let on_dir_jump = ctx
         .native_lib_scope_content()
         .vars
@@ -36,10 +41,7 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
     call_fn_checked(
         &on_dir_jump_fn,
         &expected_signature,
-        vec![RuntimeValue::String(
-            // TODO: lossy?
-            new_current_dir.to_string_lossy().into_owned(),
-        )],
+        vec![RuntimeValue::String(new_current_dir.to_owned())],
         ctx,
     )?;
 

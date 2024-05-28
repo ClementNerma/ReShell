@@ -438,15 +438,12 @@ macro_rules! declare_typed_union_hanlder {
 
             fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
                 $(
-                    match self.$generic.parse(value.clone()) {
-                        Ok(parsed) => return Ok($result_struct::$generic(parsed)),
-                        Err(_) => {
-                            // TODO
-                        }
+                    if let Ok(parsed) = self.$generic.parse(value.clone()) {
+                        return Ok($result_struct::$generic(parsed))
                     }
                 )+;
 
-                Err(format!("union error")) // TODO: more detailed message
+                Err("union error".to_owned())
             }
         }
 

@@ -1,9 +1,10 @@
+use std::rc::Rc;
+
 use colored::{Color, Colorize};
 use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
 use regex::Regex;
 use reshell_runtime::{
     display::{dbg_loc, pretty_print_string},
-    errors::ExecInfoType,
     gc::GcReadOnlyCell,
     pretty::{PrettyPrintable, PrettyPrintablePiece},
     values::CustomValueType,
@@ -19,7 +20,7 @@ define_internal_fn!(
         pomsky: PresenceFlag = Arg::long_and_short_flag("pomsky", 'p')
     )
 
-    -> None // TODO: new type handler for custom
+    -> Some(CustomType::<RegexValue>::direct_underlying_type())
 );
 
 fn run() -> Runner {
@@ -32,8 +33,7 @@ fn run() -> Runner {
          },
          ctx| {
             let regex = if !pomsky {
-                Regex::new(&pattern)
-                    .map_err(|err| ctx.throw(pattern_at, format!("Failed to parse regex: {err}")))?
+                Regex::new(&pattern).map_err(|err| ctx.throw(pattern_at, format!("{err}")))?
             } else {
                 let (parsed, diag, _) =
                     Expr::parse_and_compile(&pattern, CompileOptions::default());
@@ -53,19 +53,15 @@ fn run() -> Runner {
                 match parsed {
                     Some(parsed) => Regex::new(&parsed).unwrap(),
                     None => {
-                        return Err(ctx
-                            .error(pattern_at, "failed to parse Pomsky regex")
-                            .with_info(
-                                ExecInfoType::Tip,
-                                // TODO: try to parse the regex as Pomsky to make the tip more precise
-                                "if you wrote a Pomsky regex, use the '--pomsky' flag",
-                            ));
+                        return Err(ctx.error(pattern_at, "failed to parse Pomsky regex"));
                     }
                 }
             };
 
             Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                RegexValue { inner: regex },
+                RegexValue {
+                    inner: Rc::new(regex),
+                },
             )))))
         },
     )
@@ -73,7 +69,7 @@ fn run() -> Runner {
 
 #[derive(Debug, Clone)]
 pub struct RegexValue {
-    inner: Regex, // TODO: Rc
+    inner: Rc<Regex>,
 }
 
 impl RegexValue {

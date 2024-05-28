@@ -32,13 +32,18 @@ fn run() -> Runner {
     })
 }
 
-// TODO: comment on this unsafe portion (and the fact that ::set_env_var is "unsafe" anyway)
+/// UNSAFE CODE
+///
+/// Due to [`std::env::set_var`] being unsound, we can only get the UtcOffset
+/// if the program is single-threaded.
+///
+/// This means that ReShell's runtime is actually only sound if the program
+/// is single-threaded.
 pub fn get_utc_offset() -> UtcOffset {
     unsafe {
         set_soundness(Soundness::Unsound);
     }
 
-    // TODO: explain why we can unwrap here
     let offset = UtcOffset::current_local_offset().unwrap();
 
     unsafe {
