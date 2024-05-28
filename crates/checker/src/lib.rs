@@ -18,8 +18,8 @@ use std::collections::{HashMap, HashSet};
 use parsy::{CodeRange, Eaten};
 use reshell_parser::ast::{
     Block, CmdArg, CmdCall, CmdEnvVar, CmdEnvVarValue, CmdFlagArg, CmdFlagValueArg, CmdPath,
-    CmdPipe, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
-    Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
+    CmdPipe, CmdPipeType, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
+    ElsIfExpr, Expr, ExprInner, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnFlagArgNames,
     FnSignature, Function, Instruction, LiteralValue, Program, PropAccess, PropAccessNature,
     RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, StructTypeMember,
     SwitchCase, Value, ValueType,
@@ -723,21 +723,55 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
 fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult {
     let CmdCall { base, pipes } = &cmd_call.data;
 
-    let calls = [base]
-        .into_iter()
-        .chain(pipes.iter().map(|CmdPipe { pipe_type: _, cmd }| cmd));
+    let calls = [(None, base)].into_iter().chain(
+        pipes
+            .iter()
+            .map(|CmdPipe { pipe_type, cmd }| (Some(pipe_type), cmd)),
+    );
 
-    for cmd in calls {
-        match check_single_cmd_call(cmd, state)? {
-            SingleCmdCallTargetType::Function => {
-                if !pipes.is_empty() {
+    let mut chain_type = None;
+
+    for (pipe_type, call) in calls {
+        let call_type = check_single_cmd_call(call, state)?;
+
+        let current_chain_type = match chain_type {
+            None => {
+                chain_type = Some(call_type);
+                call_type
+            }
+
+            Some(chain_type) => {
+                if chain_type != call_type {
                     return Err(CheckerError::new(
-                        cmd.at,
-                        "functions cannot be piped from or into",
+                        call.at,
+                        format!("cannot pipe a {chain_type} into a {call_type}"),
                     ));
                 }
+
+                chain_type
             }
-            SingleCmdCallTargetType::Command => {}
+        };
+
+        if let Some(pipe_type) = pipe_type {
+            match pipe_type.data {
+                CmdPipeType::Stdout | CmdPipeType::Stderr => {
+                    if current_chain_type == SingleCmdCallTargetType::Function {
+                        return Err(CheckerError::new(
+                            pipe_type.at,
+                            "cannot apply stdout/stderr pipe to a function",
+                        ));
+                    }
+                }
+
+                CmdPipeType::Value => {
+                    if current_chain_type == SingleCmdCallTargetType::Command {
+                        return Err(CheckerError::new(
+                            pipe_type.at,
+                            "value pipe can only be applied to functions",
+                        ));
+                    }
+                }
+            }
         }
     }
 
@@ -1040,7 +1074,21 @@ fn check_fn_signature(signature: &Eaten<FnSignature>, state: &mut State) -> Chec
     Ok(())
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum SingleCmdCallTargetType {
     Function,
     Command,
+}
+
+impl std::fmt::Display for SingleCmdCallTargetType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Function => "function",
+                Self::Command => "command",
+            }
+        )
+    }
 }

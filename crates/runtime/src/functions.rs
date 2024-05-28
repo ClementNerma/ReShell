@@ -22,6 +22,10 @@ use crate::{
 };
 
 pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
+    eval_piped_fn_call(call, None, ctx)
+}
+
+pub fn eval_piped_fn_call(call: &Eaten<FnCall>, piped: Option<LocatedValue>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     let func = if call.data.is_var_name {
         let var = ctx.get_visible_var(&call.data.name).ok_or_else(|| {
             ctx.error(
@@ -60,7 +64,7 @@ pub fn eval_fn_call(call: &Eaten<FnCall>, ctx: &mut Context) -> ExecResult<Optio
     call_fn_value(
         RuntimeCodeRange::Parsed(call.at),
         &func,
-        FnPossibleCallArgs::Parsed(&call.data.call_args),
+        FnPossibleCallArgs::Parsed { piped, args: &call.data.call_args },
         ctx,
     )
 }
@@ -428,7 +432,11 @@ fn flatten_fn_call_args(
     let mut out = vec![];
 
     match call_args {
-        FnPossibleCallArgs::Parsed(parsed) => {
+        FnPossibleCallArgs::Parsed { piped, args: parsed } => {
+            if let Some(piped) = piped {
+                out.push(CmdSingleArgResult::Basic(piped));
+            }
+
             for parsed in &parsed.data {
                 match &parsed.data {
                     FnCallArg::Expr(expr) => {
@@ -584,7 +592,7 @@ fn get_matching_var_name(name: &CmdFlagNameArg, into: &FnFlagArgNames) -> Option
 }
 
 pub enum FnPossibleCallArgs<'a> {
-    Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
+    Parsed { piped: Option<LocatedValue>, args: &'a Eaten<Vec<Eaten<FnCallArg>>> },
     Internal(Vec<CmdArgResult>),
 }
 
