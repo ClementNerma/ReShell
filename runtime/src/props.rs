@@ -2,92 +2,169 @@ use parsy::Eaten;
 use reshell_parser::ast::PropAccessNature;
 
 use crate::{
-    context::Context, display::readable_value_type, errors::ExecResult, expr::eval_expr,
+    context::Context,
+    display::readable_value_type,
+    errors::{ExecError, ExecResult},
+    expr::eval_expr,
     values::RuntimeValue,
 };
 
-pub fn eval_prop_access_nature<'a>(
-    left: &'a mut RuntimeValue,
-    nature: &Eaten<PropAccessNature>,
-    policy: PropAccessPolicy,
+pub struct PropAccessSuite {
+    inner: Vec<RuntimeValue>,
+}
+
+pub fn make_prop_access_suite<'a>(
+    acc: impl Iterator<Item = &'a PropAccessNature>,
     ctx: &mut Context,
-) -> ExecResult<&'a mut RuntimeValue> {
-    match &nature.data {
-        PropAccessNature::Key(key_expr) => match left {
-            RuntimeValue::List(list) => {
-                let index = match eval_expr(&key_expr.data, ctx)? {
-                    RuntimeValue::Int(index) => index as usize,
+) -> ExecResult<PropAccessSuite> {
+    let suite = acc
+        .map(|acc| match acc {
+            PropAccessNature::Key(expr) => eval_expr(&expr.data, ctx),
+            PropAccessNature::Prop(str) => Ok(RuntimeValue::String(str.data.clone())),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
-                    value => {
-                        return Err(ctx.error(
-                            key_expr.at,
-                            format!(
-                                "expected an index (integer), found a {}",
-                                readable_value_type(&value, ctx)
-                            ),
-                        ))
+    Ok(PropAccessSuite { inner: suite })
+}
+
+pub type WithCtxError = Box<dyn FnOnce(&Context) -> ExecError>;
+
+pub fn eval_prop_access_suite<'a, 'b>(
+    mut left: &'a mut RuntimeValue,
+    acc: impl Iterator<Item = &'b Eaten<PropAccessNature>>,
+    mut suite: PropAccessSuite,
+    policy: PropAccessPolicy,
+) -> Result<&'a mut RuntimeValue, WithCtxError> {
+    for acc in acc {
+        let computed = suite.inner.pop().unwrap();
+
+        match &acc.data {
+            PropAccessNature::Key(key_expr) => match left {
+                RuntimeValue::List(list) => {
+                    let index = match computed {
+                        RuntimeValue::Int(index) => index as usize,
+
+                        value => {
+                            let at = key_expr.at;
+
+                            return Err(Box::new(move |ctx| {
+                                ctx.error(
+                                    at,
+                                    format!(
+                                        "expected an index (integer), found a {}",
+                                        readable_value_type(&value, ctx)
+                                    ),
+                                )
+                            }));
+                        }
+                    };
+
+                    match list.get_mut(index) {
+                        Some(got) => left = got,
+                        None => {
+                            let at = key_expr.at;
+
+                            return Err(Box::new(move |ctx| {
+                                ctx.error(at, format!("index '{index}' is out-of-bounds"))
+                            }));
+                        }
                     }
-                };
-
-                Ok(list.get_mut(index).ok_or_else(|| {
-                    ctx.error(key_expr.at, format!("index '{index}' is out-of-bounds"))
-                })?)
-            }
-
-            RuntimeValue::Map(map) => {
-                let key = match eval_expr(&key_expr.data, ctx)? {
-                    RuntimeValue::String(key) => key,
-                    value => {
-                        return Err(ctx.error(
-                            key_expr.at,
-                            format!(
-                                "expected a key (string), found a {}",
-                                readable_value_type(&value, ctx)
-                            ),
-                        ))
-                    }
-                };
-
-                // TODO: HACK: find a more proper way to to that
-                if policy == PropAccessPolicy::TrailingAccessMayNotExist && !map.contains_key(&key)
-                {
-                    map.insert(key.clone(), RuntimeValue::Null);
                 }
 
-                Ok(map
-                    .get_mut(&key)
-                    .ok_or_else(|| ctx.error(key_expr.at, format!("key '{key}' was not found")))?)
-            }
+                RuntimeValue::Map(map) => {
+                    let key = match computed {
+                        RuntimeValue::String(key) => key,
+                        value => {
+                            let at = key_expr.at;
 
-            _ => Err(ctx.error(
-                nature.at,
-                format!(
-                    "left operand is not a map nor a list, but a {}",
-                    readable_value_type(left, ctx)
-                ),
-            )),
-        },
+                            return Err(Box::new(move |ctx| {
+                                ctx.error(
+                                    at,
+                                    format!(
+                                        "expected a key (string), found a {}",
+                                        readable_value_type(&value, ctx)
+                                    ),
+                                )
+                            }));
+                        }
+                    };
 
-        PropAccessNature::Prop(key) => match left {
-            RuntimeValue::Struct(content) => Ok(content.get_mut(&key.data).ok_or_else(|| {
-                ctx.error(
-                    key.at,
-                    format!(
-                        "property '{}' does not exist on the provided object",
-                        key.data
-                    ),
-                )
-            })?),
+                    // TODO: HACK: find a more proper way to to that
+                    if policy == PropAccessPolicy::TrailingAccessMayNotExist
+                        && !map.contains_key(&key)
+                    {
+                        map.insert(key.clone(), RuntimeValue::Null);
+                    }
 
-            _ => Err(ctx.error(
-                nature.at,
-                format!(
-                    "left operand is not a struct, but a {}",
-                    readable_value_type(left, ctx)
-                ),
-            )),
-        },
+                    match map.get_mut(&key) {
+                        Some(got) => left = got,
+                        None => {
+                            let at = key_expr.at;
+
+                            return Err(Box::new(move |ctx| {
+                                ctx.error(at, format!("key '{key}' was not found"))
+                            }));
+                        }
+                    }
+                }
+
+                _ => {
+                    // We can afford to .clone() here as errors are the end of the program anyway
+                    let left = left.clone();
+                    let at = acc.at;
+
+                    return Err(Box::new(move |ctx| {
+                        ctx.error(
+                            at,
+                            format!(
+                                "left operand is not a map nor a list, but a {}",
+                                readable_value_type(&left, ctx)
+                            ),
+                        )
+                    }));
+                }
+            },
+
+            PropAccessNature::Prop(prop) => match left {
+                RuntimeValue::Struct(content) => match content.get_mut(&prop.data) {
+                    Some(got) => left = got,
+                    None => {
+                        let prop = prop.clone();
+
+                        return Err(Box::new(move |ctx| {
+                            ctx.error(
+                                prop.at,
+                                format!(
+                                    "property '{}' does not exist on the provided object",
+                                    prop.data
+                                ),
+                            )
+                        }));
+                    }
+                },
+
+                _ => {
+                    // We can afford to .clone() here as errors are the end of the program anyway
+                    let left = left.clone();
+                    let at = acc.at;
+
+                    return Err(Box::new(move |ctx| {
+                        ctx.error(
+                            at,
+                            format!(
+                                "left operand is not a struct, but a {}",
+                                readable_value_type(&left, ctx)
+                            ),
+                        )
+                    }));
+                }
+            },
+        }
     }
+
+    assert!(suite.inner.is_empty());
+
+    Ok(left)
 }
 
 #[derive(PartialEq, Eq)]
