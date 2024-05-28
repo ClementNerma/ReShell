@@ -235,6 +235,40 @@ impl ArgSingleTypingDirectCreation for MapType {
     }
 }
 
+pub struct NullableType<Inner: ArgSingleTyping> {
+    inner: Inner,
+}
+
+impl<Inner: ArgSingleTyping> NullableType<Inner> {
+    pub fn new(inner: Inner) -> Self {
+        Self { inner }
+    }
+}
+
+impl<Inner: ArgSingleTyping> ArgTyping for NullableType<Inner> {
+    fn underlying_type(&self) -> ValueType {
+        ValueType::Union(vec![
+            MaybeEaten::Raw(self.inner.underlying_single_type()),
+            MaybeEaten::Raw(NullType.underlying_single_type()),
+        ])
+    }
+
+    type Parsed = Option<Inner::Parsed>;
+
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        match value {
+            RuntimeValue::Null => Ok(None),
+            _ => Ok(Some(self.inner.parse(value)?)),
+        }
+    }
+}
+
+impl<Inner: ArgSingleTypingDirectCreation> ArgTypingDirectCreation for NullableType<Inner> {
+    fn new_direct() -> Self {
+        Self::new(Inner::new_single_direct())
+    }
+}
+
 pub struct TypedFunctionType {
     signature: FnSignature,
 }

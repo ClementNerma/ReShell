@@ -1,18 +1,12 @@
 use std::collections::HashMap;
 
-use reshell_runtime::{
-    context::Context,
-    errors::ExecResult,
-    gc::GcCell,
-    pretty::{PrettyPrintOptions, PrettyPrintable},
-    values::RuntimeValue,
-};
+use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
     helper::{ArgTyping, ArgTypingDirectCreation},
     type_handlers::{
-        BoolType, ExactIntType, IntType, NullType, StringType, TypedStruct1Type, TypedStruct3Type,
-        TypedStruct4Type, Union2Type,
+        BoolType, ExactIntType, IntType, NullableType, StringType, TypedStruct1Type,
+        TypedStruct3Type, TypedStruct4Type,
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
@@ -37,6 +31,16 @@ pub fn render_prompt(
         return Ok(None);
     }
 
+    let ret_type = TypedStruct4Type::new(
+        ("prompt_left", NullableType::<StringType>::new_direct()),
+        ("prompt_right", NullableType::<StringType>::new_direct()),
+        ("prompt_indicator", NullableType::<StringType>::new_direct()),
+        (
+            "prompt_multiline_indicator",
+            NullableType::<StringType>::new_direct(),
+        ),
+    );
+
     let expected_signature = forge_basic_fn_signature(
         vec![(
             "prompt_data",
@@ -44,33 +48,13 @@ pub fn render_prompt(
                 "last_cmd_status",
                 TypedStruct3Type::new(
                     ("success", BoolType),
-                    ("exit_code", Union2Type::<IntType, NullType>::new_direct()),
+                    ("exit_code", NullableType::<IntType>::new_direct()),
                     ("duration_ms", ExactIntType::<i64>::new_direct()),
                 ),
             ))
             .underlying_type(),
         )],
-        Some(
-            TypedStruct4Type::new(
-                (
-                    "prompt_left",
-                    Union2Type::<StringType, NullType>::new_direct(),
-                ),
-                (
-                    "prompt_right",
-                    Union2Type::<StringType, NullType>::new_direct(),
-                ),
-                (
-                    "prompt_indicator",
-                    Union2Type::<StringType, NullType>::new_direct(),
-                ),
-                (
-                    "prompt_multiline_indicator",
-                    Union2Type::<StringType, NullType>::new_direct(),
-                ),
-            )
-            .underlying_type(),
-        ),
+        Some(ret_type.underlying_type()),
     );
 
     let last_cmd_status = match last_cmd_status {
@@ -118,54 +102,20 @@ pub fn render_prompt(
         )
     })?;
 
-    let RuntimeValue::Struct(rendering) = ret_val.value else {
-        return Err(ctx.error(
-            ret_val.from,
-            format!(
-                "expected the prompt generation function to return a struct, found a {}",
-                ret_val
-                    .value
-                    .get_type()
-                    .render_colored(ctx, PrettyPrintOptions::inline())
-            ),
-        ));
-    };
+    let (prompt_left, prompt_right, prompt_indicator, prompt_multiline_indicator) =
+        ret_type.parse(ret_val.value).map_err(|err| {
+            ctx.error(
+                ret_val.from,
+                format!("type error in prompt function's return value: {err}"),
+            )
+        })?;
 
-    macro_rules! get_options {
-        ($from: ident @ $from_at: expr => $($ident: ident),+) => {{
-            let mut out = PromptRendering::default();
-
-            $(
-                out.$ident = match $from.read($from_at).get(stringify!($ident)) {
-                    None => return Err(ctx.error(
-                        $from_at,
-                        format!("missing option {} for prompt generation", stringify!($ident))
-                    )),
-
-                    Some(value) => match value {
-                        RuntimeValue::Null => None,
-                        RuntimeValue::String(string) => Some(string.clone()),
-                        value => return Err(ctx.error(
-                            $from_at,
-                            format!("expected option {} to be a string for prompt generation, found a {}", stringify!($ident), value.get_type().render_colored(ctx, PrettyPrintOptions::inline()))
-                        ))
-                    }
-                };
-            )+
-
-            // TODO: reject unknown keys?
-
-            out
-        }};
-    }
-
-    Ok(Some(get_options!(
-        rendering @ ret_val.from =>
+    Ok(Some(PromptRendering {
         prompt_left,
         prompt_right,
         prompt_indicator,
-        prompt_multiline_indicator
-    )))
+        prompt_multiline_indicator,
+    }))
 }
 
 #[derive(Debug)]
