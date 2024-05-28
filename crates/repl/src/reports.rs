@@ -181,8 +181,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         source.insert(offset, ' ');
     }
 
-    source.push(' ');
-
     let snippet = Snippet {
         title: Some(Annotation {
             label: Some(&nature),
