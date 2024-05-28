@@ -45,11 +45,7 @@ pub fn check(
 ) -> CheckerResult<CheckerOutput> {
     let Program { content } = program;
 
-    let mut state = State::new();
-
-    if let Some(prev_output) = prev_output {
-        state.collected = prev_output;
-    }
+    let mut state = State::new(prev_output);
 
     for scope in scopes {
         state.push_scope(scope);
@@ -57,7 +53,7 @@ pub fn check(
 
     check_block(content, &mut state)?;
 
-    Ok(state.collected)
+    Ok(state.consume())
 }
 
 fn check_block(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
@@ -118,17 +114,7 @@ fn check_block_in_current_scope(block: &Eaten<Block>, state: &mut State) -> Chec
 
                 check_value_type(&content.data, state)?;
 
-                state
-                    .collected
-                    .type_aliases_decl
-                    .insert(name.at, content.clone());
-
-                state
-                    .collected
-                    .type_aliases_decl_by_scope
-                    .entry(block.at)
-                    .or_default()
-                    .insert(name.data.clone(), name.at);
+                state.register_type_alias(name, content, block);
             }
 
             Instruction::FnDecl { name, content: _ } => {
@@ -392,7 +378,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::CmdAliasDecl { name, content } => {
             // NOTE: command alias was already registered during init.
 
-            state.collected.deps.insert(content.at, HashSet::new());
+            state.prepare_deps(content.at);
 
             state.push_scope(CheckerScope {
                 code_range: RuntimeCodeRange::Parsed(content.at),
@@ -633,7 +619,10 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
         }
         Value::FnCall(fn_call) => check_fn_call(fn_call, state),
         Value::CmdOutput(cmd_call) => check_cmd_call(cmd_call, state),
-        Value::CmdSuccess(cmd_call) => check_cmd_call(cmd_call, state),
+        Value::CmdCall(cmd_call) => {
+            state.register_cmd_call_value(cmd_call);
+            check_cmd_call(cmd_call, state)
+        }
         Value::FnAsValue(func_name) => {
             state.register_usage(func_name, DependencyType::Function)?;
             Ok(())
@@ -832,7 +821,7 @@ fn check_single_cmd_call(
 
                         state.register_usage(name, DependencyType::CmdAlias)?;
 
-                        let alias_inner_call = state.collected.cmd_calls.get(&content_at);
+                        let alias_inner_call = state.get_developed_cmd_call_at(content_at);
                         let alias_inner_call = alias_inner_call.as_ref().unwrap();
 
                         developed_aliases
@@ -965,7 +954,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
     }
 
-    state.collected.deps.insert(body.at, HashSet::new());
+    state.prepare_deps(body.at);
 
     let fill_scope = |scope: &mut CheckerScope| {
         scope.special_scope_type = Some(SpecialScopeType::Function { args_at: args.at });
@@ -1109,7 +1098,8 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Map
         | SingleValueType::Error
         | SingleValueType::UntypedStruct
-        | SingleValueType::ArgSpread => Ok(()),
+        | SingleValueType::ArgSpread
+        | SingleValueType::CmdCall => Ok(()),
 
         SingleValueType::TypedStruct(members) => {
             let mut names = HashSet::new();

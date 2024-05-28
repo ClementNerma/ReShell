@@ -335,6 +335,7 @@ impl ComputableSize for SingleValueType {
             | SingleValueType::Range
             | SingleValueType::Map
             | SingleValueType::Error
+            | SingleValueType::CmdCall
             | SingleValueType::UntypedStruct
             | SingleValueType::ArgSpread => 0,
 
@@ -713,7 +714,7 @@ impl ComputableSize for Value {
             Value::Variable(var_name) => var_name.compute_heap_size(),
             Value::FnCall(fn_call) => fn_call.compute_heap_size(),
             Value::CmdOutput(cmd_call) => cmd_call.compute_heap_size(),
-            Value::CmdSuccess(cmd_call) => cmd_call.compute_heap_size(),
+            Value::CmdCall(cmd_call) => cmd_call.compute_heap_size(),
             Value::FnAsValue(fn_as_val) => fn_as_val.compute_heap_size(),
             Value::Closure(closure) => closure.compute_heap_size(),
         }
@@ -911,6 +912,7 @@ impl ComputableSize for RuntimeValue {
             RuntimeValue::String(string) => string.compute_heap_size(),
             RuntimeValue::Range { from, to } => from.compute_heap_size() + to.compute_heap_size(),
             RuntimeValue::Error(err) => err.compute_heap_size(),
+            RuntimeValue::CmdCall { content_at } => content_at.compute_heap_size(),
             RuntimeValue::List(values) => values.compute_heap_size(),
             RuntimeValue::Map(map) => map.compute_heap_size(),
             RuntimeValue::Struct(members) => members.compute_heap_size(),
@@ -1078,6 +1080,7 @@ impl ComputableSize for CheckerOutput {
             fn_bodies,
             cmd_aliases,
             cmd_calls,
+            cmd_call_values,
         } = self;
 
         deps.compute_heap_size()
@@ -1088,5 +1091,6 @@ impl ComputableSize for CheckerOutput {
             + fn_bodies.compute_heap_size()
             + cmd_aliases.compute_heap_size()
             + cmd_calls.compute_heap_size()
+            + cmd_call_values.compute_heap_size()
     }
 }

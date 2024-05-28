@@ -66,7 +66,7 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                     match items.get(index) {
                         Some(value) => match next_acc {
-                            Some(next_acc) => match value.is_primitive() {
+                            Some(next_acc) => match value.is_container() {
                                 false => left = value.clone(),
                                 true => {
                                     return Err(
@@ -122,8 +122,10 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                     match (value, next_acc) {
                         (Some(value), Some(next_acc)) => {
-                            if value.is_primitive() {
-                                return Err(ctx.error(next_acc.at, "left operand is a primitive"));
+                            if !value.is_container() {
+                                return Err(
+                                    ctx.error(next_acc.at, "left operand is not a value container")
+                                );
                             } else {
                                 left = value.clone();
                             }
@@ -199,8 +201,10 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                     match next_acc {
                         Some(next_acc) => {
-                            if value.is_primitive() {
-                                return Err(ctx.error(next_acc.at, "left operand is a primitive"));
+                            if !value.is_container() {
+                                return Err(
+                                    ctx.error(next_acc.at, "left operand is not a value container")
+                                );
                             } else {
                                 left = value.clone();
                             }
