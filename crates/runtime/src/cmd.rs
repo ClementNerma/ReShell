@@ -378,9 +378,8 @@ fn eval_cmd_call_el(
         .map_err(|err| {
             ctx.error(
                 path.at,
-                ExecErrorNature::CommandFailed {
+                ExecErrorNature::CommandFailedToStart {
                     message: format!("failed to start command '{}': {err}", path.data),
-                    exit_status: None,
                 },
             )
         })?;

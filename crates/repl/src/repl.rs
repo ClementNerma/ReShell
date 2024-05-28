@@ -8,9 +8,10 @@ use std::{
     time::{Duration, Instant},
 };
 
+use colored::Colorize;
 use reedline::{Reedline, Signal, Suggestion};
 use reshell_builtins::prompt::{render_prompt, LastCmdStatus, PromptRendering};
-use reshell_parser::files::SourceFileLocation;
+use reshell_parser::{ast::Instruction, files::SourceFileLocation};
 use reshell_runtime::{
     context::Context,
     errors::ExecErrorNature,
@@ -188,17 +189,37 @@ pub fn start(
                         return Ok(Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS)));
                     }
 
-                    // If we only run a single command (not more, no pipes, etc.) and it failed,
-                    // display a simpler error.
-                    if let ExecErrorNature::CommandFailed {
-                        message: _,
-                        exit_status: _,
-                    } = &err.nature
-                    {
-                        if program.data.content.data.instructions.len() == 1 {
-                            // eprintln!("{} {message}", "ERROR:".bright_red());
+                    let program_content = &program.data.content.data.instructions;
+
+                    let is_single_cmd_call = program_content.len() == 1
+                        && matches!(program_content[0].data, Instruction::CmdCall(_))
+                        && err.at.parsed_range()
+                            == Some(program.data.content.data.instructions[0].at);
+
+                    match &err.nature {
+                        ExecErrorNature::CommandFailedToStart { message } => {
+                            // If we only run a single command (not more, no pipes, etc.) and it failed to start,
+                            // display a simpler error.
+                            if is_single_cmd_call {
+                                eprintln!("{} {message}", "ERROR:".bright_red());
+                                continue;
+                            }
+                        }
+
+                        ExecErrorNature::CommandFailed {
+                            message: _,
+                            exit_status: _,
+                        } => {
+                            // If we only run a single command (not more, no pipes, etc.) and it failed to start,
+                            // don't display any error
                             continue;
                         }
+
+                        ExecErrorNature::ParsingErr(_)
+                        | ExecErrorNature::Thrown { value: _ }
+                        | ExecErrorNature::Exit { code: _ }
+                        | ExecErrorNature::CtrlC
+                        | ExecErrorNature::Custom(_) => {}
                     }
                 }
 

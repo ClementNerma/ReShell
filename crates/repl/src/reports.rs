@@ -33,6 +33,8 @@ impl ReportableError {
                 | ExecErrorNature::ParsingErr(_)
                 | ExecErrorNature::Thrown { value: _ } => None,
 
+                ExecErrorNature::CommandFailedToStart { message: _ } => Some(1),
+
                 ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status,
@@ -86,6 +88,10 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                     "Syntax error (at runtime)",
                     err,
                 )
+            }
+
+            ExecErrorNature::CommandFailedToStart { message } => {
+                (err.at, "Could not start command", message.clone())
             }
 
             ExecErrorNature::CommandFailed {
