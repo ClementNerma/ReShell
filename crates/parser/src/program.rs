@@ -53,11 +53,11 @@ pub fn program(
         let s = whitespaces().no_newline().at_least_one();
 
         let block = char('{')
-            .critical_expectation()
+            .critical_with_no_message()
             .ignore_then(msnl)
             .ignore_then(raw_block.clone())
             .then_ignore(msnl)
-            .then_ignore(char('}').critical_expectation());
+            .then_ignore(char('}').critical_with_no_message());
 
         let possible_ident_char = choice((char('_'), alphanumeric()));
 
@@ -123,7 +123,7 @@ pub fn program(
                         .spanned()
                         .map(RuntimeEaten::Parsed)
                         .then_ignore(ms)
-                        .then_ignore(char(':').critical_expectation())
+                        .then_ignore(char(':').critical_with_no_message())
                         .then_ignore(msnl)
                         .then(
                             value_type
@@ -138,7 +138,7 @@ pub fn program(
                         .separated_by(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_expectation())
+                .then_ignore(char('}').critical_with_no_message())
                 .map(SingleValueType::TypedStruct),
             just("struct")
                 .not_followed_by(possible_ident_char)
@@ -267,7 +267,7 @@ pub fn program(
                         .map(RuntimeEaten::Parsed),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char(')').critical_expectation())
+                .then_ignore(char(')').critical_with_no_message())
                 .then_ignore(msnl)
                 .then(
                     just("->")
@@ -363,16 +363,34 @@ pub fn program(
             // Floats
             char('-')
                 .or_not()
-                .then(digits(10))
+                .then(
+                    digits(10)
+                        .collect_string()
+                        .validate(|str| !(str.starts_with('0') && str.len() > 1))
+                        .with_custom_msg("Leading zeroes are not allowed")
+                        .as_critical(),
+                )
                 .then(char('.'))
-                .then(digits(10))
+                .then(
+                    digits(10)
+                        .collect_string()
+                        .validate(|str| !(str.ends_with('0') && str.len() > 1))
+                        .with_custom_msg("Trailing zeroes are not allowed")
+                        .as_critical(),
+                )
                 .not_followed_by(possible_ident_char)
                 .collect_string()
                 .map(|num| LiteralValue::Float(str::parse::<f64>(&num).unwrap())),
             // Integers
             char('-')
                 .or_not()
-                .then(digits(10))
+                .then(
+                    digits(10)
+                        .collect_string()
+                        .validate(|str| !(str.starts_with('0') && str.len() > 1))
+                        .with_custom_msg("Leading zeroes are not allowed")
+                        .as_critical(),
+                )
                 .not_followed_by(possible_ident_char)
                 .collect_string()
                 .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
@@ -396,7 +414,7 @@ pub fn program(
                                 .padded_by(msnl)
                                 .critical("expected a command call"),
                         )
-                        .then_ignore(char(')').critical_expectation())
+                        .then_ignore(char(')').critical_with_no_message())
                         .map(ComputedStringPiece::CmdCall),
                     // Variables
                     char('$')
@@ -411,7 +429,7 @@ pub fn program(
                                 .padded_by(msnl)
                                 .critical("expected an expression"),
                         )
-                        .then_ignore(char('`').critical_expectation())
+                        .then_ignore(char('`').critical_with_no_message())
                         .map(ComputedStringPiece::Expr),
                     // Literal character suites
                     filter(|c| c != '"' && c != '$' && c != '`' && c != '\\')
@@ -423,7 +441,7 @@ pub fn program(
                 .spanned()
                 .repeated_vec(),
             )
-            .then_ignore(char('"').critical_expectation())
+            .then_ignore(char('"').critical_with_no_message())
             .map(|pieces| ComputedString { pieces });
 
         let closure = char('{')
@@ -441,7 +459,7 @@ pub fn program(
                 .spanned(),
             )
             .then_ignore(ms)
-            .then_ignore(just("->").critical_expectation())
+            .then_ignore(just("->").critical_with_no_message())
             .then_ignore(ms)
             .then(
                 raw_block
@@ -450,7 +468,7 @@ pub fn program(
                     .spanned(),
             )
             .then_ignore(ms)
-            .then_ignore(char('}').critical_expectation())
+            .then_ignore(char('}').critical_with_no_message())
             .map(|(signature, body)| Function { signature, body });
 
         let inline_cmd = just("@(")
@@ -462,7 +480,7 @@ pub fn program(
                     .critical("expected a command call"),
             )
             .then_ignore(msnl)
-            .then_ignore(char(')').critical_expectation());
+            .then_ignore(char(')').critical_with_no_message());
 
         let value = choice::<_, Value>((
             just("null").map(|_| Value::Null),
@@ -541,11 +559,11 @@ pub fn program(
         )));
 
         let braces_expr_body = char('{')
-            .critical_expectation()
+            .critical_with_no_message()
             .ignore_then(msnl)
             .ignore_then(expr.clone().map(Box::new).spanned())
             .then_ignore(msnl)
-            .then_ignore(char('}').critical_expectation());
+            .then_ignore(char('}').critical_with_no_message());
 
         let expr_inner_direct_chaining = late::<ExprInnerDirectChaining>();
 
@@ -628,7 +646,7 @@ pub fn program(
                             .critical("expected an expression to switch on"),
                     )
                     .then_ignore(msnl)
-                    .then_ignore(char('{').critical_expectation())
+                    .then_ignore(char('{').critical_with_no_message())
                     .then(
                         msnl.ignore_then(just("case"))
                             .ignore_then(ms)
@@ -660,7 +678,7 @@ pub fn program(
                             .critical("expected an expression to evaluate to"),
                     )
                     .then_ignore(msnl)
-                    .then_ignore(char('}').critical_expectation())
+                    .then_ignore(char('}').critical_with_no_message())
                     .map(|((expr, cases), els)| ExprInnerContent::Switch { expr, cases, els }),
                 // Try / catch
                 just("try")
@@ -1069,7 +1087,7 @@ pub fn program(
                         .critical("expected a valid variable declaration"),
                 )
                 .then(
-                    ms.ignore_then(char('=').critical_expectation())
+                    ms.ignore_then(char('=').critical_with_no_message())
                         .ignore_then(msnl)
                         .ignore_then(
                             expr.clone()
@@ -1239,7 +1257,7 @@ pub fn program(
                         .critical("expected an expression to switch on"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical_expectation())
+                .then_ignore(char('{').critical_with_no_message())
                 .then(
                     msnl.ignore_then(just("case"))
                         .ignore_then(ms)
@@ -1260,7 +1278,7 @@ pub fn program(
                         .or_not(),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_expectation())
+                .then_ignore(char('}').critical_with_no_message())
                 .map(|((expr, cases), els)| Instruction::Switch { expr, cases, els }),
             //
             // Function declaration
@@ -1386,7 +1404,7 @@ pub fn program(
                     literal_string
                         .spanned()
                         .critical("expected a file path")
-                        .try_map(move |path| load_file(path.data, path.at.start.file_id))
+                        .and_then_str(move |path| load_file(path.data, path.at.start.file_id))
                         .and_then(move |file| {
                             program_bis
                                 .parse_str_as_file(&file.content, FileId::SourceFile(file.id))
