@@ -10,9 +10,9 @@ use crate::{
     type_handlers::{
         AnyType, BoolType, DetachedListType, ErrorType, ExactIntType, FloatType, IntType, MapType,
         NullType, NullableType, RangeType, StringType, Tuple2Type, TypedFunctionType, Union2Result,
-        Union2Type, Union3Result, Union3Type, UntypedListType, UntypedStructType,
+        Union2Type, Union3Result, Union3Type, UntypedListType, UntypedMapType, UntypedStructType,
     },
-    utils::{call_fn_checked, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
 };
 
 use reshell_runtime::{
@@ -240,6 +240,23 @@ pub fn define_native_lib() -> NativeLibDefinition {
             //
             define_internal_fn!(
                 //
+                // clone a value
+                //
+
+                "clone",
+
+                Args [ArgsAt] (
+                    value: RequiredArg<AnyType> = Arg::positional("value")
+                )
+
+                -> Some(AnyType::direct_underlying_type()),
+
+                |_, Args { value }, _, _| {
+                    Ok(Some(value.clone()))
+                }
+            ),
+            define_internal_fn!(
+                //
                 // Get the length of a string or the number of entries in a map / list
                 //
 
@@ -261,6 +278,63 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     let len = i64::try_from(len).map_err(|_| ctx.error(content_at, format!("length is too big to fit in the integer type ({len})")))?;
 
                     Ok(Some(RuntimeValue::Int(len)))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // list keys from a map
+                //
+
+                "mapKeys",
+
+                Args [ArgsAt] (
+                    map: RequiredArg<UntypedMapType> = Arg::positional("map")
+                )
+
+                -> Some(DetachedListType::<StringType>::direct_underlying_type()),
+
+                |_, Args { map }, ArgsAt { map: map_at }, _| {
+                    let keys = map.read(map_at).keys().map(|key| RuntimeValue::String(key.clone())).collect();
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(keys))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // list keys from a map
+                //
+
+                "mapValues",
+
+                Args [ArgsAt] (
+                    map: RequiredArg<UntypedMapType> = Arg::positional("map")
+                )
+
+                -> Some(DetachedListType::<AnyType>::direct_underlying_type()),
+
+                |_, Args { map }, ArgsAt { map: map_at }, _| {
+                    let values = map.read(map_at).values().cloned().collect();
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(values))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // convert a struct to a map
+                //
+
+                "structToMap",
+
+                Args [ArgsAt] (
+                    obj: RequiredArg<UntypedStructType> = Arg::positional("obj")
+                )
+
+                -> Some(UntypedMapType::direct_underlying_type()),
+
+                |_, Args { obj }, ArgsAt { obj: obj_at }, _| {
+                    let entries = obj.read(obj_at).clone();
+
+                    Ok(Some(RuntimeValue::Map(GcCell::new(entries))))
                 }
             ),
             define_internal_fn!(
@@ -299,6 +373,27 @@ pub fn define_native_lib() -> NativeLibDefinition {
                     let sliced = list.read(list_at).iter().skip(from).take(length.unwrap_or(usize::MAX)).cloned().collect::<Vec<_>>();
 
                     Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // reverse a list's order
+                //
+
+                "reverse",
+
+                Args [ArgsAt] (
+                    list: RequiredArg<UntypedListType> = Arg::positional("list")
+                )
+
+                -> Some(UntypedListType::direct_underlying_type()),
+
+                |_, Args { list }, ArgsAt { list: list_at }, _| {
+                    let mut items = list.read(list_at).clone();
+
+                    items.reverse();
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(items))))
                 }
             ),
             define_internal_fn!(
@@ -351,7 +446,7 @@ pub fn define_native_lib() -> NativeLibDefinition {
                 // map over a list
                 //
 
-                "listmap",
+                "mapList",
 
                 Args [ArgsAt] (
                     list: RequiredArg<UntypedListType> = Arg::positional("list"),
@@ -384,11 +479,57 @@ pub fn define_native_lib() -> NativeLibDefinition {
                                 ctx
                             )?;
 
-                            Ok(ret.expect("internal error: mapper did not return an error (should have been caught before returning)").value)
+                            expect_returned_value(ret, mapper_at, AnyType::new_direct(), ctx)
                         })
                         .collect::<Result<_, _>>()?;
 
                     Ok(Some(RuntimeValue::List(GcCell::new(mapped))))
+                }
+            ),
+            define_internal_fn!(
+                //
+                // map over a list
+                //
+
+                "filterList",
+
+                Args [ArgsAt] (
+                    list: RequiredArg<UntypedListType> = Arg::positional("list"),
+                    filter @ filter_type: RequiredArg<TypedFunctionType> = Arg::new(ArgNames::Positional("filter"), TypedFunctionType::new(forge_basic_fn_signature(
+                        vec![
+                            ("index", ExactIntType::<usize>::direct_underlying_type()),
+                            ("value", AnyType::direct_underlying_type()),
+                        ],
+                        Some(BoolType::direct_underlying_type()
+                    ))))
+                )
+
+                -> Some(UntypedListType::direct_underlying_type()),
+
+                move |_, Args { list, filter }, ArgsAt { list: _, filter: filter_at }, ctx| {
+                    let filter = LocatedValue::new(RuntimeValue::Function(filter), filter_at);
+
+                    let mut filtered = vec![];
+
+                    for (index, value) in list.read(filter_at).iter().enumerate() {
+                        let ret = call_fn_checked(
+                            &filter,
+                            filter_type.base_typing().signature(),
+                            vec![
+                                RuntimeValue::Int(index.try_into().expect("list contains too many elements to be represented by an integer")),
+                                value.clone()
+                            ],
+                            ctx
+                        )?;
+
+                        let keep = expect_returned_value(ret, filter_at, BoolType::new_direct(), ctx)?;
+
+                        if keep {
+                            filtered.push(value.clone());
+                        }
+                    }
+
+                    Ok(Some(RuntimeValue::List(GcCell::new(filtered))))
                 }
             ),
             //
