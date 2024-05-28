@@ -157,11 +157,7 @@ fn block_first_pass(
             } => {
                 let curr_scope_id = state.curr_scope().id;
 
-                let type_methods = state
-                    .curr_scope_mut()
-                    .methods
-                    .entry(on_type.clone())
-                    .or_default();
+                let type_methods = state.curr_scope_mut().methods.entry(*on_type).or_default();
 
                 if type_methods.contains_key(&name.data) {
                     return Err(CheckerError::new(name.at, "duplicate method declaration"));

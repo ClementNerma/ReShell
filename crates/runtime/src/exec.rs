@@ -138,10 +138,10 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
                 let methods = &mut ctx.current_scope_content_mut().methods;
 
                 let dup = methods.insert(
-                    (name.data.clone(), on_type.clone()),
+                    (name.data.clone(), *on_type),
                     ScopeMethod {
                         decl_scope_id: block.scope_id,
-                        applyable_type: on_type.clone(),
+                        applyable_type: *on_type,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
@@ -556,7 +556,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             ctx.current_scope_content_mut()
                 .methods
-                .get_mut(&(name.data.clone(), on_type.clone()))
+                .get_mut(&(name.data.clone(), *on_type))
                 .unwrap()
                 .value
                 .captured_deps
