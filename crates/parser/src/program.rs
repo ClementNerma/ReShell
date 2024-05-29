@@ -6,7 +6,7 @@ use std::{
 use parsy::{
     atoms::{alphanumeric, digits},
     char, choice, empty, end, filter, just, late, lookahead, newline, not, recursive,
-    silent_choice, whitespaces, FileId, Parser,
+    silent_choice, whitespaces, FileId, Parser, ParsingError,
 };
 
 use crate::{
@@ -1381,9 +1381,58 @@ pub fn program(
                         .spanned()
                         .critical("expected a body for the function"),
                 )
-                .map(|((name, signature), body)| Instruction::FnDecl {
-                    name,
-                    content: Function { signature, body },
+                .and_then(|((name, signature), body)| {
+                    let on_type = signature
+                        .data
+                        .args
+                        .data()
+                        .first()
+                        .and_then(|first_arg| match first_arg {
+                            FnArg::Positional(arg) => {
+                                let FnPositionalArg {
+                                    name,
+                                    is_optional,
+                                    typ,
+                                } = arg;
+
+                                let name_at = name.at().parsed_range().unwrap();
+
+                                if name.data() != "self" {
+                                    None
+                                } else if *is_optional {
+                                    Some(Err(ParsingError::custom(name_at, "").criticalize(
+                                        "'self' argument cannot be optional in methods",
+                                    )))
+                                } else {
+                                    Some(match typ {
+                                        Some(typ) => match typ {
+                                            RuntimeEaten::Parsed(parsed) => Ok(parsed.clone()),
+                                            RuntimeEaten::Internal(_, _) => unreachable!(),
+                                        },
+
+                                        None => Err(ParsingError::custom(name_at, "").criticalize(
+                                            "'self' argument must have a specified type",
+                                        )),
+                                    })
+                                }
+                            }
+
+                            _ => None,
+                        })
+                        .transpose()?;
+
+                    Ok(match on_type {
+                        Some(on_type) => Instruction::MethodDecl {
+                            name,
+                            on_type,
+                            content: Function { signature, body },
+                        },
+
+                        None => Instruction::FnDecl {
+                            name,
+                            content: Function { signature, body },
+                        },
+                    })
                 }),
             //
             // Function return

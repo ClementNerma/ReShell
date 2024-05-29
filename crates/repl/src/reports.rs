@@ -300,10 +300,10 @@ fn parser_expection_to_str(err: &ParserExpectation) -> String {
 }
 
 fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
-    let msg = match err.critical() {
+    let msg = match err.critical_message() {
         Some(nature) => nature.to_string(),
         None => parser_expection_to_str(err.inner().expected()),
     };
 
-    (CodeRange::new(err.inner().at(), err.inner().len()), msg)
+    (err.inner().at(), msg)
 }
