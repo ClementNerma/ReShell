@@ -6,6 +6,5 @@
 
 // TODO: glob
 // TODO: colored formatting
-// TODO: pretty-printing
 
 pub mod pretty;
