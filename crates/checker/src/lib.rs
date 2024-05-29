@@ -1442,7 +1442,7 @@ fn check_fn_signature(
 
     let mut had_optional = false;
 
-    for arg in &args.data {
+    for (i, arg) in args.data.iter().enumerate() {
         let checked_arg = check_fn_arg(arg, state)?;
 
         let CheckedFnArg {
@@ -1463,6 +1463,11 @@ fn check_fn_signature(
                 return Err(CheckerError::new(
                     name.at().parsed_range().unwrap(),
                     "cannot have a non-optional positional argument after an optional one",
+                ));
+            } else if i > 0 && name.data() == "self" {
+                return Err(CheckerError::new(
+                    name.at().parsed_range().unwrap(),
+                    "cannot have non-first 'self' argument as it is reserved for methods",
                 ));
             }
         }
