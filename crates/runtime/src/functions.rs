@@ -51,9 +51,10 @@ pub fn eval_fn_call(
                         call.data.name.at,
                         format!(
                             "expected a function, found a {} instead",
-                            value
-                                .compute_type()
-                                .render_colored(ctx, PrettyPrintOptions::inline())
+                            value.compute_type().render_colored(
+                                ctx.type_alias_store(),
+                                PrettyPrintOptions::inline()
+                            )
                         ),
                     ))
                 }
@@ -145,7 +146,7 @@ pub fn call_fn_value(
                     "function call did not return any value, was expected to return a {}",
                     ret_type
                         .data()
-                        .render_colored(ctx, PrettyPrintOptions::inline())
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
             ));
         };
@@ -158,10 +159,10 @@ pub fn call_fn_value(
                     ret_val
                         .value
                         .compute_type()
-                        .render_colored(ctx, PrettyPrintOptions::inline()),
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                     ret_type
                         .data()
-                        .render_colored(ctx, PrettyPrintOptions::inline())
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
             ));
         }
@@ -273,8 +274,8 @@ fn parse_fn_call_args(
                                             },
                                         );
                                     } else {
-                                        return Err(ctx.error(name.at(),  format!("a value of type '{}' is expected for this flag", typ.data().render_colored(ctx, PrettyPrintOptions::inline())),
-                                        ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
+                                        return Err(ctx.error(name.at(),  format!("a value of type '{}' is expected for this flag", typ.data().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())),
+                                        ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
                                     }
                                 }
 
@@ -293,11 +294,11 @@ fn parse_fn_call_args(
                                                     value.from,
                                                 format!(
                                                     "expected a value of type '{}' for flag '{}', found '{}'",
-                                                    typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
+                                                    typ.data().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                                                     names.render_colored(&(), PrettyPrintOptions::inline()),
-                                                    value.value.compute_type().render_colored(ctx, PrettyPrintOptions::inline())
+                                                    value.value.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                                                 )
-                                            ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx, PrettyPrintOptions::inline()))));
+                                            ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
                                     }
 
                                     out.insert(
@@ -329,7 +330,7 @@ fn parse_fn_call_args(
                         "called function's signature is: {}",
                         func.signature
                             .inner()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                     ),
                 ));
             }
@@ -347,9 +348,10 @@ fn parse_fn_call_args(
                             ExecInfoType::Tip,
                             format!(
                                 "called function's signature is: {}",
-                                func.signature
-                                    .inner()
-                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                                func.signature.inner().render_colored(
+                                    ctx.type_alias_store(),
+                                    PrettyPrintOptions::inline()
+                                )
                             ),
                         ));
                 };
@@ -371,11 +373,14 @@ fn parse_fn_call_args(
                                     } else {
                                         format!("argument '{}' expected type", name.data())
                                     },
-                                    typ.data().render_colored(ctx, PrettyPrintOptions::inline()),
-                                    loc_val
-                                        .value
-                                        .compute_type()
-                                        .render_colored(ctx, PrettyPrintOptions::inline())
+                                    typ.data().render_colored(
+                                        ctx.type_alias_store(),
+                                        PrettyPrintOptions::inline()
+                                    ),
+                                    loc_val.value.compute_type().render_colored(
+                                        ctx.type_alias_store(),
+                                        PrettyPrintOptions::inline()
+                                    )
                                 ),
                             ));
                         }
@@ -438,9 +443,10 @@ fn parse_fn_call_args(
                             ExecInfoType::Tip,
                             format!(
                                 "called function's signature is: {}",
-                                func.signature
-                                    .inner()
-                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                                func.signature.inner().render_colored(
+                                    ctx.type_alias_store(),
+                                    PrettyPrintOptions::inline()
+                                )
                             ),
                         ));
                 }
@@ -730,7 +736,7 @@ pub fn find_applicable_method<'s>(
                     "no such method for type {}",
                     for_value
                         .compute_type()
-                        .render_colored(ctx, PrettyPrintOptions::inline())
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
             );
 
@@ -741,7 +747,7 @@ pub fn find_applicable_method<'s>(
                         "found method for another type: {}",
                         method
                             .on_type
-                            .render_colored(ctx, PrettyPrintOptions::inline())
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                     ),
                 );
             }

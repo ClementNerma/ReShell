@@ -440,7 +440,7 @@ pub fn value_to_str(
                     "cannot convert {} to a string",
                     value
                         .compute_type()
-                        .render_colored(ctx, PrettyPrintOptions::inline())
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
             )
             .with_info(

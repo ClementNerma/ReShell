@@ -10,6 +10,9 @@ pub struct CheckerError {
 
     /// Content of the error
     pub msg: String,
+
+    /// Optional additional details
+    pub details: Vec<String>,
 }
 
 impl CheckerError {
@@ -18,6 +21,13 @@ impl CheckerError {
         Self {
             at,
             msg: msg.into(),
+            details: vec![],
         }
+    }
+
+    /// Add details
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.details.push(detail.into());
+        self
     }
 }

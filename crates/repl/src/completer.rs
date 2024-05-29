@@ -252,7 +252,7 @@ fn build_fn_completions<'a>(
                         func.value
                             .signature
                             .inner()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                     ),
                     style: None,
                     extra: None,
@@ -287,11 +287,10 @@ fn build_method_completions<'a>(
                             None => name.clone(),
                         },
                         description: Some(
-                            method
-                                .value
-                                .signature
-                                .inner()
-                                .render_colored(ctx, PrettyPrintOptions::inline()),
+                            method.value.signature.inner().render_colored(
+                                ctx.type_alias_store(),
+                                PrettyPrintOptions::inline(),
+                            ),
                         ),
                         style: None,
                         extra: None,
@@ -420,7 +419,7 @@ fn complete_var_name(
                             .read_promise_no_write()
                             .value
                             .compute_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline()),
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                     ),
                     style: None,
                     extra: None,

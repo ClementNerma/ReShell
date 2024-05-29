@@ -1,6 +1,5 @@
 use reshell_checker::typechecker::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{SingleValueType, StructTypeMember, ValueType};
-use reshell_shared::pretty::TypeAliasStore;
 
 use crate::{context::Context, values::RuntimeValue};
 
@@ -69,15 +68,17 @@ pub fn check_if_value_fits_single_type(
         },
 
         SingleValueType::Function(signature) => match value {
-            RuntimeValue::Function(func) => {
-                check_if_fn_signature_fits_another(func.signature.inner(), signature.data(), ctx)
-            }
+            RuntimeValue::Function(func) => check_if_fn_signature_fits_another(
+                func.signature.inner(),
+                signature.data(),
+                ctx.type_alias_store(),
+            ),
 
             _ => false,
         },
 
         SingleValueType::TypeAlias(type_alias) => {
-            check_if_value_fits_type(value, ctx.get_type_alias_or_panic(type_alias), ctx)
+            check_if_value_fits_type(value, &ctx.get_type_alias(type_alias).data, ctx)
         }
 
         SingleValueType::Custom(typename) => {

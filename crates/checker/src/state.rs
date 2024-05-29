@@ -24,6 +24,11 @@ impl<'a> State<'a> {
         }
     }
 
+    /// (Semi-Private) Get type alias store
+    pub(crate) fn type_alias_store(&self) -> &TypeAliasStore {
+        &self.collected.type_aliases_usages
+    }
+
     /// Enter a new scope
     pub fn push_scope(&mut self, scope: CheckerScope) {
         assert!(!self.scopes.iter().any(|c| c.id == scope.id));
@@ -255,15 +260,17 @@ impl<'a> State<'a> {
         content: &Eaten<ValueType>,
         inside_block: &Eaten<Block>,
     ) {
+        let content = shared(content.clone());
+
         self.collected
             .type_aliases_decl
-            .insert(name.at, content.clone());
+            .insert(name.at, SharingType::clone(&content));
 
         self.collected
             .type_aliases_decl_by_scope
             .entry(inside_block.data.scope_id)
             .or_default()
-            .insert(name.data.clone(), name.at);
+            .insert(name.data.clone(), content);
     }
 
     /// Register usage of a type alias
@@ -294,7 +301,7 @@ impl<'a> State<'a> {
 
         self.collected
             .type_aliases_usages
-            .insert(name.clone(), *type_alias);
+            .insert(name.clone(), SharingType::clone(type_alias));
 
         Ok(())
     }
@@ -360,19 +367,6 @@ impl<'a> State<'a> {
             .insert(from.at, shared(from.clone()));
 
         assert!(dup.is_none());
-    }
-}
-
-impl<'a> TypeAliasStore for State<'a> {
-    fn get_type_alias_or_panic<'b>(&'b self, name: &Eaten<String>) -> &'b ValueType {
-        let type_alias_loc = self.collected.type_aliases_usages.get(name).unwrap();
-
-        &self
-            .collected
-            .type_aliases_decl
-            .get(type_alias_loc)
-            .unwrap()
-            .data
     }
 }
 

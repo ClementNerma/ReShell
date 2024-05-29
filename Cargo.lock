@@ -830,7 +830,6 @@ dependencies = [
  "reedline",
  "regex",
  "reshell-builtins",
- "reshell-checker",
  "reshell-parser",
  "reshell-runtime",
  "reshell-shared",

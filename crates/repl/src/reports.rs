@@ -12,7 +12,6 @@ use std::borrow::Cow;
 use annotate_snippets::{Level, Renderer, Snippet};
 use colored::Colorize;
 use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError, SourceFileID};
-use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
     files::{FilesMap, SourceFile, SourceFileLocation},
@@ -91,10 +90,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 )
             }
 
-            ExecErrorNature::CheckingErr(err) => {
-                let (at, err) = checking_error(err);
-                (RuntimeCodeRange::Parsed(at), "Checking error", err)
-            }
+            ExecErrorNature::CheckingErr(err) => (
+                RuntimeCodeRange::Parsed(err.at),
+                "Checking error",
+                err.msg.clone(),
+            ),
 
             ExecErrorNature::CommandFailedToStart { message } => {
                 (err.at, "Could not start command", message.clone())
@@ -251,7 +251,16 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let infos = match err {
         ReportableError::Parsing(_) => vec![],
-        ReportableError::Runtime(err, _) => err.infos.clone(),
+        ReportableError::Runtime(err, _) => match &err.nature {
+            ExecErrorNature::CheckingErr(checking_err) => checking_err
+                .details
+                .iter()
+                .map(|detail| (ExecInfoType::Note, detail.clone()))
+                .chain(err.infos.clone())
+                .collect(),
+
+            _ => err.infos.clone(),
+        },
     };
 
     for (info_type, content) in infos {
@@ -297,9 +306,4 @@ fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
     };
 
     (CodeRange::new(err.inner().at(), err.inner().len()), msg)
-}
-
-fn checking_error(err: &CheckerError) -> (CodeRange, String) {
-    let CheckerError { at, msg } = err;
-    (*at, msg.clone())
 }

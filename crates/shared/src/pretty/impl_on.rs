@@ -2,6 +2,8 @@
 //! This module implements pretty-printing for several types.
 //!
 
+use std::{collections::HashMap, sync::Arc};
+
 use colored::Color;
 use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::{
@@ -14,12 +16,10 @@ use reshell_parser::{
 
 use crate::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece};
 
-pub trait TypeAliasStore {
-    fn get_type_alias_or_panic<'a>(&'a self, name: &Eaten<String>) -> &'a ValueType;
-}
+pub type TypeAliasStore = HashMap<Eaten<String>, Arc<Eaten<ValueType>>>;
 
 impl PrettyPrintable for ValueType {
-    type Context = dyn TypeAliasStore;
+    type Context = TypeAliasStore;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
@@ -40,7 +40,7 @@ impl PrettyPrintable for ValueType {
 }
 
 impl PrettyPrintable for SingleValueType {
-    type Context = dyn TypeAliasStore;
+    type Context = TypeAliasStore;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
@@ -89,7 +89,7 @@ impl PrettyPrintable for SingleValueType {
             Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Magenta),
                 PrettyPrintablePiece::colored_atomic(" ( ", Color::BrightGreen),
-                ctx.get_type_alias_or_panic(name).generate_pretty_data(ctx),
+                ctx.get(name).unwrap().data.generate_pretty_data(ctx),
                 PrettyPrintablePiece::colored_atomic(" )", Color::BrightGreen),
             ]),
             Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta),
@@ -158,7 +158,7 @@ impl PrettyPrintable for CodeRange {
 }
 
 impl PrettyPrintable for FnSignature {
-    type Context = dyn TypeAliasStore;
+    type Context = TypeAliasStore;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         let Self { args, ret_type } = self;
@@ -183,7 +183,7 @@ impl PrettyPrintable for FnSignature {
 }
 
 impl PrettyPrintable for FnArg {
-    type Context = dyn TypeAliasStore;
+    type Context = TypeAliasStore;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {

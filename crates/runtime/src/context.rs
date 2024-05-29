@@ -17,7 +17,7 @@ use reshell_parser::{
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore};
 
 use crate::{
     bin_resolver::BinariesResolver,
@@ -160,6 +160,11 @@ impl Context {
         &mut self.bin_resolver
     }
 
+    /// Get a reference to the type alias store
+    pub fn type_alias_store(&self) -> &TypeAliasStore {
+        &self.collected.type_aliases_usages
+    }
+
     /// Get the list of all scopes visible by a given one
     /// Iterating in visibility order
     fn visible_scopes_for<'a, 'b: 'a>(
@@ -245,7 +250,11 @@ impl Context {
                         .collected
                         .type_aliases_decl_by_scope
                         .get(ast_scope_id)
-                        .cloned()
+                        .map(|map| {
+                            map.iter()
+                                .map(|(key, value)| (key.clone(), value.at))
+                                .collect()
+                        })
                         .unwrap_or_default(),
 
                     fns: fns
@@ -596,17 +605,18 @@ impl Context {
     /// It is guaranteed to be the one referenced at that point in time
     /// as type alias usages are collected before runtime
     pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> &'c Eaten<ValueType> {
-        let Some(type_alias_at) = self.collected.type_aliases_usages.get(name) else {
-            self.panic(
-                name.at,
-                format!(
-                    "type alias '{}' was not found (this is a bug in the checker)",
-                    name.data
-                ),
-            );
-        };
-
-        self.collected.type_aliases_decl.get(type_alias_at).unwrap()
+        self.collected
+            .type_aliases_usages
+            .get(name)
+            .unwrap_or_else(|| {
+                self.panic(
+                    name.at,
+                    format!(
+                        "type alias '{}' was not found (this is a bug in the checker)",
+                        name.data
+                    ),
+                );
+            })
     }
 
     /// Get a specific type signature from its location

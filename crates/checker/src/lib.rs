@@ -33,6 +33,7 @@ use reshell_parser::{
     },
     scope::AstScopeId,
 };
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use self::typechecker::check_if_type_fits_type;
 pub use self::{
@@ -166,13 +167,23 @@ fn block_first_pass(
 
                 if let Some(same_name_methods) = state.curr_scope().methods.get(&name.data) {
                     for (other_type, _) in same_name_methods.iter() {
-                        if check_if_type_fits_type(&on_type.data, other_type, state)
-                            || check_if_type_fits_type(other_type, &on_type.data, state)
-                        {
+                        if check_if_type_fits_type(
+                            &on_type.data,
+                            other_type,
+                            state.type_alias_store(),
+                        ) || check_if_type_fits_type(
+                            other_type,
+                            &on_type.data,
+                            state.type_alias_store(),
+                        ) {
                             // TODO: display both clashing types
                             return Err(CheckerError::new(
                                 name.at,
                                 "this method clashes with another same-name method applying on a compatible type",
+                            ).with_detail(
+                                format!("trying to declare a method for type     : {}", on_type.data.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
+                            ).with_detail(
+                                format!("...but a method exists for clashing type: {}", other_type.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
                             ));
                         }
                     }

@@ -5,21 +5,14 @@
 use std::collections::BTreeSet;
 
 use colored::Color;
-use parsy::Eaten;
-use reshell_parser::ast::{FlagValueSeparator, ValueType};
-use reshell_shared::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece, TypeAliasStore};
+use reshell_parser::ast::FlagValueSeparator;
+use reshell_shared::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece};
 
 use crate::{
     cmd::{CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
     context::Context,
     values::{ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
-
-impl TypeAliasStore for Context {
-    fn get_type_alias_or_panic<'a>(&'a self, name: &Eaten<String>) -> &'a ValueType {
-        &self.get_type_alias(name).data
-    }
-}
 
 impl PrettyPrintable for RuntimeValue {
     type Context = Context;
@@ -158,7 +151,9 @@ impl PrettyPrintable for RuntimeFnValue {
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
-            self.signature.inner().generate_pretty_data(ctx),
+            self.signature
+                .inner()
+                .generate_pretty_data(ctx.type_alias_store()),
             PrettyPrintablePiece::colored_atomic(
                 match self.body {
                     RuntimeFnBody::Block(_) => " { ... }",

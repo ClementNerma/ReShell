@@ -34,7 +34,7 @@ pub struct CheckerOutput {
     /// List of type aliases declaration
     ///
     /// Maps the type alias' name token location to its content
-    pub type_aliases_decl: HashMap<CodeRange, Eaten<ValueType>>,
+    pub type_aliases_decl: HashMap<CodeRange, SharingType<Eaten<ValueType>>>,
 
     /// List of all type aliases usage
     ///
@@ -43,13 +43,14 @@ pub struct CheckerOutput {
     ///
     /// This is useful to determine what type alias a type is referring to,
     /// especially when multiple type aliases in different scopes have the same name
-    pub type_aliases_usages: HashMap<Eaten<String>, CodeRange>,
+    pub type_aliases_usages: HashMap<Eaten<String>, SharingType<Eaten<ValueType>>>,
 
     /// List of all type aliases declaration, by scope
     ///
     /// Associates a scope's ID to a mapping between the type aliases' name and location.
     /// The aliases can then be retrieved using `type_alias_decl` in this struct
-    pub type_aliases_decl_by_scope: HashMap<AstScopeId, HashMap<String, CodeRange>>,
+    pub type_aliases_decl_by_scope:
+        HashMap<AstScopeId, HashMap<String, SharingType<Eaten<ValueType>>>>,
 
     /// Signature of all functions and lambdas
     ///

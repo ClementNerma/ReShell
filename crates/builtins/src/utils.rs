@@ -78,10 +78,11 @@ pub fn call_fn_checked_with_parsed_args(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    expected_signature.render_colored(ctx, PrettyPrintOptions::inline()),
+                    expected_signature
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                     value
                         .compute_type()
-                        .render_colored(ctx, PrettyPrintOptions::inline())
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
             ))
         }
@@ -92,16 +93,17 @@ pub fn call_fn_checked_with_parsed_args(
         RuntimeFnSignature::Owned(owned) => owned,
     };
 
-    if !check_if_fn_signature_fits_another(signature, expected_signature, ctx) {
+    if !check_if_fn_signature_fits_another(signature, expected_signature, ctx.type_alias_store()) {
         return Err(ctx.error(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                expected_signature.render_colored(ctx, PrettyPrintOptions::inline()),
+                expected_signature
+                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                 loc_val
                     .value
                     .compute_type()
-                    .render_colored(ctx, PrettyPrintOptions::inline())
+                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
             ),
         ));
     }

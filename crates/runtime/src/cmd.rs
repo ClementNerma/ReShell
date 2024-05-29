@@ -124,7 +124,7 @@ pub fn run_cmd(
                                         loc_val
                                             .value
                                             .compute_type()
-                                            .render_colored(ctx, PrettyPrintOptions::inline())
+                                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                                     )
                                 ));
                             }
@@ -279,10 +279,10 @@ pub fn run_cmd(
                             loc_val.from,
                             format!(
                                 "expected a string to capture, found a: {}",
-                                loc_val
-                                    .value
-                                    .compute_type()
-                                    .render_colored(ctx, PrettyPrintOptions::inline())
+                                loc_val.value.compute_type().render_colored(
+                                    ctx.type_alias_store(),
+                                    PrettyPrintOptions::inline()
+                                )
                             ),
                         ));
                     }
@@ -760,7 +760,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                         "expected a spread value, found a {}",
                         spread_value
                             .compute_type()
-                            .render_colored(ctx, PrettyPrintOptions::inline())
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
                     ),
                 )),
             }

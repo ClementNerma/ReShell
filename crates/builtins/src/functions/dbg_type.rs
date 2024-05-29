@@ -37,7 +37,7 @@ fn run() -> Runner {
                 "{} {}",
                 at.bright_magenta(),
                 value.compute_type().render_colored(
-                    ctx,
+                    ctx.type_alias_store(),
                     PrettyPrintOptions {
                         pretty: true,
                         line_prefix_size: at.chars().count(),

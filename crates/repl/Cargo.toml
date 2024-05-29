@@ -9,7 +9,6 @@ path = "src/main.rs"
 
 [dependencies]
 reshell-parser = { path = "../parser" }
-reshell-checker = { path = "../checker" }
 reshell-runtime = { path = "../runtime" }
 reshell-builtins = { path = "../builtins" }
 parsy = "0.6.5"

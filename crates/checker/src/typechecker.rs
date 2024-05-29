@@ -11,7 +11,7 @@ use reshell_shared::pretty::TypeAliasStore;
 pub fn check_if_type_fits_type(
     value_type: &ValueType,
     into: &ValueType,
-    ctx: &dyn TypeAliasStore,
+    ctx: &TypeAliasStore,
 ) -> bool {
     match value_type {
         ValueType::Single(single_type) => {
@@ -29,7 +29,7 @@ pub fn check_if_type_fits_type(
 pub fn check_if_single_type_fits_type(
     value_type: &SingleValueType,
     into: &ValueType,
-    ctx: &dyn TypeAliasStore,
+    ctx: &TypeAliasStore,
 ) -> bool {
     match into {
         ValueType::Single(single) => {
@@ -47,7 +47,7 @@ pub fn check_if_single_type_fits_type(
 pub fn check_if_type_fits_single(
     value_type: &ValueType,
     into: &SingleValueType,
-    ctx: &dyn TypeAliasStore,
+    ctx: &TypeAliasStore,
 ) -> bool {
     match value_type {
         ValueType::Single(single) => check_if_single_type_fits_single(single.data(), into, ctx),
@@ -63,17 +63,17 @@ pub fn check_if_type_fits_single(
 pub fn check_if_single_type_fits_single(
     value_type: &SingleValueType,
     into: &SingleValueType,
-    ctx: &dyn TypeAliasStore,
+    ctx: &TypeAliasStore,
 ) -> bool {
     match (value_type, into) {
         (SingleValueType::Any, _) | (_, SingleValueType::Any) => true,
 
         (SingleValueType::TypeAlias(name), _) => {
-            check_if_type_fits_single(ctx.get_type_alias_or_panic(name), into, ctx)
+            check_if_type_fits_single(&ctx.get(name).unwrap().data, into, ctx)
         }
 
         (_, SingleValueType::TypeAlias(name)) => {
-            check_if_single_type_fits_type(value_type, ctx.get_type_alias_or_panic(name), ctx)
+            check_if_single_type_fits_type(value_type, &ctx.get(name).unwrap().data, ctx)
         }
 
         (SingleValueType::Null, SingleValueType::Null) => true,
@@ -157,7 +157,7 @@ pub fn check_if_single_type_fits_single(
 pub fn check_if_fn_signature_fits_another(
     signature: &FnSignature,
     into: &FnSignature,
-    ctx: &dyn TypeAliasStore,
+    ctx: &TypeAliasStore,
 ) -> bool {
     // Compare return types
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
