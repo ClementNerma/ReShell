@@ -32,7 +32,7 @@ pub fn eval_fn_call(
 
         FnCallNature::Method => {
             let piped = piped.as_ref().unwrap();
-            let method = find_applicable_method(call.at, &call.data.name, &piped.value, ctx)?;
+            let method = find_applicable_method(&call.data.name, &piped.value, ctx)?;
             method.value.clone()
         }
 
@@ -723,7 +723,6 @@ fn get_matching_var_name(
 }
 
 pub fn find_applicable_method<'s>(
-    call_at: CodeRange,
     name: &Eaten<String>,
     for_value: &RuntimeValue,
     ctx: &'s Context,
@@ -731,7 +730,7 @@ pub fn find_applicable_method<'s>(
     ctx.find_applicable_method(name, for_value)
         .map_err(|not_matching| {
             let mut err = ctx.error(
-                call_at,
+                name.at,
                 format!(
                     "no such method for type {}",
                     for_value
