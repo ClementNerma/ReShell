@@ -729,22 +729,24 @@ pub fn program(
                     .then_ignore(msnl)
                     .then_ignore(char('{').critical_with_no_message())
                     .then(
-                        msnl.ignore_then(
-                            value_type
-                                .clone()
-                                .spanned()
-                                .critical("expected a type to match"),
-                        )
-                        .then_ignore(msnl)
-                        .then_ignore(just("->").critical("expected an arrow (->)"))
-                        .then_ignore(msnl)
-                        .then(
-                            expr.clone()
-                                .spanned()
-                                .critical("expected an expression to evaluate to"),
-                        )
-                        .map(|(matches, then)| TypeMatchExprCase { matches, then })
-                        .repeated_vec(),
+                        msnl.ignore_then(just("case"))
+                            .ignore_then(ms)
+                            .ignore_then(
+                                value_type
+                                    .clone()
+                                    .spanned()
+                                    .critical("expected a type to match"),
+                            )
+                            .then_ignore(msnl)
+                            .then_ignore(just("->").critical("expected an arrow (->)"))
+                            .then_ignore(msnl)
+                            .then(
+                                expr.clone()
+                                    .spanned()
+                                    .critical("expected an expression to evaluate to"),
+                            )
+                            .map(|(matches, then)| TypeMatchExprCase { matches, then })
+                            .repeated_vec(),
                     )
                     .then_ignore(msnl)
                     .then_ignore(just("else").critical("expected an 'else' fallback"))
@@ -1415,16 +1417,18 @@ pub fn program(
                 .then_ignore(msnl)
                 .then_ignore(char('{').critical_with_no_message())
                 .then(
-                    msnl.ignore_then(
-                        value_type
-                            .clone()
-                            .spanned()
-                            .critical("expected a type to match"),
-                    )
-                    .then_ignore(ms)
-                    .then(block.clone().spanned().critical("expected a block"))
-                    .map(|(matches, body)| TypeMatchCase { matches, body })
-                    .repeated_vec(),
+                    msnl.ignore_then(just("case"))
+                        .ignore_then(ms)
+                        .ignore_then(
+                            value_type
+                                .clone()
+                                .spanned()
+                                .critical("expected a type to match"),
+                        )
+                        .then_ignore(ms)
+                        .then(block.clone().spanned().critical("expected a block"))
+                        .map(|(matches, body)| TypeMatchCase { matches, body })
+                        .repeated_vec(),
                 )
                 .then(
                     msnl.ignore_then(just("else"))
