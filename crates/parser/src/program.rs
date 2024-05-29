@@ -17,9 +17,9 @@ use crate::{
         ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
         FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
         FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, LiteralValue, MapDestructBinding, Program, PropAccess, PropAccessNature,
-        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember,
-        SwitchCase, SwitchExprCase, Value, ValueType, VarDeconstruction,
+        Instruction, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
+        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, Value, ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -672,14 +672,14 @@ pub fn program(
                         elsif,
                         els,
                     }),
-                // Switch
-                just("switch")
+                // Match
+                just("match")
                     .ignore_then(s)
                     .ignore_then(
                         expr.clone()
                             .map(Box::new)
                             .spanned()
-                            .critical("expected an expression to switch on"),
+                            .critical("expected an expression to match on"),
                     )
                     .then_ignore(msnl)
                     .then_ignore(char('{').critical_with_no_message())
@@ -699,7 +699,7 @@ pub fn program(
                                     .spanned()
                                     .critical("expected an expression to evaluate to"),
                             )
-                            .map(|(matches, then)| SwitchExprCase { matches, then })
+                            .map(|(matches, then)| MatchExprCase { matches, then })
                             .repeated_vec(),
                     )
                     .then_ignore(msnl)
@@ -715,7 +715,7 @@ pub fn program(
                     )
                     .then_ignore(msnl)
                     .then_ignore(char('}').critical_with_no_message())
-                    .map(|((expr, cases), els)| ExprInnerContent::Switch { expr, cases, els }),
+                    .map(|((expr, cases), els)| ExprInnerContent::Match { expr, cases, els }),
                 // Try / catch
                 just("try")
                     .ignore_then(s)
@@ -1325,14 +1325,14 @@ pub fn program(
             //
             just("break").map(|_| Instruction::LoopBreak),
             //
-            // Switch
+            // Matching
             //
-            just("switch")
+            just("match")
                 .ignore_then(s)
                 .ignore_then(
                     expr.clone()
                         .spanned()
-                        .critical("expected an expression to switch on"),
+                        .critical("expected an expression to match on"),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('{').critical_with_no_message())
@@ -1346,7 +1346,7 @@ pub fn program(
                         )
                         .then_ignore(ms)
                         .then(block.clone().spanned().critical("expected a block"))
-                        .map(|(matches, body)| SwitchCase { matches, body })
+                        .map(|(matches, body)| MatchCase { matches, body })
                         .repeated_vec(),
                 )
                 .then(
@@ -1357,7 +1357,7 @@ pub fn program(
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_with_no_message())
-                .map(|((expr, cases), els)| Instruction::Switch { expr, cases, els }),
+                .map(|((expr, cases), els)| Instruction::Match { expr, cases, els }),
             //
             // Function declaration
             //

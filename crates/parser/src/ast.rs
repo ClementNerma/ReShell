@@ -68,10 +68,10 @@ pub enum Instruction {
     /// 'break' in a loop
     LoopBreak,
 
-    /// Switch statement
-    Switch {
+    /// 'match' statement
+    Match {
         expr: Eaten<Expr>,
-        cases: Vec<SwitchCase>,
+        cases: Vec<MatchCase>,
         els: Option<Eaten<Block>>,
     },
 
@@ -155,7 +155,7 @@ pub struct ElsIf {
 }
 
 #[derive(Debug, Clone)]
-pub struct SwitchCase {
+pub struct MatchCase {
     pub matches: Eaten<Expr>,
     pub body: Eaten<Block>,
 }
@@ -194,9 +194,9 @@ pub enum ExprInnerContent {
         elsif: Vec<Eaten<ElsIfExpr>>,
         els: Eaten<Box<Expr>>,
     },
-    Switch {
+    Match {
         expr: Eaten<Box<Expr>>,
-        cases: Vec<SwitchExprCase>,
+        cases: Vec<MatchExprCase>,
         els: Eaten<Box<Expr>>,
     },
     Try {
@@ -215,7 +215,7 @@ pub struct ElsIfExpr {
 }
 
 #[derive(Debug, Clone)]
-pub struct SwitchExprCase {
+pub struct MatchExprCase {
     pub matches: Eaten<Expr>,
     pub then: Eaten<Expr>,
 }

@@ -4,7 +4,7 @@ use parsy::Eaten;
 use reshell_parser::ast::{
     Block, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr,
     ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature,
-    Function, LiteralValue, PropAccess, RuntimeCodeRange, RuntimeEaten, SingleOp, SwitchExprCase,
+    Function, LiteralValue, MatchExprCase, PropAccess, RuntimeCodeRange, RuntimeEaten, SingleOp,
     Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -353,10 +353,10 @@ fn eval_expr_inner_content(
             elsif,
             els,
         } => {
-            let cond_val =
-                match eval_expr(&cond.data, ctx)? {
-                    RuntimeValue::Bool(bool) => bool,
-                    value => return Err(ctx.error(
+            let cond_val = match eval_expr(&cond.data, ctx)? {
+                RuntimeValue::Bool(bool) => bool,
+                value => {
+                    return Err(ctx.error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -365,8 +365,9 @@ fn eval_expr_inner_content(
                                 PrettyPrintOptions::inline()
                             )
                         ),
-                    )),
-                };
+                    ))
+                }
+            };
 
             if cond_val {
                 return eval_expr(&body.data, ctx);
@@ -398,19 +399,19 @@ fn eval_expr_inner_content(
             eval_expr(&els.data, ctx)
         }
 
-        ExprInnerContent::Switch { expr, cases, els } => {
-            let switch_on = eval_expr(&expr.data, ctx)?;
+        ExprInnerContent::Match { expr, cases, els } => {
+            let match_on = eval_expr(&expr.data, ctx)?;
 
-            for SwitchExprCase { matches, then } in cases {
+            for MatchExprCase { matches, then } in cases {
                 let case_value = eval_expr(&matches.data, ctx)?;
 
-                let cmp = are_values_equal(&switch_on, &case_value).map_err(
+                let cmp = are_values_equal(&match_on, &case_value).map_err(
                     |NotComparableTypesErr { reason }| {
                         ctx.error(
                             matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
-                                switch_on.compute_type().render_colored(
+                                match_on.compute_type().render_colored(
                                     ctx.type_alias_store(),
                                     PrettyPrintOptions::inline()
                                 ),

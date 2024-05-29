@@ -3,8 +3,8 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::ast::{
-    Block, ElsIf, Instruction, MapDestructBinding, Program, RuntimeCodeRange, SingleVarDecl,
-    SwitchCase, VarDeconstruction,
+    Block, ElsIf, Instruction, MapDestructBinding, MatchCase, Program, RuntimeCodeRange,
+    SingleVarDecl, VarDeconstruction,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -585,19 +585,19 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
         Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
 
-        Instruction::Switch { expr, cases, els } => {
-            let switch_on = eval_expr(&expr.data, ctx)?;
+        Instruction::Match { expr, cases, els } => {
+            let match_on = eval_expr(&expr.data, ctx)?;
 
-            for SwitchCase { matches, body } in cases {
+            for MatchCase { matches, body } in cases {
                 let case_value = eval_expr(&matches.data, ctx)?;
 
-                let cmp = are_values_equal(&switch_on, &case_value).map_err(
+                let cmp = are_values_equal(&match_on, &case_value).map_err(
                     |NotComparableTypesErr { reason }| {
                         ctx.error(
                             matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
-                                switch_on.compute_type().render_colored(
+                                match_on.compute_type().render_colored(
                                     ctx.type_alias_store(),
                                     PrettyPrintOptions::inline()
                                 ),

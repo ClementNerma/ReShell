@@ -586,7 +586,7 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> CompletionMode {
             }
         }
 
-        "if" | "while" | "do" | "try" | "throw" | "switch" | "return" => CompletionMode::Expr,
+        "if" | "while" | "do" | "try" | "throw" | "match" | "return" => CompletionMode::Expr,
 
         "continue" | "break" | "fn" => CompletionMode::None,
 

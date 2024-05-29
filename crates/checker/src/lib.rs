@@ -26,10 +26,10 @@ use reshell_parser::{
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
         ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, Program, PropAccess,
-        PropAccessNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, SwitchCase, SwitchExprCase, Value, ValueType,
-        VarDeconstruction,
+        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
+        MatchExprCase, Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, Value,
+        ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -477,11 +477,11 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             }
         }
 
-        Instruction::Switch { expr, cases, els } => {
+        Instruction::Match { expr, cases, els } => {
             check_expr(&expr.data, state)?;
 
             for case in cases {
-                let SwitchCase { matches, body } = case;
+                let MatchCase { matches, body } = case;
 
                 check_expr(&matches.data, state)?;
                 check_block(body, state)?;
@@ -700,10 +700,10 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             check_expr(&els.data, state)?;
         }
 
-        ExprInnerContent::Switch { expr, cases, els } => {
+        ExprInnerContent::Match { expr, cases, els } => {
             check_expr(&expr.data, state)?;
 
-            for SwitchExprCase { matches, then } in cases {
+            for MatchExprCase { matches, then } in cases {
                 check_expr(&matches.data, state)?;
                 check_expr(&then.data, state)?;
             }
