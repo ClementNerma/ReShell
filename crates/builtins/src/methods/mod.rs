@@ -25,6 +25,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::any::inspect::build_fn(),
         self::any::to_json::build_fn(),
         self::any::transform::build_fn(),
+        self::any::typename::build_fn(),
         self::command::succeeds::build_fn(),
         self::datetime::to_string::build_fn(),
         self::duration::seconds::build_fn(),
