@@ -176,7 +176,6 @@ fn block_first_pass(
                             &on_type.data,
                             state.type_alias_store(),
                         ) {
-                            // TODO: display both clashing types
                             return Err(CheckerError::new(
                                 name.at,
                                 "this method clashes with another same-name method applying on a compatible type",
