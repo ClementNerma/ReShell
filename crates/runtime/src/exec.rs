@@ -4,7 +4,7 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten, FileId};
 use reshell_parser::ast::{
     Block, ElsIf, Instruction, MapDestructBinding, MatchCase, Program, RuntimeCodeRange,
-    SingleVarDecl, VarDeconstruction,
+    SingleVarDecl, TypeMatchCase, VarDeconstruction,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -611,6 +611,22 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                 )?;
 
                 if cmp {
+                    return run_block(body, ctx, None);
+                }
+            }
+
+            if let Some(els) = els {
+                return run_block(els, ctx, None);
+            }
+
+            None
+        }
+
+        Instruction::TypeMatch { expr, cases, els } => {
+            let match_on = eval_expr(&expr.data, ctx)?;
+
+            for TypeMatchCase { matches, body } in cases {
+                if check_if_value_fits_type(&match_on, &matches.data, ctx) {
                     return run_block(body, ctx, None);
                 }
             }

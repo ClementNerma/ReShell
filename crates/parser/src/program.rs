@@ -19,7 +19,8 @@ use crate::{
         FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
         Instruction, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
         PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, Value, ValueType, VarDeconstruction,
+        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -716,6 +717,49 @@ pub fn program(
                     .then_ignore(msnl)
                     .then_ignore(char('}').critical_with_no_message())
                     .map(|((expr, cases), els)| ExprInnerContent::Match { expr, cases, els }),
+                // Typematch
+                just("typematch")
+                    .ignore_then(s)
+                    .ignore_then(
+                        expr.clone()
+                            .map(Box::new)
+                            .spanned()
+                            .critical("expected an expression to match on"),
+                    )
+                    .then_ignore(msnl)
+                    .then_ignore(char('{').critical_with_no_message())
+                    .then(
+                        msnl.ignore_then(
+                            value_type
+                                .clone()
+                                .spanned()
+                                .critical("expected a type to match"),
+                        )
+                        .then_ignore(msnl)
+                        .then_ignore(just("->").critical("expected an arrow (->)"))
+                        .then_ignore(msnl)
+                        .then(
+                            expr.clone()
+                                .spanned()
+                                .critical("expected an expression to evaluate to"),
+                        )
+                        .map(|(matches, then)| TypeMatchExprCase { matches, then })
+                        .repeated_vec(),
+                    )
+                    .then_ignore(msnl)
+                    .then_ignore(just("else").critical("expected an 'else' fallback"))
+                    .then_ignore(msnl)
+                    .then_ignore(just("->").critical("expected an arrow (->)"))
+                    .then_ignore(msnl)
+                    .then(
+                        expr.clone()
+                            .map(Box::new)
+                            .spanned()
+                            .critical("expected an expression to evaluate to"),
+                    )
+                    .then_ignore(msnl)
+                    .then_ignore(char('}').critical_with_no_message())
+                    .map(|((expr, cases), els)| ExprInnerContent::TypeMatch { expr, cases, els }),
                 // Try / catch
                 just("try")
                     .ignore_then(s)
@@ -1358,6 +1402,39 @@ pub fn program(
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_with_no_message())
                 .map(|((expr, cases), els)| Instruction::Match { expr, cases, els }),
+            //
+            // Type matching
+            //
+            just("typematch")
+                .ignore_then(s)
+                .ignore_then(
+                    expr.clone()
+                        .spanned()
+                        .critical("expected an expression to match on"),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('{').critical_with_no_message())
+                .then(
+                    msnl.ignore_then(
+                        value_type
+                            .clone()
+                            .spanned()
+                            .critical("expected a type to match"),
+                    )
+                    .then_ignore(ms)
+                    .then(block.clone().spanned().critical("expected a block"))
+                    .map(|(matches, body)| TypeMatchCase { matches, body })
+                    .repeated_vec(),
+                )
+                .then(
+                    msnl.ignore_then(just("else"))
+                        .ignore_then(ms)
+                        .ignore_then(block.clone().spanned().critical("expected a block"))
+                        .or_not(),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('}').critical_with_no_message())
+                .map(|((expr, cases), els)| Instruction::TypeMatch { expr, cases, els }),
             //
             // Function declaration
             //

@@ -75,6 +75,13 @@ pub enum Instruction {
         els: Option<Eaten<Block>>,
     },
 
+    /// 'typematch' statement
+    TypeMatch {
+        expr: Eaten<Expr>,
+        cases: Vec<TypeMatchCase>,
+        els: Option<Eaten<Block>>,
+    },
+
     /// Function declaration
     FnDecl {
         name: Eaten<String>,
@@ -161,6 +168,12 @@ pub struct MatchCase {
 }
 
 #[derive(Debug, Clone)]
+pub struct TypeMatchCase {
+    pub matches: Eaten<ValueType>,
+    pub body: Eaten<Block>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Function {
     pub signature: Eaten<FnSignature>,
     pub body: Eaten<Block>,
@@ -199,6 +212,11 @@ pub enum ExprInnerContent {
         cases: Vec<MatchExprCase>,
         els: Eaten<Box<Expr>>,
     },
+    TypeMatch {
+        expr: Eaten<Box<Expr>>,
+        cases: Vec<TypeMatchExprCase>,
+        els: Eaten<Box<Expr>>,
+    },
     Try {
         fn_call: Eaten<FnCall>,
         catch_var: Eaten<String>,
@@ -217,6 +235,12 @@ pub struct ElsIfExpr {
 #[derive(Debug, Clone)]
 pub struct MatchExprCase {
     pub matches: Eaten<Expr>,
+    pub then: Eaten<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TypeMatchExprCase {
+    pub matches: Eaten<ValueType>,
     pub then: Eaten<Expr>,
 }
 

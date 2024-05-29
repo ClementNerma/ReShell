@@ -28,8 +28,8 @@ use reshell_parser::{
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
         FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
         MatchExprCase, Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, Value,
-        ValueType, VarDeconstruction,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
+        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -492,6 +492,21 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             }
         }
 
+        Instruction::TypeMatch { expr, cases, els } => {
+            check_expr(&expr.data, state)?;
+
+            for case in cases {
+                let TypeMatchCase { matches, body } = case;
+
+                check_value_type(&matches.data, state)?;
+                check_block(body, state)?;
+            }
+
+            if let Some(els) = els {
+                check_block(els, state)?;
+            }
+        }
+
         Instruction::FnDecl { name: _, content } => {
             // NOTE: function was already registered during init.
 
@@ -705,6 +720,17 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
 
             for MatchExprCase { matches, then } in cases {
                 check_expr(&matches.data, state)?;
+                check_expr(&then.data, state)?;
+            }
+
+            check_expr(&els.data, state)?;
+        }
+
+        ExprInnerContent::TypeMatch { expr, cases, els } => {
+            check_expr(&expr.data, state)?;
+
+            for TypeMatchExprCase { matches, then } in cases {
+                check_value_type(&matches.data, state)?;
                 check_expr(&then.data, state)?;
             }
 

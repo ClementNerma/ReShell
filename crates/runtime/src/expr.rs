@@ -5,7 +5,7 @@ use reshell_parser::ast::{
     Block, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr,
     ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature,
     Function, LiteralValue, MatchExprCase, PropAccess, RuntimeCodeRange, RuntimeEaten, SingleOp,
-    Value,
+    TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -16,6 +16,7 @@ use crate::{
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy},
+    typechecker::check_if_value_fits_type,
     values::{
         are_values_equal, value_to_str, LocatedValue, NotComparableTypesErr, RuntimeFnBody,
         RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
@@ -425,6 +426,18 @@ fn eval_expr_inner_content(
                 )?;
 
                 if cmp {
+                    return eval_expr(&then.data, ctx);
+                }
+            }
+
+            eval_expr(&els.data, ctx)
+        }
+
+        ExprInnerContent::TypeMatch { expr, cases, els } => {
+            let match_on = eval_expr(&expr.data, ctx)?;
+
+            for TypeMatchExprCase { matches, then } in cases {
+                if check_if_value_fits_type(&match_on, &matches.data, ctx) {
                     return eval_expr(&then.data, ctx);
                 }
             }
