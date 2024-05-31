@@ -947,6 +947,7 @@ pub enum CmdArgResult {
     Spreaded(Vec<CmdSingleArgResult>),
 }
 
+// TODO: Rename as "SingleCmdArgResult"
 #[derive(Debug, Clone)]
 pub enum CmdSingleArgResult {
     Basic(LocatedValue),
