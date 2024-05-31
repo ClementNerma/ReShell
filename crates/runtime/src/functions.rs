@@ -218,34 +218,45 @@ fn parse_fn_call_args(
                                 continue;
                             };
 
-                            if let Some(FlagArgValueResult { value, value_sep }) = value {
-                                // Skip the flag if was associated the `false` value using the `=` sign
+                            let is_present = match value {
+                                // If no value is provided, the flag is set to `true`
+                                None => true,
 
-                                let mut is_true_with_eq_sign = false;
+                                // Otherwise...
+                                Some(FlagArgValueResult { value, value_sep }) => {
+                                    match &value.value {
+                                        // If it's a boolean, set the flag to the provided value
+                                        RuntimeValue::Bool(bool) => *bool,
 
-                                if value_sep == FlagValueSeparator::Equal {
-                                    if let RuntimeValue::Bool(bool) = &value.value {
-                                        if *bool {
-                                            is_true_with_eq_sign = true;
-                                        } else {
-                                            continue 'iter;
+                                        _ => {
+                                            match value_sep {
+                                                // Move the value as a separate argument
+                                                FlagValueSeparator::Space => {
+                                                    value_on_hold =
+                                                        Some(CmdSingleArgResult::Basic(value));
+
+                                                    continue 'iter;
+                                                }
+
+                                                // Otherwise, fail
+                                                FlagValueSeparator::Equal => {
+                                                    return Err(ctx.error(
+                                                        value.from,
+                                                        "the provided flag doesn't accept a value (other than booleans)",
+                                                    ));
+                                                }
+                                            }
                                         }
                                     }
                                 }
-
-                                // Just set the flag normally if it's the `true` value with the `=` sign
-                                // (which is equivalent to not providing a value at all)
-                                if !is_true_with_eq_sign {
-                                    value_on_hold = Some(CmdSingleArgResult::Basic(value));
-                                }
-                            }
+                            };
 
                             out.insert(
                                 var_name,
                                 ValidatedFnCallArg {
                                     decl_name_at: fn_arg_var_at(arg),
                                     arg_value_at: name.at(),
-                                    value: RuntimeValue::Bool(true),
+                                    value: RuntimeValue::Bool(is_present),
                                 },
                             );
 
