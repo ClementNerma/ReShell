@@ -313,7 +313,11 @@ pub fn program(
                 .then_ignore(ms)
                 .then_ignore(char(':'))
                 .then_ignore(msnl)
-                .then(expr.clone().spanned())
+                .then(
+                    expr.clone()
+                        .spanned()
+                        .critical("expected an expression for the flag"),
+                )
                 .map(|(name, value)| FnCallArg::Flag {
                     name: name.map(|name| {
                         if name.chars().nth(1).is_some() {
