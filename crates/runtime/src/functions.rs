@@ -297,7 +297,11 @@ fn parse_fn_call_args(
             name,
             is_optional,
             typ,
-        }) => Some((name, is_optional, typ)),
+        }) => Some(SimplifiedPositionalFnArg {
+            name,
+            is_optional: *is_optional,
+            typ,
+        }),
 
         FnArg::PresenceFlag(_) | FnArg::NormalFlag(_) | FnArg::Rest(_) => None,
     });
@@ -348,17 +352,17 @@ struct ParsedFnCallArgs {
     rest_args: Vec<CmdSingleArgResult>,
 }
 
-fn parse_single_fn_call_arg<'a, 'b, 'c>(
+struct SimplifiedPositionalFnArg<'a> {
+    name: &'a RuntimeEaten<String>,
+    is_optional: bool,
+    typ: &'a Option<RuntimeEaten<ValueType>>,
+}
+
+fn parse_single_fn_call_arg<'a>(
     func: &RuntimeFnValue,
     has_rest_argument: bool,
     // TODO: use struct
-    positional_fn_args: &mut impl Iterator<
-        Item = (
-            &'a RuntimeEaten<String>,
-            &'b bool,
-            &'c Option<RuntimeEaten<ValueType>>,
-        ),
-    >,
+    positional_fn_args: &mut impl Iterator<Item = SimplifiedPositionalFnArg<'a>>,
     arg_result: CmdSingleArgResult,
     fn_args: &[FnArg],
     ctx: &mut Context,
@@ -520,7 +524,7 @@ fn parse_single_fn_call_arg<'a, 'b, 'c>(
         }
 
         CmdSingleArgResult::Basic(loc_val) => {
-            let Some((name, is_optional, typ)) = positional_fn_args.next() else {
+            let Some(positional_fn_arg) = positional_fn_args.next() else {
                 if has_rest_argument {
                     return Ok(ParsedSingleFnCallArg::Rest(CmdSingleArgResult::Basic(
                         loc_val,
@@ -541,9 +545,13 @@ fn parse_single_fn_call_arg<'a, 'b, 'c>(
                     ));
             };
 
-            let is_null_for_optional = *is_optional && matches!(loc_val.value, RuntimeValue::Null);
+            let SimplifiedPositionalFnArg {
+                name,
+                is_optional,
+                typ,
+            } = positional_fn_arg;
 
-            if !is_null_for_optional {
+            if !is_optional || !matches!(loc_val.value, RuntimeValue::Null) {
                 if let Some(typ) = typ {
                     if !check_if_value_fits_type(&loc_val.value, typ.data(), ctx) {
                         let is_method_self_arg = func.is_method && name.data() == "self";
