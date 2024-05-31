@@ -18,7 +18,7 @@ use reshell_parser::{
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    cmd::CmdSingleArgResult,
+    cmd::SingleCmdArgResult,
     context::{Context, ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     functions::ValidatedFnCallArg,
@@ -136,7 +136,7 @@ pub enum RuntimeValue {
     Range { from: i64, to: i64 },
     Error(Box<ErrorValueContent>),
     CmdCall { content_at: CodeRange },
-    CmdArg(Box<CmdSingleArgResult>),
+    CmdArg(Box<SingleCmdArgResult>),
 
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell

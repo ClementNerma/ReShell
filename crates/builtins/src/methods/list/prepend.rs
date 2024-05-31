@@ -1,4 +1,4 @@
-use reshell_runtime::cmd::CmdSingleArgResult;
+use reshell_runtime::cmd::SingleCmdArgResult;
 
 use crate::define_internal_fn;
 
@@ -18,8 +18,8 @@ fn run() -> Runner {
         let prepend = prepend
             .into_iter()
             .map(|value| match &*value {
-                CmdSingleArgResult::Basic(loc_val) => Ok(loc_val.value.clone()),
-                CmdSingleArgResult::Flag { name, value: _ } => {
+                SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.value.clone()),
+                SingleCmdArgResult::Flag { name, value: _ } => {
                     Err(ctx.error(name.at(), "Cannot prepend a flag to a list"))
                 }
             })

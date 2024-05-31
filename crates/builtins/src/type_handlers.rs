@@ -11,7 +11,7 @@ use reshell_parser::ast::{
 };
 
 use reshell_runtime::{
-    cmd::CmdSingleArgResult,
+    cmd::SingleCmdArgResult,
     gc::{GcCell, GcReadOnlyCell},
     values::{CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
 };
@@ -110,7 +110,7 @@ declare_basic_type_handlers!(
         _ => Err("expected a struct".to_owned())
     },
 
-    CmdArgType (CmdArg) = Box<CmdSingleArgResult> => value: match value {
+    CmdArgType (CmdArg) = Box<SingleCmdArgResult> => value: match value {
         RuntimeValue::CmdArg(arg) => Ok(arg),
         _ => Err("expected a command argument value".to_owned())
     }

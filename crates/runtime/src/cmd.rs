@@ -221,8 +221,8 @@ pub fn run_cmd(
                                     };
 
                                     match arg {
-                                        CmdSingleArgResult::Basic(value) => Some(value),
-                                        CmdSingleArgResult::Flag { name: _, value: _ } => None,
+                                        SingleCmdArgResult::Basic(value) => Some(value),
+                                        SingleCmdArgResult::Flag { name: _, value: _ } => None,
                                     }
                                 })
                                 .ok_or_else(|| {
@@ -645,14 +645,14 @@ fn append_cmd_arg_as_string(
 ) -> ExecResult<()> {
     match cmd_arg_result {
         CmdArgResult::Single(value) => match value {
-            CmdSingleArgResult::Basic(value) => args_str.push(value_to_str(
+            SingleCmdArgResult::Basic(value) => args_str.push(value_to_str(
                 &value.value,
                 "arguments to external commands must be stringifyable",
                 cmd_arg_result_at,
                 ctx,
             )?),
 
-            CmdSingleArgResult::Flag { name, value } => {
+            SingleCmdArgResult::Flag { name, value } => {
                 let name = name.data().back_to_string();
 
                 match value {
@@ -699,10 +699,10 @@ fn append_cmd_arg_as_string(
 pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult> {
     match arg {
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
-            .map(|value| CmdArgResult::Single(CmdSingleArgResult::Basic(value))),
+            .map(|value| CmdArgResult::Single(SingleCmdArgResult::Basic(value))),
 
         CmdArg::Flag(CmdFlagArg { name, value }) => {
-            Ok(CmdArgResult::Single(CmdSingleArgResult::Flag {
+            Ok(CmdArgResult::Single(SingleCmdArgResult::Flag {
                 name: RuntimeEaten::Parsed(name.clone()),
                 value: value
                     .as_ref()
@@ -734,7 +734,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                         .read_promise_no_write()
                         .iter()
                         .map(|item| match item {
-                            RuntimeValue::CmdArg(arg) => Ok(CmdSingleArgResult::clone(arg)),
+                            RuntimeValue::CmdArg(arg) => Ok(SingleCmdArgResult::clone(arg)),
 
                             _ => value_to_str(
                                 item,
@@ -743,7 +743,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                                 ctx,
                             )
                             .map(|str| {
-                                CmdSingleArgResult::Basic(LocatedValue::new(
+                                SingleCmdArgResult::Basic(LocatedValue::new(
                                     RuntimeValue::String(str),
                                     RuntimeCodeRange::Parsed(spread.at),
                                 ))
@@ -943,13 +943,12 @@ fn wait_for_commands_ending(
 
 #[derive(Debug, Clone)]
 pub enum CmdArgResult {
-    Single(CmdSingleArgResult),
-    Spreaded(Vec<CmdSingleArgResult>),
+    Single(SingleCmdArgResult),
+    Spreaded(Vec<SingleCmdArgResult>),
 }
 
-// TODO: Rename as "SingleCmdArgResult"
 #[derive(Debug, Clone)]
-pub enum CmdSingleArgResult {
+pub enum SingleCmdArgResult {
     Basic(LocatedValue),
     Flag {
         name: RuntimeEaten<CmdFlagNameArg>,

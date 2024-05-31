@@ -9,7 +9,7 @@ use reshell_parser::ast::{
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    cmd::{eval_cmd_arg, CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
+    cmd::{eval_cmd_arg, CmdArgResult, SingleCmdArgResult, FlagArgValueResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
@@ -290,7 +290,7 @@ fn parse_fn_call_args(
     call_args.reverse();
 
     let mut parsed_args = HashMap::<String, ValidatedFnCallArg>::new();
-    let mut rest_args = Vec::<CmdSingleArgResult>::new();
+    let mut rest_args = Vec::<SingleCmdArgResult>::new();
 
     let mut positional_fn_args = fn_args.iter().filter_map(|fn_arg| match fn_arg {
         FnArg::Positional(FnPositionalArg {
@@ -306,7 +306,7 @@ fn parse_fn_call_args(
         FnArg::PresenceFlag(_) | FnArg::NormalFlag(_) | FnArg::Rest(_) => None,
     });
 
-    let mut value_on_hold = None::<CmdSingleArgResult>;
+    let mut value_on_hold = None::<SingleCmdArgResult>;
 
     let has_rest_argument = fn_args.iter().any(|arg| matches!(arg, FnArg::Rest(_)));
 
@@ -349,7 +349,7 @@ fn parse_fn_call_args(
 
 struct ParsedFnCallArgs {
     parsed_args: HashMap<String, ValidatedFnCallArg>,
-    rest_args: Vec<CmdSingleArgResult>,
+    rest_args: Vec<SingleCmdArgResult>,
 }
 
 struct SimplifiedPositionalFnArg<'a> {
@@ -361,14 +361,13 @@ struct SimplifiedPositionalFnArg<'a> {
 fn parse_single_fn_call_arg<'a>(
     func: &RuntimeFnValue,
     has_rest_argument: bool,
-    // TODO: use struct
     positional_fn_args: &mut impl Iterator<Item = SimplifiedPositionalFnArg<'a>>,
-    arg_result: CmdSingleArgResult,
+    arg_result: SingleCmdArgResult,
     fn_args: &[FnArg],
     ctx: &mut Context,
 ) -> ExecResult<ParsedSingleFnCallArg> {
     match arg_result {
-        CmdSingleArgResult::Flag { name, value } => {
+        SingleCmdArgResult::Flag { name, value } => {
             for arg in fn_args {
                 match arg {
                     FnArg::Positional(_) | FnArg::Rest(_) => continue,
@@ -379,7 +378,7 @@ fn parse_single_fn_call_arg<'a>(
                         };
 
                         let make_ret_value =
-                            |flag_value: bool, value_on_hold: Option<CmdSingleArgResult>| {
+                            |flag_value: bool, value_on_hold: Option<SingleCmdArgResult>| {
                                 ParsedSingleFnCallArg::Variable {
                                     name: var_name,
                                     value: ValidatedFnCallArg {
@@ -405,7 +404,7 @@ fn parse_single_fn_call_arg<'a>(
                                         match value_sep {
                                             // Move the value as a separate argument
                                             FlagValueSeparator::Space => {
-                                                Ok(make_ret_value(true, Some(CmdSingleArgResult::Basic(value))))
+                                                Ok(make_ret_value(true, Some(SingleCmdArgResult::Basic(value))))
                                             }
 
                                             // Otherwise, fail
@@ -506,7 +505,7 @@ fn parse_single_fn_call_arg<'a>(
             }
 
             if has_rest_argument {
-                Ok(ParsedSingleFnCallArg::Rest(CmdSingleArgResult::Flag {
+                Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Flag {
                     name,
                     value,
                 }))
@@ -523,10 +522,10 @@ fn parse_single_fn_call_arg<'a>(
             }
         }
 
-        CmdSingleArgResult::Basic(loc_val) => {
+        SingleCmdArgResult::Basic(loc_val) => {
             let Some(positional_fn_arg) = positional_fn_args.next() else {
                 if has_rest_argument {
-                    return Ok(ParsedSingleFnCallArg::Rest(CmdSingleArgResult::Basic(
+                    return Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Basic(
                         loc_val,
                     )));
                 }
@@ -596,9 +595,9 @@ enum ParsedSingleFnCallArg {
     Variable {
         name: String,
         value: ValidatedFnCallArg,
-        value_on_hold: Option<CmdSingleArgResult>,
+        value_on_hold: Option<SingleCmdArgResult>,
     },
-    Rest(CmdSingleArgResult),
+    Rest(SingleCmdArgResult),
 }
 
 fn flatten_fn_call_args(
@@ -606,7 +605,7 @@ fn flatten_fn_call_args(
     is_method: bool,
     infos: FnCallInfos,
     ctx: &mut Context,
-) -> ExecResult<Vec<CmdSingleArgResult>> {
+) -> ExecResult<Vec<SingleCmdArgResult>> {
     let FnCallInfos {
         nature,
         args,
@@ -618,7 +617,7 @@ fn flatten_fn_call_args(
     match nature {
         FnCallNature::NamedFunction => {
             if let Some(piped) = piped {
-                out.push(CmdSingleArgResult::Basic(piped));
+                out.push(SingleCmdArgResult::Basic(piped));
             }
         }
 
@@ -628,7 +627,7 @@ fn flatten_fn_call_args(
             }
 
             if let Some(piped) = piped {
-                out.push(CmdSingleArgResult::Basic(piped))
+                out.push(SingleCmdArgResult::Basic(piped))
             }
         }
 
@@ -642,13 +641,13 @@ fn flatten_fn_call_args(
             for parsed in &args.data {
                 match &parsed.data {
                     FnCallArg::Expr(expr) => {
-                        out.push(CmdSingleArgResult::Basic(LocatedValue::new(
+                        out.push(SingleCmdArgResult::Basic(LocatedValue::new(
                             eval_expr(&expr.data, ctx)?,
                             RuntimeCodeRange::Parsed(expr.at),
                         )))
                     }
 
-                    FnCallArg::Flag { name, value } => out.push(CmdSingleArgResult::Flag {
+                    FnCallArg::Flag { name, value } => out.push(SingleCmdArgResult::Flag {
                         name: RuntimeEaten::Parsed(name.clone()),
                         value: Some(FlagArgValueResult {
                             value: LocatedValue::new(

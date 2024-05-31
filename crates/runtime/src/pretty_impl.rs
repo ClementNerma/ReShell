@@ -9,7 +9,7 @@ use reshell_parser::ast::FlagValueSeparator;
 use reshell_shared::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece};
 
 use crate::{
-    cmd::{CmdArgResult, CmdSingleArgResult, FlagArgValueResult},
+    cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::Context,
     values::{ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
 };
@@ -186,14 +186,14 @@ impl PrettyPrintable for CmdArgResult {
     }
 }
 
-impl PrettyPrintable for CmdSingleArgResult {
+impl PrettyPrintable for SingleCmdArgResult {
     type Context = Context;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
-            CmdSingleArgResult::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
+            SingleCmdArgResult::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
 
-            CmdSingleArgResult::Flag { name, value } => {
+            SingleCmdArgResult::Flag { name, value } => {
                 let mut join = vec![name.data().generate_pretty_data(&())];
 
                 if let Some(FlagArgValueResult { value, value_sep }) = value {
