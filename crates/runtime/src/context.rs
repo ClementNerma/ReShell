@@ -113,7 +113,7 @@ impl Context {
         }
     }
 
-    /// (Internal) Generate a new scope ID
+    /// Generate a new scope ID
     fn generate_scope_id(&mut self) -> u64 {
         self.scopes_id_counter += 1;
         self.scopes_id_counter
@@ -124,12 +124,12 @@ impl Context {
         &self.conf.runtime_conf
     }
 
-    /// (Semi-Private) Clear Ctrl+C press indicator
+    /// Clear Ctrl+C press indicator
     pub(crate) fn reset_ctrl_c_press_indicator(&self) {
         (self.conf.take_ctrl_c_indicator)();
     }
 
-    /// (Semi-Private) Ensure Ctrl+C was not pressed
+    /// Ensure Ctrl+C was not pressed
     /// Otherwise, return a Ctrl+C error
     pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
         if (self.conf.take_ctrl_c_indicator)() {
@@ -316,7 +316,7 @@ impl Context {
 
     /// Prepare the current context to run a new program
     /// Requires the program to have already been checked
-    pub fn prepare_for_new_program(
+    pub(crate) fn prepare_for_new_program(
         &mut self,
         program: &Eaten<Program>,
     ) -> Result<(), CheckerError> {

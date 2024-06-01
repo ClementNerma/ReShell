@@ -24,7 +24,7 @@ impl<'a> State<'a> {
         }
     }
 
-    /// (Semi-Private) Get type alias store
+    /// Get type alias store
     pub(crate) fn type_alias_store(&self) -> &TypeAliasStore {
         &self.collected.type_aliases_usages
     }
