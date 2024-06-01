@@ -100,6 +100,34 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 }),
                 enforced_type: vec![SingleValueType::Bool],
             },
+            // Minimum valid integer
+            BuiltinVar {
+                name: "INT_MIN",
+                is_mut: false,
+                init_value: RuntimeValue::Int(i64::MIN),
+                enforced_type: vec![SingleValueType::Int],
+            },
+            // Maximum valid integer
+            BuiltinVar {
+                name: "INT_MAX",
+                is_mut: false,
+                init_value: RuntimeValue::Int(i64::MAX),
+                enforced_type: vec![SingleValueType::Int],
+            },
+            // Minimum valid floating-point number
+            BuiltinVar {
+                name: "FLOAT_MIN",
+                is_mut: false,
+                init_value: RuntimeValue::Float(f64::MIN),
+                enforced_type: vec![SingleValueType::Float],
+            },
+            // Maximum valid floating-point number
+            BuiltinVar {
+                name: "FLOAT_MAX",
+                is_mut: false,
+                init_value: RuntimeValue::Float(f64::MAX),
+                enforced_type: vec![SingleValueType::Float],
+            },
         ],
     }
 }
