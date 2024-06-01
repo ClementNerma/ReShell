@@ -25,3 +25,4 @@ time = { version = "0.3.36", features = [
 ] }
 toml = "0.8.13"
 reshell-shared = { version = "0.1.0", path = "../shared" }
+rand = { version = "0.8.5" }
