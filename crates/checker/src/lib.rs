@@ -40,11 +40,10 @@ pub use self::{
     errors::CheckerError,
     state::{
         CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar, SpecialScopeType,
-        State,
     },
 };
 
-use crate::{errors::CheckerResult, output::*};
+use crate::{errors::CheckerResult, output::*, state::State};
 
 pub fn check(
     program: &Program,
