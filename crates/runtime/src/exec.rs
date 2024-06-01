@@ -140,13 +140,9 @@ fn block_first_pass(
             Instruction::FnDecl { name, content } => {
                 let parent_scopes = ctx.generate_parent_scopes_list();
 
-                let body = ctx
-                    .get_fn_body(&content.body)
-                    .unwrap_or_else(|| ctx.panic(content.body.at, "unregistered function body"));
+                let body = ctx.get_fn_body(&content.body);
 
-                let signature = ctx.get_fn_signature(&content.signature).unwrap_or_else(|| {
-                    ctx.panic(content.signature.at, "unregistered function signature")
-                });
+                let signature = ctx.get_fn_signature(&content.signature);
 
                 let fns = &mut ctx.current_scope_content_mut().fns;
 
@@ -176,13 +172,9 @@ fn block_first_pass(
             } => {
                 let parent_scopes = ctx.generate_parent_scopes_list();
 
-                let body = ctx
-                    .get_fn_body(&content.body)
-                    .unwrap_or_else(|| ctx.panic(content.body.at, "unregistered method body"));
+                let body = ctx.get_fn_body(&content.body);
 
-                let signature = ctx.get_fn_signature(&content.signature).unwrap_or_else(|| {
-                    ctx.panic(content.signature.at, "unregistered method signature")
-                });
+                let signature = ctx.get_fn_signature(&content.signature);
 
                 let methods = &mut ctx.current_scope_content_mut().methods;
 
@@ -762,9 +754,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 
             let captured_deps = ctx.capture_deps(content.at, *content_scope_id);
 
-            let alias_content = ctx
-                .get_cmd_alias_content(content)
-                .unwrap_or_else(|| ctx.panic(content.at, "unregistered command alias content"));
+            let alias_content = ctx.get_cmd_alias_content(content);
 
             let decl_scope_id = ctx.current_scope().ast_scope_id;
 

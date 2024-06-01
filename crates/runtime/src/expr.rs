@@ -656,15 +656,9 @@ pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
     RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
         is_method: false,
 
-        signature: RuntimeFnSignature::Shared(
-            ctx.get_fn_signature(signature)
-                .unwrap_or_else(|| ctx.panic(signature.at, "unregistered function signature")),
-        ),
+        signature: RuntimeFnSignature::Shared(ctx.get_fn_signature(signature)),
 
-        body: RuntimeFnBody::Block(
-            ctx.get_fn_body(body)
-                .unwrap_or_else(|| ctx.panic(body.at, "unregistered function body")),
-        ),
+        body: RuntimeFnBody::Block(ctx.get_fn_body(body)),
 
         parent_scopes: ctx.generate_parent_scopes_list(),
         captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
@@ -687,10 +681,7 @@ pub fn single_param_lambda_to_value(body: &Eaten<Block>, ctx: &mut Context) -> R
             ret_type: None,
         }),
 
-        body: RuntimeFnBody::Block(
-            ctx.get_fn_body(body)
-                .unwrap_or_else(|| ctx.panic(body.at, "unregistered function body")),
-        ),
+        body: RuntimeFnBody::Block(ctx.get_fn_body(body)),
 
         parent_scopes: ctx.generate_parent_scopes_list(),
         captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),

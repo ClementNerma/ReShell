@@ -129,16 +129,6 @@ impl Context {
         (self.conf.take_ctrl_c_indicator)();
     }
 
-    /// Ensure Ctrl+C was not pressed
-    /// Otherwise, return a Ctrl+C error
-    pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
-        if (self.conf.take_ctrl_c_indicator)() {
-            Err(self.error(at.into(), ExecErrorNature::CtrlC))
-        } else {
-            Ok(())
-        }
-    }
-
     /// Get path of the current user's home directory
     /// Used for tilde '~' expansion
     pub fn home_dir(&self) -> Option<&PathBuf> {
@@ -163,6 +153,21 @@ impl Context {
     /// Get a reference to the type alias store
     pub fn type_alias_store(&self) -> &TypeAliasStore {
         &self.collected.type_aliases_usages
+    }
+
+    /// Trigger a directory jump event
+    pub fn trigger_directory_jump_event(&mut self, at: RuntimeCodeRange) -> ExecResult<()> {
+        (self.conf.on_dir_jump)(self, at)
+    }
+
+    /// Ensure Ctrl+C was not pressed
+    /// Otherwise, return a Ctrl+C error
+    pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
+        if (self.conf.take_ctrl_c_indicator)() {
+            Err(self.error(at.into(), ExecErrorNature::CtrlC))
+        } else {
+            Ok(())
+        }
     }
 
     /// Get the list of all scopes visible by a given one
@@ -208,7 +213,7 @@ impl Context {
     }
 
     /// Generate checker scopes from current runtime scope hierarchy
-    pub fn generate_checker_scopes(&self) -> Vec<CheckerScope> {
+    pub(crate) fn generate_checker_scopes(&self) -> Vec<CheckerScope> {
         self.generate_parent_scopes_list()
             .iter()
             .filter_map(|scope_id| self.scopes.get(scope_id))
@@ -398,7 +403,7 @@ impl Context {
     }
 
     /// Create and push a new scope above the current one
-    pub fn create_and_push_scope(
+    pub(crate) fn create_and_push_scope(
         &mut self,
         ast_scope_id: AstScopeId,
         content: ScopeContent,
@@ -421,7 +426,7 @@ impl Context {
     }
 
     /// Create and push a new scope with dependencies above the current one
-    pub fn create_and_push_scope_with_deps(
+    pub(crate) fn create_and_push_scope_with_deps(
         &mut self,
         ast_scope_id: AstScopeId,
         creation_data: DepsScopeCreationData,
@@ -493,7 +498,7 @@ impl Context {
     }
 
     /// Push an already-created scope above the current one
-    pub fn push_scope(&mut self, scope: Scope) {
+    pub(crate) fn push_scope(&mut self, scope: Scope) {
         if scope.call_stack.history.len() > self.conf.runtime_conf.call_stack_limit {
             panic!(
                 "Maximum call stack size ({}) exceeded",
@@ -548,7 +553,7 @@ impl Context {
     /// Get a specific function
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
+    pub(crate) fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
         self.visible_scopes_content()
             .find_map(|scope| scope.fns.get(&name.data))
     }
@@ -556,7 +561,7 @@ impl Context {
     /// Get the value of a specific function
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub fn get_visible_fn_value<'s>(
+    pub(crate) fn get_visible_fn_value<'s>(
         &'s self,
         name: &Eaten<String>,
     ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
@@ -570,7 +575,7 @@ impl Context {
     /// Get all methods with a given name
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub fn find_applicable_method<'s>(
+    pub(crate) fn find_applicable_method<'s>(
         &'s self,
         name: &Eaten<String>,
         for_value: &RuntimeValue,
@@ -595,7 +600,7 @@ impl Context {
     /// Get a specific variable
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> &'c ScopeVar {
+    pub(crate) fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> &'c ScopeVar {
         self.visible_scopes_content()
             .find_map(|scope| scope.vars.get(&name.data))
             .unwrap_or_else(|| self.panic(name.at, "variable was not found"))
@@ -604,7 +609,7 @@ impl Context {
     /// Get a specific type alias
     /// It is guaranteed to be the one referenced at that point in time
     /// as type alias usages are collected before runtime
-    pub fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> &'c Eaten<ValueType> {
+    pub(crate) fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> &'c Eaten<ValueType> {
         self.collected
             .type_aliases_usages
             .get(name)
@@ -621,50 +626,54 @@ impl Context {
 
     /// Get a specific type signature from its location
     /// Avoids cloning the entire (heavy) [`FnSignature`] value
-    pub fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Option<Arc<Eaten<FnSignature>>> {
-        #[allow(clippy::map_clone)]
-        self.collected.fn_signatures.get(&from.at).map(Arc::clone)
+    pub(crate) fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Arc<Eaten<FnSignature>> {
+        match self.collected.fn_signatures.get(&from.at) {
+            Some(signature) => Arc::clone(signature),
+            None => self.panic(from.at, "function signature is not registered"),
+        }
     }
 
     /// Get a specific function's body from its location
     /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
-    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Option<Arc<Eaten<Block>>> {
-        #[allow(clippy::map_clone)]
-        self.collected.fn_bodies.get(&from.at).map(Arc::clone)
+    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Arc<Eaten<Block>> {
+        match self.collected.fn_bodies.get(&from.at) {
+            Some(fn_body) => Arc::clone(fn_body),
+            None => self.panic(from.at, "function body is not registered"),
+        }
     }
 
     /// Get a specific command alias' content from its location
     /// Avoids cloning the entire (heavy) [`Eaten<SingleCmdCall>`]
-    pub fn get_cmd_alias_content(
+    pub(crate) fn get_cmd_alias_content(
         &self,
         from: &Eaten<SingleCmdCall>,
-    ) -> Option<Arc<Eaten<SingleCmdCall>>> {
-        #[allow(clippy::map_clone)]
-        self.collected.cmd_aliases.get(&from.at).map(Arc::clone)
+    ) -> Arc<Eaten<SingleCmdCall>> {
+        match self.collected.cmd_aliases.get(&from.at) {
+            Some(cmd_alias) => Arc::clone(cmd_alias),
+            None => self.panic(from.at, "command alias content is not registered"),
+        }
     }
 
     /// Get a specific command alias' content from a developed version
     /// Avoids cloning the entire (heavy) [`Eaten<SingleCmdCall>`]
-    pub fn get_developed_cmd_alias_content(
+    pub(crate) fn get_developed_cmd_alias_content(
         &self,
         from: &DevelopedCmdAliasCall,
     ) -> Arc<Eaten<SingleCmdCall>> {
         match self.collected.cmd_aliases.get(&from.alias_content_at) {
             Some(developed) => Arc::clone(developed),
-
             None => self.panic(from.alias_content_at, "command alias is missing"),
         }
     }
 
     /// Get a specific command call's informations
     /// Avoids cloning the entire (potentially heavy) [`DevelopedSingleCmdCall`]
-    pub fn get_developed_cmd_call(
+    pub(crate) fn get_developed_cmd_call(
         &self,
         from: &Eaten<SingleCmdCall>,
     ) -> Arc<DevelopedSingleCmdCall> {
         match self.collected.cmd_calls.get(&from.at) {
             Some(developed) => Arc::clone(developed),
-
             None => self.panic(from.at, "developed command call data is missing"),
         }
     }
@@ -674,21 +683,18 @@ impl Context {
     pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Arc<Eaten<CmdCall>> {
         match self.collected.cmd_call_values.get(&at) {
             Some(cmd_call) => Arc::clone(cmd_call),
-
             None => self.panic(at, "command call data is missing"),
         }
     }
 
     /// Get (ideally cached) variable name for the given long flag
-    pub fn get_long_flag_var_name(&mut self, from: &RuntimeEaten<String>) -> String {
+    pub(crate) fn get_long_flag_var_name(&mut self, from: &RuntimeEaten<String>) -> String {
         self.long_flags_var_name
             .entry(from.data().clone())
             .or_insert_with(|| long_flag_var_name(from.data()))
             .clone()
     }
 
-    /// (Crate-private)
-    ///
     /// Capture all dependencies for an item used at a point in time
     /// The dependencies list is built before runtime and used here for capture
     ///
@@ -796,11 +802,6 @@ impl Context {
         }
 
         captured_deps
-    }
-
-    /// Trigger a directory jump event
-    pub fn trigger_directory_jump_event(&mut self, at: RuntimeCodeRange) -> ExecResult<()> {
-        (self.conf.on_dir_jump)(self, at)
     }
 }
 
