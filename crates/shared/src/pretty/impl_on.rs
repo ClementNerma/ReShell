@@ -14,7 +14,7 @@ use reshell_parser::{
     files::{FilesMap, SourceFileLocation},
 };
 
-use crate::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece};
+use crate::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
 
 pub type TypeAliasStore = HashMap<Eaten<String>, Arc<Eaten<ValueType>>>;
 
@@ -26,13 +26,13 @@ impl PrettyPrintable for ValueType {
             Self::Single(single) => single.data().generate_pretty_data(ctx),
 
             Self::Union(types) => PrettyPrintablePiece::List {
-                begin: Colored::empty(),
+                begin: Styled::empty(),
                 items: types
                     .iter()
                     .map(|typ| typ.data().generate_pretty_data(ctx))
                     .collect(),
-                sep: Colored::with_color(" |", Color::Magenta),
-                end: Colored::empty(),
+                sep: Styled::colored(" |", Color::Magenta),
+                end: Styled::empty(),
                 suffix: None,
             },
         }
@@ -68,7 +68,7 @@ impl PrettyPrintable for SingleValueType {
             ]),
             Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
             Self::TypedStruct(members) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("struct { ", Color::Magenta),
+                begin: Styled::colored("struct { ", Color::Magenta),
                 items: members
                     .iter()
                     .map(|member| {
@@ -81,8 +81,8 @@ impl PrettyPrintable for SingleValueType {
                         ])
                     })
                     .collect(),
-                sep: Colored::with_color(",", Color::BrightBlack),
-                end: Colored::with_color(" }", Color::Magenta),
+                sep: Styled::colored(",", Color::BrightBlack),
+                end: Styled::colored(" }", Color::Magenta),
                 suffix: None,
             },
             Self::Function(signature) => signature.data().generate_pretty_data(ctx),
@@ -105,7 +105,9 @@ impl PrettyPrintable for RuntimeCodeRange {
             RuntimeCodeRange::Parsed(at) => at.generate_pretty_data(files_map),
             RuntimeCodeRange::Internal(infos) => {
                 // TODO: improve with coloration
-                PrettyPrintablePiece::Atomic(Colored(format!("<internal location: {infos}>"), None))
+                PrettyPrintablePiece::Atomic(Styled::colorless(format!(
+                    "<internal location: {infos}>"
+                )))
             }
         }
     }
@@ -120,10 +122,10 @@ impl PrettyPrintable for CodeRange {
             FileId::None => unreachable!(),
             FileId::SourceFile(id) => {
                 let Some(file) = files_map.get_file(id) else {
-                    return PrettyPrintablePiece::Atomic(Colored(
-                        format!("<unknown file @ offset {}>", self.start.offset),
-                        None,
-                    ));
+                    return PrettyPrintablePiece::Atomic(Styled::colorless(format!(
+                        "<unknown file @ offset {}>",
+                        self.start.offset
+                    )));
                 };
 
                 let bef = &file.content.as_str()[..self.start.offset];
@@ -153,7 +155,7 @@ impl PrettyPrintable for CodeRange {
             FileId::Custom(id) => format!("<custom: {id}>"),
         };
 
-        PrettyPrintablePiece::Atomic(Colored(output, None))
+        PrettyPrintablePiece::Atomic(Styled::colorless(output))
     }
 }
 
@@ -164,14 +166,14 @@ impl PrettyPrintable for FnSignature {
         let Self { args, ret_type } = self;
 
         PrettyPrintablePiece::List {
-            begin: Colored::with_color("fn(", Color::BrightMagenta),
+            begin: Styled::colored("fn(", Color::BrightMagenta),
             items: args
                 .data()
                 .iter()
                 .map(|item| item.generate_pretty_data(ctx))
                 .collect(),
-            sep: Colored::with_color(",", Color::Blue),
-            end: Colored::with_color(")", Color::BrightMagenta),
+            sep: Styled::colored(",", Color::Blue),
+            end: Styled::colored(")", Color::BrightMagenta),
             suffix: ret_type.as_ref().map(|ret_type| {
                 Box::new(PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),

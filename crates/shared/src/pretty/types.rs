@@ -1,4 +1,4 @@
-use colored::{Color, Colorize};
+use colored::{Color, ColoredString, Colorize};
 
 /// Trait enabling pretty-printing for custom types
 ///
@@ -15,7 +15,7 @@ pub trait PrettyPrintable {
         let mut out = String::new();
 
         self.generate_pretty_data(ctx)
-            .render(opts, |Colored(ref string, _)| {
+            .render(opts, |Styled(ref string)| {
                 out.push_str(string);
             });
 
@@ -27,11 +27,8 @@ pub trait PrettyPrintable {
         let mut out = String::new();
 
         self.generate_pretty_data(ctx)
-            .render(opts, |Colored(ref string, color)| match color {
-                Some(color) => {
-                    out.push_str(&format!("{}", string.color(*color)));
-                }
-                None => out.push_str(string),
+            .render(opts, |Styled(ref string)| {
+                out.push_str(&format!("{string}"));
             });
 
         out
@@ -39,19 +36,23 @@ pub trait PrettyPrintable {
 }
 
 /// Colored string
-pub struct Colored(pub String, pub Option<Color>);
+pub struct Styled(ColoredString);
 
-impl Colored {
-    pub fn with_color(content: impl Into<String>, color: Color) -> Self {
-        Self(content.into(), Some(color))
+impl Styled {
+    pub fn inner(&self) -> &ColoredString {
+        &self.0
     }
 
-    pub fn colorless(content: impl Into<String>) -> Self {
-        Self(content.into(), None)
+    pub fn colored(content: impl AsRef<str>, color: Color) -> Self {
+        Self(content.as_ref().color(color))
+    }
+
+    pub fn colorless(content: impl AsRef<str>) -> Self {
+        Self(ColoredString::from(content.as_ref()))
     }
 
     pub fn empty() -> Self {
-        Self(String::new(), None)
+        Self(ColoredString::from(""))
     }
 
     fn len_chars(&self) -> usize {
@@ -59,21 +60,27 @@ impl Colored {
     }
 }
 
+impl From<ColoredString> for Styled {
+    fn from(value: ColoredString) -> Self {
+        Self(value)
+    }
+}
+
 /// Pretty-printable piece
 pub enum PrettyPrintablePiece {
     /// Atom: a simple string with a single color
-    Atomic(Colored),
+    Atomic(Styled),
 
     /// Suite: a chain of atoms
-    Suite(Vec<Colored>),
+    Suite(Vec<Styled>),
 
     /// List: a list with a beginning and end pieces, and a value separator
     /// Will be printed differently depending on the configuration
     List {
-        begin: Colored,
+        begin: Styled,
         items: Vec<PrettyPrintablePiece>,
-        sep: Colored,
-        end: Colored,
+        sep: Styled,
+        end: Styled,
         suffix: Option<Box<PrettyPrintablePiece>>,
     },
 
@@ -83,8 +90,8 @@ pub enum PrettyPrintablePiece {
 
 impl PrettyPrintablePiece {
     /// Create an atom
-    pub fn colored_atomic(content: impl Into<String>, color: Color) -> Self {
-        Self::Atomic(Colored(content.into(), Some(color)))
+    pub fn colored_atomic(content: impl AsRef<str>, color: Color) -> Self {
+        Self::Atomic(Styled::colored(content, color))
     }
 }
 
@@ -176,14 +183,14 @@ impl PrettyPrintablePiece {
     /// Render this piece using a processing function
     ///
     /// Avoids unnecessary heap allocations (some will still happen)
-    pub fn render(&self, opts: PrettyPrintOptions, mut w: impl FnMut(&Colored)) {
+    pub fn render(&self, opts: PrettyPrintOptions, mut w: impl FnMut(&Styled)) {
         self.render_inner(opts, &mut w, 0);
     }
 
     fn render_inner(
         &self,
         opts: PrettyPrintOptions,
-        w: &mut impl FnMut(&Colored),
+        w: &mut impl FnMut(&Styled),
         current_ident: usize,
     ) {
         let PrettyPrintOptions {
@@ -210,7 +217,7 @@ impl PrettyPrintablePiece {
                 suffix,
             } => {
                 if !pretty || self.fits_in_line(max_line_size, current_ident + line_prefix_size) {
-                    let space = Colored(" ".to_string(), None);
+                    let space = Styled::colorless(" ");
 
                     w(begin);
 
@@ -228,7 +235,7 @@ impl PrettyPrintablePiece {
                     w(begin);
 
                     let spacing =
-                        Colored(format!("\n{}", " ".repeat(current_ident + tab_size)), None);
+                        Styled::colorless(format!("\n{}", " ".repeat(current_ident + tab_size)));
 
                     for (i, item) in items.iter().enumerate() {
                         w(&spacing);
@@ -240,7 +247,10 @@ impl PrettyPrintablePiece {
                         }
                     }
 
-                    w(&Colored(format!("\n{}", " ".repeat(current_ident)), None));
+                    w(&Styled::colorless(format!(
+                        "\n{}",
+                        " ".repeat(current_ident)
+                    )));
 
                     w(end);
                 }

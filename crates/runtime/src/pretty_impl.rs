@@ -4,9 +4,9 @@
 
 use std::collections::BTreeSet;
 
-use colored::Color;
+use colored::{Color, Colorize};
 use reshell_parser::ast::FlagValueSeparator;
-use reshell_shared::pretty::{Colored, PrettyPrintable, PrettyPrintablePiece};
+use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
 
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
@@ -19,6 +19,10 @@ impl PrettyPrintable for RuntimeValue {
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
+            RuntimeValue::Void => {
+                PrettyPrintablePiece::Atomic(Styled::from("void".bright_black().italic()))
+            }
+
             RuntimeValue::Null => PrettyPrintablePiece::colored_atomic("null", Color::BrightYellow),
 
             RuntimeValue::Bool(bool) => {
@@ -56,19 +60,19 @@ impl PrettyPrintable for RuntimeValue {
             ]),
 
             RuntimeValue::List(list) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("[", Color::Blue),
+                begin: Styled::colored("[", Color::Blue),
                 items: list
                     .read_promise_no_write()
                     .iter()
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
-                sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color("]", Color::Blue),
+                sep: Styled::colored(",", Color::Blue),
+                end: Styled::colored("]", Color::Blue),
                 suffix: None,
             },
 
             RuntimeValue::Map(map) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("map({", Color::Magenta),
+                begin: Styled::colored("map({", Color::Magenta),
                 items: {
                     let map = map.read_promise_no_write();
 
@@ -79,7 +83,7 @@ impl PrettyPrintable for RuntimeValue {
                         .map(|key| {
                             // Yes, that part is a hack :p
                             PrettyPrintablePiece::List {
-                                begin: Colored::with_color(
+                                begin: Styled::colored(
                                     format!(
                                         "\"{}\": ",
                                         key.replace('\\', "\\\\")
@@ -89,20 +93,20 @@ impl PrettyPrintable for RuntimeValue {
                                     Color::Green,
                                 ),
                                 items: vec![map.get(*key).unwrap().generate_pretty_data(ctx)],
-                                sep: Colored::empty(),
-                                end: Colored::empty(),
+                                sep: Styled::empty(),
+                                end: Styled::empty(),
                                 suffix: None,
                             }
                         })
                         .collect()
                 },
-                sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color("})", Color::Magenta),
+                sep: Styled::colored(",", Color::Blue),
+                end: Styled::colored("})", Color::Magenta),
                 suffix: None,
             },
 
             RuntimeValue::Struct(obj) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("{", Color::Blue),
+                begin: Styled::colored("{", Color::Blue),
                 items: {
                     let obj = obj.read_promise_no_write();
 
@@ -113,21 +117,21 @@ impl PrettyPrintable for RuntimeValue {
                         .map(|field|
                         // Yes, that part is a hack :p
                         PrettyPrintablePiece::List {
-                            begin: Colored::with_color(
+                            begin: Styled::colored(
                                 format!("{field}: "),
                                 Color::Red
                             ),
                             items: vec![
                                 obj.get(*field).unwrap().generate_pretty_data(ctx)
                             ],
-                            sep: Colored::empty(),
-                            end: Colored::empty(),
+                            sep: Styled::empty(),
+                            end: Styled::empty(),
                             suffix: None
                         })
                         .collect()
                 },
-                sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color("}", Color::Blue),
+                sep: Styled::colored(",", Color::Blue),
+                end: Styled::colored("}", Color::Blue),
                 suffix: None,
             },
 
@@ -165,13 +169,13 @@ impl PrettyPrintable for CmdArgResult {
             CmdArgResult::Single(single) => single.generate_pretty_data(ctx),
 
             CmdArgResult::Spreaded(items) => PrettyPrintablePiece::List {
-                begin: Colored::with_color("spread(", Color::Magenta),
+                begin: Styled::colored("spread(", Color::Magenta),
                 items: items
                     .iter()
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
-                sep: Colored::with_color(",", Color::Blue),
-                end: Colored::with_color(")", Color::Magenta),
+                sep: Styled::colored(",", Color::Blue),
+                end: Styled::colored(")", Color::Magenta),
                 suffix: None,
             },
         }
@@ -210,7 +214,7 @@ impl PrettyPrintable for SingleCmdArgResult {
 
 pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
     let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
-        '\''.to_owned(),
+        "'",
         Color::BrightGreen,
     )];
 
@@ -221,7 +225,7 @@ pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
 
         if pos > shift {
             pieces.push(PrettyPrintablePiece::colored_atomic(
-                string[shift..pos].to_owned(),
+                &string[shift..pos],
                 Color::BrightGreen,
             ));
         }
@@ -242,13 +246,13 @@ pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
 
     if shift < string.len() {
         pieces.push(PrettyPrintablePiece::colored_atomic(
-            string[shift..].to_owned(),
+            &string[shift..],
             Color::BrightGreen,
         ));
     }
 
     pieces.push(PrettyPrintablePiece::colored_atomic(
-        '\''.to_owned(),
+        "'",
         Color::BrightGreen,
     ));
 
