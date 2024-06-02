@@ -1437,11 +1437,21 @@ pub fn program(
             //
             // Loop continuation keyword
             //
-            just("continue").map(|_| Instruction::LoopContinue),
+            just("continue")
+                .followed_by(silent_choice((
+                    filter(|c| DELIMITER_CHARS.contains(&c)),
+                    end(),
+                )))
+                .map(|_| Instruction::LoopContinue),
             //
             // Loop breakage
             //
-            just("break").map(|_| Instruction::LoopBreak),
+            just("break")
+                .followed_by(silent_choice((
+                    filter(|c| DELIMITER_CHARS.contains(&c)),
+                    end(),
+                )))
+                .map(|_| Instruction::LoopBreak),
             //
             // Matching
             //
