@@ -91,9 +91,6 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::String, SingleValueType::String) => true,
         (SingleValueType::String, _) | (_, SingleValueType::String) => false,
 
-        (SingleValueType::Range, SingleValueType::Range) => true,
-        (SingleValueType::Range, _) | (_, SingleValueType::Range) => false,
-
         (SingleValueType::CmdCall, SingleValueType::CmdCall) => true,
         (SingleValueType::CmdCall, _) | (_, SingleValueType::CmdCall) => false,
 

@@ -48,6 +48,15 @@ pub enum Instruction {
         body: Eaten<Block>,
     },
 
+    /// Ranged 'for' loop
+    ForLoopRanged {
+        iter_var: Eaten<String>,
+        iter_from: Eaten<RangeBound>,
+        iter_to: Eaten<RangeBound>,
+        inclusive: bool,
+        body: Eaten<Block>,
+    },
+
     /// Keyed 'for' loop
     ForLoopKeyed {
         key_iter_var: Eaten<String>,
@@ -180,6 +189,13 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone)]
+pub enum RangeBound {
+    Literal(i64),
+    Variable(Eaten<String>),
+    Expr(Eaten<Expr>),
+}
+
+#[derive(Debug, Clone)]
 pub struct Expr {
     pub inner: Eaten<ExprInner>,
     pub right_ops: Vec<ExprOp>,
@@ -298,7 +314,6 @@ pub enum SingleValueType {
     Int,
     Float,
     String,
-    Range,
     Error,
     UntypedList,
     TypedList(Box<ValueType>),

@@ -27,9 +27,9 @@ use reshell_parser::{
         ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
         FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
-        MatchExprCase, Program, PropAccess, PropAccessNature, RuntimeCodeRange, RuntimeEaten,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
-        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
+        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember,
+        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -400,6 +400,31 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             body,
         } => {
             check_expr(&iter_on.data, state)?;
+
+            check_block_with(body, state, |scope| {
+                scope.special_scope_type = Some(SpecialScopeType::Loop);
+
+                scope.vars.insert(
+                    iter_var.data.clone(),
+                    DeclaredVar {
+                        decl_at: RuntimeCodeRange::Parsed(iter_var.at),
+                        scope_id: scope.id,
+                        is_mut: false,
+                    },
+                );
+            })?;
+        }
+
+        Instruction::ForLoopRanged {
+            iter_var,
+            iter_from,
+            iter_to,
+            inclusive: _,
+            body,
+        } => {
+            check_range_bound(&iter_from.data, state)?;
+            check_range_bound(&iter_to.data, state)?;
+
             check_block_with(body, state, |scope| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
 
@@ -611,6 +636,14 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
     }
 
     Ok(())
+}
+
+fn check_range_bound(range_bound: &RangeBound, state: &mut State) -> CheckerResult {
+    match range_bound {
+        RangeBound::Literal(_) => Ok(()),
+        RangeBound::Variable(var) => state.register_usage(var, DependencyType::Variable),
+        RangeBound::Expr(expr) => check_expr(&expr.data, state),
+    }
 }
 
 fn check_expr_with(
@@ -1379,7 +1412,6 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Int
         | SingleValueType::Float
         | SingleValueType::String
-        | SingleValueType::Range
         | SingleValueType::Error
         | SingleValueType::CmdArg
         | SingleValueType::CmdCall

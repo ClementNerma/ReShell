@@ -2,7 +2,7 @@ use reshell_runtime::values::ErrorValueContent;
 
 crate::define_internal_fn!(
     //
-    // Create a range value
+    // Create an error value
     //
 
     "error",

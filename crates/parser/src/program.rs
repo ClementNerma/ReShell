@@ -18,9 +18,9 @@ use crate::{
         FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
         FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
         Instruction, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
-        PropAccess, PropAccessNature, RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
-        VarDeconstruction,
+        PropAccess, PropAccessNature, RangeBound, RuntimeEaten, SingleCmdCall, SingleOp,
+        SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
+        ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -71,6 +71,7 @@ pub fn program(
         let var_name = char('$').ignore_then(ident);
 
         let cmd_call = late::<CmdCall>();
+
         let expr = late::<Expr>();
 
         let cmd_flag_arg = late::<CmdFlagArg>();
@@ -376,6 +377,19 @@ pub fn program(
             )
             .then_ignore(char('\''));
 
+        let int_literal = char('-')
+            .or_not()
+            .then(
+                digits(10)
+                    .collect_string()
+                    .validate(|str| !(str.starts_with('0') && str.len() > 1))
+                    .with_custom_msg("Leading zeroes are not allowed")
+                    .as_critical(),
+            )
+            .not_followed_by(possible_ident_char)
+            .collect_string()
+            .map(|num| str::parse::<i64>(&num).unwrap());
+
         let literal_value = choice::<_, LiteralValue>((
             // Strings
             literal_string.map(LiteralValue::String),
@@ -399,6 +413,7 @@ pub fn program(
                 .then(char('.'))
                 .then(
                     digits(10)
+                        .critical("expected digits after the dot separator")
                         .collect_string()
                         .validate(|str| !(str.ends_with('0') && str.len() > 1))
                         .with_custom_msg("Trailing zeroes are not allowed")
@@ -408,18 +423,7 @@ pub fn program(
                 .collect_string()
                 .map(|num| LiteralValue::Float(str::parse::<f64>(&num).unwrap())),
             // Integers
-            char('-')
-                .or_not()
-                .then(
-                    digits(10)
-                        .collect_string()
-                        .validate(|str| !(str.starts_with('0') && str.len() > 1))
-                        .with_custom_msg("Leading zeroes are not allowed")
-                        .as_critical(),
-                )
-                .not_followed_by(possible_ident_char)
-                .collect_string()
-                .map(|num| LiteralValue::Integer(str::parse::<i64>(&num).unwrap())),
+            int_literal.map(LiteralValue::Integer),
         ))
         .followed_by(silent_choice((
             filter(|c| c.is_whitespace() || c == ',' || DELIMITER_CHARS.contains(&c)),
@@ -842,7 +846,12 @@ pub fn program(
                 .ignore_then(fn_call.clone())
                 .spanned()
                 .map(ExprInnerChaining::MethodCall),
-            prop_access.spanned().map(ExprInnerChaining::PropAccess),
+            lookahead(choice((char('.'), char('?'), char('[')))).ignore_then(
+                prop_access
+                    .spanned()
+                    .critical("expected either a method call or a property access")
+                    .map(ExprInnerChaining::PropAccess),
+            ),
         )));
 
         let expr_inner = expr_inner_content
@@ -1203,6 +1212,16 @@ pub fn program(
             ))
         });
 
+        let range_bound = choice::<_, RangeBound>((
+            int_literal.map(RangeBound::Literal),
+            ident.spanned().map(RangeBound::Variable),
+            char('(')
+                .ignore_then(expr.clone().critical("expected an expression"))
+                .then_ignore(char(')').critical_with_no_message())
+                .spanned()
+                .map(RangeBound::Expr),
+        ));
+
         let instr = choice::<_, Instruction>((
             //
             // Variables declaration
@@ -1292,6 +1311,35 @@ pub fn program(
                     body,
                     elsif,
                     els,
+                }),
+            //
+            // ranged 'for' loops
+            //
+            just("for")
+                .ignore_then(s)
+                .ignore_then(ident.spanned())
+                .then_ignore(s)
+                .then_ignore(just("in"))
+                .then_ignore(s)
+                .then(range_bound.clone().spanned())
+                .then_ignore(just("..").critical("expected a '..' symbol"))
+                .then(char('=').or_not().map(|c| c.is_some()))
+                .then(range_bound.spanned().critical("expected a range end value"))
+                .then_ignore(ms)
+                .then(
+                    block
+                        .clone()
+                        .spanned()
+                        .critical("expected a body for the 'for' loop"),
+                )
+                .map(|((((iter_var, iter_from), inclusive), iter_to), body)| {
+                    Instruction::ForLoopRanged {
+                        iter_var,
+                        iter_from,
+                        iter_to,
+                        inclusive,
+                        body,
+                    }
                 }),
             //
             // 'for' loops

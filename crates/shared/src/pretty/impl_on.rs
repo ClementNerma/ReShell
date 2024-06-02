@@ -50,7 +50,6 @@ impl PrettyPrintable for SingleValueType {
             Self::Int => PrettyPrintablePiece::colored_atomic("int", Color::Magenta),
             Self::Float => PrettyPrintablePiece::colored_atomic("float", Color::Magenta),
             Self::String => PrettyPrintablePiece::colored_atomic("string", Color::Magenta),
-            Self::Range => PrettyPrintablePiece::colored_atomic("range", Color::Magenta),
             Self::Error => PrettyPrintablePiece::colored_atomic("error", Color::Magenta),
             Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
             Self::CmdArg => PrettyPrintablePiece::colored_atomic("spread", Color::Magenta),

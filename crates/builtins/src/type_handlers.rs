@@ -75,11 +75,6 @@ declare_basic_type_handlers!(
         _ => Err("expected a string".to_owned())
     },
 
-    RangeType (Range) = (i64, i64) => value: match value {
-        RuntimeValue::Range { from, to } => Ok((from, to)),
-        _ => Err("expected a range".to_owned())
-    },
-
     ErrorType (Error) = (CodeRange, RuntimeValue) => value: match value {
         RuntimeValue::Error(err) => {
             let ErrorValueContent { at, data } = *err;

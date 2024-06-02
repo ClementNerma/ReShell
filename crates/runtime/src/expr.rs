@@ -4,8 +4,8 @@ use parsy::Eaten;
 use reshell_parser::ast::{
     Block, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr,
     ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature,
-    Function, LiteralValue, MatchExprCase, PropAccess, RuntimeCodeRange, RuntimeEaten, SingleOp,
-    TypeMatchExprCase, Value,
+    Function, LiteralValue, MatchExprCase, PropAccess, RangeBound, RuntimeCodeRange, RuntimeEaten,
+    SingleOp, TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -686,6 +686,30 @@ pub fn single_param_lambda_to_value(body: &Eaten<Block>, ctx: &mut Context) -> R
         parent_scopes: ctx.generate_parent_scopes_list(),
         captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
     }))
+}
+
+pub fn eval_range_bound(range_bound: &Eaten<RangeBound>, ctx: &mut Context) -> ExecResult<i64> {
+    let value = match &range_bound.data {
+        RangeBound::Literal(literal) => RuntimeValue::Int(*literal),
+        RangeBound::Variable(var) => ctx
+            .get_visible_var(var)
+            .value
+            .read_promise_no_write()
+            .value
+            .clone(),
+        RangeBound::Expr(expr) => eval_expr(&expr.data, ctx)?,
+    };
+
+    match value {
+        RuntimeValue::Int(literal) => Ok(literal),
+        _ => Err(ctx.error(
+            range_bound.at,
+            format!(
+                "expected an integer, found a: {}",
+                value.render_colored(ctx, PrettyPrintOptions::inline())
+            ),
+        )),
+    }
 }
 
 fn operator_precedence(op: DoubleOp) -> u8 {

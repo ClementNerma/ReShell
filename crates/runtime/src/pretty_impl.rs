@@ -35,14 +35,6 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::String(string) => pretty_print_string(string),
 
-            RuntimeValue::Range { from, to } => PrettyPrintablePiece::Join(vec![
-                PrettyPrintablePiece::colored_atomic("range(", Color::Blue),
-                PrettyPrintablePiece::colored_atomic(from.to_string(), Color::BrightYellow),
-                PrettyPrintablePiece::colored_atomic(",", Color::Blue),
-                PrettyPrintablePiece::colored_atomic(to.to_string(), Color::BrightYellow),
-                PrettyPrintablePiece::colored_atomic(")", Color::Blue),
-            ]),
-
             RuntimeValue::Error(err) => {
                 let ErrorValueContent { at, data } = &**err;
 

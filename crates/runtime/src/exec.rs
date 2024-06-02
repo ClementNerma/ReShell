@@ -15,7 +15,7 @@ use crate::{
         ScopeMethod, ScopeVar,
     },
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecResult},
-    expr::eval_expr,
+    expr::{eval_expr, eval_range_bound},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
@@ -400,7 +400,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         loop_scope.vars.insert(
                             iter_var.data.clone(),
                             ScopeVar {
-                                name_at: RuntimeCodeRange::Parsed(iter_on.at),
+                                name_at: RuntimeCodeRange::Parsed(iter_var.at),
                                 decl_scope_id: body.data.scope_id,
                                 is_mut: false,
                                 enforced_type: None,
@@ -424,48 +424,68 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                     }
                 }
 
-                RuntimeValue::Range { from, to } => {
-                    for i in from..=to {
-                        let mut loop_scope = ScopeContent::new();
-
-                        loop_scope.vars.insert(
-                            iter_var.data.clone(),
-                            ScopeVar {
-                                name_at: RuntimeCodeRange::Parsed(iter_var.at),
-                                decl_scope_id: body.data.scope_id,
-                                is_mut: false,
-                                enforced_type: None,
-                                value: GcCell::new(LocatedValue::new(
-                                    RuntimeValue::Int(i),
-                                    RuntimeCodeRange::Parsed(iter_var.at),
-                                )),
-                            },
-                        );
-
-                        if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
-                            match ret {
-                                InstrRet::ContinueLoop => {}
-                                InstrRet::BreakLoop => break,
-                                InstrRet::FnReturn(value) => {
-                                    return Ok(Some(InstrRet::FnReturn(value)))
-                                }
-                                InstrRet::WanderingValue(_) => {}
-                            }
-                        }
-                    }
-                }
-
                 value => {
                     return Err(ctx.error(
                         iter_on.at,
                         format!(
-                            "expected a list or range to iterate on, found a {} instead",
+                            "expected a list to iterate on, found a {} instead",
                             value.compute_type().render_colored(
                                 ctx.type_alias_store(),
                                 PrettyPrintOptions::inline()
                             )
                         ),
                     ))
+                }
+            }
+
+            None
+        }
+
+        Instruction::ForLoopRanged {
+            iter_var,
+            iter_from,
+            iter_to,
+            inclusive,
+            body,
+        } => {
+            let iter_from = eval_range_bound(iter_from, ctx)?;
+            let iter_to = eval_range_bound(iter_to, ctx)?;
+
+            let range = if *inclusive {
+                iter_from..=iter_to
+            } else if iter_to == i64::MIN {
+                #[allow(clippy::reversed_empty_ranges)]
+                {
+                    0..=-1
+                }
+            } else {
+                iter_from..=iter_to - 1
+            };
+
+            for num in range {
+                let mut loop_scope = ScopeContent::new();
+
+                loop_scope.vars.insert(
+                    iter_var.data.clone(),
+                    ScopeVar {
+                        name_at: RuntimeCodeRange::Parsed(iter_var.at),
+                        decl_scope_id: body.data.scope_id,
+                        is_mut: false,
+                        enforced_type: None,
+                        value: GcCell::new(LocatedValue::new(
+                            RuntimeValue::Int(num),
+                            RuntimeCodeRange::Parsed(iter_var.at),
+                        )),
+                    },
+                );
+
+                if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
+                    match ret {
+                        InstrRet::ContinueLoop => {}
+                        InstrRet::BreakLoop => break,
+                        InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
+                        InstrRet::WanderingValue(_) => {}
+                    }
                 }
             }
 

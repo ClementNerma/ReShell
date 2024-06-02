@@ -133,7 +133,6 @@ pub enum RuntimeValue {
     Int(i64),
     Float(f64),
     String(String),
-    Range { from: i64, to: i64 },
     Error(Box<ErrorValueContent>),
     CmdCall { content_at: CodeRange },
     CmdArg(Box<SingleCmdArgResult>),
@@ -159,7 +158,6 @@ impl RuntimeValue {
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
-            RuntimeValue::Range { from: _, to: _ } => SingleValueType::Range,
             RuntimeValue::List(items) => SingleValueType::TypedList(Box::new(
                 generate_values_types(items.read_promise_no_write().iter()),
             )),
@@ -217,7 +215,6 @@ impl RuntimeValue {
             | RuntimeValue::Int(_)
             | RuntimeValue::Float(_)
             | RuntimeValue::String(_)
-            | RuntimeValue::Range { from: _, to: _ }
             | RuntimeValue::Error(_)
             | RuntimeValue::CmdCall { content_at: _ }
             | RuntimeValue::CmdArg(_)
@@ -329,19 +326,6 @@ pub fn are_values_equal(
 
         (RuntimeValue::List(_), _) | (_, RuntimeValue::List(_)) => Ok(false),
 
-        (
-            RuntimeValue::Range {
-                from: a_from,
-                to: a_to,
-            },
-            RuntimeValue::Range {
-                from: b_from,
-                to: b_to,
-            },
-        ) => Ok(a_from == b_from && a_to == b_to),
-        (RuntimeValue::Range { from: _, to: _ }, _)
-        | (_, RuntimeValue::Range { from: _, to: _ }) => Ok(false),
-
         (RuntimeValue::Map(a), RuntimeValue::Map(b)) => {
             let a = a.read_promise_no_write();
             let b = b.read_promise_no_write();
@@ -425,7 +409,6 @@ pub fn value_to_str(
         RuntimeValue::String(str) => Ok(str.clone()),
         RuntimeValue::Null
         | RuntimeValue::List(_)
-        | RuntimeValue::Range { from: _, to: _ }
         | RuntimeValue::Map(_)
         | RuntimeValue::Struct(_)
         | RuntimeValue::Function(_)
