@@ -1318,7 +1318,7 @@ pub fn program(
                 .then_ignore(just("in"))
                 .then_ignore(s)
                 .then(range_bound.clone().spanned())
-                .then_ignore(just("..").critical_with_no_message())
+                .then_ignore(just(".."))
                 .then(char('=').or_not().map(|c| c.is_some()))
                 .then(range_bound.spanned().critical("expected a range end value"))
                 .then_ignore(ms)
