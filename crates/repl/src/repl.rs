@@ -24,7 +24,7 @@ use reshell_parser::{
     ast::{Instruction, Program},
     files::SourceFileLocation,
 };
-use reshell_runtime::{context::Context, errors::ExecErrorNature};
+use reshell_runtime::{context::Context, errors::ExecErrorNature, values::RuntimeValue};
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
@@ -149,12 +149,14 @@ pub fn start(
             // If the program succeeded and has a wandering value, pretty-print it
             Ok(wandering_value) => {
                 if let Some(loc_val) = wandering_value {
-                    println!(
-                        "{}",
-                        loc_val
-                            .value
-                            .render_colored(&ctx, PrettyPrintOptions::multiline())
-                    )
+                    if !matches!(loc_val.value, RuntimeValue::Void) {
+                        println!(
+                            "{}",
+                            loc_val
+                                .value
+                                .render_colored(&ctx, PrettyPrintOptions::multiline())
+                        );
+                    }
                 }
             }
 
