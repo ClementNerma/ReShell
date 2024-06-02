@@ -446,45 +446,36 @@ fn eval_expr_inner_content(
         }
 
         ExprInnerContent::Try {
-            fn_call,
+            try_expr,
             catch_var,
             catch_expr,
             catch_expr_scope_id,
-        } => match eval_fn_call(fn_call, None, ctx) {
-            Ok(returned) => returned
-                .ok_or_else(|| ctx.error(fn_call.at, "tried function did not return a value"))
-                .map(|loc_val| loc_val.value),
+        } => eval_expr(&try_expr.data, ctx).or_else(|err| match err.nature {
+            ExecErrorNature::Thrown { at, message } => {
+                let mut scope = ScopeContent::new();
 
-            Err(err) => match err.nature {
-                ExecErrorNature::Thrown { at, message } => {
-                    let mut scope = ScopeContent::new();
+                scope.vars.insert(
+                    catch_var.data.clone(),
+                    ScopeVar {
+                        name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                        decl_scope_id: *catch_expr_scope_id,
+                        is_mut: false,
+                        enforced_type: None,
+                        value: GcCell::new(LocatedValue::new(RuntimeValue::String(message), at)),
+                    },
+                );
 
-                    scope.vars.insert(
-                        catch_var.data.clone(),
-                        ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                            decl_scope_id: *catch_expr_scope_id,
-                            is_mut: false,
-                            enforced_type: None,
-                            value: GcCell::new(LocatedValue::new(
-                                RuntimeValue::String(message),
-                                at,
-                            )),
-                        },
-                    );
+                ctx.create_and_push_scope(*catch_expr_scope_id, scope);
 
-                    ctx.create_and_push_scope(*catch_expr_scope_id, scope);
+                let result = eval_expr(&catch_expr.data, ctx);
 
-                    let result = eval_expr(&catch_expr.data, ctx);
+                ctx.pop_scope();
 
-                    ctx.pop_scope();
+                result
+            }
 
-                    result
-                }
-
-                _ => Err(err),
-            },
-        },
+            _ => Err(err),
+        }),
 
         ExprInnerContent::FnAsValue(name) => ctx
             .get_visible_fn_value(name)

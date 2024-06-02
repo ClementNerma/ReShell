@@ -568,11 +568,12 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::Try {
-            call,
+            try_expr,
             catch_var,
             catch_body,
         } => {
-            check_fn_call(call, state)?;
+            check_expr(&try_expr.data, state)?;
+
             check_block_with(catch_body, state, |scope| {
                 scope.vars.insert(
                     catch_var.data.clone(),
@@ -770,12 +771,12 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
         }
 
         ExprInnerContent::Try {
-            fn_call,
+            try_expr,
             catch_var,
             catch_expr,
             catch_expr_scope_id,
         } => {
-            check_fn_call(fn_call, state)?;
+            check_expr(&try_expr.data, state)?;
 
             check_expr_with(catch_expr, *catch_expr_scope_id, state, |scope| {
                 scope.vars.insert(

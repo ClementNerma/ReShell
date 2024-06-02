@@ -112,7 +112,7 @@ pub enum Instruction {
 
     /// Try block
     Try {
-        call: Eaten<FnCall>,
+        try_expr: Eaten<Expr>,
         catch_var: Eaten<String>,
         catch_body: Eaten<Block>,
     },
@@ -234,7 +234,7 @@ pub enum ExprInnerContent {
         els: Eaten<Box<Expr>>,
     },
     Try {
-        fn_call: Eaten<FnCall>,
+        try_expr: Eaten<Box<Expr>>,
         catch_var: Eaten<String>,
         catch_expr: Eaten<Box<Expr>>,
         catch_expr_scope_id: AstScopeId,

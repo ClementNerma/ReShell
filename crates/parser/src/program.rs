@@ -774,10 +774,10 @@ pub fn program(
                 just("try")
                     .ignore_then(s)
                     .ignore_then(
-                        fn_call
-                            .clone()
+                        expr.clone()
+                            .map(Box::new)
                             .spanned()
-                            .critical("expected a function call"),
+                            .critical("expected an expression"),
                     )
                     .then_ignore(s.critical_with_no_message())
                     .then_ignore(just("catch").critical_with_no_message())
@@ -791,8 +791,8 @@ pub fn program(
                             .critical("expected a catch expression"),
                     )
                     .map(
-                        move |((fn_call, catch_var), catch_expr)| ExprInnerContent::Try {
-                            fn_call,
+                        move |((try_expr, catch_var), catch_expr)| ExprInnerContent::Try {
+                            try_expr,
                             catch_var,
                             catch_expr,
                             catch_expr_scope_id: scope_id_gen_bis.gen(),
@@ -1585,12 +1585,7 @@ pub fn program(
             //
             just("try")
                 .ignore_then(s)
-                .ignore_then(
-                    fn_call
-                        .clone()
-                        .spanned()
-                        .critical("expected a function call"),
-                )
+                .ignore_then(expr.clone().spanned().critical("expected an expression"))
                 .then_ignore(s.critical_with_no_message())
                 .then_ignore(just("catch").critical_with_no_message())
                 .then_ignore(s.critical_with_no_message())
@@ -1601,11 +1596,13 @@ pub fn program(
                 )
                 .then_ignore(ms)
                 .then(block.clone().spanned().critical("expected a block"))
-                .map(move |((call, catch_var), catch_body)| Instruction::Try {
-                    call,
-                    catch_var,
-                    catch_body,
-                }),
+                .map(
+                    move |((try_expr, catch_var), catch_body)| Instruction::Try {
+                        try_expr,
+                        catch_var,
+                        catch_body,
+                    },
+                ),
             //
             // Aliases declaration
             //

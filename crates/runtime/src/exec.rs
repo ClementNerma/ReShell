@@ -16,7 +16,6 @@ use crate::{
     },
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecResult},
     expr::{eval_expr, eval_range_bound},
-    functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
     typechecker::check_if_value_fits_type,
@@ -728,11 +727,14 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::Try {
-            call,
+            try_expr,
             catch_var,
             catch_body,
-        } => match eval_fn_call(call, None, ctx) {
-            Ok(result) => result.map(InstrRet::WanderingValue),
+        } => match eval_expr(&try_expr.data, ctx) {
+            Ok(result) => Some(InstrRet::WanderingValue(LocatedValue::new(
+                result,
+                RuntimeCodeRange::Parsed(try_expr.at),
+            ))),
 
             Err(err) => match err.nature {
                 ExecErrorNature::Thrown { at, message } => {
@@ -752,7 +754,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         },
                     );
 
-                    return run_block(catch_body, ctx, Some(scope));
+                    run_block(catch_body, ctx, Some(scope))?
                 }
 
                 _ => return Err(err),
