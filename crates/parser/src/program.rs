@@ -772,24 +772,32 @@ pub fn program(
                     .map(|((expr, cases), els)| ExprInnerContent::TypeMatch { expr, cases, els }),
                 // Try / catch
                 just("try")
-                    .ignore_then(s)
+                    .ignore_then(msnl)
+                    .ignore_then(char('{'))
+                    .ignore_then(msnl)
                     .ignore_then(
                         expr.clone()
                             .map(Box::new)
                             .spanned()
                             .critical("expected an expression"),
                     )
-                    .then_ignore(s.critical_with_no_message())
+                    .then_ignore(msnl)
+                    .then_ignore(char('}'))
+                    .then_ignore(msnl)
                     .then_ignore(just("catch").critical_with_no_message())
                     .then_ignore(s.critical_with_no_message())
                     .then(ident.spanned().critical("expected a catch variable"))
-                    .then_ignore(s.critical_with_no_message())
+                    .then_ignore(msnl)
+                    .then_ignore(char('{').critical_with_no_message())
+                    .then_ignore(msnl)
                     .then(
                         expr.clone()
                             .map(Box::new)
                             .spanned()
                             .critical("expected a catch expression"),
                     )
+                    .then_ignore(msnl)
+                    .then_ignore(char('}'))
                     .map(
                         move |((try_expr, catch_var), catch_expr)| ExprInnerContent::Try {
                             try_expr,
