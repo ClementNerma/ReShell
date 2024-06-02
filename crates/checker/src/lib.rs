@@ -1408,6 +1408,7 @@ fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult 
 fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> CheckerResult {
     match value_type {
         SingleValueType::Any
+        | SingleValueType::Void
         | SingleValueType::Null
         | SingleValueType::Bool
         | SingleValueType::Int

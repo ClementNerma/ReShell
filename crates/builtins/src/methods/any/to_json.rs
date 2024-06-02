@@ -32,6 +32,7 @@ fn run() -> Runner {
 
 fn value_to_serde_json(value: RuntimeValue) -> Result<Value, &'static str> {
     match value {
+        RuntimeValue::Void => Err("cannot convert a void value to JSON"),
         RuntimeValue::Null => Ok(Value::Null),
         RuntimeValue::Bool(bool) => Ok(Value::Bool(bool)),
         RuntimeValue::Int(int) => Ok(Value::Number(int.into())),

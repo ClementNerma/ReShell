@@ -238,12 +238,13 @@ pub(crate) fn run_body_with_deps(
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     let instr_ret = match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
-            // assert!(
-            //     !ctx.current_scope().content.vars.contains_key(&name.data),
-            //     "duplicate variable declaration (this is a bug in the checker)"
-            // );
+            let init_value = eval_expr(&init_expr.data, ctx)?;
 
-            declare_vars(names, eval_expr(&init_expr.data, ctx)?, init_expr.at, ctx)?;
+            if matches!(init_value, RuntimeValue::Void) {
+                return Err(ctx.error(init_expr.at, "cannot assign a void value"));
+            }
+
+            declare_vars(names, init_value, init_expr.at, ctx)?;
 
             None
         }
@@ -260,6 +261,10 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             assert!(var.is_mut);
 
             let assign_value = eval_expr(&expr.data, ctx)?;
+
+            if matches!(assign_value, RuntimeValue::Void) {
+                return Err(ctx.error(expr.at, "cannot assign a void value"));
+            }
 
             if prop_acc.is_empty() && list_push.is_none() {
                 if let Some(enforced_type) = &var.enforced_type {

@@ -44,6 +44,7 @@ impl PrettyPrintable for SingleValueType {
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
+            Self::Void => PrettyPrintablePiece::colored_atomic("void", Color::Magenta),
             Self::Any => PrettyPrintablePiece::colored_atomic("any", Color::Magenta),
             Self::Null => PrettyPrintablePiece::colored_atomic("null", Color::Magenta),
             Self::Bool => PrettyPrintablePiece::colored_atomic("boolean", Color::Magenta),

@@ -128,6 +128,7 @@ pub struct CapturedDependencies {
 pub enum RuntimeValue {
     // Primitives
     // These can be cloned pretty cheaply
+    Void,
     Null,
     Bool(bool),
     Int(i64),
@@ -152,6 +153,7 @@ impl RuntimeValue {
     /// Compute the type of a runtime value
     pub fn compute_type(&self) -> SingleValueType {
         match self {
+            RuntimeValue::Void => SingleValueType::Void,
             RuntimeValue::Null => SingleValueType::Null,
             RuntimeValue::Bool(_) => SingleValueType::Bool,
             RuntimeValue::Int(_) => SingleValueType::Int,
@@ -210,7 +212,8 @@ impl RuntimeValue {
     /// Check if a value is a container (e.g. list, map, struct)
     pub fn is_container(&self) -> bool {
         match self {
-            RuntimeValue::Null
+            RuntimeValue::Void
+            | RuntimeValue::Null
             | RuntimeValue::Bool(_)
             | RuntimeValue::Int(_)
             | RuntimeValue::Float(_)
@@ -299,8 +302,10 @@ pub fn are_values_equal(
     right: &RuntimeValue,
 ) -> Result<bool, NotComparableTypesErr> {
     match (left, right) {
-        (_, RuntimeValue::Null) => Ok(matches!(left, RuntimeValue::Null)),
-        (RuntimeValue::Null, _) => Ok(matches!(right, RuntimeValue::Null)),
+        (_, RuntimeValue::Void) | (RuntimeValue::Void, _) => Ok(false),
+
+        (RuntimeValue::Null, RuntimeValue::Null) => Ok(true),
+        (RuntimeValue::Null, _) | (_, RuntimeValue::Null) => Ok(false),
 
         (RuntimeValue::Bool(a), RuntimeValue::Bool(b)) => Ok(a == b),
         (RuntimeValue::Bool(_), _) | (_, RuntimeValue::Bool(_)) => Ok(false),
@@ -407,7 +412,8 @@ pub fn value_to_str(
         RuntimeValue::Int(num) => Ok(num.to_string()),
         RuntimeValue::Float(num) => Ok(num.to_string()),
         RuntimeValue::String(str) => Ok(str.clone()),
-        RuntimeValue::Null
+        RuntimeValue::Void
+        | RuntimeValue::Null
         | RuntimeValue::List(_)
         | RuntimeValue::Map(_)
         | RuntimeValue::Struct(_)

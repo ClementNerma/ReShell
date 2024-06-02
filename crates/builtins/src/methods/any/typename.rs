@@ -15,6 +15,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { value }, _, _| {
         let typename = match value {
+            RuntimeValue::Void => "void",
             RuntimeValue::Null => "null",
             RuntimeValue::Bool(_) => "bool",
             RuntimeValue::Int(_) => "int",

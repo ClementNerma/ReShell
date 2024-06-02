@@ -309,6 +309,7 @@ pub enum ValueType {
 #[derive(Debug, Clone, Hash)]
 pub enum SingleValueType {
     Any,
+    Void,
     Null,
     Bool,
     Int,

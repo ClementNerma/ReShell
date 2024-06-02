@@ -20,6 +20,7 @@ pub fn check_if_value_fits_single_type(
 ) -> bool {
     match typ {
         SingleValueType::Any => true,
+        SingleValueType::Void => false,
         SingleValueType::Null => matches!(value, RuntimeValue::Null),
         SingleValueType::Bool => matches!(value, RuntimeValue::Bool(_)),
         SingleValueType::Int => matches!(value, RuntimeValue::Int(_)),

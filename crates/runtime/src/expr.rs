@@ -299,8 +299,7 @@ fn eval_expr_inner_chaining(
         }
 
         ExprInnerChaining::MethodCall(fn_call) => Ok(eval_fn_call(fn_call, Some(left), ctx)?
-            .ok_or_else(|| ctx.error(fn_call.at, "method did not return a value"))?
-            .value),
+            .map_or(RuntimeValue::Void, |ret_val| ret_val.value)),
     }
 }
 
@@ -545,9 +544,9 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         Value::FnAsValue(name) => RuntimeValue::Function(ctx.get_visible_fn_value(name)?.clone()),
 
         Value::FnCall(call) => {
-            return Ok(eval_fn_call(call, None, ctx)?
-                .ok_or_else(|| ctx.error(call.at, "function did not return a value"))?
-                .value)
+            return Ok(
+                eval_fn_call(call, None, ctx)?.map_or(RuntimeValue::Void, |ret_val| ret_val.value)
+            )
         }
 
         Value::CmdOutput(call) => RuntimeValue::String(
