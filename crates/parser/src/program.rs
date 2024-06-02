@@ -112,14 +112,14 @@ pub fn program(
                 .map(SingleValueType::Function),
             just("list[")
                 .ignore_then(value_type.clone().map(Box::new))
-                .then_ignore(char(']').critical("expected ']' to close list type"))
+                .then_ignore(char(']').critical_with_no_message())
                 .map(SingleValueType::TypedList),
             just("list")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::UntypedList),
             just("map[")
                 .ignore_then(value_type.clone().map(Box::new))
-                .then_ignore(char(']').critical("expected ']' to close map type"))
+                .then_ignore(char(']').critical_with_no_message())
                 .map(SingleValueType::TypedMap),
             just("map")
                 .not_followed_by(possible_ident_char)
@@ -207,7 +207,7 @@ pub fn program(
                 .then_ignore(ms)
                 .then_ignore(char('('))
                 .then(fn_arg_short_flag.map(RuntimeEaten::Parsed))
-                .then_ignore(char(')').critical("unclosed short argument, expected ')'"))
+                .then_ignore(char(')').critical_with_no_message())
                 .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
             // Long flag only
             fn_arg_long_flag
@@ -346,7 +346,7 @@ pub fn program(
                 .separated_by(char(','))
                 .spanned(),
         )
-        .then_ignore(char(')').critical("expected an expression"))
+        .then_ignore(char(')').critical_with_no_message())
         .map(|((nature, name), call_args)| FnCall {
             nature,
             name,
@@ -567,7 +567,7 @@ pub fn program(
             // Command calls
             just("$(")
                 .ignore_then(cmd_call.clone().spanned())
-                .then_ignore(char(')').critical("mising close parenthesis for command call"))
+                .then_ignore(char(')').critical_with_no_message())
                 .map(Value::CmdOutput),
             // Variables
             var_name.spanned().map(Value::Variable),
@@ -701,7 +701,7 @@ pub fn program(
                                     .critical("expected an expression to match"),
                             )
                             .then_ignore(msnl)
-                            .then_ignore(just("->").critical("expected an arrow (->)"))
+                            .then_ignore(just("->").critical_with_no_message())
                             .then_ignore(msnl)
                             .then(
                                 expr.clone()
@@ -712,9 +712,9 @@ pub fn program(
                             .repeated_vec(),
                     )
                     .then_ignore(msnl)
-                    .then_ignore(just("else").critical("expected an 'else' fallback"))
+                    .then_ignore(just("else").critical_with_no_message())
                     .then_ignore(msnl)
-                    .then_ignore(just("->").critical("expected an arrow (->)"))
+                    .then_ignore(just("->").critical_with_no_message())
                     .then_ignore(msnl)
                     .then(
                         expr.clone()
@@ -746,7 +746,7 @@ pub fn program(
                                     .critical("expected a type to match"),
                             )
                             .then_ignore(msnl)
-                            .then_ignore(just("->").critical("expected an arrow (->)"))
+                            .then_ignore(just("->").critical_with_no_message())
                             .then_ignore(msnl)
                             .then(
                                 expr.clone()
@@ -757,9 +757,9 @@ pub fn program(
                             .repeated_vec(),
                     )
                     .then_ignore(msnl)
-                    .then_ignore(just("else").critical("expected an 'else' fallback"))
+                    .then_ignore(just("else").critical_with_no_message())
                     .then_ignore(msnl)
-                    .then_ignore(just("->").critical("expected an arrow (->)"))
+                    .then_ignore(just("->").critical_with_no_message())
                     .then_ignore(msnl)
                     .then(
                         expr.clone()
@@ -779,13 +779,11 @@ pub fn program(
                             .spanned()
                             .critical("expected a function call"),
                     )
-                    .then_ignore(s.critical("expected 'catch' keyword after function call"))
-                    .then_ignore(
-                        just("catch").critical("expected 'catch' keyword after function call"),
-                    )
-                    .then_ignore(s.critical("expected a space"))
+                    .then_ignore(s.critical_with_no_message())
+                    .then_ignore(just("catch").critical_with_no_message())
+                    .then_ignore(s.critical_with_no_message())
                     .then(ident.spanned().critical("expected a catch variable"))
-                    .then_ignore(s.critical("expected a space"))
+                    .then_ignore(s.critical_with_no_message())
                     .then(
                         expr.clone()
                             .map(Box::new)
@@ -829,7 +827,7 @@ pub fn program(
                         .critical("expected an expression"),
                 )
                 .map(Box::new)
-                .then_ignore(char(']').critical("unclosed property access, expected ']'"))
+                .then_ignore(char(']').critical_with_no_message())
                 .map(PropAccessNature::Key),
         ));
 
@@ -976,9 +974,7 @@ pub fn program(
                         .padded_by(msnl)
                         .critical("expected a command call"),
                 )
-                .then_ignore(
-                    char(')').critical("unclosed command call (expected a closing parenthesis)"),
-                )
+                .then_ignore(char(')').critical_with_no_message())
                 .map(CmdValueMakingArg::CmdOutput),
             // Parenthesis-wrapped expressions
             char('(')
@@ -988,7 +984,7 @@ pub fn program(
                         .padded_by(msnl)
                         .critical("expected an expression"),
                 )
-                .then_ignore(char(')').critical("unclosed expression"))
+                .then_ignore(char(')').critical_with_no_message())
                 .map(CmdValueMakingArg::ParenExpr),
             // Inline command call
             inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
@@ -1148,7 +1144,7 @@ pub fn program(
         let single_var_decl = just("mut")
             .to(())
             .not_followed_by(possible_ident_char)
-            .then_ignore(s.critical("expected a whitespace after 'mut' keyword"))
+            .then_ignore(s.critical_with_no_message())
             .spanned()
             .or_not()
             .then(ident.spanned())
@@ -1322,7 +1318,7 @@ pub fn program(
                 .then_ignore(just("in"))
                 .then_ignore(s)
                 .then(range_bound.clone().spanned())
-                .then_ignore(just("..").critical("expected a '..' symbol"))
+                .then_ignore(just("..").critical_with_no_message())
                 .then(char('=').or_not().map(|c| c.is_some()))
                 .then(range_bound.spanned().critical("expected a range end value"))
                 .then_ignore(ms)
@@ -1595,9 +1591,9 @@ pub fn program(
                         .spanned()
                         .critical("expected a function call"),
                 )
-                .then_ignore(s.critical("expected a space followed by 'catch'"))
-                .then_ignore(just("catch").critical("expected the 'catch' keyword"))
-                .then_ignore(s.critical("expected a space followed by the catch variable"))
+                .then_ignore(s.critical_with_no_message())
+                .then_ignore(just("catch").critical_with_no_message())
+                .then_ignore(s.critical_with_no_message())
                 .then(
                     ident
                         .spanned()
@@ -1621,7 +1617,7 @@ pub fn program(
                         .critical("expected an alias name (identifier)"),
                 )
                 .then_ignore(ms)
-                .then_ignore(char('=').critical("expected an assignment operator (=)"))
+                .then_ignore(char('=').critical_with_no_message())
                 .then_ignore(ms)
                 .then(
                     single_cmd_call
@@ -1645,7 +1641,7 @@ pub fn program(
                         .critical("expected a type name (identifier)"),
                 )
                 .then_ignore(ms)
-                .then_ignore(char('=').critical("expected an assignment operator (=)"))
+                .then_ignore(char('=').critical_with_no_message())
                 .then_ignore(ms)
                 .then(value_type.spanned().critical("expected a type to alias"))
                 .map(|(name, content)| Instruction::TypeAliasDecl { name, content }),
