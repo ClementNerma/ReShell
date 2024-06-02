@@ -1439,7 +1439,7 @@ pub fn program(
             //
             just("continue")
                 .followed_by(silent_choice((
-                    filter(|c| DELIMITER_CHARS.contains(&c)),
+                    filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
                     end(),
                 )))
                 .map(|_| Instruction::LoopContinue),
@@ -1448,7 +1448,7 @@ pub fn program(
             //
             just("break")
                 .followed_by(silent_choice((
-                    filter(|c| DELIMITER_CHARS.contains(&c)),
+                    filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
                     end(),
                 )))
                 .map(|_| Instruction::LoopBreak),
