@@ -616,7 +616,9 @@ pub fn program(
 
         let expr_inner_content = recursive(|expr_inner_content| {
             choice::<_, ExprInnerContent>((
-                // Single operator (e.g. '!')
+                //
+                // Single operator (e.g. '!') application
+                //
                 single_op
                     .spanned()
                     .then_ignore(ms)
@@ -629,12 +631,16 @@ pub fn program(
                             right_chainings,
                         },
                     ),
+                //
                 // Parenthesis-wrapped expression
+                //
                 char('(')
                     .ignore_then(expr.clone().map(Box::new).spanned())
                     .then_ignore(char(')'))
                     .map(ExprInnerContent::ParenExpr),
+                //
                 // Ternaries
+                //
                 just("if")
                     .ignore_then(s)
                     .ignore_then(
@@ -681,7 +687,9 @@ pub fn program(
                         elsif,
                         els,
                     }),
-                // Match
+                //
+                // Value matching
+                //
                 just("match")
                     .ignore_then(s)
                     .ignore_then(
@@ -725,7 +733,9 @@ pub fn program(
                     .then_ignore(msnl)
                     .then_ignore(char('}').critical_with_no_message())
                     .map(|((expr, cases), els)| ExprInnerContent::Match { expr, cases, els }),
-                // Typematch
+                //
+                // Type matching
+                //
                 just("typematch")
                     .ignore_then(s)
                     .ignore_then(
@@ -770,7 +780,9 @@ pub fn program(
                     .then_ignore(msnl)
                     .then_ignore(char('}').critical_with_no_message())
                     .map(|((expr, cases), els)| ExprInnerContent::TypeMatch { expr, cases, els }),
+                //
                 // Try / catch
+                //
                 just("try")
                     .ignore_then(msnl)
                     .ignore_then(char('{'))
@@ -806,7 +818,9 @@ pub fn program(
                             catch_expr_scope_id: scope_id_gen_bis.gen(),
                         },
                     ),
+                //
                 // Throws
+                //
                 just("throw")
                     .ignore_then(ms)
                     .ignore_then(
@@ -816,7 +830,9 @@ pub fn program(
                             .critical("expected an expression to throw"),
                     )
                     .map(ExprInnerContent::Throw),
+                //
                 // Simple values
+                //
                 value.clone().spanned().map(ExprInnerContent::Value),
             ))
         });
