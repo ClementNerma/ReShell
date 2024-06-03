@@ -1,7 +1,5 @@
 use std::{fs, path::Path};
 
-use crate::errors::FallibleAtRuntime;
-
 crate::define_internal_fn!(
     //
     // Read a file
@@ -27,11 +25,12 @@ fn run() -> Runner {
             ));
         }
 
-        let content = fs::read_to_string(path).with_context(
-            || format!("failed to read file '{}'", path.display()),
-            at,
-            ctx,
-        )?;
+        let content = fs::read_to_string(path).map_err(|err| {
+            ctx.error(
+                at,
+                format!("failed to read file '{}': {err}", path.display()),
+            )
+        })?;
 
         Ok(Some(RuntimeValue::String(content)))
     })

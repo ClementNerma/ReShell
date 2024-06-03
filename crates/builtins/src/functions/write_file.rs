@@ -4,8 +4,6 @@ use std::{
     path::Path,
 };
 
-use crate::errors::FallibleAtRuntime;
-
 crate::define_internal_fn!(
     //
     // Write to a file
@@ -35,28 +33,31 @@ fn run() -> Runner {
             let path = Path::new(&path);
 
             if !append {
-                fs::write(path, content).with_context(
-                    || format!("failed to write file '{}'", path.display()),
-                    at,
-                    ctx,
-                )?;
+                fs::write(path, content).map_err(|err| {
+                    ctx.error(
+                        at,
+                        format!("failed to write file '{}': {err}", path.display()),
+                    )
+                })?;
             } else {
                 OpenOptions::new()
                     .create(true)
                     .truncate(false)
                     .append(true)
                     .open(path)
-                    .with_context(
-                        || format!("failed to open file '{}'", path.display()),
-                        at,
-                        ctx,
-                    )?
+                    .map_err(|err| {
+                        ctx.error(
+                            at,
+                            format!("failed to open file '{}': {err}", path.display()),
+                        )
+                    })?
                     .write_all(format!("{content}\n").as_bytes())
-                    .with_context(
-                        || format!("failed to append to file '{}'", path.display()),
-                        at,
-                        ctx,
-                    )?
+                    .map_err(|err| {
+                        ctx.error(
+                            at,
+                            format!("failed to append to file '{}': {err}", path.display()),
+                        )
+                    })?
             }
 
             Ok(None)

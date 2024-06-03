@@ -11,7 +11,6 @@
 #![feature(trait_upcasting)]
 
 mod content;
-mod errors;
 mod functions;
 mod helper;
 mod methods;
