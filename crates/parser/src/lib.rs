@@ -5,7 +5,7 @@
 pub mod ast;
 pub mod files;
 mod impls;
-mod program;
+mod parser;
 pub mod scope;
 
-pub use program::{program, DELIMITER_CHARS};
+pub use parser::{program, DELIMITER_CHARS};
