@@ -16,7 +16,7 @@ fn run() -> Runner {
     Runner::new(
         |_, Args { path, lossy }, ArgsAt { path: path_at, .. }, ctx| {
             let canon = dunce::canonicalize(path)
-                .map_err(|err| ctx.error(path_at, format!("failed to canonicalize path: {err}")))?;
+                .map_err(|err| ctx.throw(path_at, format!("failed to canonicalize path: {err}")))?;
 
             let Some(canon) = canon.to_str() else {
                 return if lossy {
@@ -24,7 +24,7 @@ fn run() -> Runner {
                         canon.to_string_lossy().into_owned(),
                     )))
                 } else {
-                    Err(ctx.error(
+                    Err(ctx.throw(
                         path_at,
                         format!(
                             "canonicalized path contains invalid UTF-8 characters: {}",

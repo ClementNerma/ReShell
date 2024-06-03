@@ -34,7 +34,7 @@ fn run() -> Runner {
          ctx| {
             let style = match template {
                 Some(template) => ProgressStyle::with_template(&template).map_err(|err| {
-                    ctx.error(
+                    ctx.throw(
                         template_at.unwrap(),
                         format!("invalid template provided: {err}"),
                     )

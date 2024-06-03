@@ -10,7 +10,12 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { string }, args_at, ctx| {
-        let int = string.parse::<f64>().map_err(|err| ctx.error(args_at.string, format!("failed to parse string as float: {err}")))?;
+        let int = string.parse::<f64>().map_err(|err| {
+            ctx.throw(
+                args_at.string,
+                format!("failed to parse string as float: {err}"),
+            )
+        })?;
 
         Ok(Some(RuntimeValue::Float(int)))
     })

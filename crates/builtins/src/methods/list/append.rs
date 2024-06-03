@@ -20,7 +20,7 @@ fn run() -> Runner {
             .map(|value| match &*value {
                 SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.value.clone()),
                 SingleCmdArgResult::Flag { name, value: _ } => {
-                    Err(ctx.error(name.at(), "Cannot append a flag to a list"))
+                    Err(ctx.throw(name.at(), "Cannot append a flag to a list"))
                 }
             })
             .collect::<Result<Vec<_>, _>>()?;

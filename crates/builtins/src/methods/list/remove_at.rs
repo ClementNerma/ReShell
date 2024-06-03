@@ -14,7 +14,7 @@ fn run() -> Runner {
         let mut list = list.write(args_at.list, ctx)?;
 
         if index > list.len() {
-            return Err(ctx.error(
+            return Err(ctx.throw(
                 args_at.index,
                 format!(
                     "cannot remove index {index} from a list with {} elements",

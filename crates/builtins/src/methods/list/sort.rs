@@ -53,7 +53,7 @@ fn run() -> Runner {
         })
         // failure
         .ok_or_else(|| {
-            ctx.error(args_at.list, "only integer, floating-point and string lists can be sorted")
+            ctx.throw(args_at.list, "only integer, floating-point and string lists can be sorted")
         })?;
 
         Ok(Some(sorted_list))

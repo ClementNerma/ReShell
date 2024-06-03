@@ -51,7 +51,7 @@ fn run() -> Runner {
                 match parsed {
                     Some(parsed) => Regex::new(&parsed).unwrap(),
                     None => {
-                        return Err(ctx.error(pattern_at, "failed to parse Pomsky regex"));
+                        return Err(ctx.throw(pattern_at, "failed to parse Pomsky regex"));
                     }
                 }
             };

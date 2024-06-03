@@ -27,7 +27,7 @@ fn run() -> Runner {
             } else {
                 path.to_str()
                     .ok_or_else(|| {
-                        ctx.error(
+                        ctx.throw(
                             command_at,
                             format!(
                                 "command path contains invalid UTF-8 characters: {}",
