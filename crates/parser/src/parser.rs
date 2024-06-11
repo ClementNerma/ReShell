@@ -794,7 +794,7 @@ pub fn program(
                             .critical("expected an expression"),
                     )
                     .then_ignore(msnl)
-                    .then_ignore(char('}'))
+                    .then_ignore(char('}').critical_with_no_message())
                     .then_ignore(msnl)
                     .then_ignore(just("catch").critical_with_no_message())
                     .then_ignore(s.critical_with_no_message())
@@ -1230,7 +1230,7 @@ pub fn program(
                             .separated_by(char(',').padded_by(msnl)),
                     )
                     .then_ignore(msnl)
-                    .then_ignore(char('}'))
+                    .then_ignore(char('}').critical_with_no_message())
                     .map(VarDeconstruction::MapOrStruct),
                 single_var_decl.map(VarDeconstruction::Single),
             ))
@@ -1729,6 +1729,10 @@ pub fn program(
                 scope_id: scope_id_gen_bis.gen(),
                 instructions,
             })
+            .followed_by(
+                msnl.then(silent_choice((end(), char('}'))))
+                    .critical("expected an instruction"),
+            )
     });
 
     program.finish(
