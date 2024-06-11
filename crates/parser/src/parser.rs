@@ -943,7 +943,10 @@ pub fn program(
                 )
                 .map(CmdPath::Direct),
             // Method
-            char('.').ignore_then(ident.spanned()).map(CmdPath::Method),
+            char('.')
+                .ignore_then(ident.spanned())
+                .map(CmdPath::Method)
+                .followed_by(s),
             // Single-quoted command name
             literal_string.spanned().map(CmdPath::LiteralString),
             // Double-quoted command name
