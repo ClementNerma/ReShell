@@ -1138,9 +1138,10 @@ pub fn program(
                 .spanned()
                 .map(CmdCallBase::SingleCmdCall),
             //
-            // Expressions
+            // Expressions (starting with an opening parenthesis)
             //
-            expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
+            lookahead(char('('))
+                .ignore_then(expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr)),
         ));
 
         cmd_call.finish(
