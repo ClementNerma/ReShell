@@ -958,18 +958,6 @@ pub fn program(
             filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
                 .repeated()
                 .at_least(1)
-                .followed_by(choice((
-                    end(),
-                    filter(|c| {
-                        c.is_whitespace()
-                            || c == ';'
-                            || c == '|'
-                            || c == '#'
-                            || c == ')'
-                            || c == '}'
-                    })
-                    .to(()),
-                )))
                 .collect_string()
                 .spanned()
                 .map(CmdPath::Raw),
@@ -1108,7 +1096,20 @@ pub fn program(
             .spanned()
             .separated_by(s)
             .spanned()
-            .then(cmd_path.spanned())
+            .then(
+                cmd_path.spanned().followed_by(choice((
+                    end(),
+                    filter(|c| {
+                        c.is_whitespace()
+                            || c == ';'
+                            || c == '|'
+                            || c == '#'
+                            || c == ')'
+                            || c == '}'
+                    })
+                    .to(()),
+                ))),
+            )
             .then(
                 s.ignore_then(
                     char('\\')
@@ -1138,10 +1139,9 @@ pub fn program(
                 .spanned()
                 .map(CmdCallBase::SingleCmdCall),
             //
-            // Expressions (starting with an opening parenthesis)
+            // Expressions
             //
-            lookahead(char('('))
-                .ignore_then(expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr)),
+            expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
         ));
 
         cmd_call.finish(
