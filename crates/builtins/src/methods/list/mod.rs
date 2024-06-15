@@ -1,5 +1,6 @@
 pub mod append;
 pub mod at;
+pub mod concat;
 pub mod contains;
 pub mod each;
 pub mod filter;

@@ -35,6 +35,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::instant::elapsed::build_fn(),
         self::list::append::build_fn(),
         self::list::at::build_fn(),
+        self::list::concat::build_fn(),
         self::list::contains::build_fn(),
         self::list::each::build_fn(),
         self::list::filter::build_fn(),
