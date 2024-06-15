@@ -338,10 +338,7 @@ pub fn are_values_equal(
             Ok(a.len() == b.len()
                 && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
                     None => false,
-                    Some(b_value) => match are_values_equal(a_value, b_value) {
-                        Ok(equal) => equal,
-                        Err(NotComparableTypesErr { reason: _ }) => false,
-                    },
+                    Some(b_value) => are_values_equal(a_value, b_value).unwrap_or_default(),
                 }))
         }
         (RuntimeValue::Map(_), _) | (_, RuntimeValue::Map(_)) => Ok(false),
@@ -353,10 +350,7 @@ pub fn are_values_equal(
             Ok(a.len() == b.len()
                 && a.iter().all(|(a_key, a_value)| match b.get(a_key) {
                     None => false,
-                    Some(b_value) => match are_values_equal(a_value, b_value) {
-                        Ok(equal) => equal,
-                        Err(NotComparableTypesErr { reason: _ }) => false,
-                    },
+                    Some(b_value) => are_values_equal(a_value, b_value).unwrap_or_default(),
                 }))
         }
         (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
