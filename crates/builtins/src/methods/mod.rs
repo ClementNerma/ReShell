@@ -59,6 +59,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::map::len::build_fn(),
         self::map::values::build_fn(),
         self::progress_bar::clear::build_fn(),
+        self::progress_bar::finish::build_fn(),
         self::progress_bar::inc::build_fn(),
         self::regex::captures::build_fn(),
         self::regex::matches::build_fn(),

@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use colored::Color;
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 use reshell_runtime::{gc::GcReadOnlyCell, values::CustomValueType};
@@ -66,8 +64,6 @@ fn run() -> Runner {
             if keep_on_finish {
                 pb = pb.with_finish(ProgressFinish::AndLeave);
             }
-
-            pb.enable_steady_tick(Duration::from_millis(5));
 
             let pb = ProgressBarValue { inner: pb };
 
