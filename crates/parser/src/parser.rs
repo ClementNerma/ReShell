@@ -1238,7 +1238,7 @@ pub fn program(
 
         let range_bound = choice::<_, RangeBound>((
             int_literal.map(RangeBound::Literal),
-            ident.spanned().map(RangeBound::Variable),
+            var_name.spanned().map(RangeBound::Variable),
             char('(')
                 .ignore_then(expr.clone().critical("expected an expression"))
                 .then_ignore(char(')').critical_with_no_message())
