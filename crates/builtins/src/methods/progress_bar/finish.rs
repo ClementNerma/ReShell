@@ -16,7 +16,7 @@ fn run() -> Runner {
         if clear {
             pb.inner.finish_and_clear();
         } else {
-            pb.inner.finish();
+            pb.inner.abandon();
         }
 
         Ok(None)
