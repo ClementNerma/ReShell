@@ -62,6 +62,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
 
             opened.push(($opening_str, $offset));
 
+            assert!($offset + $opening_str.len() <= input.len());
+
             output.push(NestingAction {
                 offset: $offset,
                 len: $opening_str.len(),
@@ -95,10 +97,14 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
     let mut commenting = false;
 
     let mut offset = 0;
-    let mut last_char: Option<(&str, usize)> = None;
-    let mut prev_char: Option<(&str, usize)> = None;
+    let mut last_char = None::<(&str, usize)>;
+    let mut prev_char = None::<(&str, usize)>;
 
-    for char in input.chars() {
+    let mut chars = input.chars().peekable();
+
+    while let Some(char) = chars.next() {
+        let next_char = chars.peek();
+
         if let Some((last_str, last_offset)) = last_char {
             offset += last_str.len();
             prev_char = Some((last_str, last_offset));
@@ -178,9 +184,33 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                     opened_strings.push((char_as_str, offset));
                 }
 
-                '(' => open!(offset, char_as_str),
+                '(' | '[' => open!(offset, char_as_str),
 
-                '[' | '{' => open!(offset, char_as_str),
+                '{' => {
+                    if matches!(prev_char, Some(("{", _))) {
+                        open!(offset - 1, "{{");
+                    } else if matches!(next_char, Some('{')) {
+                        continue;
+                    } else {
+                        open!(offset, "{");
+                    }
+                }
+
+                '}' if matches!(prev_char, Some(("}", _))) => {
+                    if let Some(("{{", opening_offset)) = opened.last().copied() {
+                        close!(offset - 1, 2, opening_offset);
+                    } else {
+                        push!(
+                            offset,
+                            2,
+                            NestingActionType::Closing {
+                                matching_opening: None,
+                            }
+                        );
+                    }
+                }
+
+                '}' if matches!(next_char, Some('}')) => continue,
 
                 ')' | ']' | '}' => {
                     if let Some((opening_str, opening_offset)) = opened.last().copied() {
@@ -268,6 +298,7 @@ pub enum NestingOpeningType {
     ComputedString,
     ExprInString,
     CmdOutput,
+    SingleArgLambda,
 }
 
 impl NestingOpeningType {
@@ -280,6 +311,7 @@ impl NestingOpeningType {
             "\"" => Ok(NestingOpeningType::ComputedString),
             "`" => Ok(NestingOpeningType::ExprInString),
             "$(" => Ok(NestingOpeningType::CmdOutput),
+            "{{" => Ok(NestingOpeningType::SingleArgLambda),
             _ => Err(format!(
                 "Internal error: unrecognized opening type: >{str}<"
             )),
