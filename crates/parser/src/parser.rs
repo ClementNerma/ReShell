@@ -1095,15 +1095,12 @@ pub fn program(
         .spanned()
         .separated_by(s)
         .spanned()
-        .then(
-            cmd_path.spanned().followed_by(choice((
-                end(),
-                filter(|c| {
-                    c.is_whitespace() || c == ';' || c == '|' || c == '#' || c == ')' || c == '}'
-                })
-                .to(()),
-            ))),
-        )
+        .then(cmd_path.spanned().followed_by(silent_choice((
+            end(),
+            filter(|c| {
+                c.is_whitespace() || c == ';' || c == '|' || c == '#' || c == ')' || c == '}'
+            }),
+        ))))
         .then(
             s.ignore_then(
                 char('\\')
