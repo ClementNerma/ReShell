@@ -945,7 +945,9 @@ pub fn program(
         char('.')
             .ignore_then(ident.spanned())
             .map(CmdPath::Method)
-            .followed_by(s),
+            .not_followed_by(filter(|c| {
+                !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
+            })),
         // Single-quoted command name
         literal_string.spanned().map(CmdPath::LiteralString),
         // Double-quoted command name
