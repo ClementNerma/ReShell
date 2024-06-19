@@ -201,7 +201,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                         close!(offset - 1, 2, opening_offset);
                     } else {
                         push!(
-                            offset,
+                            offset - 1,
                             2,
                             NestingActionType::Closing {
                                 matching_opening: None,
@@ -317,4 +317,9 @@ impl NestingOpeningType {
             )),
         }
     }
+}
+
+#[test]
+fn tmp() {
+    println!("{:#?}", detect_nesting_actions("}}", false));
 }
