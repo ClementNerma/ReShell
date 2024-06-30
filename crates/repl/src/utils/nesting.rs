@@ -318,8 +318,3 @@ impl NestingOpeningType {
         }
     }
 }
-
-#[test]
-fn tmp() {
-    println!("{:#?}", detect_nesting_actions("}}", false));
-}
