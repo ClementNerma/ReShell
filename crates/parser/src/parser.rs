@@ -352,7 +352,7 @@ pub fn program(
         call_args,
     });
 
-    let escapable_char = char('\\').ignore_then(
+    let escaped_char = char('\\').ignore_then(
         choice((
             char('n').to(EscapableChar::Newline),
             char('r').to(EscapableChar::CarriageReturn),
@@ -369,7 +369,7 @@ pub fn program(
     let literal_string = char('\'')
         .ignore_then(
             choice((
-                escapable_char.map(EscapableChar::original_char),
+                escaped_char.map(EscapableChar::original_char),
                 filter(|c| c != '\''),
             ))
             .repeated_custom::<String>(),
@@ -391,14 +391,18 @@ pub fn program(
 
     let literal_value = choice::<_, LiteralValue>((
         // Strings
-        literal_string.map(LiteralValue::String),
+        literal_string.map(LiteralValue::String).followed_by(
+            silent_choice((
+                filter(|c| {
+                    c != '\'' && (c.is_whitespace() || DELIMITER_CHARS.contains(&c) || c == ',')
+                }),
+                end(),
+            ))
+            .critical("literal string cannot be followed by another non-delimiting character"),
+        ),
         // Booleans
-        just("true")
-            .not_followed_by(possible_ident_char)
-            .map(|_| LiteralValue::Boolean(true)),
-        just("false")
-            .not_followed_by(possible_ident_char)
-            .map(|_| LiteralValue::Boolean(false)),
+        just("true").map(|_| LiteralValue::Boolean(true)),
+        just("false").map(|_| LiteralValue::Boolean(false)),
         // Floats
         char('-')
             .or_not()
@@ -433,7 +437,7 @@ pub fn program(
             .ignore_then(
                 choice::<_, ComputedStringPiece>((
                     // Escaped
-                    escapable_char.map(ComputedStringPiece::Escaped),
+                    escaped_char.map(ComputedStringPiece::Escaped),
                     // Command calls
                     just("$(")
                         .ignore_then(
