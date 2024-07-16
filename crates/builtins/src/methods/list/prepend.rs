@@ -1,3 +1,5 @@
+use reshell_runtime::cmd::SingleCmdArgResult;
+
 use crate::define_internal_fn;
 
 define_internal_fn!(
@@ -5,7 +7,7 @@ define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        prepend: RequiredArg<DetachedListType<AnyType>> = Arg::rest("prepend")
+        prepend: RequiredArg<DetachedListType<CmdArgType>> = Arg::rest("prepend")
     )
 
     -> None
@@ -13,6 +15,16 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, prepend }, at, ctx| {
+        let prepend = prepend
+            .into_iter()
+            .map(|value| match *value {
+                SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.value),
+                SingleCmdArgResult::Flag { name, value: _ } => {
+                    Err(ctx.throw(name.at(), "Cannot prepend a flag to a list"))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         list.write(at.list, ctx)?.splice(0..0, prepend);
 
         Ok(None)
