@@ -53,7 +53,7 @@ impl PrettyPrintable for SingleValueType {
             Self::String => PrettyPrintablePiece::colored_atomic("string", Color::Magenta),
             Self::Error => PrettyPrintablePiece::colored_atomic("error", Color::Magenta),
             Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
-            Self::CmdArg => PrettyPrintablePiece::colored_atomic("spread", Color::Magenta),
+            Self::CmdArg => PrettyPrintablePiece::colored_atomic("cmdarg", Color::Magenta),
             Self::UntypedList => PrettyPrintablePiece::colored_atomic("list", Color::Magenta),
             Self::TypedList(inner) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("list[", Color::Magenta),
