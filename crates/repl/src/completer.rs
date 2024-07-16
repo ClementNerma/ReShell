@@ -671,12 +671,7 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
 
     let opening_char = str.chars().next().filter(|c| *c == '\'' || *c == '"');
 
-    let chars = str
-        .chars()
-        .enumerate()
-        .skip(if opening_char.is_some() { 1 } else { 0 });
-
-    for (i, c) in chars {
+    for c in str.chars().skip(if opening_char.is_some() { 1 } else { 0 }) {
         if escaping {
             segment.push(c);
             escaping = false;
@@ -700,7 +695,12 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
         }
         // Handle string closing
         else if opening_char == Some(c) {
-            assert_eq!(i + 1, str.chars().count());
+            // NOTE: the assertion below was removed to account for the following scenario:
+            // `ls /tmp/<TAB>` (user asks for completion)
+            // `ls '/tmp/a b'` (suggestion selected)
+            // 'ls '/tmp/a b'/c<TAB>` (user continues input then asks for completion again)
+            // => previously, panicked because the closing single quote wasn't at the end of the string
+            // assert_eq!(i + 1, str.chars().count());
         }
         // Handle dollar symbols in non-single-quoted strings (= double quoted + raw)
         else if c == '$' && matches!(opening_char, Some('"') | None) {
