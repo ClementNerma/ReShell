@@ -1129,16 +1129,16 @@ pub fn program(
 
     let cmd_call_base = choice::<_, CmdCallBase>((
         //
+        // Expressions
+        //
+        expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
+        //
         // Normal command call
         //
         single_cmd_call
             .clone()
             .spanned()
             .map(CmdCallBase::SingleCmdCall),
-        //
-        // Expressions
-        //
-        expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
     ));
 
     cmd_call.finish(
