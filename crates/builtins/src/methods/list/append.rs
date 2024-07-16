@@ -17,8 +17,8 @@ fn run() -> Runner {
     Runner::new(|_, Args { list, append }, at, ctx| {
         let append = append
             .into_iter()
-            .map(|value| match &*value {
-                SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.value.clone()),
+            .map(|value| match *value {
+                SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.value),
                 SingleCmdArgResult::Flag { name, value: _ } => {
                     Err(ctx.throw(name.at(), "Cannot append a flag to a list"))
                 }
