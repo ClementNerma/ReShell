@@ -448,7 +448,7 @@ fn complete_path(path: &[UnescapedSegment], span: Span, ctx: &Context) -> Vec<Su
         &glob_pattern,
         MatchOptions {
             case_sensitive: false,
-            require_literal_leading_dot: true,
+            require_literal_leading_dot: false,
             require_literal_separator: true,
         },
     ) else {
