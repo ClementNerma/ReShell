@@ -9,7 +9,7 @@ use reshell_parser::ast::{
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    cmd::{eval_cmd_arg, CmdArgResult, SingleCmdArgResult, FlagArgValueResult},
+    cmd::{eval_cmd_arg, CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
@@ -308,7 +308,10 @@ fn parse_fn_call_args(
 
     let mut value_on_hold = None::<SingleCmdArgResult>;
 
-    let has_rest_argument = fn_args.iter().any(|arg| matches!(arg, FnArg::Rest(_)));
+    let rest_arg = fn_args.iter().find_map(|arg| match arg {
+        FnArg::Rest(rest) => Some(rest),
+        _ => None,
+    });
 
     while let Some(arg_result) = value_on_hold.take().or_else(|| call_args.pop()) {
         if !rest_args.is_empty() {
@@ -318,7 +321,7 @@ fn parse_fn_call_args(
 
         let parsed = parse_single_fn_call_arg(
             func,
-            has_rest_argument,
+            rest_arg.is_some(),
             &mut positional_fn_args,
             arg_result,
             fn_args,
@@ -337,6 +340,60 @@ fn parse_fn_call_args(
 
             ParsedSingleFnCallArg::Rest(rest) => {
                 rest_args.push(rest);
+            }
+        }
+    }
+
+    // If we got rest arguments...
+    if !rest_args.is_empty() {
+        // And this function's rest argument has a declared type...
+        if let Some(typ) = &rest_arg.unwrap().typ {
+            // First ensure that all provided arguments are values and not flags
+            let rest_args = rest_args
+                .iter()
+                .map(|rest_arg| match rest_arg {
+                    SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.clone()),
+                    SingleCmdArgResult::Flag { name, value: _ } => Err(ctx.error(
+                        name.at(),
+                        format!(
+                            "provided a flag but this function's rest argument has type: {}",
+                            typ.data().render_colored(
+                                ctx.type_alias_store(),
+                                PrettyPrintOptions::inline()
+                            )
+                        ),
+                    )),
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            // Then check if the rest arguments have the correct type
+            if !check_if_value_fits_type(
+                &RuntimeValue::List(GcCell::new(
+                    rest_args
+                        .iter()
+                        .map(|rest_arg| rest_arg.value.clone())
+                        .collect(),
+                )),
+                typ.data(),
+                ctx,
+            ) {
+                // If not, build the rest arguments list one by one until a type error occurs
+                // When that happens, we found the (first) faulty argument!
+                for i in 0..rest_args.len() {
+                    let cut_list = RuntimeValue::List(GcCell::new(
+                        rest_args
+                            .iter()
+                            .take(i + 1)
+                            .map(|rest_arg| rest_arg.value.clone())
+                            .collect(),
+                    ));
+
+                    if !check_if_value_fits_type(&cut_list, typ.data(), ctx) {
+                        return Err(ctx.error(rest_args.get(i).unwrap().from, format!("incorrect value type provided ; expected rest values list of type {}, found {}", typ.data().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()), cut_list.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
+                    }
+                }
+
+                unreachable!()
             }
         }
     }
@@ -478,15 +535,15 @@ fn parse_single_fn_call_arg<'a>(
                                     && !check_if_value_fits_type(&value.value, typ.data(), ctx)
                                 {
                                     Err(
-                                            ctx.error(
-                                                value.from,
-                                            format!(
-                                                "expected a value of type '{}' for flag '{}', found '{}'",
-                                                typ.data().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                                                names.render_colored(&(), PrettyPrintOptions::inline()),
-                                                value.value.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                                            )
-                                        ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))))
+                                        ctx.error(
+                                            value.from,
+                                        format!(
+                                            "expected a value of type '{}' for flag '{}', found '{}'",
+                                            typ.data().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                                            names.render_colored(&(), PrettyPrintOptions::inline()),
+                                            value.value.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                                        )
+                                    ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))))
                                 } else {
                                     Ok(ParsedSingleFnCallArg::Variable {
                                         name: var_name,
@@ -716,7 +773,7 @@ fn fn_arg_human_name(arg: &FnArg) -> String {
             }
         },
 
-        FnArg::Rest(FnRestArg { name }) => name.data().clone(),
+        FnArg::Rest(FnRestArg { name, typ: _ }) => name.data().clone(),
     }
 }
 
@@ -744,7 +801,7 @@ fn fn_arg_var_name(arg: &FnArg, ctx: &mut Context) -> String {
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
         },
 
-        FnArg::Rest(FnRestArg { name }) => name.data().clone(),
+        FnArg::Rest(FnRestArg { name, typ: _ }) => name.data().clone(),
     }
 }
 
@@ -772,7 +829,7 @@ fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.at(),
         },
 
-        FnArg::Rest(FnRestArg { name }) => name.at(),
+        FnArg::Rest(FnRestArg { name, typ: _ }) => name.at(),
     }
 }
 

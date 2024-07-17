@@ -35,7 +35,7 @@ use reshell_parser::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use self::typechecker::check_if_type_fits_type;
+use self::typechecker::{check_if_single_type_fits_type, check_if_type_fits_type};
 pub use self::{
     errors::CheckerError,
     state::{
@@ -1347,7 +1347,33 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             }
         }
 
-        FnArg::Rest(FnRestArg { name }) => (name.data().clone(), name.at(), None, true),
+        FnArg::Rest(FnRestArg { name, typ }) => {
+            if let Some(typ) = typ {
+                check_value_type(typ.data(), state)?;
+
+                if !check_if_single_type_fits_type(
+                    &SingleValueType::UntypedList,
+                    typ.data(),
+                    state.type_alias_store(),
+                ) {
+                    return Err(CheckerError::new(
+                        match typ.at() {
+                            RuntimeCodeRange::Parsed(at) => at,
+                            RuntimeCodeRange::Internal(_) => unreachable!(),
+                        },
+                        format!(
+                            "rest types must be subsets of lists, found: {}",
+                            typ.data().render_colored(
+                                state.type_alias_store(),
+                                PrettyPrintOptions::inline()
+                            )
+                        ),
+                    ));
+                }
+            }
+
+            (name.data().clone(), name.at(), None, true)
+        }
     };
 
     Ok(CheckedFnArg {

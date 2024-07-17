@@ -538,6 +538,7 @@ pub struct FnNormalFlagArg {
 #[derive(Debug, Clone, Hash)]
 pub struct FnRestArg {
     pub name: RuntimeEaten<String>,
+    pub typ: Option<RuntimeEaten<ValueType>>,
 }
 
 #[derive(Debug, Clone, Hash)]

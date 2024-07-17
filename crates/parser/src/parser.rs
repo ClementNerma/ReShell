@@ -276,7 +276,19 @@ pub fn program(
             .ignore_then(ident)
             .spanned()
             .map(RuntimeEaten::Parsed)
-            .map(|name| FnArg::Rest(FnRestArg { name })),
+            .then(
+                msnl.ignore_then(char(':'))
+                    .ignore_then(msnl)
+                    .ignore_then(
+                        value_type
+                            .clone()
+                            .critical("expected a type for the rest parameter")
+                            .spanned()
+                            .map(RuntimeEaten::Parsed),
+                    )
+                    .or_not(),
+            )
+            .map(|(name, typ)| FnArg::Rest(FnRestArg { name, typ })),
     ));
 
     fn_signature.finish(

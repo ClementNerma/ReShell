@@ -240,16 +240,17 @@ pub(super) fn generate_internal_arg_decl<
 ) -> FnArg {
     match arg.names() {
         ArgNames::Positional(name) => {
+            let name = internal_runtime_eaten((*name).to_owned());
+            let typ = Some(internal_runtime_eaten(arg.base_typing().underlying_type()));
+
             if !arg.is_rest() {
                 FnArg::Positional(FnPositionalArg {
-                    name: internal_runtime_eaten((*name).to_owned()),
+                    name,
                     is_optional: arg.is_optional(),
-                    typ: Some(internal_runtime_eaten(arg.base_typing().underlying_type())),
+                    typ,
                 })
             } else {
-                FnArg::Rest(FnRestArg {
-                    name: internal_runtime_eaten((*name).to_owned()),
-                })
+                FnArg::Rest(FnRestArg { name, typ })
             }
         }
 

@@ -185,6 +185,15 @@ pub fn check_if_fn_signature_fits_another(
         return false;
     }
 
+    // Compare rest arguments' type
+    if let (Some(rest_arg), Some(cmp_rest_arg)) = (rest_arg, cmp_rest_arg) {
+        if let (Some(rest_arg_type), Some(cmp_rest_arg_type)) = (&rest_arg.typ, &cmp_rest_arg.typ) {
+            if !check_if_type_fits_type(rest_arg_type.data(), cmp_rest_arg_type.data(), ctx) {
+                return false;
+            }
+        }
+    }
+
     // Iterate over all positional arguments
     let mut cmp_positionals = cmp_positionals.iter();
 

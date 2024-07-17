@@ -221,7 +221,7 @@ impl PrettyPrintable for FnArg {
                 is_optional,
                 typ,
             }) => {
-                let mut out: Vec<PrettyPrintablePiece> = vec![names.generate_pretty_data(&())];
+                let mut out = vec![names.generate_pretty_data(&())];
 
                 if *is_optional {
                     out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
@@ -233,10 +233,19 @@ impl PrettyPrintable for FnArg {
                 PrettyPrintablePiece::Join(out)
             }
 
-            FnArg::Rest(FnRestArg { name }) => PrettyPrintablePiece::colored_atomic(
-                format!("...{}", name.data()),
-                Color::BrightYellow,
-            ),
+            FnArg::Rest(FnRestArg { name, typ }) => {
+                let mut out = vec![PrettyPrintablePiece::colored_atomic(
+                    format!("...{}", name.data()),
+                    Color::BrightYellow,
+                )];
+
+                if let Some(typ) = typ {
+                    out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
+                    out.push(typ.data().generate_pretty_data(ctx));
+                }
+
+                PrettyPrintablePiece::Join(out)
+            }
         }
     }
 }
