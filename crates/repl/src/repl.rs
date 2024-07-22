@@ -16,7 +16,7 @@ use std::{
 use colored::Colorize;
 use parsy::Parser;
 use reedline::{Reedline, Signal};
-use reshell_builtins::repl_fns::{
+use reshell_builtins::repl::{
     completer::{generate_completions, CompletionStringSegment},
     prompt::{render_prompt, LastCmdStatus, PromptRendering},
 };

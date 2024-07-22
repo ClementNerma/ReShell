@@ -10,7 +10,7 @@ use crate::{
     builder::{internal_runtime_eaten, BuiltinVar, NativeLibDefinition, NativeLibParams},
     functions::native_functions,
     methods::native_methods,
-    repl_fns::{
+    repl::{
         completer::{completer_signature, GEN_COMPLETIONS_VAR_NAME},
         on_dir_jump::{dir_jump_handler_signature, ON_DIR_JUMP_VAR_NAME},
         prompt::{prompt_renderer_signature, GEN_PROMPT_VAR_NAME},

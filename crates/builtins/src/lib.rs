@@ -17,4 +17,4 @@ mod methods;
 mod utils;
 
 pub mod builder;
-pub mod repl_fns;
+pub mod repl;
