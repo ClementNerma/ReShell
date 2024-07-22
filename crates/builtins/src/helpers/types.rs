@@ -332,7 +332,7 @@ impl<C: CustomValueType> SingleTyping for CustomType<C> {
                 Box::<dyn Any>::downcast::<C>(dyn_clone::clone_box::<dyn CustomValueType>(&**value))
                     .map_err(|_| {
                         format!(
-                            "Failed to download value of type '{}'",
+                            "Failed to downcast value of type '{}'",
                             C::typename_static()
                         )
                     })
