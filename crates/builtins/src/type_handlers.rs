@@ -11,9 +11,8 @@ use reshell_parser::ast::{
 };
 
 use reshell_runtime::{
-    cmd::SingleCmdArgResult,
     gc::{GcCell, GcReadOnlyCell},
-    values::{CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
+    values::{CmdArgValue, CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
 };
 
 use crate::{
@@ -105,7 +104,7 @@ declare_basic_type_handlers!(
         _ => Err("expected a struct".to_owned())
     },
 
-    CmdArgType (CmdArg) = Box<SingleCmdArgResult> => value: match value {
+    CmdArgType (CmdArg) = Box<CmdArgValue> => value: match value {
         RuntimeValue::CmdArg(arg) => Ok(arg),
         _ => Err("expected a command argument value".to_owned())
     }
@@ -142,7 +141,7 @@ impl<From: SpecificIntType> SingleTypingDirectCreation for ExactIntType<From> {
     }
 }
 
-pub trait SpecificIntType: TryFrom<i64> + Display {
+pub trait SpecificIntType: TryFrom<i64> + Display + std::fmt::Debug {
     const MIN: Self;
     const MAX: Self;
 }
@@ -167,6 +166,10 @@ pub struct DetachedListType<Inner: Typing> {
 impl<Inner: Typing> DetachedListType<Inner> {
     pub fn new(inner: Inner) -> Self {
         Self { inner }
+    }
+
+    pub fn inner(&self) -> &Inner {
+        &self.inner
     }
 }
 

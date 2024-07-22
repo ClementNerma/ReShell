@@ -16,7 +16,10 @@ use crate::{
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
     typechecker::check_if_value_fits_type,
-    values::{InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{
+        CmdArgValue, CmdFlagValue, InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue,
+        RuntimeValue,
+    },
 };
 
 pub fn eval_fn_call(
@@ -153,19 +156,21 @@ pub fn call_fn_value(
         };
 
         if !check_if_value_fits_type(&ret_val.value, ret_type.data(), ctx) {
-            return Err(ctx.error(
-                call_at,
-                format!(
-                    "function call returned a {}, was expected to return a {}",
-                    ret_val
-                        .value
-                        .compute_type()
-                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                    ret_type
-                        .data()
-                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                ),
-            ));
+            let nature = format!(
+                "{}function call returned a {}, was expected to return a {}",
+                match func.body {
+                    RuntimeFnBody::Block(_) => "",
+                    RuntimeFnBody::Internal(_) => "native ",
+                },
+                ret_val
+                    .value
+                    .compute_type()
+                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                ret_type
+                    .data()
+                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+            );
+            return Err(ctx.error(call_at, nature));
         }
     }
 
@@ -259,6 +264,10 @@ fn fill_fn_args(
                         value: RuntimeValue::List(GcCell::new(
                             rest_args
                                 .into_iter()
+                                .map(|arg| match arg {
+                                    SingleCmdArgResult::Basic(data) => CmdArgValue::Basic(data),
+                                    SingleCmdArgResult::Flag(data) => CmdArgValue::Flag(data),
+                                })
                                 .map(Box::new)
                                 .map(RuntimeValue::CmdArg)
                                 .collect(),
@@ -353,10 +362,10 @@ fn parse_fn_call_args(
                 .iter()
                 .map(|rest_arg| match rest_arg {
                     SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.clone()),
-                    SingleCmdArgResult::Flag { name, value: _ } => Err(ctx.error(
+                    SingleCmdArgResult::Flag(CmdFlagValue { name, value: _ }) => Err(ctx.error(
                         name.at(),
                         format!(
-                            "provided a flag but this function's rest argument has type: {}",
+                            "provided a flag but this function's rest argument's type is: {}",
                             typ.data().render_colored(
                                 ctx.type_alias_store(),
                                 PrettyPrintOptions::inline()
@@ -424,7 +433,7 @@ fn parse_single_fn_call_arg<'a>(
     ctx: &mut Context,
 ) -> ExecResult<ParsedSingleFnCallArg> {
     match arg_result {
-        SingleCmdArgResult::Flag { name, value } => {
+        SingleCmdArgResult::Flag(CmdFlagValue { name, value }) => {
             for arg in fn_args {
                 match arg {
                     FnArg::Positional(_) | FnArg::Rest(_) => continue,
@@ -562,10 +571,9 @@ fn parse_single_fn_call_arg<'a>(
             }
 
             if has_rest_argument {
-                Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Flag {
-                    name,
-                    value,
-                }))
+                Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Flag(
+                    CmdFlagValue { name, value },
+                )))
             } else {
                 Err(ctx.error(name.at(), "unknown flag provided").with_info(
                     ExecInfoType::Tip,
@@ -704,16 +712,18 @@ fn flatten_fn_call_args(
                         )))
                     }
 
-                    FnCallArg::Flag { name, value } => out.push(SingleCmdArgResult::Flag {
-                        name: RuntimeEaten::Parsed(name.clone()),
-                        value: Some(FlagArgValueResult {
-                            value: LocatedValue::new(
-                                eval_expr(&value.data, ctx)?,
-                                RuntimeCodeRange::Parsed(value.at),
-                            ),
-                            value_sep: FlagValueSeparator::Equal,
-                        }),
-                    }),
+                    FnCallArg::Flag { name, value } => {
+                        out.push(SingleCmdArgResult::Flag(CmdFlagValue {
+                            name: RuntimeEaten::Parsed(name.clone()),
+                            value: Some(FlagArgValueResult {
+                                value: LocatedValue::new(
+                                    eval_expr(&value.data, ctx)?,
+                                    RuntimeCodeRange::Parsed(value.at),
+                                ),
+                                value_sep: FlagValueSeparator::Equal,
+                            }),
+                        }))
+                    }
 
                     FnCallArg::CmdArg(arg) => match eval_cmd_arg(&arg.data, ctx)? {
                         CmdArgResult::Single(single) => out.push(single),

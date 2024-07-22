@@ -1,11 +1,16 @@
+// TODO: errors thrown by type handlers should be turned into panics! Or give them directly a way to panic and remove the "Result" wrapping?
+
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     SingleValueType, ValueType,
 };
 
-use reshell_runtime::values::{InternalFnBody, RuntimeValue};
+use reshell_runtime::values::{CmdArgValue, InternalFnBody, RuntimeValue};
 
-use crate::{builder::internal_runtime_eaten, type_handlers::BoolType};
+use crate::{
+    builder::internal_runtime_eaten,
+    type_handlers::{BoolType, DetachedListType, UntypedListType},
+};
 
 // #[derive(Clone)]
 pub enum ArgNames {
@@ -109,12 +114,15 @@ pub trait ArgHandler {
 
     type BaseTyping: Typing;
     fn base_typing(&self) -> &Self::BaseTyping;
+
+    fn hide_type(&self) -> bool {
+        false
+    }
 }
 
 pub struct Arg<const OPTIONAL: bool, T: Typing> {
     names: ArgNames,
     base_typing: T,
-    is_rest: bool,
 }
 
 pub type RequiredArg<T> = Arg<false, T>;
@@ -123,11 +131,7 @@ pub type PresenceFlag = RequiredArg<BoolType>;
 
 impl<const OPTIONAL: bool, T: Typing> Arg<OPTIONAL, T> {
     pub fn new(names: ArgNames, base_typing: T) -> Self {
-        Self {
-            names,
-            base_typing,
-            is_rest: false,
-        }
+        Self { names, base_typing }
     }
 }
 
@@ -153,12 +157,6 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
         )))
     }
 
-    pub fn rest(name: &'static str) -> Self {
-        let mut arg = Self::positional(name);
-        arg.is_rest = true;
-        arg
-    }
-
     pub fn method_self() -> Self {
         Self::positional("self")
     }
@@ -174,7 +172,7 @@ impl<T: Typing> ArgHandler for Arg<false, T> {
     }
 
     fn is_rest(&self) -> bool {
-        self.is_rest
+        false
     }
 
     type FixedOptionality<Z> = Z;
@@ -187,7 +185,7 @@ impl<T: Typing> ArgHandler for Arg<false, T> {
 
     fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
         match value {
-            None => Err("argument is missing".to_owned()),
+            None => unreachable!(),
             Some(value) => self.base_typing.parse(value),
         }
     }
@@ -209,7 +207,7 @@ impl<T: Typing> ArgHandler for Arg<true, T> {
     }
 
     fn is_rest(&self) -> bool {
-        self.is_rest
+        false
     }
 
     type FixedOptionality<Z> = Option<Z>;
@@ -231,6 +229,133 @@ impl<T: Typing> ArgHandler for Arg<true, T> {
     }
 }
 
+pub struct RestArg<T: Typing> {
+    names: ArgNames,
+    list_typing: DetachedListType<T>,
+}
+
+impl<T: Typing> RestArg<T> {
+    pub fn new(name: &'static str, base_typing: T) -> Self {
+        Self {
+            names: ArgNames::Positional(name),
+            list_typing: DetachedListType::new(base_typing),
+        }
+    }
+}
+
+impl<T: Typing> ArgHandler for RestArg<T> {
+    fn names(&self) -> &ArgNames {
+        &self.names
+    }
+
+    fn is_optional(&self) -> bool {
+        false
+    }
+
+    fn is_rest(&self) -> bool {
+        true
+    }
+
+    type FixedOptionality<Z> = Z;
+
+    fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
+        value.unwrap()
+    }
+
+    type Parsed = Vec<T::Parsed>;
+
+    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
+        match value {
+            Some(RuntimeValue::List(values)) => values
+                .read_promise_no_write()
+                .iter()
+                .map(|value| match value {
+                    RuntimeValue::CmdArg(arg) => match arg.as_ref() {
+                        CmdArgValue::Basic(loc_val) => {
+                            self.base_typing().inner().parse(loc_val.value.clone())
+                        }
+                        CmdArgValue::Flag(_) => unreachable!(),
+                    },
+                    _ => unreachable!(),
+                })
+                .collect::<Result<Vec<_>, _>>(),
+
+            Some(_) | None => unreachable!(),
+        }
+    }
+
+    type BaseTyping = DetachedListType<T>;
+
+    fn base_typing(&self) -> &Self::BaseTyping {
+        &self.list_typing
+    }
+}
+
+impl<T: TypingDirectCreation> RestArg<T> {
+    pub fn rest(name: &'static str) -> Self {
+        Self::new(name, T::new_direct())
+    }
+}
+
+pub struct UntypedRestArg {
+    names: ArgNames,
+}
+
+impl UntypedRestArg {
+    pub fn rest(name: &'static str) -> Self {
+        Self {
+            names: ArgNames::Positional(name),
+        }
+    }
+}
+
+impl ArgHandler for UntypedRestArg {
+    fn is_optional(&self) -> bool {
+        false
+    }
+
+    fn is_rest(&self) -> bool {
+        true
+    }
+
+    fn names(&self) -> &ArgNames {
+        &self.names
+    }
+
+    type FixedOptionality<Z> = Z;
+
+    fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
+        value.unwrap()
+    }
+
+    type Parsed = Vec<CmdArgValue>;
+
+    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
+        match value {
+            Some(RuntimeValue::List(values)) => Ok(values
+                .read_promise_no_write()
+                .iter()
+                .map(|value| match value {
+                    RuntimeValue::CmdArg(arg) => CmdArgValue::clone(arg),
+                    _ => unreachable!(),
+                })
+                .collect()),
+
+            Some(_) | None => unreachable!(),
+        }
+    }
+
+    type BaseTyping = UntypedListType;
+
+    fn base_typing(&self) -> &Self::BaseTyping {
+        &UntypedListType
+    }
+
+    fn hide_type(&self) -> bool {
+        true
+    }
+}
+
 pub(super) fn generate_internal_arg_decl<
     Parsed,
     BaseTyping: Typing,
@@ -241,16 +366,21 @@ pub(super) fn generate_internal_arg_decl<
     match arg.names() {
         ArgNames::Positional(name) => {
             let name = internal_runtime_eaten((*name).to_owned());
-            let typ = Some(internal_runtime_eaten(arg.base_typing().underlying_type()));
 
-            if !arg.is_rest() {
+            let typ = if !arg.hide_type() {
+                Some(internal_runtime_eaten(arg.base_typing().underlying_type()))
+            } else {
+                None
+            };
+
+            if arg.is_rest() {
+                FnArg::Rest(FnRestArg { name, typ })
+            } else {
                 FnArg::Positional(FnPositionalArg {
                     name,
                     is_optional: arg.is_optional(),
                     typ,
                 })
-            } else {
-                FnArg::Rest(FnRestArg { name, typ })
             }
         }
 

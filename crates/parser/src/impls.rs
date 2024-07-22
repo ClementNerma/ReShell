@@ -106,3 +106,13 @@ impl CmdRawString {
         }
     }
 }
+
+impl CmdFlagNameArg {
+    pub fn dynamic(name: String) -> Result<Self, &'static str> {
+        match name.chars().count() {
+            0 => Err("flag name cannot be empty!"),
+            1 => Ok(CmdFlagNameArg::Short(name.chars().next().unwrap())),
+            _ => Ok(CmdFlagNameArg::Long(name)),
+        }
+    }
+}

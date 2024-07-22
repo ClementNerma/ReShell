@@ -8,6 +8,7 @@ use dyn_clone::DynClone;
 use indexmap::IndexSet;
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::Dependency;
+use reshell_parser::ast::CmdFlagNameArg;
 use reshell_parser::{
     ast::{
         Block, FnSignature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
@@ -17,8 +18,8 @@ use reshell_parser::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
+use crate::cmd::FlagArgValueResult;
 use crate::{
-    cmd::SingleCmdArgResult,
     context::{Context, ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     functions::ValidatedFnCallArg,
@@ -124,6 +125,20 @@ pub struct CapturedDependencies {
     pub cmd_aliases: HashMap<Dependency, ScopeCmdAlias>,
 }
 
+/// Content of a command argument
+#[derive(Debug, Clone)]
+pub enum CmdArgValue {
+    Basic(LocatedValue),
+    Flag(CmdFlagValue),
+}
+
+/// Content of a command flag
+#[derive(Debug, Clone)]
+pub struct CmdFlagValue {
+    pub name: RuntimeEaten<CmdFlagNameArg>,
+    pub value: Option<FlagArgValueResult>,
+}
+
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
     // Primitives
@@ -136,7 +151,7 @@ pub enum RuntimeValue {
     String(String),
     Error(Box<ErrorValueContent>),
     CmdCall { content_at: CodeRange },
-    CmdArg(Box<SingleCmdArgResult>),
+    CmdArg(Box<CmdArgValue>),
 
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
@@ -160,6 +175,8 @@ impl RuntimeValue {
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
+            RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
+            RuntimeValue::Error(_) => SingleValueType::Error,
             RuntimeValue::List(items) => SingleValueType::TypedList(Box::new(
                 generate_values_types(items.read_promise_no_write().iter()),
             )),
@@ -203,8 +220,6 @@ impl RuntimeValue {
                     }
                 })
             }
-            RuntimeValue::Error(_) => SingleValueType::Error,
-            RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
             RuntimeValue::Custom(custom) => SingleValueType::Custom(custom.typename()),
         }
     }
@@ -289,6 +304,7 @@ pub struct LocatedValue {
 
 impl LocatedValue {
     /// Create a located value
+    /// TODO: invert arguments to reduce confusion
     pub fn new(value: RuntimeValue, from: RuntimeCodeRange) -> Self {
         Self { value, from }
     }
@@ -365,18 +381,22 @@ pub fn are_values_equal(
                 reason: "cannot compare command calls",
             })
         }
+
         (RuntimeValue::CmdCall { content_at: _ }, _)
-        | (_, RuntimeValue::CmdCall { content_at: _ }) => Ok(false),
+        | (_, RuntimeValue::CmdCall { content_at: _ }) => {
+            // TODO
+            Ok(false)
+        }
+
+        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypesErr {
+            reason: "cannot compare command arguments",
+        }),
+        (RuntimeValue::CmdArg(_), _) | (_, RuntimeValue::CmdArg(_)) => Ok(false),
 
         (RuntimeValue::Function(_), RuntimeValue::Function(_)) => Err(NotComparableTypesErr {
             reason: "cannot compare functions",
         }),
         (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Ok(false),
-
-        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypesErr {
-            reason: "cannot compare value arguments",
-        }),
-        (RuntimeValue::CmdArg(_), _) | (_, RuntimeValue::CmdArg(_)) => Ok(false),
 
         (RuntimeValue::Custom(_), RuntimeValue::Custom(_)) => Err(NotComparableTypesErr {
             reason: "cannot compare custom types",

@@ -8,8 +8,8 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdPath,
-    CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
+    CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe,
+    CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
     FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -23,7 +23,10 @@ use crate::{
     },
     functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
-    values::{value_to_str, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
+    values::{
+        value_to_str, CmdArgValue, CmdFlagValue, LocatedValue, RuntimeCmdAlias, RuntimeFnValue,
+        RuntimeValue,
+    },
 };
 
 #[derive(Clone, Copy)]
@@ -222,7 +225,7 @@ pub fn run_cmd(
 
                                     match arg {
                                         SingleCmdArgResult::Basic(value) => Some(value),
-                                        SingleCmdArgResult::Flag { name: _, value: _ } => None,
+                                        SingleCmdArgResult::Flag(_) => None,
                                     }
                                 })
                                 .ok_or_else(|| {
@@ -652,7 +655,7 @@ fn append_cmd_arg_as_string(
                 ctx,
             )?),
 
-            SingleCmdArgResult::Flag { name, value } => {
+            SingleCmdArgResult::Flag(CmdFlagValue { name, value }) => {
                 let name = name.data().back_to_string();
 
                 match value {
@@ -701,8 +704,8 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
             .map(|value| CmdArgResult::Single(SingleCmdArgResult::Basic(value))),
 
-        CmdArg::Flag(CmdFlagArg { name, value }) => {
-            Ok(CmdArgResult::Single(SingleCmdArgResult::Flag {
+        CmdArg::Flag(CmdFlagArg { name, value }) => Ok(CmdArgResult::Single(
+            SingleCmdArgResult::Flag(CmdFlagValue {
                 name: RuntimeEaten::Parsed(name.clone()),
                 value: value
                     .as_ref()
@@ -715,8 +718,8 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                         })
                     })
                     .transpose()?,
-            }))
-        }
+            }),
+        )),
 
         CmdArg::Spread(spread) => {
             let spread_value = match &spread.data {
@@ -734,7 +737,9 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                         .read_promise_no_write()
                         .iter()
                         .map(|item| match item {
-                            RuntimeValue::CmdArg(arg) => Ok(SingleCmdArgResult::clone(arg)),
+                            RuntimeValue::CmdArg(arg) => {
+                                Ok(SingleCmdArgResult::from(CmdArgValue::clone(arg)))
+                            }
 
                             _ => value_to_str(
                                 item,
@@ -950,10 +955,16 @@ pub enum CmdArgResult {
 #[derive(Debug, Clone)]
 pub enum SingleCmdArgResult {
     Basic(LocatedValue),
-    Flag {
-        name: RuntimeEaten<CmdFlagNameArg>,
-        value: Option<FlagArgValueResult>,
-    },
+    Flag(CmdFlagValue),
+}
+
+impl From<CmdArgValue> for SingleCmdArgResult {
+    fn from(value: CmdArgValue) -> Self {
+        match value {
+            CmdArgValue::Basic(data) => Self::Basic(data),
+            CmdArgValue::Flag(data) => Self::Flag(data),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -11,7 +11,9 @@ use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::Context,
-    values::{ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue},
+    values::{
+        CmdArgValue, CmdFlagValue, ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue,
+    },
 };
 
 impl PrettyPrintable for RuntimeValue {
@@ -51,13 +53,13 @@ impl PrettyPrintable for RuntimeValue {
                 ])
             }
 
-            RuntimeValue::CmdArg(arg) => arg.generate_pretty_data(ctx),
-
             RuntimeValue::CmdCall { content_at } => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("@{", Color::Magenta),
                 content_at.generate_pretty_data(ctx.files_map()),
                 PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
             ]),
+
+            RuntimeValue::CmdArg(cmd_arg) => cmd_arg.generate_pretty_data(ctx),
 
             RuntimeValue::List(list) => PrettyPrintablePiece::List {
                 begin: Styled::colored("[", Color::Blue),
@@ -161,14 +163,51 @@ impl PrettyPrintable for RuntimeFnValue {
     }
 }
 
+impl PrettyPrintable for CmdArgValue {
+    type Context = Context;
+
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+        match self {
+            Self::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
+            Self::Flag(flag) => flag.generate_pretty_data(ctx),
+        }
+    }
+}
+
+impl PrettyPrintable for CmdFlagValue {
+    type Context = Context;
+
+    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+        let Self { name, value } = self;
+
+        let mut join = vec![name.data().generate_pretty_data(&())];
+
+        if let Some(FlagArgValueResult { value, value_sep }) = value {
+            let value_sep = match value_sep {
+                FlagValueSeparator::Space => " ",
+                FlagValueSeparator::Equal => "=",
+            };
+
+            join.push(PrettyPrintablePiece::colored_atomic(
+                value_sep,
+                Color::BrightYellow,
+            ));
+
+            join.push(value.value.generate_pretty_data(ctx));
+        }
+
+        PrettyPrintablePiece::Join(join)
+    }
+}
+
 impl PrettyPrintable for CmdArgResult {
     type Context = Context;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
-            CmdArgResult::Single(single) => single.generate_pretty_data(ctx),
+            Self::Single(single) => single.generate_pretty_data(ctx),
 
-            CmdArgResult::Spreaded(items) => PrettyPrintablePiece::List {
+            Self::Spreaded(items) => PrettyPrintablePiece::List {
                 begin: Styled::colored("spread(", Color::Magenta),
                 items: items
                     .iter()
@@ -187,27 +226,8 @@ impl PrettyPrintable for SingleCmdArgResult {
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
-            SingleCmdArgResult::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
-
-            SingleCmdArgResult::Flag { name, value } => {
-                let mut join = vec![name.data().generate_pretty_data(&())];
-
-                if let Some(FlagArgValueResult { value, value_sep }) = value {
-                    let value_sep = match value_sep {
-                        FlagValueSeparator::Space => " ",
-                        FlagValueSeparator::Equal => "=",
-                    };
-
-                    join.push(PrettyPrintablePiece::colored_atomic(
-                        value_sep,
-                        Color::BrightYellow,
-                    ));
-
-                    join.push(value.value.generate_pretty_data(ctx));
-                }
-
-                PrettyPrintablePiece::Join(join)
-            }
+            Self::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
+            Self::Flag(flag) => flag.generate_pretty_data(ctx),
         }
     }
 }

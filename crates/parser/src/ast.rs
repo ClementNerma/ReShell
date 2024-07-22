@@ -481,6 +481,7 @@ pub struct CmdFlagArg {
 pub enum CmdFlagNameArg {
     Short(char),
     Long(String),
+    /// Optimization: flag names which are already in camel case
     LongNoConvert(String),
 }
 
@@ -580,6 +581,16 @@ pub enum FnCallArg {
 pub enum RuntimeEaten<T> {
     Parsed(Eaten<T>),
     Internal(T, &'static str),
+}
+
+impl<T> RuntimeEaten<T> {
+    /// Build a RuntimeEaten element from a RuntimeCodeRange location and a value
+    pub fn new(at: RuntimeCodeRange, data: T) -> Self {
+        match at {
+            RuntimeCodeRange::Parsed(at) => Self::Parsed(Eaten::ate(at, data)),
+            RuntimeCodeRange::Internal(at) => Self::Internal(data, at),
+        }
+    }
 }
 
 /// Either a [`CodeRange`] or an internal location

@@ -1,6 +1,6 @@
 use reshell_parser::ast::FnCallNature;
 use reshell_runtime::{
-    cmd::CmdArgResult,
+    cmd::{CmdArgResult, SingleCmdArgResult},
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -10,7 +10,7 @@ crate::define_internal_fn!(
 
     (
         func: RequiredArg<AnyType> = Arg::positional("func"),
-        args: RequiredArg<DetachedListType<CmdArgType>> = Arg::rest("args")
+        args: UntypedRestArg = UntypedRestArg::rest("args")
     )
 
     -> None
@@ -18,6 +18,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { func, args }, args_at, ctx| match func {
+        // TODO: how to differentiate provided positional cmdflag with actual flags that have been converted to cmdflags?
         RuntimeValue::Function(func) => {
             let loc_val = call_fn_value(
                 args_at.func,
@@ -25,7 +26,8 @@ fn run() -> Runner {
                 FnCallInfos {
                     args: FnPossibleCallArgs::Internal(
                         args.into_iter()
-                            .map(|arg| CmdArgResult::Single((*arg).clone()))
+                            .map(SingleCmdArgResult::from)
+                            .map(CmdArgResult::Single)
                             .collect(),
                     ),
                     nature: FnCallNature::Variable,

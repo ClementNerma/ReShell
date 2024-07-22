@@ -1441,8 +1441,8 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Float
         | SingleValueType::String
         | SingleValueType::Error
-        | SingleValueType::CmdArg
         | SingleValueType::CmdCall
+        | SingleValueType::CmdArg
         | SingleValueType::UntypedList
         | SingleValueType::UntypedMap
         | SingleValueType::UntypedStruct => Ok(()),

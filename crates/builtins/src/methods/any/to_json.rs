@@ -63,7 +63,7 @@ fn value_to_serde_json(value: RuntimeValue) -> Result<Value, &'static str> {
             })
             .collect(),
         RuntimeValue::Function(_) => Err("cannot convert a function to JSON"),
-        RuntimeValue::CmdArg(_) => Err("cannot convert a command argument to JSON"),
+        RuntimeValue::CmdArg(_) => Err("cannot convert a command argument value to JSON"),
         RuntimeValue::Custom(_) => Err("cannot convert a custom type to JSON"),
     }
 }
