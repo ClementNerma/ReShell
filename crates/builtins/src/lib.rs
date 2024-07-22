@@ -12,9 +12,8 @@
 
 mod content;
 mod functions;
-mod helper;
+mod helpers;
 mod methods;
-mod type_handlers;
 mod utils;
 
 pub mod builder;

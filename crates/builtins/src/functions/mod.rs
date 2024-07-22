@@ -45,9 +45,9 @@ mod whereis;
 mod which;
 mod write_file;
 
-pub(crate) use self::typemakers::types::*;
+use crate::helpers::fns::InternalFunction;
 
-use crate::helper::InternalFunction;
+pub(crate) use self::typemakers::types::*;
 
 /// List all native functions
 pub fn native_functions() -> Vec<InternalFunction> {

@@ -6,8 +6,10 @@ use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
-    helper::{Typing, TypingDirectCreation},
-    type_handlers::{DetachedListType, NullType, StringType, TypedStruct2Type, Union2Type},
+    helpers::{
+        args::{Typing, TypingDirectCreation},
+        types::{DetachedListType, NullType, StringType, TypedStruct2Type, Union2Type},
+    },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
 

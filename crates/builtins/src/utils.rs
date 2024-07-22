@@ -11,7 +11,7 @@ use reshell_runtime::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{builder::internal_runtime_eaten, helper::Typing};
+use crate::{builder::internal_runtime_eaten, helpers::args::Typing};
 
 /// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(

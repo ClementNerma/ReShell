@@ -15,7 +15,9 @@ use reshell_runtime::{
     },
 };
 
-use super::{content::define_native_lib, helper::InternalFunction};
+use crate::helpers::fns::InternalFunction;
+
+use super::content::define_native_lib;
 
 /// Create a [`RuntimeEaten`] data with internal location
 pub fn internal_runtime_eaten<T>(data: T) -> RuntimeEaten<T> {

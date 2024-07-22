@@ -2,7 +2,7 @@
 //! Custom type definitions
 //!
 
-use crate::helper::InternalFunction;
+use crate::helpers::fns::InternalFunction;
 
 mod datetime;
 mod duration;

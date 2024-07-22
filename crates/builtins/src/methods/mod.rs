@@ -15,9 +15,9 @@ mod string;
 mod stringifyable;
 mod structure;
 
-use crate::helper::InternalFunction;
-
 pub use stringifyable::to_string::{stringify_value, StringifyableType};
+
+use crate::helpers::fns::InternalFunction;
 
 /// List all native methods
 pub fn native_methods() -> Vec<InternalFunction> {
