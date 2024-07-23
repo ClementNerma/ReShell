@@ -102,7 +102,12 @@ fn apply_double_op(
                     DoubleOp::Lte => RuntimeValue::Bool(left <= right),
                     DoubleOp::Gt => RuntimeValue::Bool(left > right),
                     DoubleOp::Gte => RuntimeValue::Bool(left >= right),
-                    _ => unreachable!(),
+
+                    DoubleOp::And
+                    | DoubleOp::Or
+                    | DoubleOp::Eq
+                    | DoubleOp::Neq
+                    | DoubleOp::NullFallback => unreachable!(),
                 },
 
                 (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match op.data {
@@ -115,7 +120,12 @@ fn apply_double_op(
                     DoubleOp::Lte => RuntimeValue::Bool(left <= right),
                     DoubleOp::Gt => RuntimeValue::Bool(left > right),
                     DoubleOp::Gte => RuntimeValue::Bool(left >= right),
-                    _ => unreachable!(),
+
+                    DoubleOp::And
+                    | DoubleOp::Or
+                    | DoubleOp::Eq
+                    | DoubleOp::Neq
+                    | DoubleOp::NullFallback => unreachable!(),
                 },
 
                 (RuntimeValue::Int(_), RuntimeValue::Float(_)) => {
