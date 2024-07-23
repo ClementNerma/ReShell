@@ -690,8 +690,8 @@ impl Context {
     /// Get (ideally cached) variable name for the given long flag
     pub(crate) fn get_long_flag_var_name(&mut self, from: &RuntimeEaten<String>) -> String {
         self.long_flags_var_name
-            .entry(from.data().clone())
-            .or_insert_with(|| long_flag_var_name(from.data()))
+            .entry(from.data.clone())
+            .or_insert_with(|| long_flag_var_name(&from.data))
             .clone()
     }
 

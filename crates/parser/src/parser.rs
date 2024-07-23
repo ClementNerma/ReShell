@@ -1581,7 +1581,7 @@ pub fn program(
                                 )))
                             } else {
                                 Some(match typ {
-                                    Some(typ) => Ok(typ.data.clone()),
+                                    Some(typ) => Ok(typ.as_parsed().unwrap().map(ValueType::clone)),
 
                                     None => Err(ParsingError::custom(name_at, "")
                                         .criticalize("'self' argument must have a specified type")),

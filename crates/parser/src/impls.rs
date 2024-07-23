@@ -32,6 +32,24 @@ impl CmdFlagNameArg {
     }
 }
 
+impl<T> RuntimeEaten<T> {
+    pub fn as_parsed(&self) -> Option<Eaten<&T>> {
+        let Self { at, data } = &self;
+
+        match at {
+            RuntimeCodeRange::Parsed(at) => Some(Eaten::ate(*at, data)),
+            RuntimeCodeRange::Internal(_) => None,
+        }
+    }
+
+    pub fn internal(at: &'static str, data: T) -> Self {
+        Self {
+            at: RuntimeCodeRange::Internal(at),
+            data,
+        }
+    }
+}
+
 impl<T> From<Eaten<T>> for RuntimeEaten<T> {
     fn from(value: Eaten<T>) -> Self {
         let Eaten { at, data } = value;

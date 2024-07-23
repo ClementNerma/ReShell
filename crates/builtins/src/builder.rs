@@ -21,7 +21,7 @@ use super::content::define_native_lib;
 
 /// Create a [`RuntimeEaten`] data with internal location
 pub fn internal_runtime_eaten<T>(data: T) -> RuntimeEaten<T> {
-    RuntimeEaten::Internal(data, "native library's builder")
+    RuntimeEaten::internal("native library's builder", data)
 }
 
 /// Parameters of the native library
@@ -68,7 +68,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     name.to_owned(),
                     ScopeFn {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
-                        name_at: internal_runtime_eaten(()).at(),
+                        name_at: internal_runtime_eaten(()).at,
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             is_method: false,
 
@@ -98,7 +98,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
             let on_type = method_on_type.unwrap();
 
             map.entry(name.to_owned()).or_default().push(ScopeMethod {
-                name_at: internal_runtime_eaten(()).at(),
+                name_at: internal_runtime_eaten(()).at,
                 decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                 on_type: GcReadOnlyCell::new(on_type),
                 value: GcReadOnlyCell::new(RuntimeFnValue {
@@ -131,7 +131,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                 (
                     name.to_owned(),
                     ScopeVar {
-                        name_at: internal_runtime_eaten(()).at(),
+                        name_at: internal_runtime_eaten(()).at,
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         is_mut,
                         enforced_type: match enforced_type.len() {
@@ -148,7 +148,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         },
                         value: GcCell::new(LocatedValue::new(
                             init_value,
-                            internal_runtime_eaten(()).at(),
+                            internal_runtime_eaten(()).at,
                         )),
                     },
                 )

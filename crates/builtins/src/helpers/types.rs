@@ -295,9 +295,9 @@ impl TypedFunctionType {
 
 impl SingleTyping for TypedFunctionType {
     fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Function(RuntimeEaten::Internal(
-            self.signature.clone(),
+        SingleValueType::Function(RuntimeEaten::internal(
             "native library's type generator",
+            self.signature.clone(),
         ))
     }
 
@@ -424,7 +424,7 @@ macro_rules! declare_typed_union_hanlder {
         {
             fn underlying_type(&self) -> ValueType {
                 ValueType::Union(vec![
-                    $( RuntimeEaten::Internal(self.$generic.underlying_single_type(), "native library's type generator") ),+
+                    $( RuntimeEaten::internal("native library's type generator", self.$generic.underlying_single_type()) ),+
                 ])
             }
 
@@ -477,10 +477,13 @@ macro_rules! declare_typed_struct_handler {
                 fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::TypedStruct(vec![
                         $(
-                            RuntimeEaten::Internal(StructTypeMember {
-                                name: RuntimeEaten::Internal(self.$member.0.clone(), "native library's type generator"),
-                                typ: RuntimeEaten::Internal(self.$member.1.underlying_type(), "native library's type generator")
-                            }, "native library's type generator")
+                            RuntimeEaten::internal(
+                                "native library's type generator",
+                                StructTypeMember {
+                                    name: RuntimeEaten::internal("native library's type generator", self.$member.0.clone()),
+                                    typ: RuntimeEaten::internal("native library's type generator", self.$member.1.underlying_type())
+                                }
+                            )
                         ),+
                     ])
                 }

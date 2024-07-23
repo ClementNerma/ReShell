@@ -15,12 +15,12 @@ pub fn check_if_type_fits_type(
 ) -> bool {
     match value_type {
         ValueType::Single(single_type) => {
-            check_if_single_type_fits_type(single_type.data(), into, ctx)
+            check_if_single_type_fits_type(&single_type.data, into, ctx)
         }
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_type(typ.data(), into, ctx)),
+            .all(|typ| check_if_single_type_fits_type(&typ.data, into, ctx)),
     }
 }
 
@@ -33,12 +33,12 @@ pub fn check_if_single_type_fits_type(
 ) -> bool {
     match into {
         ValueType::Single(single) => {
-            check_if_single_type_fits_single(value_type, single.data(), ctx)
+            check_if_single_type_fits_single(value_type, &single.data, ctx)
         }
 
         ValueType::Union(types) => types
             .iter()
-            .any(|typ| check_if_single_type_fits_single(value_type, typ.data(), ctx)),
+            .any(|typ| check_if_single_type_fits_single(value_type, &typ.data, ctx)),
     }
 }
 
@@ -50,11 +50,11 @@ pub fn check_if_type_fits_single(
     ctx: &TypeAliasStore,
 ) -> bool {
     match value_type {
-        ValueType::Single(single) => check_if_single_type_fits_single(single.data(), into, ctx),
+        ValueType::Single(single) => check_if_single_type_fits_single(&single.data, into, ctx),
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_single(typ.data(), into, ctx)),
+            .all(|typ| check_if_single_type_fits_single(&typ.data, into, ctx)),
     }
 }
 
@@ -106,7 +106,7 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Custom(_), _) | (_, SingleValueType::Custom(_)) => false,
 
         (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
-            check_if_fn_signature_fits_another(signature.data(), into.data(), ctx)
+            check_if_fn_signature_fits_another(&signature.data, &into.data, ctx)
         }
 
         (SingleValueType::Function(_), _) | (_, SingleValueType::Function(_)) => false,
@@ -137,12 +137,12 @@ pub fn check_if_single_type_fits_single(
 
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
             b.iter().all(|b_member| {
-                let StructTypeMember { name, typ } = b_member.data();
+                let StructTypeMember { name, typ } = &b_member.data;
 
                 a.iter()
-                    .find(|member| member.data().name.data() == name.data())
+                    .find(|member| member.data.name.data == name.data)
                     .map_or(false, |a_member| {
-                        check_if_type_fits_type(a_member.data().typ.data(), typ.data(), ctx)
+                        check_if_type_fits_type(&a_member.data.typ.data, &typ.data, ctx)
                     })
             })
         } //
@@ -160,7 +160,7 @@ pub fn check_if_fn_signature_fits_another(
 ) -> bool {
     // Compare return types
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
-        if !check_if_type_fits_type(ret_type.data(), cmp_ret_type.data(), ctx) {
+        if !check_if_type_fits_type(&ret_type.data, &cmp_ret_type.data, ctx) {
             return false;
         }
     }
@@ -188,7 +188,7 @@ pub fn check_if_fn_signature_fits_another(
     // Compare rest arguments' type
     if let (Some(rest_arg), Some(cmp_rest_arg)) = (rest_arg, cmp_rest_arg) {
         if let (Some(rest_arg_type), Some(cmp_rest_arg_type)) = (&rest_arg.typ, &cmp_rest_arg.typ) {
-            if !check_if_type_fits_type(rest_arg_type.data(), cmp_rest_arg_type.data(), ctx) {
+            if !check_if_type_fits_type(&rest_arg_type.data, &cmp_rest_arg_type.data, ctx) {
                 return false;
             }
         }
@@ -205,7 +205,7 @@ pub fn check_if_fn_signature_fits_another(
                 } else if let (Some(cmp_positional_typ), Some(positional_typ)) =
                     (&cmp_positional.typ, &positional.typ)
                 {
-                    check_if_type_fits_type(cmp_positional_typ.data(), positional_typ.data(), ctx)
+                    check_if_type_fits_type(&cmp_positional_typ.data, &positional_typ.data, ctx)
                 } else {
                     true
                 }
@@ -232,11 +232,10 @@ pub fn check_if_fn_signature_fits_another(
 
     let mark_used_name = |flag_names: &FnFlagArgNames, used_names: &mut HashSet<String>| -> bool {
         match flag_names {
-            FnFlagArgNames::ShortFlag(name) => used_names.insert(name.data().to_string()),
-            FnFlagArgNames::LongFlag(name) => used_names.insert(name.data().clone()),
+            FnFlagArgNames::ShortFlag(name) => used_names.insert(name.data.to_string()),
+            FnFlagArgNames::LongFlag(name) => used_names.insert(name.data.clone()),
             FnFlagArgNames::LongAndShortFlag { long, short } => {
-                used_names.insert(long.data().clone())
-                    && used_names.insert(short.data().to_string())
+                used_names.insert(long.data.clone()) && used_names.insert(short.data.to_string())
             }
         }
     };
@@ -307,8 +306,7 @@ pub fn check_if_fn_signature_fits_another(
                 }
 
                 // Check if the type fits as well
-                if !check_if_type_fits_type(cmp_normal_flag.typ.data(), normal_flag.typ.data(), ctx)
-                {
+                if !check_if_type_fits_type(&cmp_normal_flag.typ.data, &normal_flag.typ.data, ctx) {
                     return false;
                 }
             }
@@ -348,13 +346,13 @@ fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) 
         FnFlagArgNames::ShortFlag(b) => match curr {
             FnFlagArgNames::LongFlag(_) => false,
             FnFlagArgNames::ShortFlag(a)
-            | FnFlagArgNames::LongAndShortFlag { long: _, short: a } => a.data() == b.data(),
+            | FnFlagArgNames::LongAndShortFlag { long: _, short: a } => a.data == b.data,
         },
 
         FnFlagArgNames::LongFlag(b) => match curr {
             FnFlagArgNames::ShortFlag(_) => false,
             FnFlagArgNames::LongFlag(a)
-            | FnFlagArgNames::LongAndShortFlag { long: a, short: _ } => a.data() == b.data(),
+            | FnFlagArgNames::LongAndShortFlag { long: a, short: _ } => a.data == b.data,
         },
 
         FnFlagArgNames::LongAndShortFlag { long, short } => match curr {
@@ -362,7 +360,7 @@ fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) 
             FnFlagArgNames::LongAndShortFlag {
                 long: a_long,
                 short: a_short,
-            } => a_long.data() == long.data() && a_short.data() == short.data(),
+            } => a_long.data == long.data && a_short.data == short.data,
         },
     }
 }
@@ -383,7 +381,7 @@ impl<'a> FnCategorizedArgs<'a> {
         let mut normal_flags = vec![];
         let mut rest_arg = None;
 
-        for arg in fn_signature.args.data() {
+        for arg in &fn_signature.args.data {
             match arg {
                 FnArg::Positional(arg) => positionals.push(arg),
                 FnArg::PresenceFlag(arg) => presence_flags.push(arg),

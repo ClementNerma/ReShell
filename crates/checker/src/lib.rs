@@ -28,8 +28,8 @@ use reshell_parser::{
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
         FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
         MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
-        RuntimeEaten, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember,
-        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
+        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -1251,7 +1251,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     state.register_function_body(body.clone());
 
-    let checked_args = check_fn_signature(signature, state)?;
+    let checked_args = check_fn_signature(&Eaten::ate(signature.at, &signature.data), state)?;
 
     let mut vars = HashMap::with_capacity(checked_args.len());
 
@@ -1295,26 +1295,26 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             typ,
         }) => {
             if let Some(typ) = typ {
-                check_value_type(typ.data(), state)?;
+                check_value_type(&typ.data, state)?;
             }
 
-            (name.data().clone(), name.at(), None, false)
+            (name.data.clone(), name.at, None, false)
         }
 
         FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
-            FnFlagArgNames::ShortFlag(short) => (short.data().to_string(), short.at(), None, false),
+            FnFlagArgNames::ShortFlag(short) => (short.data.to_string(), short.at, None, false),
 
             FnFlagArgNames::LongFlag(long) => (
-                long.data().clone(),
-                long.at(),
-                Some(long_flag_var_name(long.data())),
+                long.data.clone(),
+                long.at,
+                Some(long_flag_var_name(&long.data)),
                 false,
             ),
 
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
-                long.data().clone(),
-                long.at(),
-                Some(long_flag_var_name(long.data())),
+                long.data.clone(),
+                long.at,
+                Some(long_flag_var_name(&long.data)),
                 false,
             ),
         },
@@ -1324,24 +1324,22 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             is_optional: _,
             typ,
         }) => {
-            check_value_type(typ.data(), state)?;
+            check_value_type(&typ.data, state)?;
 
             match names {
-                FnFlagArgNames::ShortFlag(short) => {
-                    (short.data().to_string(), short.at(), None, false)
-                }
+                FnFlagArgNames::ShortFlag(short) => (short.data.to_string(), short.at, None, false),
 
                 FnFlagArgNames::LongFlag(long) => (
-                    long.data().clone(),
-                    long.at(),
-                    Some(long_flag_var_name(long.data())),
+                    long.data.clone(),
+                    long.at,
+                    Some(long_flag_var_name(&long.data)),
                     false,
                 ),
 
                 FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
-                    long.data().clone(),
-                    long.at(),
-                    Some(long_flag_var_name(long.data())),
+                    long.data.clone(),
+                    long.at,
+                    Some(long_flag_var_name(&long.data)),
                     false,
                 ),
             }
@@ -1349,21 +1347,21 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
 
         FnArg::Rest(FnRestArg { name, typ }) => {
             if let Some(typ) = typ {
-                check_value_type(typ.data(), state)?;
+                check_value_type(&typ.data, state)?;
 
                 if !check_if_single_type_fits_type(
                     &SingleValueType::UntypedList,
-                    typ.data(),
+                    &typ.data,
                     state.type_alias_store(),
                 ) {
                     return Err(CheckerError::new(
-                        match typ.at() {
+                        match typ.at {
                             RuntimeCodeRange::Parsed(at) => at,
                             RuntimeCodeRange::Internal(_) => unreachable!(),
                         },
                         format!(
                             "rest types must be subsets of lists, found: {}",
-                            typ.data().render_colored(
+                            typ.data.render_colored(
                                 state.type_alias_store(),
                                 PrettyPrintOptions::inline()
                             )
@@ -1372,7 +1370,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 }
             }
 
-            (name.data().clone(), name.at(), None, true)
+            (name.data.clone(), name.at, None, true)
         }
     };
 
@@ -1420,10 +1418,10 @@ pub fn long_flag_var_name(name: &str) -> String {
 
 fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult {
     match value_type {
-        ValueType::Single(typ) => check_single_value_type(typ.data(), state)?,
+        ValueType::Single(typ) => check_single_value_type(&typ.data, state)?,
         ValueType::Union(types) => {
             for typ in types {
-                check_single_value_type(typ.data(), state)?;
+                check_single_value_type(&typ.data, state)?;
             }
         }
     }
@@ -1455,24 +1453,24 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
             let mut names = HashSet::new();
 
             for member in members {
-                let StructTypeMember { name, typ } = member.data();
+                let StructTypeMember { name, typ } = &member.data;
 
-                if !names.insert(name.data()) {
+                if !names.insert(&name.data) {
                     return Err(CheckerError::new(
-                        name.eaten().unwrap().at,
+                        name.at.parsed_range().unwrap(),
                         "duplicate member in struct",
                     ));
                 }
 
-                check_value_type(typ.data(), state)?;
+                check_value_type(&typ.data, state)?;
             }
 
             Ok(())
         }
 
-        SingleValueType::Function(signature) => match signature {
-            RuntimeEaten::Parsed(eaten) => check_fn_signature(eaten, state).map(|_| ()),
-            RuntimeEaten::Internal(_, _) => Ok(()),
+        SingleValueType::Function(signature) => match signature.as_parsed() {
+            Some(eaten) => check_fn_signature(&eaten, state).map(|_| ()),
+            None => Ok(()),
         },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
@@ -1482,17 +1480,14 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
 }
 
 fn check_fn_signature(
-    signature: &Eaten<FnSignature>,
+    signature: &Eaten<&FnSignature>,
     state: &mut State,
 ) -> CheckerResult<Vec<CheckedFnArg>> {
-    state.register_function_signature(signature.clone());
+    state.register_function_signature(signature.map(FnSignature::clone));
 
     let FnSignature { args, ret_type } = &signature.data;
 
-    let args = match args {
-        RuntimeEaten::Parsed(args) => args,
-        RuntimeEaten::Internal(_, _) => unreachable!(),
-    };
+    assert!(args.as_parsed().is_some());
 
     let mut used_idents = HashSet::new();
     let mut rest_arg_name_at = None;
@@ -1520,12 +1515,12 @@ fn check_fn_signature(
                 had_optional = true;
             } else if had_optional {
                 return Err(CheckerError::new(
-                    name.at().parsed_range().unwrap(),
+                    name.at.parsed_range().unwrap(),
                     "cannot have a non-optional positional argument after an optional one",
                 ));
-            } else if i > 0 && name.data() == "self" {
+            } else if i > 0 && name.data == "self" {
                 return Err(CheckerError::new(
-                    name.at().parsed_range().unwrap(),
+                    name.at.parsed_range().unwrap(),
                     "cannot have non-first 'self' argument as it is reserved for methods",
                 ));
             }
@@ -1553,7 +1548,7 @@ fn check_fn_signature(
     }
 
     if let Some(ret_type) = ret_type {
-        check_value_type(ret_type.data(), state)?;
+        check_value_type(&ret_type.data, state)?;
     }
 
     Ok(checked_args)

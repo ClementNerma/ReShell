@@ -670,10 +670,10 @@ pub fn single_param_lambda_to_value(body: &Eaten<Block>, ctx: &mut Context) -> R
         is_method: false,
 
         signature: RuntimeFnSignature::Owned(FnSignature {
-            args: RuntimeEaten::Parsed(Eaten::ate(
+            args: RuntimeEaten::from(Eaten::ate(
                 body.at,
                 vec![FnArg::Positional(FnPositionalArg {
-                    name: RuntimeEaten::Internal("it".to_owned(), "single-parameter lambda"),
+                    name: RuntimeEaten::internal("single-parameter lambda", "it".to_owned()),
                     is_optional: false,
                     typ: None,
                 })],

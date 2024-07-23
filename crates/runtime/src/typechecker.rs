@@ -5,11 +5,11 @@ use crate::{context::Context, values::RuntimeValue};
 
 pub fn check_if_value_fits_type(value: &RuntimeValue, typ: &ValueType, ctx: &Context) -> bool {
     match typ {
-        ValueType::Single(typ) => check_if_value_fits_single_type(value, typ.data(), ctx),
+        ValueType::Single(typ) => check_if_value_fits_single_type(value, &typ.data, ctx),
 
         ValueType::Union(types) => types
             .iter()
-            .any(|typ| check_if_value_fits_single_type(value, typ.data(), ctx)),
+            .any(|typ| check_if_value_fits_single_type(value, &typ.data, ctx)),
     }
 }
 
@@ -56,11 +56,11 @@ pub fn check_if_value_fits_single_type(
                 let members = members.read_promise_no_write();
 
                 member_types.iter().all(|member_type| {
-                    let StructTypeMember { name, typ } = member_type.data();
+                    let StructTypeMember { name, typ } = &member_type.data;
 
                     members
-                        .get(name.data())
-                        .is_some_and(|value| check_if_value_fits_type(value, typ.data(), ctx))
+                        .get(&name.data)
+                        .is_some_and(|value| check_if_value_fits_type(value, &typ.data, ctx))
                 })
             }
 
@@ -70,7 +70,7 @@ pub fn check_if_value_fits_single_type(
         SingleValueType::Function(signature) => match value {
             RuntimeValue::Function(func) => check_if_fn_signature_fits_another(
                 func.signature.inner(),
-                signature.data(),
+                &signature.data,
                 ctx.type_alias_store(),
             ),
 

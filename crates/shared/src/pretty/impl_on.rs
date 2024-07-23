@@ -23,13 +23,13 @@ impl PrettyPrintable for ValueType {
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
-            Self::Single(single) => single.data().generate_pretty_data(ctx),
+            Self::Single(single) => single.data.generate_pretty_data(ctx),
 
             Self::Union(types) => PrettyPrintablePiece::List {
                 begin: Styled::empty(),
                 items: types
                     .iter()
-                    .map(|typ| typ.data().generate_pretty_data(ctx))
+                    .map(|typ| typ.data.generate_pretty_data(ctx))
                     .collect(),
                 sep: Styled::colored(" |", Color::Magenta),
                 end: Styled::empty(),
@@ -72,12 +72,12 @@ impl PrettyPrintable for SingleValueType {
                 items: members
                     .iter()
                     .map(|member| {
-                        let StructTypeMember { name, typ } = member.data();
+                        let StructTypeMember { name, typ } = &member.data;
 
                         PrettyPrintablePiece::Join(vec![
-                            PrettyPrintablePiece::colored_atomic(name.data().clone(), Color::Red),
+                            PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Red),
                             PrettyPrintablePiece::colored_atomic(": ", Color::BrightBlack),
-                            typ.data().generate_pretty_data(ctx),
+                            typ.data.generate_pretty_data(ctx),
                         ])
                     })
                     .collect(),
@@ -85,7 +85,7 @@ impl PrettyPrintable for SingleValueType {
                 end: Styled::colored(" }", Color::Magenta),
                 suffix: None,
             },
-            Self::Function(signature) => signature.data().generate_pretty_data(ctx),
+            Self::Function(signature) => signature.data.generate_pretty_data(ctx),
             Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Magenta),
                 PrettyPrintablePiece::colored_atomic(" ( ", Color::BrightGreen),
@@ -168,7 +168,7 @@ impl PrettyPrintable for FnSignature {
         PrettyPrintablePiece::List {
             begin: Styled::colored("fn(", Color::BrightMagenta),
             items: args
-                .data()
+                .data
                 .iter()
                 .map(|item| item.generate_pretty_data(ctx))
                 .collect(),
@@ -177,7 +177,7 @@ impl PrettyPrintable for FnSignature {
             suffix: ret_type.as_ref().map(|ret_type| {
                 Box::new(PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),
-                    ret_type.data().generate_pretty_data(ctx),
+                    ret_type.data.generate_pretty_data(ctx),
                 ]))
             }),
         }
@@ -194,10 +194,7 @@ impl PrettyPrintable for FnArg {
                 is_optional,
                 typ,
             }) => {
-                let mut out = vec![PrettyPrintablePiece::colored_atomic(
-                    name.data(),
-                    Color::Red,
-                )];
+                let mut out = vec![PrettyPrintablePiece::colored_atomic(&name.data, Color::Red)];
 
                 if *is_optional {
                     out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
@@ -205,7 +202,7 @@ impl PrettyPrintable for FnArg {
 
                 if let Some(typ) = typ {
                     out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                    out.push(typ.data().generate_pretty_data(ctx));
+                    out.push(typ.data.generate_pretty_data(ctx));
                 }
 
                 PrettyPrintablePiece::Join(out)
@@ -228,20 +225,20 @@ impl PrettyPrintable for FnArg {
                 }
 
                 out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                out.push(typ.data().generate_pretty_data(ctx));
+                out.push(typ.data.generate_pretty_data(ctx));
 
                 PrettyPrintablePiece::Join(out)
             }
 
             FnArg::Rest(FnRestArg { name, typ }) => {
                 let mut out = vec![PrettyPrintablePiece::colored_atomic(
-                    format!("...{}", name.data()),
+                    format!("...{}", name.data),
                     Color::BrightYellow,
                 )];
 
                 if let Some(typ) = typ {
                     out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                    out.push(typ.data().generate_pretty_data(ctx));
+                    out.push(typ.data.generate_pretty_data(ctx));
                 }
 
                 PrettyPrintablePiece::Join(out)
@@ -255,10 +252,10 @@ impl PrettyPrintable for FnFlagArgNames {
 
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         let str = match self {
-            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data()),
-            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data()),
+            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data),
+            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data),
             FnFlagArgNames::LongAndShortFlag { long, short } => {
-                format!("--{} (-{})", long.data(), short.data())
+                format!("--{} (-{})", long.data, short.data)
             }
         };
 

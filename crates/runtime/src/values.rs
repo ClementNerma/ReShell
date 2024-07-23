@@ -193,18 +193,18 @@ impl RuntimeValue {
                     .read_promise_no_write()
                     .iter()
                     .map(|(name, value)| {
-                        RuntimeEaten::Internal(
+                        RuntimeEaten::internal(
+                            "type deducer",
                             StructTypeMember {
-                                name: RuntimeEaten::Internal(name.clone(), "type deducer"),
-                                typ: RuntimeEaten::Internal(
-                                    ValueType::Single(RuntimeEaten::Internal(
-                                        value.compute_type(),
-                                        "type deducer",
-                                    )),
+                                name: RuntimeEaten::internal("type deducer", name.clone()),
+                                typ: RuntimeEaten::internal(
                                     "type deducer",
+                                    ValueType::Single(RuntimeEaten::internal(
+                                        "type deducer",
+                                        value.compute_type(),
+                                    )),
                                 ),
                             },
-                            "type deducer",
                         )
                     })
                     .collect(),
@@ -212,11 +212,9 @@ impl RuntimeValue {
             RuntimeValue::Function(content) => {
                 // TODO: performance (use already collected data from checker?)
                 SingleValueType::Function(match &content.signature {
-                    RuntimeFnSignature::Shared(shared) => {
-                        RuntimeEaten::Parsed(Eaten::clone(shared))
-                    }
+                    RuntimeFnSignature::Shared(shared) => RuntimeEaten::from(Eaten::clone(shared)),
                     RuntimeFnSignature::Owned(owned) => {
-                        RuntimeEaten::Internal(owned.clone(), "type deducer")
+                        RuntimeEaten::internal("type deducer", owned.clone())
                     }
                 })
             }
@@ -257,14 +255,14 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
         let type_hash = hasher.finish();
 
         if types_hash.insert(type_hash) {
-            types.push(RuntimeEaten::Internal(typ, "internal value type computer"));
+            types.push(RuntimeEaten::internal("internal value type computer", typ));
         }
     }
 
     match types.len() {
-        0 => ValueType::Single(RuntimeEaten::Internal(
-            SingleValueType::Any,
+        0 => ValueType::Single(RuntimeEaten::internal(
             "internal value type computer",
+            SingleValueType::Any,
         )),
         1 => ValueType::Single(types.remove(0)),
         _ => ValueType::Union(types),

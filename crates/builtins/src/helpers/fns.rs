@@ -124,12 +124,15 @@ macro_rules! define_internal_fn {
 
             let method_on_type = args.first().and_then(|first_arg| match first_arg {
                 FnArg::Positional(FnPositionalArg {
-                    name: RuntimeEaten::Internal(name, _),
+                    name: RuntimeEaten {
+                        at: RuntimeCodeRange::Internal(_),
+                        data: name,
+                    },
                     is_optional: false,
                     typ
                 }) if name == "self" => {
                     match typ {
-                        Some(RuntimeEaten::Internal(typ, _)) => Some(typ.clone()),
+                        Some(RuntimeEaten { at: RuntimeCodeRange::Internal(_), data: typ }) => Some(typ.clone()),
                         _ => panic!("invalid method applyable type in native library: {:?}", typ)
                     }
                 }

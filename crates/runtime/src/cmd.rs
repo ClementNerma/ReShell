@@ -656,7 +656,7 @@ fn append_cmd_arg_as_string(
             )?),
 
             SingleCmdArgResult::Flag(CmdFlagValue { name, value }) => {
-                let name = name.data().back_to_string();
+                let name = name.data.back_to_string();
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
@@ -706,7 +706,7 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 
         CmdArg::Flag(CmdFlagArg { name, value }) => Ok(CmdArgResult::Single(
             SingleCmdArgResult::Flag(CmdFlagValue {
-                name: RuntimeEaten::Parsed(name.clone()),
+                name: RuntimeEaten::from(name.clone()),
                 value: value
                     .as_ref()
                     .map(|CmdFlagValueArg { value, value_sep }| {

@@ -180,7 +180,7 @@ impl PrettyPrintable for CmdFlagValue {
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         let Self { name, value } = self;
 
-        let mut join = vec![name.data().generate_pretty_data(&())];
+        let mut join = vec![name.data.generate_pretty_data(&())];
 
         if let Some(FlagArgValueResult { value, value_sep }) = value {
             let value_sep = match value_sep {

@@ -443,7 +443,7 @@ pub fn generate_internal_arg_decl<
             };
 
             match arg.base_typing().underlying_type() {
-                ValueType::Single(eaten) if matches!(eaten.data(), SingleValueType::Bool) => {
+                ValueType::Single(eaten) if matches!(eaten.data, SingleValueType::Bool) => {
                     FnArg::PresenceFlag(FnPresenceFlagArg { names })
                 }
 
