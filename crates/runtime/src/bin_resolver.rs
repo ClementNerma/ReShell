@@ -138,19 +138,22 @@ fn find_exe_in_dir(name: &str, dir: &Path) -> Result<Option<PathBuf>, String> {
         }
 
         TargetFamily::Unix => {
-            let path = dir.join(name);
-
-            let Ok(mt) = path.metadata() else {
-                return Ok(None);
-            };
-
-            if !mt.is_file() {
-                return Ok(None);
-            }
+            #[cfg(not(target_family = "unix"))]
+            unreachable!();
 
             #[cfg(target_family = "unix")]
             {
                 use std::os::unix::fs::PermissionsExt;
+
+                let path = dir.join(name);
+
+                let Ok(mt) = path.metadata() else {
+                    return Ok(None);
+                };
+
+                if !mt.is_file() {
+                    return Ok(None);
+                }
 
                 // Ensure exec permissions are present
                 if mt.permissions().mode() & 0o111 != 0 {
@@ -162,9 +165,6 @@ fn find_exe_in_dir(name: &str, dir: &Path) -> Result<Option<PathBuf>, String> {
                     ))
                 }
             }
-
-            #[cfg(not(target_family = "unix"))]
-            unreachable!()
         }
     }
 }
