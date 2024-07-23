@@ -109,7 +109,7 @@ pub trait ArgHandler {
     fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z>;
 
     type Parsed;
-    fn parse(&self, value: Self::FixedOptionality<RuntimeValue>) -> Result<Self::Parsed, String>;
+    fn parse(&self, value: Self::FixedOptionality<RuntimeValue>) -> Result<Self::Parsed, ArgError>;
 
     type BaseTyping: Typing;
     fn base_typing(&self) -> &Self::BaseTyping;
@@ -117,6 +117,12 @@ pub trait ArgHandler {
     fn hide_type(&self) -> bool {
         false
     }
+}
+
+#[derive(Debug)]
+pub enum ArgError {
+    TypeError(String),
+    Panic(String),
 }
 
 pub struct Arg<const OPTIONAL: bool, T: Typing> {
@@ -182,8 +188,8 @@ impl<T: Typing> ArgHandler for Arg<false, T> {
 
     type Parsed = T::Parsed;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        self.base_typing.parse(value)
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
+        self.base_typing.parse(value).map_err(ArgError::TypeError)
     }
 
     type BaseTyping = T;
@@ -214,8 +220,11 @@ impl<T: Typing> ArgHandler for Arg<true, T> {
 
     type Parsed = Option<T::Parsed>;
 
-    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
-        value.map(|value| self.base_typing.parse(value)).transpose()
+    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, ArgError> {
+        value
+            .map(|value| self.base_typing.parse(value))
+            .transpose()
+            .map_err(ArgError::TypeError)
     }
 
     type BaseTyping = T;
@@ -260,23 +269,32 @@ impl<T: Typing> ArgHandler for RestArg<T> {
 
     type Parsed = Vec<T::Parsed>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
         match value {
             RuntimeValue::List(values) => values
                 .read_promise_no_write()
                 .iter()
-                .map(|value| match value {
+                .enumerate()
+                .map(|(i, value)| match value {
                     RuntimeValue::CmdArg(arg) => match arg.as_ref() {
-                        CmdArgValue::Basic(loc_val) => {
-                            self.base_typing().inner().parse(loc_val.value.clone())
-                        }
-                        CmdArgValue::Flag(_) => unreachable!(),
+                        CmdArgValue::Basic(loc_val) => self
+                            .base_typing()
+                            .inner()
+                            .parse(loc_val.value.clone())
+                            .map_err(|err| {
+                                ArgError::TypeError(format!("in list item {}: {err}", i + 1))
+                            }),
+
+                            CmdArgValue::Flag(_) => Err(ArgError::Panic("typed rest arguments should be provided as a list of basic values, found a flag".to_owned())),
                     },
-                    _ => unreachable!(),
+
+                    _ => Err(ArgError::Panic(format!("rest arguments should be provided as a list of command arguments, got: {value:?}"))),
                 })
                 .collect::<Result<Vec<_>, _>>(),
 
-            _ => unreachable!(),
+            _ => Err(ArgError::Panic(format!(
+                "rest arguments should be a list, got: {value:?}"
+            ))),
         }
     }
 
@@ -326,18 +344,20 @@ impl ArgHandler for UntypedRestArg {
 
     type Parsed = Vec<CmdArgValue>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
         match value {
-            RuntimeValue::List(values) => Ok(values
+            RuntimeValue::List(values) => values
                 .read_promise_no_write()
                 .iter()
                 .map(|value| match value {
-                    RuntimeValue::CmdArg(arg) => CmdArgValue::clone(arg),
-                    _ => unreachable!(),
+                    RuntimeValue::CmdArg(arg) => Ok(CmdArgValue::clone(arg)),
+                    _ => Err(ArgError::Panic(format!("rest arguments should be provided as a list of command arguments, got: {value:?}"))),
                 })
-                .collect()),
+                .collect::<Result<Vec<_>, _>>(),
 
-            _ => unreachable!(),
+            _ => Err(ArgError::Panic(format!(
+                "rest arguments should be a list, got: {value:?}"
+            ))),
         }
     }
 
