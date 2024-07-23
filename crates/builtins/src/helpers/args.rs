@@ -109,7 +109,7 @@ pub trait ArgHandler {
     fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z>;
 
     type Parsed;
-    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String>;
+    fn parse(&self, value: Self::FixedOptionality<RuntimeValue>) -> Result<Self::Parsed, String>;
 
     type BaseTyping: Typing;
     fn base_typing(&self) -> &Self::BaseTyping;
@@ -182,11 +182,8 @@ impl<T: Typing> ArgHandler for Arg<false, T> {
 
     type Parsed = T::Parsed;
 
-    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
-        match value {
-            None => unreachable!(),
-            Some(value) => self.base_typing.parse(value),
-        }
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        self.base_typing.parse(value)
     }
 
     type BaseTyping = T;
@@ -263,9 +260,9 @@ impl<T: Typing> ArgHandler for RestArg<T> {
 
     type Parsed = Vec<T::Parsed>;
 
-    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
-            Some(RuntimeValue::List(values)) => values
+            RuntimeValue::List(values) => values
                 .read_promise_no_write()
                 .iter()
                 .map(|value| match value {
@@ -279,7 +276,7 @@ impl<T: Typing> ArgHandler for RestArg<T> {
                 })
                 .collect::<Result<Vec<_>, _>>(),
 
-            Some(_) | None => unreachable!(),
+            _ => unreachable!(),
         }
     }
 
@@ -329,9 +326,9 @@ impl ArgHandler for UntypedRestArg {
 
     type Parsed = Vec<CmdArgValue>;
 
-    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
-            Some(RuntimeValue::List(values)) => Ok(values
+            RuntimeValue::List(values) => Ok(values
                 .read_promise_no_write()
                 .iter()
                 .map(|value| match value {
@@ -340,7 +337,7 @@ impl ArgHandler for UntypedRestArg {
                 })
                 .collect()),
 
-            Some(_) | None => unreachable!(),
+            _ => unreachable!(),
         }
     }
 

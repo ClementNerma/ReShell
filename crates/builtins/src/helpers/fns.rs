@@ -72,7 +72,7 @@ macro_rules! define_internal_fn {
 
                     let arg_may_be_at = arg.as_ref().map(|arg| arg.arg_value_at).unwrap_or(call_at);
 
-                    arg_handler.parse(arg.map(|arg| arg.value)).map_err(|err| (arg_may_be_at, err))?
+                    arg_handler.parse(<$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.value))).map_err(|err| (arg_may_be_at, err))?
                 } ),*
             };
 
