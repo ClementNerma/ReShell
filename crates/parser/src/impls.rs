@@ -32,32 +32,13 @@ impl CmdFlagNameArg {
     }
 }
 
-impl<T> RuntimeEaten<T> {
-    pub fn at(&self) -> RuntimeCodeRange {
-        match self {
-            RuntimeEaten::Parsed(eaten) => RuntimeCodeRange::Parsed(eaten.at),
-            RuntimeEaten::Internal(_, infos) => RuntimeCodeRange::Internal(infos),
-        }
-    }
+impl<T> From<Eaten<T>> for RuntimeEaten<T> {
+    fn from(value: Eaten<T>) -> Self {
+        let Eaten { at, data } = value;
 
-    pub fn data(&self) -> &T {
-        match &self {
-            Self::Parsed(eaten) => &eaten.data,
-            Self::Internal(raw, _) => raw,
-        }
-    }
-
-    pub fn eaten(&self) -> Option<&Eaten<T>> {
-        match self {
-            RuntimeEaten::Parsed(eaten) => Some(eaten),
-            RuntimeEaten::Internal(_, _) => None,
-        }
-    }
-
-    pub fn map<U>(self, func: impl FnOnce(T) -> U) -> RuntimeEaten<U> {
-        match self {
-            RuntimeEaten::Parsed(eaten) => RuntimeEaten::Parsed(eaten.map(func)),
-            RuntimeEaten::Internal(data, infos) => RuntimeEaten::Internal(func(data), infos),
+        Self {
+            at: RuntimeCodeRange::Parsed(at),
+            data,
         }
     }
 }

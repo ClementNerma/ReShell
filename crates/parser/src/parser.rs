@@ -109,7 +109,7 @@ pub fn program(
         just("fn")
             .ignore_then(fn_signature.clone())
             .spanned()
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .map(SingleValueType::Function),
         just("list[")
             .ignore_then(value_type.clone().map(Box::new))
@@ -132,7 +132,7 @@ pub fn program(
             .ignore_then(
                 ident
                     .spanned()
-                    .map(RuntimeEaten::Parsed)
+                    .map(RuntimeEaten::from)
                     .then_ignore(ms)
                     .then_ignore(char(':').critical_with_no_message())
                     .then_ignore(msnl)
@@ -140,12 +140,12 @@ pub fn program(
                         value_type
                             .clone()
                             .spanned()
-                            .map(RuntimeEaten::Parsed)
+                            .map(RuntimeEaten::from)
                             .critical("expected a value type"),
                     )
                     .map(|(name, typ)| StructTypeMember { name, typ })
                     .spanned()
-                    .map(RuntimeEaten::Parsed)
+                    .map(RuntimeEaten::from)
                     .separated_by(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
@@ -162,7 +162,7 @@ pub fn program(
         single_value_type
             .clone()
             .spanned()
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .map(ValueType::Single),
         // Type union
         char('(')
@@ -171,7 +171,7 @@ pub fn program(
                 single_value_type
                     .clone()
                     .spanned()
-                    .map(RuntimeEaten::Parsed)
+                    .map(RuntimeEaten::from)
                     .separated_by(char('|').padded_by(msnl))
                     .at_least(2)
                     .critical("expected at least 2 types in union"),
@@ -202,19 +202,19 @@ pub fn program(
     let fn_flag_arg_names = choice::<_, FnFlagArgNames>((
         // Long *and* short flags
         fn_arg_long_flag
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .then_ignore(ms)
             .then_ignore(char('('))
-            .then(fn_arg_short_flag.map(RuntimeEaten::Parsed))
+            .then(fn_arg_short_flag.map(RuntimeEaten::from))
             .then_ignore(char(')').critical_with_no_message())
             .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
         // Long flag only
         fn_arg_long_flag
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .map(FnFlagArgNames::LongFlag),
         // Long flag only
         fn_arg_short_flag
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .map(FnFlagArgNames::ShortFlag),
     ));
 
@@ -222,7 +222,7 @@ pub fn program(
         // Positional
         ident
             .spanned()
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .then_ignore(msnl)
             .then(char('?').or_not())
             .then(
@@ -233,7 +233,7 @@ pub fn program(
                             .clone()
                             .critical("expected a type for the argument")
                             .spanned()
-                            .map(RuntimeEaten::Parsed),
+                            .map(RuntimeEaten::from),
                     )
                     .or_not(),
             )
@@ -255,7 +255,7 @@ pub fn program(
                     .clone()
                     .critical("expected a type for the flag argument")
                     .spanned()
-                    .map(RuntimeEaten::Parsed),
+                    .map(RuntimeEaten::from),
             )
             .map(|((names, is_optional), typ)| {
                 FnArg::NormalFlag(FnNormalFlagArg {
@@ -275,7 +275,7 @@ pub fn program(
         just("...")
             .ignore_then(ident)
             .spanned()
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .then(
                 msnl.ignore_then(char(':'))
                     .ignore_then(msnl)
@@ -284,7 +284,7 @@ pub fn program(
                             .clone()
                             .critical("expected a type for the rest parameter")
                             .spanned()
-                            .map(RuntimeEaten::Parsed),
+                            .map(RuntimeEaten::from),
                     )
                     .or_not(),
             )
@@ -298,7 +298,7 @@ pub fn program(
                     .clone()
                     .separated_by(char(',').padded_by(msnl))
                     .spanned()
-                    .map(RuntimeEaten::Parsed),
+                    .map(RuntimeEaten::from),
             )
             .then_ignore(msnl)
             .then_ignore(char(')').critical_with_no_message())
@@ -310,7 +310,7 @@ pub fn program(
                             .clone()
                             .map(Box::new)
                             .spanned()
-                            .map(RuntimeEaten::Parsed)
+                            .map(RuntimeEaten::from)
                             .critical("expected a type"),
                     )
                     .then_ignore(ms)
@@ -508,7 +508,7 @@ pub fn program(
                 .ignore_then(fn_arg))
             .separated_by(char(',').padded_by(msnl))
             .spanned()
-            .map(RuntimeEaten::Parsed)
+            .map(RuntimeEaten::from)
             .map(|args| FnSignature {
                 args,
                 ret_type: None,
@@ -1561,7 +1561,7 @@ pub fn program(
                 let on_type = signature
                     .data
                     .args
-                    .data()
+                    .data
                     .first()
                     .and_then(|first_arg| match first_arg {
                         FnArg::Positional(arg) => {
@@ -1571,9 +1571,9 @@ pub fn program(
                                 typ,
                             } = arg;
 
-                            let name_at = name.at().parsed_range().unwrap();
+                            let name_at = name.at.parsed_range().unwrap();
 
-                            if name.data() != "self" {
+                            if name.data != "self" {
                                 None
                             } else if *is_optional {
                                 Some(Err(ParsingError::custom(name_at, "").criticalize(
@@ -1581,10 +1581,7 @@ pub fn program(
                                 )))
                             } else {
                                 Some(match typ {
-                                    Some(typ) => match typ {
-                                        RuntimeEaten::Parsed(parsed) => Ok(parsed.clone()),
-                                        RuntimeEaten::Internal(_, _) => unreachable!(),
-                                    },
+                                    Some(typ) => Ok(typ.data.clone()),
 
                                     None => Err(ParsingError::custom(name_at, "")
                                         .criticalize("'self' argument must have a specified type")),

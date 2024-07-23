@@ -578,19 +578,9 @@ pub enum FnCallArg {
 
 /// A token that's either eaten from a real input or generated at runtime
 #[derive(Debug, Clone, Copy, Hash)]
-pub enum RuntimeEaten<T> {
-    Parsed(Eaten<T>),
-    Internal(T, &'static str),
-}
-
-impl<T> RuntimeEaten<T> {
-    /// Build a RuntimeEaten element from a RuntimeCodeRange location and a value
-    pub fn new(at: RuntimeCodeRange, data: T) -> Self {
-        match at {
-            RuntimeCodeRange::Parsed(at) => Self::Parsed(Eaten::ate(at, data)),
-            RuntimeCodeRange::Internal(at) => Self::Internal(data, at),
-        }
-    }
+pub struct RuntimeEaten<T> {
+    pub at: RuntimeCodeRange,
+    pub data: T,
 }
 
 /// Either a [`CodeRange`] or an internal location
