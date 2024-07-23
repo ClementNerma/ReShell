@@ -106,7 +106,7 @@ pub fn call_fn_value(
                         decl_scope_id: body.data.scope_id,
                         is_mut: false,
                         enforced_type: None,
-                        value: GcCell::new(LocatedValue::new(value, arg_value_at)),
+                        value: GcCell::new(LocatedValue::new(arg_value_at, value)),
                     },
                 );
             }
@@ -701,8 +701,8 @@ fn flatten_fn_call_args(
                 match &parsed.data {
                     FnCallArg::Expr(expr) => {
                         out.push(SingleCmdArgResult::Basic(LocatedValue::new(
-                            eval_expr(&expr.data, ctx)?,
                             RuntimeCodeRange::Parsed(expr.at),
+                            eval_expr(&expr.data, ctx)?,
                         )))
                     }
 
@@ -711,8 +711,8 @@ fn flatten_fn_call_args(
                             name: RuntimeEaten::from(name.clone()),
                             value: Some(FlagArgValueResult {
                                 value: LocatedValue::new(
-                                    eval_expr(&value.data, ctx)?,
                                     RuntimeCodeRange::Parsed(value.at),
+                                    eval_expr(&value.data, ctx)?,
                                 ),
                                 value_sep: FlagValueSeparator::Equal,
                             }),

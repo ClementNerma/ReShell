@@ -37,7 +37,7 @@ fn run() -> Runner {
              ..
          },
          ctx| {
-            let reduce_fn = LocatedValue::new(RuntimeValue::Function(reduce_fn), reduce_fn_at);
+            let reduce_fn = LocatedValue::new(reduce_fn_at, RuntimeValue::Function(reduce_fn));
 
             let list = list.read(reduce_fn_at);
 

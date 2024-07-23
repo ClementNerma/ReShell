@@ -38,7 +38,7 @@ fn run() -> Runner {
          },
          ctx| {
             let transform_fn =
-                LocatedValue::new(RuntimeValue::Function(transform_fn), transform_fn_at);
+                LocatedValue::new(transform_fn_at, RuntimeValue::Function(transform_fn));
 
             let value = call_fn_checked(
                 &transform_fn,

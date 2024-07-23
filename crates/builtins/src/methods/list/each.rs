@@ -35,7 +35,7 @@ fn run() -> Runner {
          },
          ctx| {
             let for_each_fn =
-                LocatedValue::new(RuntimeValue::Function(for_each_fn), for_each_fn_at);
+                LocatedValue::new(for_each_fn_at, RuntimeValue::Function(for_each_fn));
 
             for value in list.read(list_at).iter() {
                 call_fn_checked(

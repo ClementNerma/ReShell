@@ -302,8 +302,7 @@ pub struct LocatedValue {
 
 impl LocatedValue {
     /// Create a located value
-    /// TODO: invert arguments to reduce confusion
-    pub fn new(value: RuntimeValue, from: RuntimeCodeRange) -> Self {
+    pub fn new(from: RuntimeCodeRange, value: RuntimeValue) -> Self {
         Self { value, from }
     }
 }

@@ -271,7 +271,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
 
     for chaining in chainings {
         left_val =
-            eval_expr_inner_chaining(&chaining.data, LocatedValue::new(left_val, left_at), ctx)?;
+            eval_expr_inner_chaining(&chaining.data, LocatedValue::new(left_at, left_val), ctx)?;
 
         // TODO: update location (left_at)
     }
@@ -330,7 +330,7 @@ fn eval_expr_inner_content(
             for chaining in right_chainings {
                 right_val = eval_expr_inner_chaining(
                     &chaining.data,
-                    LocatedValue::new(right_val, right_at),
+                    LocatedValue::new(right_at, right_val),
                     ctx,
                 )?;
 
@@ -470,7 +470,7 @@ fn eval_expr_inner_content(
                         decl_scope_id: *catch_expr_scope_id,
                         is_mut: false,
                         enforced_type: None,
-                        value: GcCell::new(LocatedValue::new(RuntimeValue::String(message), at)),
+                        value: GcCell::new(LocatedValue::new(at, RuntimeValue::String(message))),
                     },
                 );
 

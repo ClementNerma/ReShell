@@ -35,7 +35,7 @@ fn run() -> Runner {
              mapper: mapper_at, ..
          },
          ctx| {
-            let mapper = LocatedValue::new(RuntimeValue::Function(mapper), mapper_at);
+            let mapper = LocatedValue::new(mapper_at, RuntimeValue::Function(mapper));
 
             let mapped = list
                 .read(mapper_at)

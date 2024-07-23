@@ -13,7 +13,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { value }, args_at, _| {
         Ok(Some(RuntimeValue::CmdArg(Box::new(CmdArgValue::Basic(
-            LocatedValue::new(value, args_at.value),
+            LocatedValue::new(args_at.value, value),
         )))))
     })
 }

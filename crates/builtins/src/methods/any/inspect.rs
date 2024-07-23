@@ -34,7 +34,7 @@ fn run() -> Runner {
              ..
          },
          ctx| {
-            let inspect_fn = LocatedValue::new(RuntimeValue::Function(inspect_fn), inspect_fn_at);
+            let inspect_fn = LocatedValue::new(inspect_fn_at, RuntimeValue::Function(inspect_fn));
 
             call_fn_checked(
                 &inspect_fn,

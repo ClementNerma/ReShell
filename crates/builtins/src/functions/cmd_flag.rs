@@ -26,7 +26,7 @@ fn run() -> Runner {
                     })?,
                 },
                 value: value.map(|value| FlagArgValueResult {
-                    value: LocatedValue::new(value, args_at.value.unwrap()),
+                    value: LocatedValue::new(args_at.value.unwrap(), value),
                     value_sep: FlagValueSeparator::Equal,
                 }),
             },

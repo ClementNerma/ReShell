@@ -409,8 +409,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                                 is_mut: false,
                                 enforced_type: None,
                                 value: GcCell::new(LocatedValue::new(
-                                    item.clone(),
                                     RuntimeCodeRange::Parsed(iter_var.at),
+                                    item.clone(),
                                 )),
                             },
                         );
@@ -477,8 +477,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         is_mut: false,
                         enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
-                            RuntimeValue::Int(num),
                             RuntimeCodeRange::Parsed(iter_var.at),
+                            RuntimeValue::Int(num),
                         )),
                     },
                 );
@@ -529,8 +529,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         is_mut: false,
                         enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
-                            RuntimeValue::String(key.clone()),
                             RuntimeCodeRange::Parsed(key_iter_var.at),
+                            RuntimeValue::String(key.clone()),
                         )),
                     },
                 );
@@ -543,8 +543,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                         is_mut: false,
                         enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
-                            value.clone(),
                             RuntimeCodeRange::Parsed(value_iter_var.at),
+                            value.clone(),
                         )),
                     },
                 );
@@ -698,8 +698,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             expr.as_ref()
                 .map(|expr| {
                     Ok::<_, Box<ExecError>>(LocatedValue::new(
-                        eval_expr(&expr.data, ctx)?,
                         RuntimeCodeRange::Parsed(expr.at),
+                        eval_expr(&expr.data, ctx)?,
                     ))
                 })
                 .transpose()?,
@@ -737,8 +737,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             catch_body,
         } => match eval_expr(&try_expr.data, ctx) {
             Ok(result) => Some(InstrRet::WanderingValue(LocatedValue::new(
-                result,
                 RuntimeCodeRange::Parsed(try_expr.at),
+                result,
             ))),
 
             Err(err) => match err.nature {
@@ -753,8 +753,8 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
                             is_mut: false,
                             enforced_type: None,
                             value: GcCell::new(LocatedValue::new(
-                                RuntimeValue::String(message),
                                 at,
+                                RuntimeValue::String(message),
                             )),
                         },
                     );
@@ -1002,7 +1002,7 @@ fn declare_var(
             decl_scope_id,
             enforced_type: enforced_type.clone(),
             is_mut: is_mut.is_some(),
-            value: GcCell::new(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at))),
+            value: GcCell::new(LocatedValue::new(RuntimeCodeRange::Parsed(value_at), value)),
         },
     );
 

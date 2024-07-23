@@ -65,7 +65,7 @@ pub fn run_cmd(
 
             (
                 None,
-                Some(LocatedValue::new(value, RuntimeCodeRange::Parsed(expr.at))),
+                Some(LocatedValue::new(RuntimeCodeRange::Parsed(expr.at), value)),
             )
         }
 
@@ -199,8 +199,8 @@ pub fn run_cmd(
                         .unwrap();
 
                         Some(LocatedValue::new(
-                            RuntimeValue::String(captured),
                             RuntimeCodeRange::Parsed(from),
+                            RuntimeValue::String(captured),
                         ))
                     }
 
@@ -749,8 +749,8 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                             )
                             .map(|str| {
                                 SingleCmdArgResult::Basic(LocatedValue::new(
-                                    RuntimeValue::String(str),
                                     RuntimeCodeRange::Parsed(spread.at),
+                                    RuntimeValue::String(str),
                                 ))
                             }),
                         })
@@ -827,7 +827,7 @@ fn eval_cmd_value_making_arg(
         }
     };
 
-    Ok(LocatedValue::new(value, RuntimeCodeRange::Parsed(value_at)))
+    Ok(LocatedValue::new(RuntimeCodeRange::Parsed(value_at), value))
 }
 
 pub fn eval_cmd_raw_string(value: &Eaten<CmdRawString>, ctx: &mut Context) -> ExecResult<String> {

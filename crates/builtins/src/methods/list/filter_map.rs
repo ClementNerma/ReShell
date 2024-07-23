@@ -39,7 +39,7 @@ fn run() -> Runner {
              filter: filter_at,
          },
          ctx| {
-            let filter = LocatedValue::new(RuntimeValue::Function(filter), filter_at);
+            let filter = LocatedValue::new(filter_at, RuntimeValue::Function(filter));
 
             let mut filtered = vec![];
 

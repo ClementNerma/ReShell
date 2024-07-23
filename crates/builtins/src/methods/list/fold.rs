@@ -42,7 +42,7 @@ fn run() -> Runner {
              ..
          },
          ctx| {
-            let fold_fn = LocatedValue::new(RuntimeValue::Function(fold_fn), fold_fn_at);
+            let fold_fn = LocatedValue::new(fold_fn_at, RuntimeValue::Function(fold_fn));
 
             let list = list.read(fold_fn_at);
 

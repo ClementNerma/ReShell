@@ -55,8 +55,8 @@ pub fn call_fn_checked(
             args.into_iter()
                 .map(|arg| {
                     CmdArgResult::Single(SingleCmdArgResult::Basic(LocatedValue::new(
-                        arg,
                         loc_val.from,
+                        arg,
                     )))
                 })
                 .collect(),

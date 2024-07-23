@@ -147,8 +147,8 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                             )),
                         },
                         value: GcCell::new(LocatedValue::new(
-                            init_value,
                             internal_runtime_eaten(()).at,
+                            init_value,
                         )),
                     },
                 )
