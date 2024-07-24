@@ -17,7 +17,7 @@ use crate::{
         ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
         FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
         FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
+        Instruction, Lambda, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
         PropAccess, PropAccessNature, RangeBound, RuntimeEaten, SingleCmdCall, SingleOp,
         SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
         ValueType, VarDeconstruction,
@@ -489,35 +489,28 @@ pub fn program(
             .then_ignore(char('"').critical_with_no_message())
             .map(|pieces| ComputedString { pieces });
 
-    // Single-parameter lambdas
-    let single_param_lambda = just("{{")
+    // Lambda
+    let lambda = char('{')
         .ignore_then(msnl)
         .ignore_then(
-            raw_block
-                .clone()
-                .critical("expected a body for the lambda")
-                .spanned(),
+            char('|')
+                .ignore_then(msnl)
+                .ignore_then(
+                    fn_arg
+                        .separated_by(char(',').padded_by(msnl))
+                        .spanned()
+                        .map(RuntimeEaten::from)
+                        .map(|args| FnSignature {
+                            args,
+                            ret_type: None,
+                        })
+                        .spanned(),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('|').critical_with_no_message())
+                .then_ignore(msnl)
+                .or_not(),
         )
-        .then_ignore(msnl)
-        .then_ignore(just("}}"));
-
-    let lambda = char('{')
-        .ignore_then(ms)
-        .ignore_then(
-            (not(just("->")) // to avoid parsing short flag with '>' name
-                .ignore_then(fn_arg))
-            .separated_by(char(',').padded_by(msnl))
-            .spanned()
-            .map(RuntimeEaten::from)
-            .map(|args| FnSignature {
-                args,
-                ret_type: None,
-            })
-            .spanned(),
-        )
-        .then_ignore(ms)
-        .then_ignore(just("->").critical_with_no_message())
-        .then_ignore(ms)
         .then(
             raw_block
                 .clone()
@@ -526,7 +519,10 @@ pub fn program(
         )
         .then_ignore(ms)
         .then_ignore(char('}').critical_with_no_message())
-        .map(|(signature, body)| Function { signature, body });
+        .map(|(signature, body)| match signature {
+            Some(signature) => Lambda::ExplicitParams(Function { signature, body }),
+            None => Lambda::ImplicitSingleParam(body),
+        });
 
     let inline_cmd = just("@(")
         .ignore_then(msnl)
@@ -593,8 +589,6 @@ pub fn program(
             .ignore_then(ident.critical("expected a function name"))
             .spanned()
             .map(Value::FnAsValue),
-        // Single-parameter lambdas
-        single_param_lambda.clone().map(Value::SingleParamLambda),
         // Lambdas
         lambda.clone().map(Value::Lambda),
     ));
@@ -1020,10 +1014,6 @@ pub fn program(
             .map(CmdValueMakingArg::ParenExpr),
         // Inline command call
         inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
-        // Single-parameter lambdas
-        single_param_lambda
-            .clone()
-            .map(CmdValueMakingArg::SingleParamLambda),
         // Lambdas
         lambda.clone().spanned().map(CmdValueMakingArg::Lambda),
         // Raw argument (but not flags, which aren't value making arguments)

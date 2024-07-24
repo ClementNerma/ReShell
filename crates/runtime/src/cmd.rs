@@ -17,10 +17,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
-    expr::{
-        eval_computed_string, eval_expr, eval_literal_value, lambda_to_value,
-        single_param_lambda_to_value,
-    },
+    expr::{eval_computed_string, eval_expr, eval_literal_value, lambda_to_value},
     functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     values::{
@@ -798,10 +795,6 @@ fn eval_cmd_value_making_arg(
         CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
 
         CmdValueMakingArg::Lambda(func) => (func.at, lambda_to_value(&func.data, ctx)),
-
-        CmdValueMakingArg::SingleParamLambda(body) => {
-            (body.at, single_param_lambda_to_value(body, ctx))
-        }
 
         CmdValueMakingArg::InlineCmdCall(call) => (
             call.at,

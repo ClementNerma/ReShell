@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    Block, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr,
-    ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature,
-    Function, LiteralValue, MatchExprCase, PropAccess, RangeBound, RuntimeCodeRange, RuntimeEaten,
+    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
+    ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature, Function,
+    Lambda, LiteralValue, MatchExprCase, PropAccess, RangeBound, RuntimeCodeRange, RuntimeEaten,
     SingleOp, TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -577,8 +577,6 @@ fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValu
         },
 
         Value::Lambda(func) => lambda_to_value(func, ctx),
-
-        Value::SingleParamLambda(body) => single_param_lambda_to_value(body, ctx),
     };
 
     Ok(value)
@@ -650,39 +648,37 @@ fn eval_computed_string_piece(
     }
 }
 
-pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
-    let Function { signature, body } = &lambda;
+pub fn lambda_to_value(lambda: &Lambda, ctx: &mut Context) -> RuntimeValue {
+    let (body, signature) = match lambda {
+        Lambda::ExplicitParams(func) => {
+            let Function { signature, body } = &func;
+
+            (
+                body,
+                RuntimeFnSignature::Shared(ctx.get_fn_signature(signature)),
+            )
+        }
+
+        Lambda::ImplicitSingleParam(body) => (
+            body,
+            RuntimeFnSignature::Owned(FnSignature {
+                args: RuntimeEaten::from(Eaten::ate(
+                    body.at,
+                    vec![FnArg::Positional(FnPositionalArg {
+                        name: RuntimeEaten::internal("single-parameter lambda", "it".to_owned()),
+                        is_optional: false,
+                        typ: None,
+                    })],
+                )),
+                ret_type: None,
+            }),
+        ),
+    };
 
     RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
         is_method: false,
-
-        signature: RuntimeFnSignature::Shared(ctx.get_fn_signature(signature)),
-
+        signature,
         body: RuntimeFnBody::Block(ctx.get_fn_body(body)),
-
-        parent_scopes: ctx.generate_parent_scopes_list(),
-        captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
-    }))
-}
-
-pub fn single_param_lambda_to_value(body: &Eaten<Block>, ctx: &mut Context) -> RuntimeValue {
-    RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
-        is_method: false,
-
-        signature: RuntimeFnSignature::Owned(FnSignature {
-            args: RuntimeEaten::from(Eaten::ate(
-                body.at,
-                vec![FnArg::Positional(FnPositionalArg {
-                    name: RuntimeEaten::internal("single-parameter lambda", "it".to_owned()),
-                    is_optional: false,
-                    typ: None,
-                })],
-            )),
-            ret_type: None,
-        }),
-
-        body: RuntimeFnBody::Block(ctx.get_fn_body(body)),
-
         parent_scopes: ctx.generate_parent_scopes_list(),
         captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
     }))

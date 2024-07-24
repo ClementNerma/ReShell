@@ -26,7 +26,7 @@ use reshell_parser::{
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
         ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
+        FnSignature, Function, Instruction, Lambda, LiteralValue, MapDestructBinding, MatchCase,
         MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
         SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
         TypeMatchExprCase, Value, ValueType, VarDeconstruction,
@@ -900,9 +900,7 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
             Ok(())
         }
 
-        Value::Lambda(func) => check_function(func, state),
-
-        Value::SingleParamLambda(body) => check_single_param_lambda(body, state),
+        Value::Lambda(lambda) => check_lambda(lambda, state),
     }
 }
 
@@ -1205,9 +1203,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::CmdRawString(cc_str) => check_cmd_raw_string(&cc_str.data, state),
 
-        CmdValueMakingArg::Lambda(func) => check_function(&func.data, state),
-
-        CmdValueMakingArg::SingleParamLambda(body) => check_single_param_lambda(body, state),
+        CmdValueMakingArg::Lambda(lambda) => check_lambda(&lambda.data, state),
     }
 }
 
@@ -1224,6 +1220,13 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
     }
 
     Ok(())
+}
+
+fn check_lambda(lambda: &Lambda, state: &mut State) -> CheckerResult {
+    match lambda {
+        Lambda::ExplicitParams(func) => check_function(func, state),
+        Lambda::ImplicitSingleParam(body) => check_single_param_lambda(body, state),
+    }
 }
 
 fn check_single_param_lambda(body: &Eaten<Block>, state: &mut State) -> CheckerResult {
