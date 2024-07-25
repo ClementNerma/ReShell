@@ -12,17 +12,17 @@ indexmap = "2.2.6"
 indicatif = "0.17.8"
 parsy = "0.7.1"
 pomsky = "0.11.0"
-regex = "1.10.4"
+regex = "1.10.5"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
 reshell-checker = { path = "../checker" }
-serde_json = "1.0.117"
+serde_json = "1.0.120"
 terminal_size = "0.3.0"
 time = { version = "0.3.36", features = [
     "formatting",
     "parsing",
     "local-offset",
 ] }
-toml = "0.8.13"
+toml = "0.8.16"
 reshell-shared = { version = "0.1.0", path = "../shared" }
 rand = { version = "0.8.5" }
