@@ -228,11 +228,11 @@ pub(crate) fn run_body_with_deps(
         call_stack_entry,
     );
 
-    let result = run_block_in_current_scope(&body.data, ctx)?;
+    let result = run_block_in_current_scope(&body.data, ctx);
 
     ctx.pop_scope();
 
-    Ok(result)
+    result
 }
 
 fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
