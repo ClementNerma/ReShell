@@ -552,7 +552,9 @@ pub fn program(
             .then_ignore(msnl)
             .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
             .map(Value::List),
-        just("struct {")
+        just("struct")
+            .ignore_then(msnl)
+            .ignore_then(char('{'))
             .ignore_then(msnl)
             .ignore_then(
                 ident
@@ -564,7 +566,7 @@ pub fn program(
                     .separated_by(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
-            .then_ignore(char('}'))
+            .then_ignore(char('}').critical_with_no_message())
             .map(|members| {
                 Value::Struct(
                     members
