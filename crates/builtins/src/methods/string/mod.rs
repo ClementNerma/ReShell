@@ -7,6 +7,7 @@ pub mod len;
 pub mod lines;
 pub mod parse_float;
 pub mod parse_int;
+pub mod repeat;
 pub mod replace;
 pub mod reverse;
 pub mod split;
