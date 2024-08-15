@@ -411,6 +411,8 @@ pub struct CmdCall {
 }
 
 #[derive(Debug, Clone)]
+// The 'Expr' variant is rare enough to not cause a problem with enum size variants difference
+#[allow(clippy::large_enum_variant)]
 pub enum CmdCallBase {
     Expr(Eaten<Box<Expr>>),
     SingleCmdCall(Eaten<SingleCmdCall>),
