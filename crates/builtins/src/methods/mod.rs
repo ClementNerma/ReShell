@@ -69,6 +69,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::reduce::build_fn(),
         self::list::remove_at::build_fn(),
         self::list::reversed::build_fn(),
+        self::list::shuffled::build_fn(),
         self::list::slice::build_fn(),
         self::list::sorted::build_fn(),
         //

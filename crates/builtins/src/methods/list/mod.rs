@@ -16,5 +16,6 @@ pub mod prepend;
 pub mod reduce;
 pub mod remove_at;
 pub mod reversed;
+pub mod shuffled;
 pub mod slice;
 pub mod sorted;
