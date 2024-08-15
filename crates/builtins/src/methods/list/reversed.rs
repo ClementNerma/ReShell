@@ -15,9 +15,8 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { list }, ArgsAt { list: list_at }, _| {
-        let mut items = list.read(list_at).clone();
-
+    Runner::new(|_, Args { list }, _, _| {
+        let mut items = list.read_promise_no_write().clone();
         items.reverse();
 
         Ok(Some(RuntimeValue::List(GcCell::new(items))))
