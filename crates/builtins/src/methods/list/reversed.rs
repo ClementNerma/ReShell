@@ -2,10 +2,10 @@ use reshell_runtime::gc::GcCell;
 
 crate::define_internal_fn!(
     //
-    // reverse a list's order
+    // reverse a list's items' order into a new list
     //
 
-    "reverse",
+    "reversed",
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self()

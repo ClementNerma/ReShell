@@ -3,7 +3,10 @@ use std::cmp::Ordering;
 use reshell_runtime::gc::GcCell;
 
 crate::define_internal_fn!(
-    "sort",
+    //
+    // sort a list's items into a new list
+    //
+    "sorted",
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self()
