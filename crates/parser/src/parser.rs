@@ -79,107 +79,101 @@ pub fn program(
 
     let fn_signature = late::<FnSignature>();
 
-    let value_type = late::<ValueType>();
+    let value_type = recursive::<ValueType, _>(|value_type| {
+        let single_value_type = choice::<_, SingleValueType>((
+            just("any")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Any),
+            just("null")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Null),
+            just("bool")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Bool),
+            just("int")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Int),
+            just("float")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Float),
+            just("string")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::String),
+            just("error")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Error),
+            just("cmdcall")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::CmdCall),
+            just("fn")
+                .ignore_then(fn_signature.clone())
+                .spanned()
+                .map(RuntimeEaten::from)
+                .map(SingleValueType::Function),
+            just("list[")
+                .ignore_then(value_type.clone().map(Box::new))
+                .then_ignore(char(']').critical_with_no_message())
+                .map(SingleValueType::TypedList),
+            just("list")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::UntypedList),
+            just("map[")
+                .ignore_then(value_type.clone().map(Box::new))
+                .then_ignore(char(']').critical_with_no_message())
+                .map(SingleValueType::TypedMap),
+            just("map")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::UntypedMap),
+            just("struct")
+                .ignore_then(ms)
+                .ignore_then(char('{'))
+                .ignore_then(msnl)
+                .ignore_then(
+                    ident
+                        .spanned()
+                        .map(RuntimeEaten::from)
+                        .then_ignore(ms)
+                        .then_ignore(char(':').critical_with_no_message())
+                        .then_ignore(msnl)
+                        .then(
+                            value_type
+                                .clone()
+                                .spanned()
+                                .map(RuntimeEaten::from)
+                                .critical("expected a value type"),
+                        )
+                        .map(|(name, typ)| StructTypeMember { name, typ })
+                        .spanned()
+                        .map(RuntimeEaten::from)
+                        .separated_by(char(',').padded_by(msnl)),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('}').critical_with_no_message())
+                .map(SingleValueType::TypedStruct),
+            just("struct")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::UntypedStruct),
+            ident.spanned().map(SingleValueType::TypeAlias),
+        ));
 
-    let single_value_type = choice::<_, SingleValueType>((
-        just("any")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::Any),
-        just("null")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::Null),
-        just("bool")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::Bool),
-        just("int")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::Int),
-        just("float")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::Float),
-        just("string")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::String),
-        just("error")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::Error),
-        just("cmdcall")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::CmdCall),
-        just("fn")
-            .ignore_then(fn_signature.clone())
-            .spanned()
-            .map(RuntimeEaten::from)
-            .map(SingleValueType::Function),
-        just("list[")
-            .ignore_then(value_type.clone().map(Box::new))
-            .then_ignore(char(']').critical_with_no_message())
-            .map(SingleValueType::TypedList),
-        just("list")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::UntypedList),
-        just("map[")
-            .ignore_then(value_type.clone().map(Box::new))
-            .then_ignore(char(']').critical_with_no_message())
-            .map(SingleValueType::TypedMap),
-        just("map")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::UntypedMap),
-        just("struct")
-            .ignore_then(ms)
-            .ignore_then(char('{'))
-            .ignore_then(msnl)
-            .ignore_then(
-                ident
-                    .spanned()
-                    .map(RuntimeEaten::from)
-                    .then_ignore(ms)
-                    .then_ignore(char(':').critical_with_no_message())
-                    .then_ignore(msnl)
-                    .then(
-                        value_type
-                            .clone()
-                            .spanned()
-                            .map(RuntimeEaten::from)
-                            .critical("expected a value type"),
-                    )
-                    .map(|(name, typ)| StructTypeMember { name, typ })
-                    .spanned()
-                    .map(RuntimeEaten::from)
-                    .separated_by(char(',').padded_by(msnl)),
-            )
-            .then_ignore(msnl)
-            .then_ignore(char('}').critical_with_no_message())
-            .map(SingleValueType::TypedStruct),
-        just("struct")
-            .not_followed_by(possible_ident_char)
-            .map(|_| SingleValueType::UntypedStruct),
-        ident.spanned().map(SingleValueType::TypeAlias),
-    ));
+        let mapped_single_value_type = single_value_type.spanned().map(RuntimeEaten::from);
 
-    value_type.finish(choice((
-        // Single type
-        single_value_type
-            .clone()
-            .spanned()
-            .map(RuntimeEaten::from)
-            .map(ValueType::Single),
-        // Type union
-        char('(')
-            .ignore_then(msnl)
-            .ignore_then(
-                single_value_type
-                    .clone()
-                    .spanned()
-                    .map(RuntimeEaten::from)
-                    .separated_by(char('|').padded_by(msnl))
-                    .at_least(2)
-                    .critical("expected at least 2 types in union"),
-            )
-            .then_ignore(msnl)
-            .then_ignore(char(')').critical("expected a closing parenthesis for type union"))
-            .map(ValueType::Union),
-    )));
+        choice((
+            // Union type
+            char('(')
+                .ignore_then(
+                    mapped_single_value_type
+                        .clone()
+                        .separated_by(char('|').padded_by(msnl))
+                        .at_least(1)
+                        .critical("expected a type union"),
+                )
+                .then_ignore(char(')').critical_with_no_message())
+                .map(ValueType::Union),
+            // Single type
+            mapped_single_value_type.map(ValueType::Single),
+        ))
+    });
 
     let fn_arg_long_flag = just("--")
         .ignore_then(
@@ -489,7 +483,6 @@ pub fn program(
             .then_ignore(char('"').critical_with_no_message())
             .map(|pieces| ComputedString { pieces });
 
-    // Lambda
     let lambda = char('{')
         .ignore_then(msnl)
         .ignore_then(
