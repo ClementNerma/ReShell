@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use parsy::Eaten;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnPositionalArg, FnSignature, Function,
-    Lambda, LiteralValue, MatchExprCase, PropAccess, RangeBound, RuntimeCodeRange, RuntimeEaten,
-    SingleOp, TypeMatchExprCase, Value,
+    ExprInnerChaining, ExprInnerContent, ExprOp, Function, LiteralValue, MatchExprCase, PropAccess,
+    RangeBound, RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -648,32 +647,10 @@ fn eval_computed_string_piece(
     }
 }
 
-pub fn lambda_to_value(lambda: &Lambda, ctx: &mut Context) -> RuntimeValue {
-    let (body, signature) = match lambda {
-        Lambda::ExplicitParams(func) => {
-            let Function { signature, body } = &func;
+pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
+    let Function { signature, body } = &lambda;
 
-            (
-                body,
-                RuntimeFnSignature::Shared(ctx.get_fn_signature(signature)),
-            )
-        }
-
-        Lambda::ImplicitSingleParam(body) => (
-            body,
-            RuntimeFnSignature::Owned(FnSignature {
-                args: RuntimeEaten::from(Eaten::ate(
-                    body.at,
-                    vec![FnArg::Positional(FnPositionalArg {
-                        name: RuntimeEaten::internal("single-parameter lambda", "it".to_owned()),
-                        is_optional: false,
-                        typ: None,
-                    })],
-                )),
-                ret_type: None,
-            }),
-        ),
-    };
+    let signature = RuntimeFnSignature::Shared(ctx.get_fn_signature(signature));
 
     RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
         is_method: false,

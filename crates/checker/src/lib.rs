@@ -26,7 +26,7 @@ use reshell_parser::{
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
         ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, Lambda, LiteralValue, MapDestructBinding, MatchCase,
+        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
         MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
         SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
         TypeMatchExprCase, Value, ValueType, VarDeconstruction,
@@ -900,7 +900,7 @@ fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
             Ok(())
         }
 
-        Value::Lambda(lambda) => check_lambda(lambda, state),
+        Value::Lambda(lambda) => check_function(lambda, state),
     }
 }
 
@@ -1203,7 +1203,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
 
         CmdValueMakingArg::CmdRawString(cc_str) => check_cmd_raw_string(&cc_str.data, state),
 
-        CmdValueMakingArg::Lambda(lambda) => check_lambda(&lambda.data, state),
+        CmdValueMakingArg::Lambda(lambda) => check_function(&lambda.data, state),
     }
 }
 
@@ -1220,33 +1220,6 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
     }
 
     Ok(())
-}
-
-fn check_lambda(lambda: &Lambda, state: &mut State) -> CheckerResult {
-    match lambda {
-        Lambda::ExplicitParams(func) => check_function(func, state),
-        Lambda::ImplicitSingleParam(body) => check_single_param_lambda(body, state),
-    }
-}
-
-fn check_single_param_lambda(body: &Eaten<Block>, state: &mut State) -> CheckerResult {
-    state.register_function_body(body.clone());
-
-    state.prepare_deps(body.data.scope_id);
-
-    let fill_scope = |scope: &mut CheckerScope| {
-        scope.special_scope_type = Some(SpecialScopeType::Function);
-        scope.vars.insert(
-            "it".to_owned(),
-            DeclaredVar {
-                decl_at: RuntimeCodeRange::Parsed(body.at),
-                scope_id: body.data.scope_id,
-                is_mut: false,
-            },
-        );
-    };
-
-    check_block_with(body, state, fill_scope)
 }
 
 fn check_function(func: &Function, state: &mut State) -> CheckerResult {

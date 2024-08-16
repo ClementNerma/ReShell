@@ -29,7 +29,7 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
         [0].into_iter().chain(nesting_actions.iter().filter_map(
             |action| match action.action_type {
                 NestingActionType::Opening {
-                    typ: NestingOpeningType::CmdOutput | NestingOpeningType::SingleArgLambda,
+                    typ: NestingOpeningType::CmdOutput | NestingOpeningType::Lambda,
                     matching_close: _,
                 }
                 | NestingActionType::CommandSeparator => Some(action.nesting_level),

@@ -81,19 +81,6 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
         Rule::Simple(rule)
     }
 
-    /// Create a simple rule that must be surrounded by two given patterns
-    fn simple_nested_and_followed_by<S: Into<Style> + Copy>(
-        nesting_type: NestingOpeningType,
-        regex: &'static str,
-        colors: impl AsRef<[S]>,
-        followed_by: &'static str,
-    ) -> Rule {
-        let mut rule = simple_rule(regex, colors);
-        rule.inside = Some(HashSet::from([nesting_type]));
-        rule.followed_by = Some(Regex::new(followed_by).unwrap());
-        Rule::Simple(rule)
-    }
-
     /// Create a simple rule that must be followed by a specific nesting type
     fn simple_followed_by_nesting<S: Into<Style> + Copy>(
         regex: &'static str,
@@ -184,9 +171,6 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
 
                 // Escaped arguments
                 simple_preceded_by("(\\\\\\n)\\s+$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Green]),
-
-                // Lambdas
-                simple_nested_and_followed_by(NestingOpeningType::Block, "([a-zA-Z0-9_,\\s]+)", [Red], "->"),
 
                 // Method names
                 Rule::Simple(SimpleRule {
@@ -352,7 +336,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 ]
             }),
 
-            (NestingOpeningType::SingleArgLambda, NestedContentRules {
+            (NestingOpeningType::Lambda, NestedContentRules {
                 opening_style: Style::new().fg(LightBlue),
                 closing_style: Style::new().fg(LightBlue),
                 rules: vec![

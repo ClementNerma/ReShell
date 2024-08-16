@@ -17,7 +17,7 @@ use crate::{
         ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
         FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
         FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, Lambda, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
+        Instruction, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
         PropAccess, PropAccessNature, RangeBound, RuntimeEaten, SingleCmdCall, SingleOp,
         SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
         ValueType, VarDeconstruction,
@@ -485,25 +485,22 @@ pub fn program(
 
     let lambda = char('{')
         .ignore_then(msnl)
+        .ignore_then(char('|'))
+        .ignore_then(msnl)
         .ignore_then(
-            char('|')
-                .ignore_then(msnl)
-                .ignore_then(
-                    fn_arg
-                        .separated_by(char(',').padded_by(msnl))
-                        .spanned()
-                        .map(RuntimeEaten::from)
-                        .map(|args| FnSignature {
-                            args,
-                            ret_type: None,
-                        })
-                        .spanned(),
-                )
-                .then_ignore(msnl)
-                .then_ignore(char('|').critical_with_no_message())
-                .then_ignore(msnl)
-                .or_not(),
+            fn_arg
+                .separated_by(char(',').padded_by(msnl))
+                .spanned()
+                .map(RuntimeEaten::from)
+                .map(|args| FnSignature {
+                    args,
+                    ret_type: None,
+                })
+                .spanned(),
         )
+        .then_ignore(msnl)
+        .then_ignore(char('|').critical_with_no_message())
+        .then_ignore(msnl)
         .then(
             raw_block
                 .clone()
@@ -512,10 +509,7 @@ pub fn program(
         )
         .then_ignore(ms)
         .then_ignore(char('}').critical_with_no_message())
-        .map(|(signature, body)| match signature {
-            Some(signature) => Lambda::ExplicitParams(Function { signature, body }),
-            None => Lambda::ImplicitSingleParam(body),
-        });
+        .map(|(signature, body)| Function { signature, body });
 
     let inline_cmd = just("@(")
         .ignore_then(msnl)

@@ -296,7 +296,7 @@ pub enum Value {
     CmdOutput(Eaten<CmdCall>),
     CmdCall(Eaten<CmdCall>),
     FnAsValue(Eaten<String>),
-    Lambda(Lambda),
+    Lambda(Function),
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -386,12 +386,6 @@ pub enum ComputedStringPiece {
     CmdCall(Eaten<CmdCall>),
 }
 
-#[derive(Debug, Clone)]
-pub enum Lambda {
-    ExplicitParams(Function),
-    ImplicitSingleParam(Eaten<Block>),
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum EscapableChar {
     Newline,
@@ -474,7 +468,7 @@ pub enum CmdValueMakingArg {
     ParenExpr(Eaten<Expr>),
     CmdRawString(Eaten<CmdRawString>),
     Variable(Eaten<String>),
-    Lambda(Eaten<Lambda>),
+    Lambda(Eaten<Function>),
 }
 
 #[derive(Debug, Clone)]
