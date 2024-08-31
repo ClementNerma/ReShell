@@ -347,7 +347,16 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
             (NestingOpeningType::FnArgs, NestedContentRules {
                 opening_style: Style::new().fg(LightYellow),
                 closing_style: Style::new().fg(LightYellow),
-                rules: vec![]
+                rules: vec![
+                    // Normalized flags
+                    simple_followed_by("((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
+
+                    // Types
+                    simple("\\:\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta]),
+
+                    // Variables
+                    simple("([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                ]
             })
         ]),
 
