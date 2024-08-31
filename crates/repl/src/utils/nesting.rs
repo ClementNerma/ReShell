@@ -17,7 +17,7 @@
 //!
 
 pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<NestingAction> {
-    let mut opened: Vec<(&str, usize)> = vec![];
+    let mut opened: Vec<(NestingOpeningType, usize)> = vec![];
     let mut output: Vec<NestingAction> = vec![];
     let mut closed = vec![];
 
@@ -57,18 +57,21 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
     }
 
     macro_rules! open {
-        ($offset: expr, $opening_str: expr) => {{
+        ($offset: expr, $len: expr, $opening_type: expr) => {{
             register_content_until!($offset);
 
-            opened.push(($opening_str, $offset));
+            opened.push(($opening_type, $offset));
 
-            assert!($offset + $opening_str.len() <= input.len());
+            #[allow(clippy::int_plus_one)]
+            {
+                assert!($offset + $len <= input.len());
+            }
 
             output.push(NestingAction {
                 offset: $offset,
-                len: $opening_str.len(),
+                len: $len,
                 action_type: NestingActionType::Opening {
-                    typ: NestingOpeningType::try_from_str($opening_str).unwrap(),
+                    typ: $opening_type,
                     matching_close: false,
                 },
                 nesting_level: opened.len(),
@@ -78,13 +81,13 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
 
     macro_rules! close {
         ($offset: expr, $len: expr, $opening_offset: expr) => {
-            let (opening_str, _) = opened.pop().unwrap();
+            let (opening_type, _) = opened.pop().unwrap();
 
             push!(
                 $offset,
                 $len,
                 NestingActionType::Closing {
-                    matching_opening: Some(NestingOpeningType::try_from_str(opening_str).unwrap()),
+                    matching_opening: Some(opening_type),
                 }
             );
 
@@ -124,7 +127,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
 
         match opened.last().copied() {
             // We are in a single-quoted string
-            Some(("'", opening_offset)) => {
+            Some((NestingOpeningType::LiteralString, opening_offset)) => {
                 if char == '\\' {
                     escaping = true;
                 } else if char == '\'' {
@@ -134,16 +137,16 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
             }
 
             // We are in a double-quoted string
-            Some(("\"", opening_offset)) => match char {
+            Some((NestingOpeningType::ComputedString, opening_offset)) => match char {
                 '\\' => escaping = true,
 
                 '(' => {
                     if let Some(("$", prev_offset)) = prev_char {
-                        open!(prev_offset, &input[prev_offset..prev_offset + 2])
+                        open!(prev_offset, 2, NestingOpeningType::CmdOutput)
                     }
                 }
 
-                '`' => open!(offset, char_as_str),
+                '`' => open!(offset, 1, NestingOpeningType::ExprInString),
 
                 '"' => {
                     close!(offset, 1, opening_offset);
@@ -153,34 +156,34 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 _ => {}
             },
 
-            // We are not in a single- or double-quoted strnig
+            // We are not in a single- or double-quoted string
             // But we may be in a back-quoted string
             _ => match char {
                 // This case is handled here as almost every single other character will be matched exactly
                 // like in a non-quoted part
                 '`' => {
-                    if let Some(("`", opening_offset)) = opened.last().copied() {
+                    if let Some((NestingOpeningType::ExprInString, opening_offset)) =
+                        opened.last().copied()
+                    {
                         close!(offset, 1, opening_offset);
                     }
-                }
-
-                ';' | '|' if !matches!(opened.last(), Some(("`", _))) => {
-                    push!(offset, 1, NestingActionType::CommandSeparator);
                 }
 
                 '#' => commenting = true,
 
                 '\'' => {
-                    open!(offset, char_as_str);
+                    open!(offset, 1, NestingOpeningType::LiteralString);
                     opened_strings.push((char_as_str, offset));
                 }
 
                 '"' => {
-                    open!(offset, char_as_str);
+                    open!(offset, 1, NestingOpeningType::ComputedString);
                     opened_strings.push((char_as_str, offset));
                 }
 
-                '(' | '[' => open!(offset, char_as_str),
+                '(' => open!(offset, 1, NestingOpeningType::ExprWithParen),
+
+                '[' => open!(offset, 1, NestingOpeningType::List),
 
                 '{' => {
                     let input_after = &input[offset + char.len_utf8()..];
@@ -192,14 +195,40 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                             input_after.chars().take(pos).all(|c| c.is_whitespace())
                         });
 
-                    open!(offset, if is_lambda { "{|" } else { "{" });
+                    if is_lambda {
+                        open!(offset, 1, NestingOpeningType::Lambda);
+                    } else {
+                        open!(offset, 1, NestingOpeningType::Block);
+                    }
                 }
+
+                // TODO: handle union types
+                '|' => match opened.last().copied() {
+                    Some((NestingOpeningType::Lambda, lambda_start))
+                        if input[lambda_start + 1..offset]
+                            .chars()
+                            .all(char::is_whitespace) =>
+                    {
+                        open!(offset, 1, NestingOpeningType::FnArgs);
+                    }
+
+                    Some((NestingOpeningType::FnArgs, args_start)) => {
+                        close!(offset, 1, args_start);
+                    }
+
+                    _ => push!(offset, 1, NestingActionType::CommandSeparator),
+                },
 
                 ')' | ']' | '}' => {
                     if let Some((opening_str, opening_offset)) = opened.last().copied() {
                         if matches!(
                             (opening_str, char),
-                            ("(" | "$(", ')') | ("[", ']') | ("{" | "{|", '}')
+                            (
+                                NestingOpeningType::ExprWithParen
+                                    | NestingOpeningType::ComputedString,
+                                ')'
+                            ) | (NestingOpeningType::List, ']')
+                                | (NestingOpeningType::Block | NestingOpeningType::Lambda, '}')
                         ) {
                             close!(offset, 1, opening_offset);
                             continue;
@@ -215,8 +244,17 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                     );
                 }
 
+                ';' => {
+                    if let Some((NestingOpeningType::ExprInString, _)) = opened.last() {
+                        push!(offset, 1, NestingActionType::CommandSeparator);
+                    }
+                }
+
                 ' ' => {
-                    if matches!(opened.last(), None | Some(("$(", _))) {
+                    if matches!(
+                        opened.last(),
+                        None | Some((NestingOpeningType::ComputedString, _))
+                    ) {
                         push!(offset, 1, NestingActionType::ArgumentSeparator);
                     }
                 }
@@ -282,23 +320,5 @@ pub enum NestingOpeningType {
     ExprInString,
     CmdOutput,
     Lambda,
-}
-
-impl NestingOpeningType {
-    fn try_from_str(str: &str) -> Result<Self, String> {
-        match str {
-            "{" => Ok(NestingOpeningType::Block),
-            "[" => Ok(NestingOpeningType::List),
-            "(" => Ok(NestingOpeningType::ExprWithParen),
-            "'" => Ok(NestingOpeningType::LiteralString),
-            "\"" => Ok(NestingOpeningType::ComputedString),
-            "`" => Ok(NestingOpeningType::ExprInString),
-            "$(" => Ok(NestingOpeningType::CmdOutput),
-            // This one is normalized before calling the method
-            "{|" => Ok(NestingOpeningType::Lambda),
-            _ => Err(format!(
-                "Internal error: unrecognized opening type: >{str}<"
-            )),
-        }
-    }
+    FnArgs, // TODO: opening parenthesis for function declaration
 }

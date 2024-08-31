@@ -342,6 +342,12 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 rules: vec![
                     include_group("commands")
                 ]
+            }),
+
+            (NestingOpeningType::FnArgs, NestedContentRules {
+                opening_style: Style::new().fg(LightYellow),
+                closing_style: Style::new().fg(LightYellow),
+                rules: vec![]
             })
         ]),
 
