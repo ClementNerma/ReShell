@@ -5,7 +5,7 @@ use colored::{Color, ColoredString, Colorize};
 /// It will allow to generate configurable displayable data
 pub trait PrettyPrintable {
     /// Data required for pretty-printing
-    type Context: ?Sized = ();
+    type Context: ?Sized;
 
     /// Generate pretty-printing data for later processing
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece;
