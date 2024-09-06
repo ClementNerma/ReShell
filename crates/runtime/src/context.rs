@@ -34,9 +34,11 @@ pub static NATIVE_LIB_SCOPE_ID: u64 = 0;
 /// Scope ID of the very first user scope (which is the only scope to never be deleted)
 pub static FIRST_SCOPE_ID: u64 = 1;
 
-/// This structure represents the state of the runtime
+/// This structure represents the state of the runtime.
+///
 /// It contains runtime configuration as well as real-time runtime data
-/// It is designed to be reusable in order to run multiple programs in the same base scope
+///
+///  It is designed to be reusable in order to run multiple programs in the same base scope
 /// (e.g. REPL scenario)
 pub struct Context {
     /// Context configuration
