@@ -51,6 +51,8 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         // Lists
         //
+        self::list::any::build_fn(),
+        self::list::all::build_fn(),
         self::list::append::build_fn(),
         self::list::at::build_fn(),
         self::list::concat::build_fn(),
