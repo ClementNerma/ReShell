@@ -169,10 +169,7 @@ pub fn program(
                 .then_ignore(char(')').critical_with_no_message())
                 .map(ValueType::Union),
             // Single type
-            single_value_type
-                .spanned()
-                .map(RuntimeEaten::from)
-                .map(ValueType::Single),
+            single_value_type.map(ValueType::Single),
         ))
     });
 

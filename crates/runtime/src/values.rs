@@ -199,10 +199,7 @@ impl RuntimeValue {
                                 name: RuntimeEaten::internal("type deducer", name.clone()),
                                 typ: RuntimeEaten::internal(
                                     "type deducer",
-                                    ValueType::Single(RuntimeEaten::internal(
-                                        "type deducer",
-                                        value.compute_type(),
-                                    )),
+                                    ValueType::Single(value.compute_type()),
                                 ),
                             },
                         )
@@ -260,16 +257,8 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
     }
 
     match types.len() {
-        0 => ValueType::Single(RuntimeEaten::internal(
-            "internal value type computer",
-            SingleValueType::Any,
-        )),
-
-        1 => ValueType::Single(RuntimeEaten::internal(
-            "internal value type computer",
-            types.remove(0),
-        )),
-
+        0 => ValueType::Single(SingleValueType::Any),
+        1 => ValueType::Single(types.remove(0)),
         _ => ValueType::Union(types),
     }
 }

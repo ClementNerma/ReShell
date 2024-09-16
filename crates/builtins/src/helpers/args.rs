@@ -73,7 +73,7 @@ pub trait Typing {
 
 impl<T: SingleTyping> Typing for T {
     fn underlying_type(&self) -> ValueType {
-        ValueType::Single(internal_runtime_eaten(self.underlying_single_type()))
+        ValueType::Single(self.underlying_single_type())
     }
 
     type Parsed = T::Parsed;
@@ -443,7 +443,7 @@ pub fn generate_internal_arg_decl<
             };
 
             match arg.base_typing().underlying_type() {
-                ValueType::Single(eaten) if matches!(eaten.data, SingleValueType::Bool) => {
+                ValueType::Single(SingleValueType::Bool) => {
                     FnArg::PresenceFlag(FnPresenceFlagArg { names })
                 }
 

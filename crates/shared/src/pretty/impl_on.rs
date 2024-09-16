@@ -23,7 +23,7 @@ impl PrettyPrintable for ValueType {
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
-            Self::Single(single) => single.data.generate_pretty_data(ctx),
+            Self::Single(single) => single.generate_pretty_data(ctx),
 
             Self::Union(types) => PrettyPrintablePiece::List {
                 begin: Styled::empty(),

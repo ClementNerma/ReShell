@@ -5,7 +5,7 @@ use crate::{context::Context, values::RuntimeValue};
 
 pub fn check_if_value_fits_type(value: &RuntimeValue, typ: &ValueType, ctx: &Context) -> bool {
     match typ {
-        ValueType::Single(typ) => check_if_value_fits_single_type(value, &typ.data, ctx),
+        ValueType::Single(typ) => check_if_value_fits_single_type(value, typ, ctx),
 
         ValueType::Union(types) => types
             .iter()

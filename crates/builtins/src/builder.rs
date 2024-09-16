@@ -136,9 +136,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         is_mut,
                         enforced_type: match enforced_type.len() {
                             0 => None,
-                            1 => Some(ValueType::Single(internal_runtime_eaten(
-                                enforced_type.remove(0),
-                            ))),
+                            1 => Some(ValueType::Single(enforced_type.remove(0))),
                             _ => Some(ValueType::Union(enforced_type.into_iter().collect())),
                         },
                         value: GcCell::new(LocatedValue::new(

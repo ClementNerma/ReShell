@@ -14,9 +14,7 @@ pub fn check_if_type_fits_type(
     ctx: &TypeAliasStore,
 ) -> bool {
     match value_type {
-        ValueType::Single(single_type) => {
-            check_if_single_type_fits_type(&single_type.data, into, ctx)
-        }
+        ValueType::Single(single) => check_if_single_type_fits_type(single, into, ctx),
 
         ValueType::Union(types) => types
             .iter()
@@ -32,9 +30,7 @@ pub fn check_if_single_type_fits_type(
     ctx: &TypeAliasStore,
 ) -> bool {
     match into {
-        ValueType::Single(single) => {
-            check_if_single_type_fits_single(value_type, &single.data, ctx)
-        }
+        ValueType::Single(single) => check_if_single_type_fits_single(value_type, single, ctx),
 
         ValueType::Union(types) => types
             .iter()
@@ -50,7 +46,7 @@ pub fn check_if_type_fits_single(
     ctx: &TypeAliasStore,
 ) -> bool {
     match value_type {
-        ValueType::Single(single) => check_if_single_type_fits_single(&single.data, into, ctx),
+        ValueType::Single(single) => check_if_single_type_fits_single(single, into, ctx),
 
         ValueType::Union(types) => types
             .iter()

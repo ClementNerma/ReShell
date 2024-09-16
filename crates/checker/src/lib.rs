@@ -1396,7 +1396,7 @@ pub fn long_flag_var_name(name: &str) -> String {
 
 fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult {
     match value_type {
-        ValueType::Single(typ) => check_single_value_type(&typ.data, state)?,
+        ValueType::Single(typ) => check_single_value_type(typ, state)?,
         ValueType::Union(types) => {
             for typ in types {
                 check_single_value_type(typ, state)?;
