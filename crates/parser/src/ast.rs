@@ -210,7 +210,7 @@ pub struct ExprInner {
 #[derive(Debug, Clone)]
 pub enum ExprInnerContent {
     SingleOp {
-        op: Eaten<SingleOp>,
+        op: SingleOp,
         right: Eaten<Box<ExprInnerContent>>,
         right_chainings: Vec<Eaten<ExprInnerChaining>>,
     },

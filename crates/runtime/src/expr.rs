@@ -335,7 +335,7 @@ fn eval_expr_inner_content(
                 // TODO: update location (right_at)
             }
 
-            match op.data {
+            match op {
                 SingleOp::Neg => match right_val {
                     RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
 

@@ -605,7 +605,6 @@ pub fn program(
             // Single operator (e.g. '!') application
             //
             single_op
-                .spanned()
                 .then_ignore(ms)
                 .then(expr_inner_content.map(Box::new).spanned())
                 .then(expr_inner_chaining.clone().spanned().repeated_vec())

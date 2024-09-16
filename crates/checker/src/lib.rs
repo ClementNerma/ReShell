@@ -814,8 +814,8 @@ fn check_expr_op(expr_op: &ExprOp, state: &mut State) -> CheckerResult {
     Ok(())
 }
 
-fn check_single_op(single_op: &Eaten<SingleOp>, _: &mut State) -> CheckerResult {
-    match &single_op.data {
+fn check_single_op(single_op: &SingleOp, _: &mut State) -> CheckerResult {
+    match single_op {
         SingleOp::Neg => Ok(()),
     }
 }
