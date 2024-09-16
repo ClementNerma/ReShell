@@ -56,7 +56,7 @@ pub fn check_if_value_fits_single_type(
                 let members = members.read_promise_no_write();
 
                 member_types.iter().all(|member_type| {
-                    let StructTypeMember { name, typ } = &member_type.data;
+                    let StructTypeMember { name, typ } = member_type;
 
                     members
                         .get(&name.data)

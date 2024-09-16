@@ -320,7 +320,7 @@ pub enum SingleValueType {
     UntypedMap,
     TypedMap(Box<ValueType>),
     UntypedStruct,
-    TypedStruct(Vec<RuntimeEaten<StructTypeMember>>),
+    TypedStruct(Vec<StructTypeMember>),
     Function(RuntimeEaten<FnSignature>),
     TypeAlias(Eaten<String>),
     CmdCall,

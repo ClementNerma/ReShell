@@ -72,7 +72,7 @@ impl PrettyPrintable for SingleValueType {
                 items: members
                     .iter()
                     .map(|member| {
-                        let StructTypeMember { name, typ } = &member.data;
+                        let StructTypeMember { name, typ } = member;
 
                         PrettyPrintablePiece::Join(vec![
                             PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Red),

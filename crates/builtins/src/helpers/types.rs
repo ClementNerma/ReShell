@@ -475,13 +475,10 @@ macro_rules! declare_typed_struct_handler {
                 fn underlying_single_type(&self) -> SingleValueType {
                     SingleValueType::TypedStruct(vec![
                         $(
-                            RuntimeEaten::internal(
-                                "native library's type generator",
-                                StructTypeMember {
-                                    name: RuntimeEaten::internal("native library's type generator", self.$member.0.clone()),
-                                    typ: RuntimeEaten::internal("native library's type generator", self.$member.1.underlying_type())
-                                }
-                            )
+                            StructTypeMember {
+                                name: RuntimeEaten::internal("native library's type generator", self.$member.0.clone()),
+                                typ: RuntimeEaten::internal("native library's type generator", self.$member.1.underlying_type())
+                            }
                         ),+
                     ])
                 }

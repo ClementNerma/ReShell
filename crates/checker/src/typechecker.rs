@@ -133,12 +133,12 @@ pub fn check_if_single_type_fits_single(
 
         (SingleValueType::TypedStruct(a), SingleValueType::TypedStruct(b)) => {
             b.iter().all(|b_member| {
-                let StructTypeMember { name, typ } = &b_member.data;
+                let StructTypeMember { name, typ } = &b_member;
 
                 a.iter()
-                    .find(|member| member.data.name.data == name.data)
+                    .find(|member| member.name.data == name.data)
                     .map_or(false, |a_member| {
-                        check_if_type_fits_type(&a_member.data.typ.data, &typ.data, ctx)
+                        check_if_type_fits_type(&a_member.typ.data, &typ.data, ctx)
                     })
             })
         } //

@@ -143,8 +143,6 @@ pub fn program(
                                 .critical("expected a value type"),
                         )
                         .map(|(name, typ)| StructTypeMember { name, typ })
-                        .spanned()
-                        .map(RuntimeEaten::from)
                         .separated_by(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)

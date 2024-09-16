@@ -192,17 +192,12 @@ impl RuntimeValue {
                 members
                     .read_promise_no_write()
                     .iter()
-                    .map(|(name, value)| {
-                        RuntimeEaten::internal(
+                    .map(|(name, value)| StructTypeMember {
+                        name: RuntimeEaten::internal("type deducer", name.clone()),
+                        typ: RuntimeEaten::internal(
                             "type deducer",
-                            StructTypeMember {
-                                name: RuntimeEaten::internal("type deducer", name.clone()),
-                                typ: RuntimeEaten::internal(
-                                    "type deducer",
-                                    ValueType::Single(value.compute_type()),
-                                ),
-                            },
-                        )
+                            ValueType::Single(value.compute_type()),
+                        ),
                     })
                     .collect(),
             ),
