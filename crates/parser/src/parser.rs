@@ -11,16 +11,16 @@ use parsy::{
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagNameArg,
-        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
-        CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
-        ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
-        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, LiteralValue, MapDestructBinding, MatchCase, MatchExprCase, Program,
-        PropAccess, PropAccessNature, RangeBound, RuntimeEaten, SingleCmdCall, SingleOp,
-        SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
-        ValueType, VarDeconstruction,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
+        CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
+        CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece,
+        DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining,
+        ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature,
+        FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
+        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
+        MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeEaten,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
+        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -368,6 +368,7 @@ pub fn program(
             char('`').to(EscapableChar::BackQuote),
             char('$').to(EscapableChar::DollarSign),
             char('\\').to(EscapableChar::Backslash),
+            char('^').to(EscapableChar::Caret),
         ))
         .critical("this character is not escapable"),
     );
@@ -915,31 +916,31 @@ pub fn program(
         .map(|pieces| CmdRawString { pieces }),
     );
 
+    let raw_cmd_name = filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+        .repeated()
+        .at_least(1)
+        .collect_string();
+
     let cmd_path = choice::<_, CmdPath>((
-        // Direct
-        just("direct")
-            .ignore_then(ms)
+        // Command name
+        raw_cmd_name.spanned().map(CmdPath::Raw),
+        // External commands
+        char('^')
             .ignore_then(
-                // Command name
-                filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
-                    .repeated()
-                    .at_least(1)
-                    .followed_by(choice((
-                        end(),
-                        filter(|c| {
-                            c.is_whitespace()
-                                || c == ';'
-                                || c == '|'
-                                || c == '#'
-                                || c == ')'
-                                || c == '}'
-                        })
-                        .to(()),
-                    )))
-                    .collect_string()
-                    .spanned(),
+                choice::<_, CmdExternalPath>((
+                    // Raw path
+                    raw_cmd_name.spanned().map(CmdExternalPath::Raw),
+                    // Single-quoted string
+                    literal_string.spanned().map(CmdExternalPath::LiteralString),
+                    // Double-quoted string
+                    computed_string
+                        .clone()
+                        .spanned()
+                        .map(CmdExternalPath::ComputedString),
+                ))
+                .critical("expected a valid command name after the external marker '^'"),
             )
-            .map(CmdPath::Direct),
+            .map(CmdPath::External),
         // Method
         char('.')
             .ignore_then(ident.spanned())
@@ -947,20 +948,6 @@ pub fn program(
             .not_followed_by(filter(|c| {
                 !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
             })),
-        // Single-quoted command name
-        literal_string.spanned().map(CmdPath::LiteralString),
-        // Double-quoted command name
-        computed_string
-            .clone()
-            .spanned()
-            .map(CmdPath::ComputedString),
-        // Command name
-        filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
-            .repeated()
-            .at_least(1)
-            .collect_string()
-            .spanned()
-            .map(CmdPath::Raw),
     ));
 
     let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
@@ -1731,7 +1718,7 @@ pub fn program(
 
 pub static DELIMITER_CHARS: LazyLock<HashSet<char>> = LazyLock::new(|| {
     HashSet::from([
-        '(', ')', '[', ']', '{', '}', '<', '>', ';', '|', '\'', '"', '`', '$', '#',
+        '(', ')', '[', ']', '{', '}', '<', '>', ';', '|', '\'', '"', '`', '$', '#', '^',
     ])
 });
 

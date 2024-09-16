@@ -396,6 +396,7 @@ pub enum EscapableChar {
     SingleQuote,
     Backslash,
     DollarSign,
+    Caret,
 }
 
 #[derive(Debug, Clone)]
@@ -427,11 +428,16 @@ pub struct CmdEnvVar {
 
 #[derive(Debug, Clone)]
 pub enum CmdPath {
-    Direct(Eaten<String>),
+    Raw(Eaten<String>),
+    External(CmdExternalPath),
     Method(Eaten<String>),
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdExternalPath {
+    Raw(Eaten<String>),
     LiteralString(Eaten<String>),
     ComputedString(Eaten<ComputedString>),
-    Raw(Eaten<String>),
 }
 
 #[derive(Debug, Clone)]

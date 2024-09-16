@@ -8,8 +8,8 @@ use std::{
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath, CmdPipe,
-    CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
+    CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagValueArg, CmdPath,
+    CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
     FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -473,7 +473,7 @@ fn evaluate_cmd_target(
                 ctx.get_visible_fn_value(&name.forge_here(name.data.to_owned()))?,
             )),
 
-            CmdPath::LiteralString(_) | CmdPath::ComputedString(_) | CmdPath::Direct(_) => {
+            CmdPath::External(_) => {
                 unreachable!()
             }
         };
@@ -482,10 +482,16 @@ fn evaluate_cmd_target(
     }
 
     Ok(EvaluatedCmdTarget::ExternalCommand(match &cmd_path.data {
-        CmdPath::Direct(name) => name.clone(),
+        CmdPath::Raw(name) => name.clone(),
+
+        CmdPath::External(path) => match path {
+            CmdExternalPath::Raw(name) | CmdExternalPath::LiteralString(name) => name.clone(),
+            CmdExternalPath::ComputedString(c_str) => {
+                c_str.forge_here(eval_computed_string(c_str, ctx)?)
+            }
+        },
+
         CmdPath::Method(_) => unreachable!(),
-        CmdPath::Raw(name) | CmdPath::LiteralString(name) => name.forge_here(name.data.to_owned()),
-        CmdPath::ComputedString(c_str) => c_str.forge_here(eval_computed_string(c_str, ctx)?),
     }))
 }
 

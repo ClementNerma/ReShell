@@ -69,15 +69,7 @@
 					"name": "constant"
 				},
 				{
-					"match": "\\b(let|mut|if|else|for|in|while|typematch|match|case|continue|break|fn|return|throw|alias|type|try|catch)\\b",
-					"name": "keyword"
-				},
-				{
-					"match": "\\b(self)\\b",
-					"name": "keyword"
-				},
-				{
-					"match": "\\b(direct|include)\\b",
+					"match": "\\b(let|mut|if|else|for|in|while|typematch|match|case|continue|break|fn|return|throw|alias|type|try|catch|self|include)\\b",
 					"name": "keyword"
 				},
 				{
@@ -133,7 +125,18 @@
 					"name": "string.unquoted"
 				},
 				{
-					"match": "(?<=(^|[\\(\\{;])\\s*)([a-zA-Z0-9_/\\-\\.]+)\\b",
+					"match": "(?<=(?:^|[\\(\\{;])\\s*)(\\^)([a-zA-Z0-9_/\\-\\.]+)\\b",
+					"captures": {
+						"1": {
+							"name": "keyword"
+						},
+						"2": {
+							"name": "entity.name.function"
+						}
+					}
+				},
+				{
+					"match": "(?<=(?:^|[\\(\\{;])\\s*)([a-zA-Z0-9_/\\-\\.]+)\\b",
 					"name": "entity.name.function"
 				},
 				{

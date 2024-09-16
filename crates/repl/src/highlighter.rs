@@ -108,7 +108,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
         followed_by: None,
         followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
         style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[0]) {
+            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[0], false) {
                 Color::Blue
             } else {
                 Color::Red
@@ -154,13 +154,13 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
                 // Markers
-                simple("\\b(direct|include)(?:\\s|$)", [Magenta]),
+                simple("\\b(include)(?:\\s|$)", [Magenta]),
 
                 // Normalized flags
                 simple_followed_by("\\s((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
 
                 // Keywords
-                simple("\\b(alias|fn|for|while|if|else|continue|typematch|match|break|throw|try|catch|return)\\b", [Magenta]),
+                simple("\\b(alias|fn|for|while|if|else|continue|typematch|match|break|throw|try|catch|return|self)\\b", [Magenta]),
 
                 // Numbers
                 simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
@@ -194,19 +194,22 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
 
                 // Command names
                 Rule::Simple(SimpleRule {
-                    matches: Regex::new("([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)").unwrap(),
+                    matches: Regex::new("(\\^|)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$\\^]+)").unwrap(),
                     inside: None,
                     preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[1]) {
+                        let is_external = !matched[1].is_empty();
+
+                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2], is_external) {
                             Color::Blue
                         } else {
                             Color::Red
                         };
 
-                        vec![Style::new().fg(color)]
+
+                        vec![Style::new().fg(Color::Magenta), Style::new().fg(color)]
                     }))
                 }),
 
@@ -394,14 +397,16 @@ fn highlight(input: &str) -> StyledText {
 
 pub struct CommandsChecker {
     for_path: Vec<String>,
-    entries: HashMap<String, bool>
+    internal_entries: HashMap<String, bool>,
+    external_entries: HashMap<String, bool>
 }
 
 impl CommandsChecker {
     pub fn new() -> Self {
         Self {
             for_path: vec![],
-            entries: HashMap::new()
+            internal_entries: HashMap::new(),
+            external_entries: HashMap::new()
         }
     }
 
@@ -413,33 +418,48 @@ impl CommandsChecker {
     }
 
     pub fn clear(&mut self, bin_resolver: &mut BinariesResolver) {
-        self.entries = bin_resolver.entries().keys().map(|key| (key.clone(), true)).collect();
+        self.internal_entries = HashMap::new();
+        self.external_entries = bin_resolver.entries().keys().map(|key| (key.clone(), true)).collect();
     }
 
-    pub fn check(&mut self, ctx: &mut Context, name: &str) -> bool {
+    pub fn check(&mut self, ctx: &mut Context, name: &str, external: bool) -> bool {
         self.update(ctx.binaries_resolver());
 
-        if let Some(exists) = self.entries.get(name) {
+        let entries = if external {
+            &mut self.external_entries
+        }  else {
+            &mut self.internal_entries
+        };
+
+        if let Some(exists) = entries.get(name) {
             return *exists;
         }
 
-        let exists = match name.strip_prefix('.') {
-            Some(name) if !name.starts_with(['/','\\']) => ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|method_name| method_name == name) || scope.content.cmd_aliases.contains_key(name)),
+        if !external && !name.contains(['/', '\\']) {
+            let exists = match name.strip_prefix('.') {
+                // Check for method names
+                Some(name) =>
+                    ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|method_name| method_name == name)),
 
-            Some(_) | None => {
-                if !name.starts_with(['/', '\\']) && ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.cmd_aliases.contains_key(name)) {
-                    return true;
-                }
+                // Check for builtins and declared functions or command aliases
+                None =>
+                    ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.cmd_aliases.contains_key(name))
+            };
+            
+            if exists {
+                entries.insert(name.to_owned(), exists);
+                return true;
+            }
+        }
 
-                let Ok(name) = try_replace_home_dir_tilde(name, ctx) else {
-                    return false;
-                };
-
-                ctx.binaries_resolver().resolve_binary_path(&name).is_ok()
-            },
+        // Check for actual (external) file
+        let Ok(name) = try_replace_home_dir_tilde(name, ctx) else {
+            return false;
         };
 
-        self.entries.insert(name.to_owned(), exists);
+        let exists = ctx.binaries_resolver().resolve_binary_path(&name).is_ok();
+
+        entries.insert(name.to_owned(), exists);
 
         exists
     }

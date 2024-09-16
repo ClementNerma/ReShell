@@ -21,15 +21,15 @@ use std::collections::{HashMap, HashSet};
 use parsy::{CodeRange, Eaten};
 use reshell_parser::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdFlagArg, CmdFlagValueArg, CmdPath,
-        CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
-        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, Expr, ExprInner,
-        ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature,
-        FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
-        MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
-        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
+        CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
+        CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
+        ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall,
+        FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
+        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue,
+        MapDestructBinding, MatchCase, MatchExprCase, Program, PropAccess, PropAccessNature,
+        RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -1024,10 +1024,18 @@ fn check_single_cmd_call(
     let mut developed_aliases = vec![];
 
     let target_type = match &path.data {
-        CmdPath::Direct(_) | CmdPath::LiteralString(_) => CmdPathTargetType::ExternalCommand,
+        CmdPath::Raw(name) => check_if_cmd_or_fn_and_register(
+            &name.forge_here(name.data.to_owned()),
+            &mut developed_aliases,
+            state,
+        )?,
 
-        CmdPath::ComputedString(c_str) => {
-            check_computed_string(c_str, state)?;
+        CmdPath::External(path) => {
+            match path {
+                CmdExternalPath::Raw(_) | CmdExternalPath::LiteralString(_) => {}
+                CmdExternalPath::ComputedString(c_str) => check_computed_string(c_str, state)?,
+            }
+
             CmdPathTargetType::ExternalCommand
         }
 
@@ -1046,12 +1054,6 @@ fn check_single_cmd_call(
 
             CmdPathTargetType::Function
         }
-
-        CmdPath::Raw(name) => check_if_cmd_or_fn_and_register(
-            &name.forge_here(name.data.to_owned()),
-            &mut developed_aliases,
-            state,
-        )?,
     };
 
     for arg in &args.data {

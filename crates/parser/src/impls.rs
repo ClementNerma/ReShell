@@ -87,6 +87,7 @@ impl EscapableChar {
             EscapableChar::SingleQuote => '\'',
             EscapableChar::Backslash => '\\',
             EscapableChar::DollarSign => '$',
+            EscapableChar::Caret => '^',
         }
     }
 }

@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use parsy::Eaten;
 use reshell_parser::ast::{
-    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, EscapableChar, Expr, ExprInner,
-    ExprInnerChaining, ExprInnerContent, ExprOp, Function, LiteralValue, MatchExprCase, PropAccess,
-    RangeBound, RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value,
+    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
+    ExprInnerContent, ExprOp, Function, LiteralValue, MatchExprCase, PropAccess, RangeBound,
+    RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -611,17 +611,7 @@ fn eval_computed_string_piece(
 ) -> ExecResult<String> {
     match &piece.data {
         ComputedStringPiece::Literal(str) => Ok(str.clone()),
-        ComputedStringPiece::Escaped(char) => Ok(match char {
-            EscapableChar::Newline => '\n',
-            EscapableChar::CarriageReturn => '\r',
-            EscapableChar::Tab => '\t',
-            EscapableChar::DoubleQuote => '"',
-            EscapableChar::Backslash => '\\',
-            EscapableChar::DollarSign => '$',
-            EscapableChar::BackQuote => '`',
-            EscapableChar::SingleQuote => '\'',
-        }
-        .to_string()),
+        ComputedStringPiece::Escaped(char) => Ok(char.original_char().to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             "only stringifyable variables can be used inside computable strings",

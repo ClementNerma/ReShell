@@ -641,9 +641,9 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> CompletionMode {
             _ => CompletionMode::Expr,
         },
 
-        // TODO: complete like usual but with "direct" stripped
+        // TODO: complete like usual but with "^" stripped
         //       => and ignore aliases / functions
-        "direct" => match cmd_pieces.len() {
+        "^" => match cmd_pieces.len() {
             1 => CompletionMode::None,
 
             2 => CompletionMode::CmdName,
