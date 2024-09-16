@@ -812,7 +812,7 @@ pub fn program(
             //
             // Simple values
             //
-            value.clone().spanned().map(ExprInnerContent::Value),
+            value.clone().map(ExprInnerContent::Value),
         ))
     });
 

@@ -855,8 +855,8 @@ fn check_prop_access_nature(nature: &Eaten<PropAccessNature>, state: &mut State)
     }
 }
 
-fn check_value(value: &Eaten<Value>, state: &mut State) -> CheckerResult {
-    match &value.data {
+fn check_value(value: &Value, state: &mut State) -> CheckerResult {
+    match value {
         Value::Null => Ok(()),
 
         Value::Literal(lit) => check_literal_value(lit, state),

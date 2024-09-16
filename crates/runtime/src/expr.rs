@@ -518,8 +518,8 @@ fn eval_expr_inner_content(
     }
 }
 
-fn eval_value(value: &Eaten<Value>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let value = match &value.data {
+fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
+    let value = match value {
         Value::Null => RuntimeValue::Null,
 
         Value::Literal(lit) => eval_literal_value(&lit.data),
