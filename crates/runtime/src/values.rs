@@ -255,7 +255,7 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
         let type_hash = hasher.finish();
 
         if types_hash.insert(type_hash) {
-            types.push(RuntimeEaten::internal("internal value type computer", typ));
+            types.push(typ);
         }
     }
 
@@ -264,7 +264,12 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
             "internal value type computer",
             SingleValueType::Any,
         )),
-        1 => ValueType::Single(types.remove(0)),
+
+        1 => ValueType::Single(RuntimeEaten::internal(
+            "internal value type computer",
+            types.remove(0),
+        )),
+
         _ => ValueType::Union(types),
     }
 }

@@ -156,13 +156,11 @@ pub fn program(
             ident.spanned().map(SingleValueType::TypeAlias),
         ));
 
-        let mapped_single_value_type = single_value_type.spanned().map(RuntimeEaten::from);
-
         choice((
             // Union type
             char('(')
                 .ignore_then(
-                    mapped_single_value_type
+                    single_value_type
                         .clone()
                         .separated_by(char('|').padded_by(msnl))
                         .at_least(1)
@@ -171,7 +169,10 @@ pub fn program(
                 .then_ignore(char(')').critical_with_no_message())
                 .map(ValueType::Union),
             // Single type
-            mapped_single_value_type.map(ValueType::Single),
+            single_value_type
+                .spanned()
+                .map(RuntimeEaten::from)
+                .map(ValueType::Single),
         ))
     });
 

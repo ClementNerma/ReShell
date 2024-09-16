@@ -29,7 +29,7 @@ impl PrettyPrintable for ValueType {
                 begin: Styled::empty(),
                 items: types
                     .iter()
-                    .map(|typ| typ.data.generate_pretty_data(ctx))
+                    .map(|typ| typ.generate_pretty_data(ctx))
                     .collect(),
                 sep: Styled::colored(" |", Color::Magenta),
                 end: Styled::empty(),

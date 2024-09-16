@@ -20,7 +20,7 @@ pub fn check_if_type_fits_type(
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_type(&typ.data, into, ctx)),
+            .all(|typ| check_if_single_type_fits_type(typ, into, ctx)),
     }
 }
 
@@ -38,7 +38,7 @@ pub fn check_if_single_type_fits_type(
 
         ValueType::Union(types) => types
             .iter()
-            .any(|typ| check_if_single_type_fits_single(value_type, &typ.data, ctx)),
+            .any(|typ| check_if_single_type_fits_single(value_type, typ, ctx)),
     }
 }
 
@@ -54,7 +54,7 @@ pub fn check_if_type_fits_single(
 
         ValueType::Union(types) => types
             .iter()
-            .all(|typ| check_if_single_type_fits_single(&typ.data, into, ctx)),
+            .all(|typ| check_if_single_type_fits_single(typ, into, ctx)),
     }
 }
 

@@ -1399,7 +1399,7 @@ fn check_value_type(value_type: &ValueType, state: &mut State) -> CheckerResult 
         ValueType::Single(typ) => check_single_value_type(&typ.data, state)?,
         ValueType::Union(types) => {
             for typ in types {
-                check_single_value_type(&typ.data, state)?;
+                check_single_value_type(typ, state)?;
             }
         }
     }

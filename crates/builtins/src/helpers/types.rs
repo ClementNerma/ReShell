@@ -17,8 +17,6 @@ use reshell_runtime::{
 
 use super::args::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
 
-use crate::builder::internal_runtime_eaten;
-
 macro_rules! declare_basic_type_handlers {
     ($($name: ident ($variant: ident) = $type: ty => $value_ident: ident: $parser: expr),+) => {
         $(
@@ -258,8 +256,8 @@ impl<Inner: SingleTyping> NullableType<Inner> {
 impl<Inner: SingleTyping> Typing for NullableType<Inner> {
     fn underlying_type(&self) -> ValueType {
         ValueType::Union(vec![
-            internal_runtime_eaten(self.inner.underlying_single_type()),
-            internal_runtime_eaten(NullType.underlying_single_type()),
+            self.inner.underlying_single_type(),
+            NullType.underlying_single_type(),
         ])
     }
 
@@ -424,7 +422,7 @@ macro_rules! declare_typed_union_hanlder {
         {
             fn underlying_type(&self) -> ValueType {
                 ValueType::Union(vec![
-                    $( RuntimeEaten::internal("native library's type generator", self.$generic.underlying_single_type()) ),+
+                    $( self.$generic.underlying_single_type() ),+
                 ])
             }
 

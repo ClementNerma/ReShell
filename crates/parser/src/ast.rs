@@ -302,7 +302,7 @@ pub enum Value {
 #[derive(Debug, Clone, Hash)]
 pub enum ValueType {
     Single(RuntimeEaten<SingleValueType>),
-    Union(Vec<RuntimeEaten<SingleValueType>>),
+    Union(Vec<SingleValueType>),
 }
 
 #[derive(Debug, Clone, Hash)]

@@ -9,7 +9,7 @@ pub fn check_if_value_fits_type(value: &RuntimeValue, typ: &ValueType, ctx: &Con
 
         ValueType::Union(types) => types
             .iter()
-            .any(|typ| check_if_value_fits_single_type(value, &typ.data, ctx)),
+            .any(|typ| check_if_value_fits_single_type(value, typ, ctx)),
     }
 }
 
