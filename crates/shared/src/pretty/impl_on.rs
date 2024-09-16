@@ -77,7 +77,7 @@ impl PrettyPrintable for SingleValueType {
                         PrettyPrintablePiece::Join(vec![
                             PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Red),
                             PrettyPrintablePiece::colored_atomic(": ", Color::BrightBlack),
-                            typ.data.generate_pretty_data(ctx),
+                            typ.generate_pretty_data(ctx),
                         ])
                     })
                     .collect(),

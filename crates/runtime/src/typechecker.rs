@@ -60,7 +60,7 @@ pub fn check_if_value_fits_single_type(
 
                     members
                         .get(&name.data)
-                        .is_some_and(|value| check_if_value_fits_type(value, &typ.data, ctx))
+                        .is_some_and(|value| check_if_value_fits_type(value, typ, ctx))
                 })
             }
 

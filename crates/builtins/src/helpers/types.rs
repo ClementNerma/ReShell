@@ -477,7 +477,7 @@ macro_rules! declare_typed_struct_handler {
                         $(
                             StructTypeMember {
                                 name: RuntimeEaten::internal("native library's type generator", self.$member.0.clone()),
-                                typ: RuntimeEaten::internal("native library's type generator", self.$member.1.underlying_type())
+                                typ: self.$member.1.underlying_type()
                             }
                         ),+
                     ])

@@ -135,13 +135,7 @@ pub fn program(
                         .then_ignore(ms)
                         .then_ignore(char(':').critical_with_no_message())
                         .then_ignore(msnl)
-                        .then(
-                            value_type
-                                .clone()
-                                .spanned()
-                                .map(RuntimeEaten::from)
-                                .critical("expected a value type"),
-                        )
+                        .then(value_type.clone().critical("expected a value type"))
                         .map(|(name, typ)| StructTypeMember { name, typ })
                         .separated_by(char(',').padded_by(msnl)),
                 )

@@ -1438,7 +1438,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
                     ));
                 }
 
-                check_value_type(&typ.data, state)?;
+                check_value_type(typ, state)?;
             }
 
             Ok(())

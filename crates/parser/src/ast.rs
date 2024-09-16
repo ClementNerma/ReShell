@@ -332,7 +332,7 @@ pub enum SingleValueType {
 #[derive(Debug, Clone, Hash)]
 pub struct StructTypeMember {
     pub name: RuntimeEaten<String>,
-    pub typ: RuntimeEaten<ValueType>,
+    pub typ: ValueType,
 }
 
 #[derive(Debug, Clone, Hash)]
