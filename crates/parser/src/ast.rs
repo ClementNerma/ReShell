@@ -214,7 +214,7 @@ pub enum ExprInnerContent {
         right: Eaten<Box<ExprInnerContent>>,
         right_chainings: Vec<Eaten<ExprInnerChaining>>,
     },
-    ParenExpr(Eaten<Box<Expr>>),
+    ParenExpr(Box<Expr>),
     Value(Eaten<Value>),
     FnAsValue(Eaten<String>),
     Ternary {

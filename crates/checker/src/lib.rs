@@ -719,7 +719,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
         }
 
         ExprInnerContent::ParenExpr(expr) => {
-            check_expr(&expr.data, state)?;
+            check_expr(expr, state)?;
         }
 
         ExprInnerContent::Value(value) => {

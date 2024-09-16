@@ -619,7 +619,7 @@ pub fn program(
             // Parenthesis-wrapped expression
             //
             char('(')
-                .ignore_then(expr.clone().map(Box::new).spanned())
+                .ignore_then(expr.clone().map(Box::new))
                 .then_ignore(char(')'))
                 .map(ExprInnerContent::ParenExpr),
             //

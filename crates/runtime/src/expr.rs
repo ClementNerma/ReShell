@@ -353,7 +353,7 @@ fn eval_expr_inner_content(
             }
         }
 
-        ExprInnerContent::ParenExpr(expr) => eval_expr(&expr.data, ctx),
+        ExprInnerContent::ParenExpr(expr) => eval_expr(expr, ctx),
 
         ExprInnerContent::Ternary {
             cond,
