@@ -1,3 +1,4 @@
+pub mod after_last;
 pub mod chars;
 pub mod contains;
 pub mod ends_with;
