@@ -858,7 +858,7 @@ pub fn program(
 
     let expr_inner = expr_inner_content
         .spanned()
-        .then(expr_inner_chaining.spanned().repeated_vec())
+        .then(expr_inner_chaining.repeated_vec())
         .map(|(content, chainings)| ExprInner { content, chainings });
 
     let expr_op = double_op

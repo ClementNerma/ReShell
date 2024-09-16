@@ -690,7 +690,7 @@ fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResul
     check_expr_inner_content(&content.data, state)?;
 
     for chaining in chainings {
-        check_expr_inner_chaining(&chaining.data, state)?;
+        check_expr_inner_chaining(chaining, state)?;
     }
 
     Ok(())

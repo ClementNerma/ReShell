@@ -204,7 +204,7 @@ pub struct Expr {
 #[derive(Debug, Clone)]
 pub struct ExprInner {
     pub content: Eaten<ExprInnerContent>,
-    pub chainings: Vec<Eaten<ExprInnerChaining>>,
+    pub chainings: Vec<ExprInnerChaining>,
 }
 
 #[derive(Debug, Clone)]

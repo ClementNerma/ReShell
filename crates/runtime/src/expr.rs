@@ -269,8 +269,7 @@ fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<Ru
     let left_at = RuntimeCodeRange::Parsed(content.at);
 
     for chaining in chainings {
-        left_val =
-            eval_expr_inner_chaining(&chaining.data, LocatedValue::new(left_at, left_val), ctx)?;
+        left_val = eval_expr_inner_chaining(chaining, LocatedValue::new(left_at, left_val), ctx)?;
 
         // TODO: update location (left_at)
     }
