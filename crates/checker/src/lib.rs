@@ -160,26 +160,24 @@ fn block_first_pass(
                 on_type,
                 content: _,
             } => {
-                check_value_type(&on_type.data, state)?;
+                check_value_type(on_type, state)?;
 
                 let curr_scope_id = state.curr_scope().id;
 
                 if let Some(same_name_methods) = state.curr_scope().methods.get(&name.data) {
                     for (other_type, _) in same_name_methods.iter() {
-                        if check_if_type_fits_type(
-                            &on_type.data,
-                            other_type,
-                            state.type_alias_store(),
-                        ) || check_if_type_fits_type(
-                            other_type,
-                            &on_type.data,
-                            state.type_alias_store(),
-                        ) {
+                        if check_if_type_fits_type(on_type, other_type, state.type_alias_store())
+                            || check_if_type_fits_type(
+                                other_type,
+                                on_type,
+                                state.type_alias_store(),
+                            )
+                        {
                             return Err(CheckerError::new(
                                 name.at,
                                 "this method clashes with another same-name method applying on a compatible type",
                             ).with_detail(
-                                format!("trying to declare a method for type     : {}", on_type.data.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
+                                format!("trying to declare a method for type     : {}", on_type.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
                             ).with_detail(
                                 format!("...but a method exists for clashing type: {}", other_type.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
                             ));
@@ -193,7 +191,7 @@ fn block_first_pass(
                     .entry(name.data.clone())
                     .or_default()
                     .push((
-                        shared(on_type.data.clone()),
+                        shared(on_type.clone()),
                         DeclaredMethod {
                             decl_at: RuntimeCodeRange::Parsed(name.at),
                             scope_id: curr_scope_id,

@@ -100,7 +100,7 @@ pub enum Instruction {
     /// Method declaration
     MethodDecl {
         name: Eaten<String>,
-        on_type: Eaten<ValueType>,
+        on_type: ValueType,
         content: Function,
     },
 

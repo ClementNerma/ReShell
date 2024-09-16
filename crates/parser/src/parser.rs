@@ -1558,7 +1558,7 @@ pub fn program(
                 Ok(match on_type {
                     Some(on_type) => Instruction::MethodDecl {
                         name,
-                        on_type,
+                        on_type: on_type.data,
                         content: Function { signature, body },
                     },
 

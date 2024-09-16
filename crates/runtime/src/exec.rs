@@ -183,7 +183,7 @@ fn block_first_pass(
                     .push(ScopeMethod {
                         name_at: RuntimeCodeRange::Parsed(name.at),
                         decl_scope_id: block.scope_id,
-                        on_type: GcReadOnlyCell::new(on_type.data.clone()),
+                        on_type: GcReadOnlyCell::new(on_type.clone()),
                         value: GcReadOnlyCell::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
