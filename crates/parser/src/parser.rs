@@ -1643,7 +1643,8 @@ pub fn program(
                     .and_then_str(move |path| load_file(path.data, path.at.start.file_id))
                     .and_then(move |file| {
                         program_bis.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
-                    }),
+                    })
+                    .map(|program| program.data),
             )
             .map(Instruction::Include),
         //

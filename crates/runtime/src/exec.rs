@@ -195,7 +195,7 @@ fn block_first_pass(
             }
 
             Instruction::Include(program) => {
-                let Program { content } = &program.data;
+                let Program { content } = program;
 
                 let Block {
                     scope_id: _,
@@ -831,7 +831,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
         }
 
         Instruction::Include(program) => {
-            let Program { content } = &program.data;
+            let Program { content } = program;
 
             let Block {
                 scope_id: _,

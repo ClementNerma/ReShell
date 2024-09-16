@@ -234,7 +234,7 @@ fn block_first_pass(
             }
 
             Instruction::Include(program) => {
-                let Program { content } = &program.data;
+                let Program { content } = program;
                 let Block {
                     scope_id: _,
                     instructions,
@@ -622,7 +622,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::CmdCall(call) => check_cmd_call(call, state)?,
 
         Instruction::Include(program) => {
-            let Program { content } = &program.data;
+            let Program { content } = program;
             let Block {
                 instructions,
                 scope_id: _,

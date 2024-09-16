@@ -137,7 +137,7 @@ pub enum Instruction {
     CmdCall(Eaten<CmdCall>),
 
     /// Program inclusion
-    Include(Eaten<Program>),
+    Include(Program),
 }
 
 #[derive(Debug, Clone)]
