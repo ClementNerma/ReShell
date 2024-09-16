@@ -903,6 +903,13 @@ pub fn program(
         .collect_string();
 
     let cmd_path = choice::<_, CmdPath>((
+        // Method
+        char('.')
+            .ignore_then(ident.spanned())
+            .map(CmdPath::Method)
+            .not_followed_by(filter(|c| {
+                !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
+            })),
         // Command name
         raw_cmd_name.spanned().map(CmdPath::Raw),
         // External commands
@@ -922,13 +929,6 @@ pub fn program(
                 .critical("expected a valid command name after the external marker '^'"),
             )
             .map(CmdPath::External),
-        // Method
-        char('.')
-            .ignore_then(ident.spanned())
-            .map(CmdPath::Method)
-            .not_followed_by(filter(|c| {
-                !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
-            })),
     ));
 
     let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
