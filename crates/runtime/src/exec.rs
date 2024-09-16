@@ -642,7 +642,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
             let match_on = eval_expr(&expr.data, ctx)?;
 
             for TypeMatchCase { matches, body } in cases {
-                if check_if_value_fits_type(&match_on, &matches.data, ctx) {
+                if check_if_value_fits_type(&match_on, matches, ctx) {
                     return run_block(body, ctx, None);
                 }
             }

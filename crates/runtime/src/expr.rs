@@ -445,7 +445,7 @@ fn eval_expr_inner_content(
             let match_on = eval_expr(&expr.data, ctx)?;
 
             for TypeMatchExprCase { matches, then } in cases {
-                if check_if_value_fits_type(&match_on, &matches.data, ctx) {
+                if check_if_value_fits_type(&match_on, matches, ctx) {
                     return eval_expr(&then.data, ctx);
                 }
             }

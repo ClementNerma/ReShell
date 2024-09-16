@@ -744,12 +744,7 @@ pub fn program(
                 .then(
                     msnl.ignore_then(just("case"))
                         .ignore_then(ms)
-                        .ignore_then(
-                            value_type
-                                .clone()
-                                .spanned()
-                                .critical("expected a type to match"),
-                        )
+                        .ignore_then(value_type.clone().critical("expected a type to match"))
                         .then_ignore(msnl)
                         .then_ignore(just("->").critical_with_no_message())
                         .then_ignore(msnl)
@@ -1476,12 +1471,7 @@ pub fn program(
             .then(
                 msnl.ignore_then(just("case"))
                     .ignore_then(ms)
-                    .ignore_then(
-                        value_type
-                            .clone()
-                            .spanned()
-                            .critical("expected a type to match"),
-                    )
+                    .ignore_then(value_type.clone().critical("expected a type to match"))
                     .then_ignore(ms)
                     .then(block.clone().spanned().critical("expected a block"))
                     .map(|(matches, body)| TypeMatchCase { matches, body })

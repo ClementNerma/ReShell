@@ -178,7 +178,7 @@ pub struct MatchCase {
 
 #[derive(Debug, Clone)]
 pub struct TypeMatchCase {
-    pub matches: Eaten<ValueType>,
+    pub matches: ValueType,
     pub body: Eaten<Block>,
 }
 
@@ -256,7 +256,7 @@ pub struct MatchExprCase {
 
 #[derive(Debug, Clone)]
 pub struct TypeMatchExprCase {
-    pub matches: Eaten<ValueType>,
+    pub matches: ValueType,
     pub then: Eaten<Expr>,
 }
 

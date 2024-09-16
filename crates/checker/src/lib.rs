@@ -520,7 +520,7 @@ fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
             for case in cases {
                 let TypeMatchCase { matches, body } = case;
 
-                check_value_type(&matches.data, state)?;
+                check_value_type(matches, state)?;
                 check_block(body, state)?;
             }
 
@@ -761,7 +761,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             check_expr(&expr.data, state)?;
 
             for TypeMatchExprCase { matches, then } in cases {
-                check_value_type(&matches.data, state)?;
+                check_value_type(matches, state)?;
                 check_expr(&then.data, state)?;
             }
 
