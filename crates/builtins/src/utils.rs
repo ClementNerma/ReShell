@@ -25,7 +25,7 @@ pub fn forge_basic_fn_signature(
                     FnArg::Positional(FnPositionalArg {
                         name: internal_runtime_eaten(name.into()),
                         is_optional: false,
-                        typ: Some(internal_runtime_eaten(typ)),
+                        typ: Some(typ),
                     })
                 })
                 .collect(),

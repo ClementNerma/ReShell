@@ -201,7 +201,7 @@ pub fn check_if_fn_signature_fits_another(
                 } else if let (Some(cmp_positional_typ), Some(positional_typ)) =
                     (&cmp_positional.typ, &positional.typ)
                 {
-                    check_if_type_fits_type(&cmp_positional_typ.data, &positional_typ.data, ctx)
+                    check_if_type_fits_type(cmp_positional_typ, positional_typ, ctx)
                 } else {
                     true
                 }
@@ -302,7 +302,7 @@ pub fn check_if_fn_signature_fits_another(
                 }
 
                 // Check if the type fits as well
-                if !check_if_type_fits_type(&cmp_normal_flag.typ.data, &normal_flag.typ.data, ctx) {
+                if !check_if_type_fits_type(&cmp_normal_flag.typ, &normal_flag.typ, ctx) {
                     return false;
                 }
             }

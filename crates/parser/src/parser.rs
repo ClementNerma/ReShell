@@ -215,9 +215,7 @@ pub fn program(
                     .ignore_then(
                         value_type
                             .clone()
-                            .critical("expected a type for the argument")
-                            .spanned()
-                            .map(RuntimeEaten::from),
+                            .critical("expected a type for the argument"),
                     )
                     .or_not(),
             )
@@ -237,9 +235,7 @@ pub fn program(
             .then(
                 value_type
                     .clone()
-                    .critical("expected a type for the flag argument")
-                    .spanned()
-                    .map(RuntimeEaten::from),
+                    .critical("expected a type for the flag argument"),
             )
             .map(|((names, is_optional), typ)| {
                 FnArg::NormalFlag(FnNormalFlagArg {
@@ -1526,12 +1522,10 @@ pub fn program(
                                     "'self' argument cannot be optional in methods",
                                 )))
                             } else {
-                                Some(match typ {
-                                    Some(typ) => Ok(typ.as_parsed().unwrap().map(ValueType::clone)),
-
-                                    None => Err(ParsingError::custom(name_at, "")
-                                        .criticalize("'self' argument must have a specified type")),
-                                })
+                                Some(typ.clone().ok_or_else(|| {
+                                    ParsingError::custom(name_at, "")
+                                        .criticalize("'self' argument must have a specified type")
+                                }))
                             }
                         }
 
@@ -1542,7 +1536,7 @@ pub fn program(
                 Ok(match on_type {
                     Some(on_type) => Instruction::MethodDecl {
                         name,
-                        on_type: on_type.data,
+                        on_type,
                         content: Function { signature, body },
                     },
 

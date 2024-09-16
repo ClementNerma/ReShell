@@ -202,7 +202,7 @@ impl PrettyPrintable for FnArg {
 
                 if let Some(typ) = typ {
                     out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                    out.push(typ.data.generate_pretty_data(ctx));
+                    out.push(typ.generate_pretty_data(ctx));
                 }
 
                 PrettyPrintablePiece::Join(out)
@@ -225,7 +225,7 @@ impl PrettyPrintable for FnArg {
                 }
 
                 out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                out.push(typ.data.generate_pretty_data(ctx));
+                out.push(typ.generate_pretty_data(ctx));
 
                 PrettyPrintablePiece::Join(out)
             }

@@ -410,13 +410,16 @@ pub fn generate_internal_arg_decl<
             let name = internal_runtime_eaten((*name).to_owned());
 
             let typ = if !arg.hide_type() {
-                Some(internal_runtime_eaten(arg.base_typing().underlying_type()))
+                Some(arg.base_typing().underlying_type())
             } else {
                 None
             };
 
             if arg.is_rest() {
-                FnArg::Rest(FnRestArg { name, typ })
+                FnArg::Rest(FnRestArg {
+                    name,
+                    typ: typ.map(internal_runtime_eaten),
+                })
             } else {
                 FnArg::Positional(FnPositionalArg {
                     name,
@@ -450,7 +453,7 @@ pub fn generate_internal_arg_decl<
                 typ => FnArg::NormalFlag(FnNormalFlagArg {
                     names,
                     is_optional: arg.is_optional(),
-                    typ: internal_runtime_eaten(typ),
+                    typ,
                 }),
             }
         }

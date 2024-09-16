@@ -131,10 +131,9 @@ macro_rules! define_internal_fn {
                     is_optional: false,
                     typ
                 }) if name == "self" => {
-                    match typ {
-                        Some(RuntimeEaten { at: RuntimeCodeRange::Internal(_), data: typ }) => Some(typ.clone()),
-                        _ => panic!("invalid method applyable type in native library: {:?}", typ)
-                    }
+                    Some(typ.clone().unwrap_or_else(|| {
+                        panic!("invalid method applyable type in native library: {:?}", typ)
+                    }))
                 }
 
                 _ => None
