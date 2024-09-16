@@ -1211,6 +1211,8 @@ pub fn program(
             .then(just("[]").to(()).spanned().or_not())
             .then_ignore(ms)
             .then_ignore(char('='))
+            // Distinguish from '$someVariable == ...' expressions
+            .not_followed_by(char('='))
             .then_ignore(msnl)
             .then(
                 expr.clone()
