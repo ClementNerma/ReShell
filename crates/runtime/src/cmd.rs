@@ -437,7 +437,7 @@ fn complete_cmd_data(
     for env_var in &env_vars.data {
         let CmdEnvVar { name, value } = &env_var.data;
 
-        let LocatedValue { value, from } = eval_cmd_value_making_arg(&value.data, ctx)?;
+        let LocatedValue { value, from } = eval_cmd_value_making_arg(value, ctx)?;
 
         out.env_vars.insert(
             name.data.clone(),
@@ -451,7 +451,7 @@ fn complete_cmd_data(
     }
 
     for arg in &args.data {
-        out.args.push((eval_cmd_arg(&arg.data, ctx)?, arg.at));
+        out.args.push((eval_cmd_arg(arg, ctx)?, arg.at));
     }
 
     Ok(())
@@ -487,7 +487,7 @@ fn evaluate_cmd_target(
         CmdPath::External(path) => match path {
             CmdExternalPath::Raw(name) | CmdExternalPath::LiteralString(name) => name.clone(),
             CmdExternalPath::ComputedString(c_str) => {
-                c_str.forge_here(eval_computed_string(c_str, ctx)?)
+                c_str.forge_here(eval_computed_string(&c_str.data, ctx)?)
             }
         },
 
@@ -702,8 +702,8 @@ fn append_cmd_arg_as_string(
     Ok(())
 }
 
-pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult> {
-    match arg {
+pub fn eval_cmd_arg(arg: &Eaten<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgResult> {
+    match &arg.data {
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
             .map(|value| CmdArgResult::Single(SingleCmdArgResult::Basic(value))),
 
@@ -713,11 +713,9 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
                 value: value
                     .as_ref()
                     .map(|CmdFlagValueArg { value, value_sep }| {
-                        eval_cmd_value_making_arg(&value.data, ctx).map(|value| {
-                            FlagArgValueResult {
-                                value,
-                                value_sep: *value_sep,
-                            }
+                        eval_cmd_value_making_arg(value, ctx).map(|value| FlagArgValueResult {
+                            value,
+                            value_sep: *value_sep,
                         })
                     })
                     .transpose()?,
@@ -777,37 +775,30 @@ pub fn eval_cmd_arg(arg: &CmdArg, ctx: &mut Context) -> ExecResult<CmdArgResult>
 }
 
 fn eval_cmd_value_making_arg(
-    arg: &CmdValueMakingArg,
+    arg: &Eaten<CmdValueMakingArg>,
     ctx: &mut Context,
 ) -> ExecResult<LocatedValue> {
-    let (value_at, value) = match arg {
-        CmdValueMakingArg::LiteralValue(lit_val) => (lit_val.at, eval_literal_value(&lit_val.data)),
+    let value = match &arg.data {
+        CmdValueMakingArg::LiteralValue(lit_val) => eval_literal_value(lit_val),
 
-        CmdValueMakingArg::Variable(name) => (
-            name.at,
-            ctx.get_visible_var(name).value.read(name.at).value.clone(),
-        ),
+        CmdValueMakingArg::Variable(name) => {
+            ctx.get_visible_var(name).value.read(name.at).value.clone()
+        }
 
-        CmdValueMakingArg::ComputedString(computed_str) => (
-            computed_str.at,
-            RuntimeValue::String(eval_computed_string(computed_str, ctx)?),
-        ),
+        CmdValueMakingArg::ComputedString(computed_str) => {
+            RuntimeValue::String(eval_computed_string(computed_str, ctx)?)
+        }
 
-        CmdValueMakingArg::CmdRawString(computed_str) => (
-            computed_str.at,
-            RuntimeValue::String(eval_cmd_raw_string(computed_str, ctx)?),
-        ),
+        CmdValueMakingArg::CmdRawString(computed_str) => {
+            RuntimeValue::String(eval_cmd_raw_string(computed_str, ctx)?)
+        }
+        CmdValueMakingArg::ParenExpr(expr) => eval_expr(&expr.data, ctx)?,
 
-        CmdValueMakingArg::ParenExpr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
+        CmdValueMakingArg::Lambda(func) => lambda_to_value(&func.data, ctx),
 
-        CmdValueMakingArg::Lambda(func) => (func.at, lambda_to_value(&func.data, ctx)),
-
-        CmdValueMakingArg::InlineCmdCall(call) => (
-            call.at,
-            RuntimeValue::CmdCall {
-                content_at: call.at,
-            },
-        ),
+        CmdValueMakingArg::InlineCmdCall(call) => RuntimeValue::CmdCall {
+            content_at: call.at,
+        },
 
         CmdValueMakingArg::CmdOutput(call) => {
             let cmd_result = run_cmd(
@@ -819,14 +810,11 @@ fn eval_cmd_value_making_arg(
                 },
             )?;
 
-            (
-                call.at,
-                RuntimeValue::String(cmd_result.as_captured().unwrap()),
-            )
+            RuntimeValue::String(cmd_result.as_captured().unwrap())
         }
     };
 
-    Ok(LocatedValue::new(RuntimeCodeRange::Parsed(value_at), value))
+    Ok(LocatedValue::new(RuntimeCodeRange::Parsed(arg.at), value))
 }
 
 pub fn eval_cmd_raw_string(value: &Eaten<CmdRawString>, ctx: &mut Context) -> ExecResult<String> {

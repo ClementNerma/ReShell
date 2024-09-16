@@ -719,7 +719,7 @@ fn flatten_fn_call_args(
                         }))
                     }
 
-                    FnCallArg::CmdArg(arg) => match eval_cmd_arg(&arg.data, ctx)? {
+                    FnCallArg::CmdArg(arg) => match eval_cmd_arg(arg, ctx)? {
                         CmdArgResult::Single(single) => out.push(single),
 
                         CmdArgResult::Spreaded(items) => {

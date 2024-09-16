@@ -646,7 +646,7 @@ fn check_range_bound(range_bound: &RangeBound, state: &mut State) -> CheckerResu
 }
 
 fn check_expr_with(
-    expr: &Eaten<impl AsRef<Expr>>,
+    expr: &Expr,
     scope_id: AstScopeId,
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
@@ -665,7 +665,7 @@ fn check_expr_with(
 
     state.push_scope(scope);
 
-    check_expr(expr.data.as_ref(), state)?;
+    check_expr(expr, state)?;
 
     state.pop_scope();
 
@@ -737,35 +737,35 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             els,
         } => {
             check_expr(&cond.data, state)?;
-            check_expr(&body.data, state)?;
+            check_expr(body, state)?;
 
             for elsif in elsif {
                 check_elsif_expr(elsif, state)?;
             }
 
-            check_expr(&els.data, state)?;
+            check_expr(els, state)?;
         }
 
         ExprInnerContent::Match { expr, cases, els } => {
-            check_expr(&expr.data, state)?;
+            check_expr(expr, state)?;
 
             for MatchExprCase { matches, then } in cases {
                 check_expr(&matches.data, state)?;
-                check_expr(&then.data, state)?;
+                check_expr(then, state)?;
             }
 
-            check_expr(&els.data, state)?;
+            check_expr(els, state)?;
         }
 
         ExprInnerContent::TypeMatch { expr, cases, els } => {
-            check_expr(&expr.data, state)?;
+            check_expr(expr, state)?;
 
             for TypeMatchExprCase { matches, then } in cases {
                 check_value_type(matches, state)?;
-                check_expr(&then.data, state)?;
+                check_expr(then, state)?;
             }
 
-            check_expr(&els.data, state)?;
+            check_expr(els, state)?;
         }
 
         ExprInnerContent::Try {
@@ -774,7 +774,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
             catch_expr,
             catch_expr_scope_id,
         } => {
-            check_expr(&try_expr.data, state)?;
+            check_expr(try_expr, state)?;
 
             check_expr_with(catch_expr, *catch_expr_scope_id, state, |scope| {
                 scope.vars.insert(
@@ -796,10 +796,10 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
     Ok(())
 }
 
-fn check_elsif_expr(elsif_expr: &Eaten<ElsIfExpr>, state: &mut State) -> CheckerResult {
-    let ElsIfExpr { body, cond } = &elsif_expr.data;
+fn check_elsif_expr(elsif_expr: &ElsIfExpr, state: &mut State) -> CheckerResult {
+    let ElsIfExpr { body, cond } = elsif_expr;
 
-    check_expr(&body.data, state)?;
+    check_expr(body, state)?;
     check_expr(&cond.data, state)?;
 
     Ok(())
@@ -839,11 +839,11 @@ fn check_double_op(double_op: &Eaten<DoubleOp>, _: &mut State) -> CheckerResult 
     }
 }
 
-fn check_prop_access(prop_acc: &Eaten<PropAccess>, state: &mut State) -> CheckerResult {
+fn check_prop_access(prop_acc: &PropAccess, state: &mut State) -> CheckerResult {
     let PropAccess {
         nature,
         nullable: _,
-    } = &prop_acc.data;
+    } = prop_acc;
 
     check_prop_access_nature(nature, state)
 }
@@ -859,7 +859,7 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
     match value {
         Value::Null => Ok(()),
 
-        Value::Literal(lit) => check_literal_value(lit, state),
+        Value::Literal(lit) => check_literal_value(lit),
 
         Value::ComputedString(computed_string) => check_computed_string(computed_string, state),
 
@@ -873,7 +873,7 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
 
         Value::Struct(members) => {
             for item in members.values() {
-                check_expr(&item.data, state)?;
+                check_expr(item, state)?;
             }
 
             Ok(())
@@ -902,8 +902,8 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
     }
 }
 
-fn check_literal_value(lit_value: &Eaten<LiteralValue>, _: &mut State) -> CheckerResult {
-    match &lit_value.data {
+fn check_literal_value(lit_value: &LiteralValue) -> CheckerResult {
+    match lit_value {
         LiteralValue::Boolean(_) => Ok(()),
         LiteralValue::Integer(_) => Ok(()),
         LiteralValue::Float(_) => Ok(()),
@@ -911,11 +911,8 @@ fn check_literal_value(lit_value: &Eaten<LiteralValue>, _: &mut State) -> Checke
     }
 }
 
-fn check_computed_string(
-    computed_string: &Eaten<ComputedString>,
-    state: &mut State,
-) -> CheckerResult {
-    let ComputedString { pieces } = &computed_string.data;
+fn check_computed_string(computed_string: &ComputedString, state: &mut State) -> CheckerResult {
+    let ComputedString { pieces } = computed_string;
 
     for piece in pieces {
         check_computed_string_piece(piece, state)?;
@@ -924,11 +921,8 @@ fn check_computed_string(
     Ok(())
 }
 
-fn check_computed_string_piece(
-    piece: &Eaten<ComputedStringPiece>,
-    state: &mut State,
-) -> CheckerResult {
-    match &piece.data {
+fn check_computed_string_piece(piece: &ComputedStringPiece, state: &mut State) -> CheckerResult {
+    match &piece {
         ComputedStringPiece::Literal(_) => Ok(()),
         ComputedStringPiece::Escaped(_) => Ok(()),
         ComputedStringPiece::Variable(var) => {
@@ -1031,7 +1025,9 @@ fn check_single_cmd_call(
         CmdPath::External(path) => {
             match path {
                 CmdExternalPath::Raw(_) | CmdExternalPath::LiteralString(_) => {}
-                CmdExternalPath::ComputedString(c_str) => check_computed_string(c_str, state)?,
+                CmdExternalPath::ComputedString(c_str) => {
+                    check_computed_string(&c_str.data, state)?
+                }
             }
 
             CmdPathTargetType::ExternalCommand
@@ -1156,7 +1152,7 @@ fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> Check
 
 fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
-        CmdArg::ValueMaking(value_making) => check_cmd_value_making_arg(value_making, state),
+        CmdArg::ValueMaking(value_making) => check_cmd_value_making_arg(&value_making.data, state),
 
         CmdArg::Flag(flag_arg) => {
             let CmdFlagArg { name: _, value } = flag_arg;
@@ -1184,7 +1180,7 @@ fn check_cmd_spread_arg(arg: &CmdSpreadArg, state: &mut State) -> CheckerResult 
 
 fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> CheckerResult {
     match arg {
-        CmdValueMakingArg::LiteralValue(lit) => check_literal_value(lit, state),
+        CmdValueMakingArg::LiteralValue(lit) => check_literal_value(lit),
 
         CmdValueMakingArg::Variable(name) => state.register_usage(name, DependencyType::Variable),
 

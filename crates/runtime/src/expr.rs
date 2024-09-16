@@ -284,7 +284,7 @@ fn eval_expr_inner_chaining(
 ) -> ExecResult<RuntimeValue> {
     match &chaining {
         ExprInnerChaining::PropAccess(acc) => {
-            let PropAccess { nature, nullable } = &acc.data;
+            let PropAccess { nature, nullable } = acc;
 
             if *nullable && matches!(left.value, RuntimeValue::Null) {
                 return Ok(left.value);
@@ -378,11 +378,11 @@ fn eval_expr_inner_content(
             };
 
             if cond_val {
-                return eval_expr(&body.data, ctx);
+                return eval_expr(body, ctx);
             }
 
             for branch in elsif {
-                let ElsIfExpr { cond, body } = &branch.data;
+                let ElsIfExpr { cond, body } = branch;
 
                 let cond_val = eval_expr(&cond.data, ctx)?;
 
@@ -400,15 +400,15 @@ fn eval_expr_inner_content(
                 };
 
                 if cond_val {
-                    return eval_expr(&body.data, ctx);
+                    return eval_expr(body, ctx);
                 }
             }
 
-            eval_expr(&els.data, ctx)
+            eval_expr(els, ctx)
         }
 
         ExprInnerContent::Match { expr, cases, els } => {
-            let match_on = eval_expr(&expr.data, ctx)?;
+            let match_on = eval_expr(expr, ctx)?;
 
             for MatchExprCase { matches, then } in cases {
                 let case_value = eval_expr(&matches.data, ctx)?;
@@ -433,23 +433,23 @@ fn eval_expr_inner_content(
                 )?;
 
                 if cmp {
-                    return eval_expr(&then.data, ctx);
+                    return eval_expr(then, ctx);
                 }
             }
 
-            eval_expr(&els.data, ctx)
+            eval_expr(els, ctx)
         }
 
         ExprInnerContent::TypeMatch { expr, cases, els } => {
-            let match_on = eval_expr(&expr.data, ctx)?;
+            let match_on = eval_expr(expr, ctx)?;
 
             for TypeMatchExprCase { matches, then } in cases {
                 if check_if_value_fits_type(&match_on, matches, ctx) {
-                    return eval_expr(&then.data, ctx);
+                    return eval_expr(then, ctx);
                 }
             }
 
-            eval_expr(&els.data, ctx)
+            eval_expr(els, ctx)
         }
 
         ExprInnerContent::Try {
@@ -457,7 +457,7 @@ fn eval_expr_inner_content(
             catch_var,
             catch_expr,
             catch_expr_scope_id,
-        } => eval_expr(&try_expr.data, ctx).or_else(|err| match err.nature {
+        } => eval_expr(try_expr, ctx).or_else(|err| match err.nature {
             ExecErrorNature::Thrown { at, message } => {
                 let mut scope = ScopeContent::new();
 
@@ -474,7 +474,7 @@ fn eval_expr_inner_content(
 
                 ctx.create_and_push_scope(*catch_expr_scope_id, scope);
 
-                let result = eval_expr(&catch_expr.data, ctx);
+                let result = eval_expr(catch_expr, ctx);
 
                 ctx.pop_scope();
 
@@ -522,7 +522,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let value = match value {
         Value::Null => RuntimeValue::Null,
 
-        Value::Literal(lit) => eval_literal_value(&lit.data),
+        Value::Literal(lit) => eval_literal_value(lit),
 
         Value::ComputedString(computed_str) => {
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?
@@ -539,7 +539,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
             let members = obj
                 .iter()
                 .map(|(name, expr)| {
-                    let result = eval_expr(&expr.data, ctx)?;
+                    let result = eval_expr(expr, ctx)?;
 
                     Ok::<_, Box<ExecError>>((name.clone(), result))
                 })
@@ -592,12 +592,8 @@ pub fn eval_literal_value(value: &LiteralValue) -> RuntimeValue {
     }
 }
 
-pub fn eval_computed_string(
-    value: &Eaten<ComputedString>,
-    ctx: &mut Context,
-) -> ExecResult<String> {
+pub fn eval_computed_string(value: &ComputedString, ctx: &mut Context) -> ExecResult<String> {
     value
-        .data
         .pieces
         .iter()
         .map(|piece| eval_computed_string_piece(piece, ctx))
@@ -605,10 +601,10 @@ pub fn eval_computed_string(
 }
 
 fn eval_computed_string_piece(
-    piece: &Eaten<ComputedStringPiece>,
+    piece: &ComputedStringPiece,
     ctx: &mut Context,
 ) -> ExecResult<String> {
-    match &piece.data {
+    match piece {
         ComputedStringPiece::Literal(str) => Ok(str.clone()),
         ComputedStringPiece::Escaped(char) => Ok(char.original_char().to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(

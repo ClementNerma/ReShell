@@ -464,7 +464,6 @@ pub fn program(
                         .collect_string()
                         .map(ComputedStringPiece::Literal),
                 ))
-                .spanned()
                 .repeated_vec(),
             )
             .then_ignore(char('"').critical_with_no_message())
@@ -512,9 +511,9 @@ pub fn program(
     let value = choice::<_, Value>((
         just("null").map(|_| Value::Null),
         // Literals
-        literal_value.spanned().map(Value::Literal),
+        literal_value.map(Value::Literal),
         // Computed strings
-        computed_string.clone().spanned().map(Value::ComputedString),
+        computed_string.clone().map(Value::ComputedString),
         // Lists
         char('[')
             .ignore_then(msnl)
@@ -532,23 +531,15 @@ pub fn program(
             .ignore_then(msnl)
             .ignore_then(
                 ident
-                    .spanned()
                     .then_ignore(ms)
                     .then_ignore(char(':'))
                     .then_ignore(msnl)
-                    .then(expr.clone().spanned().critical("expected an expression"))
+                    .then(expr.clone().critical("expected an expression"))
                     .separated_by(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
             .then_ignore(char('}').critical_with_no_message())
-            .map(|members| {
-                Value::Struct(
-                    members
-                        .into_iter()
-                        .map(|(name, expr)| (name.data, expr))
-                        .collect::<HashMap<_, _>>(),
-                )
-            }),
+            .map(|members| Value::Struct(members.into_iter().collect::<HashMap<_, _>>())),
         // Function calls
         fn_call.clone().spanned().map(Value::FnCall),
         // Command calls
@@ -591,7 +582,7 @@ pub fn program(
     let braces_expr_body = char('{')
         .critical_with_no_message()
         .ignore_then(msnl)
-        .ignore_then(expr.clone().map(Box::new).spanned())
+        .ignore_then(expr.clone().map(Box::new))
         .then_ignore(msnl)
         .then_ignore(char('}').critical_with_no_message());
 
@@ -653,7 +644,6 @@ pub fn program(
                         .then_ignore(ms)
                         .then(braces_expr_body.clone())
                         .map(|(cond, body)| ElsIfExpr { cond, body })
-                        .spanned()
                         .repeated_vec()
                         .then(
                             msnl.ignore_then(just("else").critical("expected an 'else' block"))
@@ -679,7 +669,6 @@ pub fn program(
                 .ignore_then(
                     expr.clone()
                         .map(Box::new)
-                        .spanned()
                         .critical("expected an expression to match on"),
                 )
                 .then_ignore(msnl)
@@ -697,7 +686,6 @@ pub fn program(
                         .then_ignore(msnl)
                         .then(
                             expr.clone()
-                                .spanned()
                                 .critical("expected an expression to evaluate to"),
                         )
                         .map(|(matches, then)| MatchExprCase { matches, then })
@@ -711,7 +699,6 @@ pub fn program(
                 .then(
                     expr.clone()
                         .map(Box::new)
-                        .spanned()
                         .critical("expected an expression to evaluate to"),
                 )
                 .then_ignore(msnl)
@@ -725,7 +712,6 @@ pub fn program(
                 .ignore_then(
                     expr.clone()
                         .map(Box::new)
-                        .spanned()
                         .critical("expected an expression to match on"),
                 )
                 .then_ignore(msnl)
@@ -739,7 +725,6 @@ pub fn program(
                         .then_ignore(msnl)
                         .then(
                             expr.clone()
-                                .spanned()
                                 .critical("expected an expression to evaluate to"),
                         )
                         .map(|(matches, then)| TypeMatchExprCase { matches, then })
@@ -753,7 +738,6 @@ pub fn program(
                 .then(
                     expr.clone()
                         .map(Box::new)
-                        .spanned()
                         .critical("expected an expression to evaluate to"),
                 )
                 .then_ignore(msnl)
@@ -769,7 +753,6 @@ pub fn program(
                 .ignore_then(
                     expr.clone()
                         .map(Box::new)
-                        .spanned()
                         .critical("expected an expression"),
                 )
                 .then_ignore(msnl)
@@ -784,7 +767,6 @@ pub fn program(
                 .then(
                     expr.clone()
                         .map(Box::new)
-                        .spanned()
                         .critical("expected a catch expression"),
                 )
                 .then_ignore(msnl)
@@ -849,7 +831,6 @@ pub fn program(
             .map(ExprInnerChaining::MethodCall),
         lookahead(choice((char('.'), char('?'), char('[')))).ignore_then(
             prop_access
-                .spanned()
                 .critical("expected either a method call or a property access")
                 .map(ExprInnerChaining::PropAccess),
         ),
@@ -932,7 +913,7 @@ pub fn program(
 
     let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
         // Literal values
-        literal_value.spanned().map(CmdValueMakingArg::LiteralValue),
+        literal_value.map(CmdValueMakingArg::LiteralValue),
         // Variable
         char('$')
             .ignore_then(ident)
@@ -945,7 +926,6 @@ pub fn program(
         // Computed strings
         computed_string
             .clone()
-            .spanned()
             .map(CmdValueMakingArg::ComputedString),
         // Command call
         just("$(")
@@ -1052,7 +1032,7 @@ pub fn program(
             .spanned()
             .map(CmdArg::Spread),
         // Value-making
-        cmd_value_making_arg.map(CmdArg::ValueMaking),
+        cmd_value_making_arg.spanned().map(CmdArg::ValueMaking),
     ));
 
     let single_cmd_call = cmd_env_var

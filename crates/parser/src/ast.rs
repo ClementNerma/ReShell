@@ -219,24 +219,24 @@ pub enum ExprInnerContent {
     FnAsValue(Eaten<String>),
     Ternary {
         cond: Eaten<Box<Expr>>,
-        body: Eaten<Box<Expr>>,
-        elsif: Vec<Eaten<ElsIfExpr>>,
-        els: Eaten<Box<Expr>>,
+        body: Box<Expr>,
+        elsif: Vec<ElsIfExpr>,
+        els: Box<Expr>,
     },
     Match {
-        expr: Eaten<Box<Expr>>,
+        expr: Box<Expr>,
         cases: Vec<MatchExprCase>,
-        els: Eaten<Box<Expr>>,
+        els: Box<Expr>,
     },
     TypeMatch {
-        expr: Eaten<Box<Expr>>,
+        expr: Box<Expr>,
         cases: Vec<TypeMatchExprCase>,
-        els: Eaten<Box<Expr>>,
+        els: Box<Expr>,
     },
     Try {
-        try_expr: Eaten<Box<Expr>>,
+        try_expr: Box<Expr>,
         catch_var: Eaten<String>,
-        catch_expr: Eaten<Box<Expr>>,
+        catch_expr: Box<Expr>,
         catch_expr_scope_id: AstScopeId,
     },
     Throw(Eaten<Box<Expr>>),
@@ -245,24 +245,24 @@ pub enum ExprInnerContent {
 #[derive(Debug, Clone)]
 pub struct ElsIfExpr {
     pub cond: Eaten<Box<Expr>>,
-    pub body: Eaten<Box<Expr>>,
+    pub body: Box<Expr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MatchExprCase {
     pub matches: Eaten<Expr>,
-    pub then: Eaten<Expr>,
+    pub then: Expr,
 }
 
 #[derive(Debug, Clone)]
 pub struct TypeMatchExprCase {
     pub matches: ValueType,
-    pub then: Eaten<Expr>,
+    pub then: Expr,
 }
 
 #[derive(Debug, Clone)]
 pub enum ExprInnerChaining {
-    PropAccess(Eaten<PropAccess>),
+    PropAccess(PropAccess),
     MethodCall(Eaten<FnCall>),
 }
 
@@ -287,10 +287,10 @@ pub struct ExprOp {
 #[derive(Debug, Clone)]
 pub enum Value {
     Null,
-    Literal(Eaten<LiteralValue>),
-    ComputedString(Eaten<ComputedString>),
+    Literal(LiteralValue),
+    ComputedString(ComputedString),
     List(Vec<Eaten<Expr>>),
-    Struct(HashMap<String, Eaten<Expr>>),
+    Struct(HashMap<String, Expr>),
     Variable(Eaten<String>),
     FnCall(Eaten<FnCall>),
     CmdOutput(Eaten<CmdCall>),
@@ -374,7 +374,7 @@ pub enum LiteralValue {
 
 #[derive(Debug, Clone)]
 pub struct ComputedString {
-    pub pieces: Vec<Eaten<ComputedStringPiece>>,
+    pub pieces: Vec<ComputedStringPiece>,
 }
 
 #[derive(Debug, Clone)]
@@ -454,7 +454,7 @@ pub enum CmdRawStringPiece {
 
 #[derive(Debug, Clone)]
 pub enum CmdArg {
-    ValueMaking(CmdValueMakingArg),
+    ValueMaking(Eaten<CmdValueMakingArg>),
     Flag(CmdFlagArg),
     Spread(Eaten<CmdSpreadArg>),
 }
@@ -467,8 +467,8 @@ pub enum CmdSpreadArg {
 
 #[derive(Debug, Clone)]
 pub enum CmdValueMakingArg {
-    LiteralValue(Eaten<LiteralValue>),
-    ComputedString(Eaten<ComputedString>),
+    LiteralValue(LiteralValue),
+    ComputedString(ComputedString),
     InlineCmdCall(Eaten<CmdCall>),
     CmdOutput(Eaten<CmdCall>),
     ParenExpr(Eaten<Expr>),
