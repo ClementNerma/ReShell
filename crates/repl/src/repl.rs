@@ -262,10 +262,7 @@ fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<External
 
         Ok(Some(completions)) => completions
             .into_iter()
-            .map(|(raw_string, description)| ExternalCompletion {
-                raw_string,
-                description,
-            })
+            .map(ExternalCompletion::from)
             .collect(),
 
         Err(err) => {

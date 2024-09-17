@@ -18,6 +18,7 @@ use glob::{glob_with, MatchOptions};
 use reedline::{
     ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
 };
+use reshell_builtins::repl::completer::GeneratedCompletion;
 use reshell_parser::DELIMITER_CHARS;
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
@@ -50,8 +51,15 @@ pub type ExternalCompleter =
 
 #[derive(Debug)]
 pub struct ExternalCompletion {
-    pub raw_string: String,
     pub description: String,
+    pub value: String,
+}
+
+impl From<GeneratedCompletion> for ExternalCompletion {
+    fn from(value: GeneratedCompletion) -> Self {
+        let GeneratedCompletion { description, value } = value;
+        Self { description, value }
+    }
 }
 
 pub struct Completer {
@@ -203,13 +211,10 @@ pub fn generate_completions(
                 return completions
                     .into_iter()
                     .map(|comp| {
-                        let ExternalCompletion {
-                            raw_string,
-                            description,
-                        } = comp;
+                        let ExternalCompletion { value, description } = comp;
 
                         Suggestion {
-                            value: raw_string,
+                            value,
                             description: Some(description),
                             style: None,
                             extra: None,

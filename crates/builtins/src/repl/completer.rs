@@ -23,17 +23,23 @@ pub enum CompletionStringSegment {
 macro_rules! ret_type {
     () => {
         DetachedListType::new(TypedStruct2Type::new(
-            ("raw_string", StringType::new_direct()),
             ("description", StringType::new_direct()),
+            ("value", StringType::new_direct()),
         ))
     };
+}
+
+/// Generated completion
+pub struct GeneratedCompletion {
+    pub description: String,
+    pub value: String,
 }
 
 /// Generate completions (used for the REPL)
 pub fn generate_completions(
     cmd_pieces: &[Vec<CompletionStringSegment>],
     ctx: &mut Context,
-) -> ExecResult<Option<Vec<(String, String)>>> {
+) -> ExecResult<Option<Vec<GeneratedCompletion>>> {
     let completer_var = ctx
         .native_lib_scope_content()
         .vars
@@ -95,7 +101,12 @@ pub fn generate_completions(
         )
     })?;
 
-    Ok(Some(results))
+    Ok(Some(
+        results
+            .into_iter()
+            .map(|(description, value)| GeneratedCompletion { description, value })
+            .collect(),
+    ))
 }
 
 /// Generate completer function's signature
