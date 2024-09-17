@@ -111,12 +111,15 @@ pub fn generate_completions(
             );
         }
 
-        let mut cmd_comp = build_cmd_completions(word, next_char, span)
-            .ok()
-            .flatten()
-            .unwrap_or_default();
+        let mut cmd_comp =
+            build_fn_completions(word, next_char, None, None, span, ctx).collect::<Vec<_>>();
 
-        cmd_comp.extend(build_fn_completions(word, next_char, None, None, span, ctx));
+        cmd_comp.extend(
+            build_cmd_completions(word, next_char, span)
+                .ok()
+                .flatten()
+                .unwrap_or_default(),
+        );
 
         return sort_results(word, cmd_comp);
     }
@@ -161,23 +164,26 @@ pub fn generate_completions(
         if matches!(mode, CompletionMode::CmdName)
             || (cmd_beginning && !matches!(mode, CompletionMode::Expr))
         {
-            let mut cmd_comp = build_cmd_completions(word, next_char, span)
-                .ok()
-                .flatten()
-                .unwrap_or_default();
+            let mut cmd_comp = match mode {
+                CompletionMode::CmdName => vec![],
+                _ => build_fn_completions(word, next_char, None, None, span, ctx).collect(),
+            };
 
-            if !matches!(mode, CompletionMode::CmdName) {
-                cmd_comp.extend(build_fn_completions(word, next_char, None, None, span, ctx));
-            }
+            cmd_comp.extend(
+                build_cmd_completions(word, next_char, span)
+                    .ok()
+                    .flatten()
+                    .unwrap_or_default(),
+            );
 
             return sort_results(word, cmd_comp);
         }
 
         if matches!(mode, CompletionMode::Expr) {
-            let fn_comps =
-                build_fn_completions(word, next_char, None, Some("("), span, ctx).collect();
-
-            return sort_results(word, fn_comps);
+            return sort_results(
+                word,
+                build_fn_completions(word, next_char, None, Some("("), span, ctx).collect(),
+            );
         }
     }
 
@@ -236,9 +242,12 @@ fn build_fn_completions<'a>(
     let append_whitespace =
         add_suffix.is_none() && next_char != Some(' ') && next_char != Some('(');
 
+    let mut used_names = HashSet::new();
+
     ctx.visible_scopes_content()
         .flat_map(|scope| scope.fns.iter())
         .filter(move |(name, _)| name.to_lowercase().contains(&word))
+        .filter(move |(name, _)| used_names.insert(*name))
         .map(move |(name, func)| {
             (
                 name.clone(),
@@ -402,10 +411,13 @@ fn complete_var_name(
 ) -> Vec<Suggestion> {
     let word = word.to_lowercase();
 
+    let mut used_names = HashSet::new();
+
     let results = ctx
         .visible_scopes_content()
         .flat_map(|scope| scope.vars.iter())
         .filter(|(name, _)| name.to_lowercase().contains(&word))
+        .filter(|(name, _)| used_names.insert(*name))
         .map(|(name, item)| {
             (
                 name.clone(),
