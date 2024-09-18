@@ -245,7 +245,10 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 }
 
                 ';' => {
-                    if let Some((NestingOpeningType::ExprInString, _)) = opened.last() {
+                    if matches!(
+                        opened.last(),
+                        None | Some((NestingOpeningType::Block | NestingOpeningType::Lambda, _))
+                    ) {
                         push!(offset, 1, NestingActionType::CommandSeparator);
                     }
                 }

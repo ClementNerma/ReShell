@@ -25,52 +25,19 @@ pub struct CmdPiece<'a> {
 pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
     let nesting_actions = detect_nesting_actions(input, true);
 
-    let cmd_nesting_levels =
-        [0].into_iter().chain(nesting_actions.iter().filter_map(
-            |action| match action.action_type {
-                NestingActionType::Opening {
-                    typ: NestingOpeningType::CmdOutput | NestingOpeningType::Lambda,
-                    matching_close: _,
-                }
-                | NestingActionType::CommandSeparator => Some(action.nesting_level),
-
-                _ => None,
-            },
-        ));
-
-    let beg = cmd_nesting_levels.rev().find_map(|level| {
-        nesting_actions
-            .iter()
-            .rposition(|action| {
-                matches!(
-                    action.action_type,
-                    NestingActionType::CommandSeparator
-                        | NestingActionType::Opening {
-                            typ: _,
-                            matching_close: _
-                        }
-                ) && action.nesting_level == level
-            })
-            .map(|pos| (pos + 1, level))
+    let cmd_start = nesting_actions.iter().enumerate().rfind(|(_, action)| {
+        matches!(
+            action.action_type,
+            NestingActionType::Opening {
+                typ: NestingOpeningType::CmdOutput,
+                matching_close: _,
+            } | NestingActionType::Closing {
+                matching_opening: Some(NestingOpeningType::FnArgs),
+            } | NestingActionType::CommandSeparator
+        )
     });
 
     let mut segments = vec![];
-
-    let (level, pos, mut from) = match beg {
-        Some((pos, level)) => {
-            if pos == nesting_actions.len() {
-                let start = nesting_actions[pos - 1].offset + nesting_actions[pos - 1].len;
-
-                return vec![CmdPiece {
-                    start,
-                    content: &input[start..],
-                }];
-            }
-
-            (level, pos, nesting_actions[pos].offset)
-        }
-        None => (0, 0, 0),
-    };
 
     fn make_piece(extract: &str, start: usize) -> CmdPiece {
         let trimmed = extract.len() - extract.trim().len();
@@ -81,7 +48,12 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
         }
     }
 
-    for action in &nesting_actions[pos..] {
+    let (mut from, level, action_index) = match cmd_start {
+        Some((index, action)) => (action.offset + action.len, action.nesting_level, index),
+        None => (0, 0, 0),
+    };
+
+    for action in &nesting_actions[action_index..] {
         if action.nesting_level == level
             && matches!(action.action_type, NestingActionType::ArgumentSeparator)
         {
