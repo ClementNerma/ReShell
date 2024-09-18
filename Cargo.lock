@@ -114,9 +114,9 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
 name = "cc"
-version = "1.1.19"
+version = "1.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d74707dde2ba56f86ae90effb3b43ddd369504387e718014de010cec7959800"
+checksum = "07b1695e2c7e8fc85310cde85aeaab7e3097f593c91d209d3f9df76c928100f0"
 dependencies = [
  "shlex",
 ]
@@ -755,8 +755,8 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.34.0"
-source = "git+https://github.com/ClementNerma/reedline.git#16c09acafd1a16802bac9665628b52261ab59221"
+version = "0.35.0"
+source = "git+https://github.com/ClementNerma/reedline.git#d329bae05ef085c10fde50223cbcf7888e8853c1"
 dependencies = [
  "chrono",
  "crossterm",
@@ -1145,9 +1145,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.22.20"
+version = "0.22.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "583c44c02ad26b0c3f3066fe629275e50627026c51ac2e595cca4c230ce1ce1d"
+checksum = "3b072cee73c449a636ffd6f32bd8de3a9f7119139aff882f44943ce2986dc5cf"
 dependencies = [
  "indexmap",
  "serde",
