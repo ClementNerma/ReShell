@@ -214,7 +214,7 @@ pub fn generate_completions(
                         let ExternalCompletion { value, description } = comp;
 
                         Suggestion {
-                            value,
+                            value: escape_str(&value, None).into_owned(),
                             description: Some(description),
                             style: None,
                             extra: None,
