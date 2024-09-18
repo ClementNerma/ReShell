@@ -1,24 +1,30 @@
 //!
 //! This module defines the rule set and systems used for highlighting ReShell programs
 //! using the [`super::utils::syntax`] module.
-//! 
+//!
 
 use std::{
-    collections::{HashMap, HashSet}, sync::{Arc, LazyLock, Mutex}
+    collections::{HashMap, HashSet},
+    sync::{Arc, LazyLock, Mutex},
 };
 
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
-use reshell_runtime::{bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context};
+use reshell_runtime::{
+    bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context,
+};
 
-use crate::{repl::SHARED_CONTEXT, utils::{
-    nesting::NestingOpeningType,
-    syntax::{
-        compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule,
-        RuleSet, RuleStylization, SimpleRule, ValidatedRuleSet,
+use crate::{
+    repl::SHARED_CONTEXT,
+    utils::{
+        nesting::NestingOpeningType,
+        syntax::{
+            compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule, RuleSet,
+            RuleStylization, SimpleRule, ValidatedRuleSet,
+        },
     },
-}};
+};
 
 pub fn create_highlighter() -> Box<dyn RlHighlighter> {
     Box::new(Highlighter)
@@ -30,7 +36,12 @@ impl RlHighlighter for Highlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         if line.is_empty() {
             COMMANDS_CHECKER.lock().unwrap().clear(
-                SHARED_CONTEXT.lock().unwrap().as_mut().unwrap().binaries_resolver()
+                SHARED_CONTEXT
+                    .lock()
+                    .unwrap()
+                    .as_mut()
+                    .unwrap()
+                    .binaries_resolver(),
             );
         }
 
@@ -101,22 +112,28 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
     use Color::*;
 
     // Match method calls
-    let method_call = || Rule::Simple(SimpleRule {
-        matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
-        inside: None,
-        preceded_by: None,
-        followed_by: None,
-        followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
-        style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-            let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[0], false) {
-                Color::Blue
-            } else {
-                Color::Red
-            };
+    let method_call = || {
+        Rule::Simple(SimpleRule {
+            matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
+            inside: None,
+            preceded_by: None,
+            followed_by: None,
+            followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+            style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+                let color = if COMMANDS_CHECKER
+                    .lock()
+                    .unwrap()
+                    .check(ctx, &matched[0], false)
+                {
+                    Color::Blue
+                } else {
+                    Color::Red
+                };
 
-            vec![Style::new().fg(Color::LightYellow), Style::new().fg(color)]
-        }))
-    });
+                vec![Style::new().fg(Color::LightYellow), Style::new().fg(color)]
+            })),
+        })
+    };
 
     // Build the rule set
     let rule_set = RuleSet {
@@ -398,7 +415,7 @@ fn highlight(input: &str) -> StyledText {
 pub struct CommandsChecker {
     for_path: Vec<String>,
     internal_entries: HashMap<String, bool>,
-    external_entries: HashMap<String, bool>
+    external_entries: HashMap<String, bool>,
 }
 
 impl CommandsChecker {
@@ -406,7 +423,7 @@ impl CommandsChecker {
         Self {
             for_path: vec![],
             internal_entries: HashMap::new(),
-            external_entries: HashMap::new()
+            external_entries: HashMap::new(),
         }
     }
 
@@ -419,7 +436,11 @@ impl CommandsChecker {
 
     pub fn clear(&mut self, bin_resolver: &mut BinariesResolver) {
         self.internal_entries = HashMap::new();
-        self.external_entries = bin_resolver.entries().keys().map(|key| (key.clone(), true)).collect();
+        self.external_entries = bin_resolver
+            .entries()
+            .keys()
+            .map(|key| (key.clone(), true))
+            .collect();
     }
 
     pub fn check(&mut self, ctx: &mut Context, name: &str, external: bool) -> bool {
@@ -427,7 +448,7 @@ impl CommandsChecker {
 
         let entries = if external {
             &mut self.external_entries
-        }  else {
+        } else {
             &mut self.internal_entries
         };
 
@@ -438,14 +459,21 @@ impl CommandsChecker {
         if !external && !name.contains(['/', '\\']) {
             let exists = match name.strip_prefix('.') {
                 // Check for method names
-                Some(name) =>
-                    ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|method_name| method_name == name)),
+                Some(name) => ctx.visible_scopes().any(|scope| {
+                    scope
+                        .content
+                        .methods
+                        .keys()
+                        .any(|method_name| method_name == name)
+                }),
 
                 // Check for builtins and declared functions or command aliases
-                None =>
-                    ctx.visible_scopes().any(|scope| scope.content.fns.contains_key(name) || scope.content.cmd_aliases.contains_key(name))
+                None => ctx.visible_scopes().any(|scope| {
+                    scope.content.fns.contains_key(name)
+                        || scope.content.cmd_aliases.contains_key(name)
+                }),
             };
-            
+
             if exists {
                 entries.insert(name.to_owned(), exists);
                 return true;
@@ -465,4 +493,5 @@ impl CommandsChecker {
     }
 }
 
-pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> = LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));
+pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));
