@@ -147,7 +147,7 @@ impl Context {
         self.program_main_scope
     }
 
-    /// Access the binaries resolver
+    /// Mutable access the binaries resolver
     pub fn binaries_resolver(&mut self) -> &mut BinariesResolver {
         &mut self.bin_resolver
     }

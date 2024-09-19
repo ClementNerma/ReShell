@@ -5,24 +5,20 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock, },
 };
 
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
-use reshell_runtime::{
-    bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context,
-};
 
 use crate::{
     repl::SHARED_CONTEXT,
     utils::{
-        nesting::NestingOpeningType,
-        syntax::{
+        cmd_checker::{CheckCmdType, COMMANDS_CHECKER}, nesting::NestingOpeningType, syntax::{
             compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule, RuleSet,
             RuleStylization, SimpleRule, ValidatedRuleSet,
-        },
+        }
     },
 };
 
@@ -35,13 +31,12 @@ pub struct Highlighter;
 impl RlHighlighter for Highlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         if line.is_empty() {
-            COMMANDS_CHECKER.lock().unwrap().clear(
+            COMMANDS_CHECKER.lock().unwrap().refresh(
                 SHARED_CONTEXT
                     .lock()
                     .unwrap()
                     .as_mut()
                     .unwrap()
-                    .binaries_resolver(),
             );
         }
 
@@ -92,17 +87,6 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
         Rule::Simple(rule)
     }
 
-    /// Create a simple rule that must be followed by a specific nesting type
-    fn simple_followed_by_nesting<S: Into<Style> + Copy>(
-        regex: &'static str,
-        colors: impl AsRef<[S]>,
-        followed_by: impl Into<HashSet<NestingOpeningType>>,
-    ) -> Rule {
-        let mut rule = simple_rule(regex, colors);
-        rule.followed_by_nesting = Some(followed_by.into());
-        Rule::Simple(rule)
-    }
-
     /// Create a group inclusion rule
     fn include_group(name: &'static str) -> Rule {
         Rule::Group(name.to_owned())
@@ -123,7 +107,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 let color = if COMMANDS_CHECKER
                     .lock()
                     .unwrap()
-                    .check(ctx, &matched[0], false)
+                    .check(ctx, &matched[2], CheckCmdType::Method)
                 {
                     Color::Blue
                 } else {
@@ -213,13 +197,19 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 Rule::Simple(SimpleRule {
                     matches: Regex::new("(\\^|)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$\\^]+)").unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\bdirect\\s+|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
                         let is_external = !matched[1].is_empty();
 
-                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2], is_external) {
+                        let cmd_type = if is_external {
+                            CheckCmdType::ExternalCmd
+                        } else {
+                            CheckCmdType::ExternalCmdOrAlias
+                        };
+
+                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2], cmd_type) {
                             Color::Blue
                         } else {
                             Color::Red
@@ -267,7 +257,22 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 method_call(),
 
                 // Function calls
-                simple_followed_by_nesting("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)$", [Blue], [NestingOpeningType::ExprWithParen]),
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
+                    inside: None,
+                    followed_by: None,
+                    followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+                    preceded_by: None,
+                    style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[1], CheckCmdType::Function) {
+                            Color::Blue
+                        } else {
+                            Color::Red
+                        };
+
+                        vec![Style::new().fg(color)]
+                    }))
+                }),
 
                 // Types
                 simple("\\b(any|bool|int|float|string|list|map|error|struct|fn|cmdcall)\\b", [Magenta]),
@@ -412,86 +417,3 @@ fn highlight(input: &str) -> StyledText {
     }
 }
 
-pub struct CommandsChecker {
-    for_path: Vec<String>,
-    internal_entries: HashMap<String, bool>,
-    external_entries: HashMap<String, bool>,
-}
-
-impl CommandsChecker {
-    pub fn new() -> Self {
-        Self {
-            for_path: vec![],
-            internal_entries: HashMap::new(),
-            external_entries: HashMap::new(),
-        }
-    }
-
-    pub fn update(&mut self, bin_resolver: &mut BinariesResolver) {
-        if &self.for_path != bin_resolver.path_dirs() {
-            self.for_path.clone_from(bin_resolver.path_dirs());
-            self.update(bin_resolver);
-        }
-    }
-
-    pub fn clear(&mut self, bin_resolver: &mut BinariesResolver) {
-        self.internal_entries = HashMap::new();
-        self.external_entries = bin_resolver
-            .entries()
-            .keys()
-            .map(|key| (key.clone(), true))
-            .collect();
-    }
-
-    pub fn check(&mut self, ctx: &mut Context, name: &str, external: bool) -> bool {
-        self.update(ctx.binaries_resolver());
-
-        let entries = if external {
-            &mut self.external_entries
-        } else {
-            &mut self.internal_entries
-        };
-
-        if let Some(exists) = entries.get(name) {
-            return *exists;
-        }
-
-        if !external && !name.contains(['/', '\\']) {
-            let exists = match name.strip_prefix('.') {
-                // Check for method names
-                Some(name) => ctx.visible_scopes().any(|scope| {
-                    scope
-                        .content
-                        .methods
-                        .keys()
-                        .any(|method_name| method_name == name)
-                }),
-
-                // Check for builtins and declared functions or command aliases
-                None => ctx.visible_scopes().any(|scope| {
-                    scope.content.fns.contains_key(name)
-                        || scope.content.cmd_aliases.contains_key(name)
-                }),
-            };
-
-            if exists {
-                entries.insert(name.to_owned(), exists);
-                return true;
-            }
-        }
-
-        // Check for actual (external) file
-        let Ok(name) = try_replace_home_dir_tilde(name, ctx) else {
-            return false;
-        };
-
-        let exists = ctx.binaries_resolver().resolve_binary_path(&name).is_ok();
-
-        entries.insert(name.to_owned(), exists);
-
-        exists
-    }
-}
-
-pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(CommandsChecker::new())));

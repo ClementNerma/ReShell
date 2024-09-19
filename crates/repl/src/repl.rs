@@ -32,10 +32,11 @@ use crate::{
     completer::{self, ExternalCompletion, UnescapedSegment},
     edit_mode,
     exec::run_script,
-    highlighter::{self, COMMANDS_CHECKER},
+    highlighter::{self},
     hinter, history,
     prompt::Prompt,
     reports::{self, ReportableError},
+    utils::cmd_checker::COMMANDS_CHECKER,
     validator, Timings,
 };
 
@@ -95,10 +96,7 @@ pub fn start(
         }
 
         // Prepare line reading
-        COMMANDS_CHECKER
-            .lock()
-            .unwrap()
-            .clear(ctx.binaries_resolver());
+        COMMANDS_CHECKER.lock().unwrap().refresh(&mut ctx);
 
         let prev = SHARED_CONTEXT.lock().unwrap().replace(ctx);
         assert!(prev.is_none());
