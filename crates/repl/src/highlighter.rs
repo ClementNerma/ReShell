@@ -206,7 +206,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                         let cmd_type = if is_external {
                             CheckCmdType::ExternalCmd
                         } else {
-                            CheckCmdType::ExternalCmdOrAlias
+                            CheckCmdType::BroadCmd
                         };
 
                         let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[2], cmd_type) {

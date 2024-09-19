@@ -63,9 +63,9 @@ impl CommandsChecker {
         match typ {
             CheckCmdType::Method => self.methods_exist.contains(name),
             CheckCmdType::Function => self.functions_exist.contains(name),
-            CheckCmdType::ExternalCmd | CheckCmdType::ExternalCmdOrAlias => {
-                if matches!(typ, CheckCmdType::ExternalCmdOrAlias)
-                    && self.aliases_exist.contains(name)
+            CheckCmdType::ExternalCmd | CheckCmdType::BroadCmd => {
+                if matches!(typ, CheckCmdType::BroadCmd)
+                    && (self.aliases_exist.contains(name) || self.functions_exist.contains(name))
                 {
                     return true;
                 }
@@ -94,7 +94,7 @@ pub enum CheckCmdType {
     Method,
     Function,
     ExternalCmd,
-    ExternalCmdOrAlias,
+    BroadCmd, // External cmd or function name or alias
 }
 
 pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> =
