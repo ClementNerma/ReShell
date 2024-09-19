@@ -610,7 +610,13 @@ pub fn program(
             // Parenthesis-wrapped expression
             //
             char('(')
-                .ignore_then(expr.clone().map(Box::new))
+                .ignore_then(msnl)
+                .ignore_then(
+                    expr.clone()
+                        .critical("expected an expression between the parenthesis")
+                        .map(Box::new),
+                )
+                .then_ignore(msnl)
                 .then_ignore(char(')'))
                 .map(ExprInnerContent::ParenExpr),
             //
@@ -825,7 +831,7 @@ pub fn program(
         });
 
     expr_inner_chaining.finish(choice::<_, ExprInnerChaining>((
-        lookahead(char('.'))
+        msnl.ignore_then(lookahead(char('.')))
             .ignore_then(fn_call.clone())
             .spanned()
             .map(ExprInnerChaining::MethodCall),

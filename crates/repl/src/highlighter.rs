@@ -5,7 +5,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    sync::{Arc, LazyLock, },
+    sync::{Arc, LazyLock},
 };
 
 use nu_ansi_term::{Color, Style};
@@ -15,10 +15,12 @@ use regex::Regex;
 use crate::{
     repl::SHARED_CONTEXT,
     utils::{
-        cmd_checker::{CheckCmdType, COMMANDS_CHECKER}, nesting::NestingOpeningType, syntax::{
+        cmd_checker::{CheckCmdType, COMMANDS_CHECKER},
+        nesting::NestingOpeningType,
+        syntax::{
             compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule, RuleSet,
             RuleStylization, SimpleRule, ValidatedRuleSet,
-        }
+        },
     },
 };
 
@@ -31,13 +33,10 @@ pub struct Highlighter;
 impl RlHighlighter for Highlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         if line.is_empty() {
-            COMMANDS_CHECKER.lock().unwrap().refresh(
-                SHARED_CONTEXT
-                    .lock()
-                    .unwrap()
-                    .as_mut()
-                    .unwrap()
-            );
+            COMMANDS_CHECKER
+                .lock()
+                .unwrap()
+                .refresh(SHARED_CONTEXT.lock().unwrap().as_mut().unwrap());
         }
 
         highlight(line)
@@ -104,11 +103,11 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
             followed_by: None,
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
-                let color = if COMMANDS_CHECKER
-                    .lock()
-                    .unwrap()
-                    .check(ctx, &matched[2], CheckCmdType::Method)
-                {
+                let color = if COMMANDS_CHECKER.lock().unwrap().check(
+                    ctx,
+                    &matched[2],
+                    CheckCmdType::Method,
+                ) {
                     Color::Blue
                 } else {
                     Color::Red
@@ -416,4 +415,3 @@ fn highlight(input: &str) -> StyledText {
             .collect(),
     }
 }
-
