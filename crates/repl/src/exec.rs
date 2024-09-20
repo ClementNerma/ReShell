@@ -14,7 +14,7 @@ pub fn run_script(
 ) -> Result<Option<LocatedValue>, ReportableError> {
     let ExecArgs {
         print_ast,
-        only_check: _, // TODO
+        only_check, // TODO
     } = exec_args;
 
     let file_id = ctx.files_map().register_file(file_loc, input.to_string());
@@ -25,6 +25,18 @@ pub fn run_script(
 
     if print_ast {
         println!("AST: {parsed:#?}");
+    }
+
+    if only_check {
+        reshell_checker::check(
+            &parsed.data,
+            ctx.generate_checker_scopes(),
+            &mut ctx.checker_output().clone(),
+        )
+        .map_err(ReportableError::Checking)?;
+
+        println!("The provided program is valid (no error detected).");
+        return Ok(None);
     }
 
     run_program(&parsed, ctx).map_err(|err| ReportableError::Runtime(err, Some(parsed)))

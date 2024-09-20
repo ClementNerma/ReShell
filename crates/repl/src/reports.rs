@@ -12,6 +12,7 @@ use std::borrow::Cow;
 use annotate_snippets::{Level, Renderer, Snippet};
 use colored::Colorize;
 use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError, SourceFileID};
+use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
     files::{FilesMap, SourceFile, SourceFileLocation},
@@ -25,6 +26,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 #[derive(Debug)]
 pub enum ReportableError {
     Parsing(ParsingError),
+    Checking(CheckerError),
     Runtime(Box<ExecError>, Option<Eaten<Program>>),
 }
 
@@ -32,6 +34,7 @@ impl ReportableError {
     pub fn exit_code(&self) -> Option<i32> {
         match self {
             ReportableError::Parsing(_) => None,
+            ReportableError::Checking(_) => None,
             ReportableError::Runtime(err, _) => match err.nature {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
@@ -59,6 +62,12 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             let (at, err) = parsing_error(err);
             (RuntimeCodeRange::Parsed(at), "Syntax error", err)
         }
+
+        ReportableError::Checking(err) => (
+            RuntimeCodeRange::Parsed(err.at),
+            "Checking error",
+            err.msg.clone(),
+        ),
 
         ReportableError::Runtime(err, _) => match &err.nature {
             ExecErrorNature::Exit { code: _ } => {
@@ -119,6 +128,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let call_stack = match err {
         ReportableError::Parsing(_) => None,
+        ReportableError::Checking(_) => None,
         ReportableError::Runtime(err, _) => Some(&err.call_stack),
     };
 
@@ -251,6 +261,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let infos = match err {
         ReportableError::Parsing(_) => vec![],
+        ReportableError::Checking(err) => err
+            .details
+            .iter()
+            .map(|detail| (ExecInfoType::Note, detail.clone()))
+            .collect(),
         ReportableError::Runtime(err, _) => match &err.nature {
             ExecErrorNature::CheckingErr(checking_err) => checking_err
                 .details

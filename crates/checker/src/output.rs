@@ -17,7 +17,7 @@ pub(crate) fn shared<T>(value: T) -> SharingType<T> {
 }
 
 /// Data returned by the checker in case of success
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CheckerOutput {
     /// Dependencies list
     ///

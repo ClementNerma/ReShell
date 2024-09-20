@@ -157,6 +157,11 @@ impl Context {
         &self.collected.type_aliases_usages
     }
 
+    /// Get a reference to the collected checker's output
+    pub fn checker_output(&self) -> &CheckerOutput {
+        &self.collected
+    }
+
     /// Trigger a directory jump event
     pub fn trigger_directory_jump_event(&mut self, at: RuntimeCodeRange) -> ExecResult<()> {
         (self.conf.on_dir_jump)(self, at)
@@ -215,7 +220,7 @@ impl Context {
     }
 
     /// Generate checker scopes from current runtime scope hierarchy
-    pub(crate) fn generate_checker_scopes(&self) -> Vec<CheckerScope> {
+    pub fn generate_checker_scopes(&self) -> Vec<CheckerScope> {
         self.generate_parent_scopes_list()
             .iter()
             .filter_map(|scope_id| self.scopes.get(scope_id))
