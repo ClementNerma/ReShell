@@ -20,7 +20,7 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(
-        |_,
+        |at,
          Args {
              cmd_call,
              silent,
@@ -59,8 +59,7 @@ fn run() -> Runner {
                             if ignore_failure {
                                 Ok(None)
                             } else {
-                                Err(ctx
-                                    .throw(cmd_call, format!("failed to start command: {message}")))
+                                Err(ctx.throw(at, format!("failed to start command: {message}")))
                             }
                         }
 
@@ -71,7 +70,7 @@ fn run() -> Runner {
                             if ignore_failure {
                                 Ok(None)
                             } else {
-                                Err(ctx.throw(cmd_call, message))
+                                Err(ctx.throw(at, message))
                             }
                         }
 

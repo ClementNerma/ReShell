@@ -33,6 +33,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         // Command calls
         //
         self::command::succeeds::build_fn(),
+        self::command::run::build_fn(),
         //
         // Date-times
         //

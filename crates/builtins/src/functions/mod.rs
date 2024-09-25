@@ -34,7 +34,6 @@ mod rand_int;
 mod read_dir;
 mod read_file;
 mod rm;
-mod run;
 mod run_fn;
 mod runtime;
 mod set_env;
@@ -85,7 +84,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::rm::build_fn(),
         self::run_fn::build_fn(),
         self::set_env::build_fn(),
-        self::run::build_fn(),
         self::runtime::build_fn(),
         self::term_cols::build_fn(),
         self::term_rows::build_fn(),
