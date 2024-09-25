@@ -117,7 +117,7 @@ pub enum Instruction {
         catch_body: Eaten<Block>,
     },
 
-    /// Command alias declaratin
+    /// Command alias declaration
     CmdAliasDecl {
         name: Eaten<String>,
         content_scope_id: AstScopeId,
