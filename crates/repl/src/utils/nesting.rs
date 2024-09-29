@@ -181,7 +181,13 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                     opened_strings.push((char_as_str, offset));
                 }
 
-                '(' => open!(offset, 1, NestingOpeningType::ExprWithParen),
+                '(' => match prev_char {
+                    Some(("$", prev_offset)) => {
+                        open!(prev_offset, 2, NestingOpeningType::CmdOutput)
+                    }
+
+                    Some((_, _)) | None => open!(offset, 1, NestingOpeningType::ExprWithParen),
+                },
 
                 '[' => open!(offset, 1, NestingOpeningType::List),
 
@@ -225,7 +231,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                             (opening_str, char),
                             (
                                 NestingOpeningType::ExprWithParen
-                                    | NestingOpeningType::ComputedString,
+                                    | NestingOpeningType::ComputedString
+                                    | NestingOpeningType::CmdOutput,
                                 ')'
                             ) | (NestingOpeningType::List, ']')
                                 | (NestingOpeningType::Block | NestingOpeningType::Lambda, '}')
