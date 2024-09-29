@@ -100,18 +100,18 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
     let mut commenting = false;
 
     let mut offset = 0;
-    let mut last_char = None::<(&str, usize)>;
-    let mut prev_char = None::<(&str, usize)>;
+    let mut last_char = None::<(char, usize)>;
+    let mut prev_char = None::<(char, usize)>;
 
     for char in input.chars() {
         if let Some((last_str, last_offset)) = last_char {
-            offset += last_str.len();
+            offset += last_str.len_utf8();
             prev_char = Some((last_str, last_offset));
         }
 
         let char_as_str = &input[offset..offset + char.len_utf8()];
 
-        last_char = Some((char_as_str, offset));
+        last_char = Some((char_as_str.chars().next().unwrap(), offset));
 
         if escaping {
             escaping = false;
@@ -141,7 +141,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 '\\' => escaping = true,
 
                 '(' => {
-                    if let Some(("$", prev_offset)) = prev_char {
+                    if let Some(('$', prev_offset)) = prev_char {
                         open!(prev_offset, 2, NestingOpeningType::CmdOutput)
                     }
                 }
@@ -182,7 +182,7 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 }
 
                 '(' => match prev_char {
-                    Some(("$", prev_offset)) => {
+                    Some(('$', prev_offset)) => {
                         open!(prev_offset, 2, NestingOpeningType::CmdOutput)
                     }
 
