@@ -13,6 +13,7 @@ pub mod fold;
 pub mod get;
 pub mod is_empty;
 pub mod join;
+pub mod last;
 pub mod len;
 pub mod map;
 pub mod pop;

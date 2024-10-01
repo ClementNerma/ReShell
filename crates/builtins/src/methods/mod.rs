@@ -67,6 +67,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::get::build_fn(),
         self::list::is_empty::build_fn(),
         self::list::join::build_fn(),
+        self::list::last::build_fn(),
         self::list::len::build_fn(),
         self::list::map::build_fn(),
         self::list::pop::build_fn(),
