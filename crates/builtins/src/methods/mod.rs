@@ -99,7 +99,6 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         // Strings
         //
-        self::string::after_last::build_fn(),
         self::string::chars::build_fn(),
         self::string::contains::build_fn(),
         self::string::ends_with::build_fn(),
