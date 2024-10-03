@@ -743,6 +743,9 @@ fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
     if !str
         .chars()
         .chain(prefix.unwrap_or_default().chars())
+        // TODO: in path completion for instance, if we use a variable it shouldn't be escapeded
+        // but if the dir / file name contains a '$' it SHOULD be escaped
+        // find a way to handle that
         .any(|c| c.is_whitespace() || (DELIMITER_CHARS.contains(&c) && c != '$'))
     {
         match prefix {
