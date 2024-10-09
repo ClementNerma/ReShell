@@ -688,25 +688,29 @@ pub fn program(
                                 .critical("expected an expression to match"),
                         )
                         .then_ignore(msnl)
-                        .then_ignore(just("->").critical_with_no_message())
+                        .then_ignore(char('{').critical_with_no_message())
                         .then_ignore(msnl)
                         .then(
                             expr.clone()
                                 .critical("expected an expression to evaluate to"),
                         )
+                        .then_ignore(msnl)
+                        .then_ignore(char('}').critical_with_no_message())
                         .map(|(matches, then)| MatchExprCase { matches, then })
                         .repeated_vec(),
                 )
                 .then_ignore(msnl)
                 .then_ignore(just("else").critical_with_no_message())
                 .then_ignore(msnl)
-                .then_ignore(just("->").critical_with_no_message())
+                .then_ignore(char('{').critical_with_no_message())
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
                         .map(Box::new)
                         .critical("expected an expression to evaluate to"),
                 )
+                .then_ignore(msnl)
+                .then_ignore(char('}').critical_with_no_message())
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_with_no_message())
                 .map(|((expr, cases), els)| ExprInnerContent::Match { expr, cases, els }),
@@ -727,25 +731,29 @@ pub fn program(
                         .ignore_then(ms)
                         .ignore_then(value_type.clone().critical("expected a type to match"))
                         .then_ignore(msnl)
-                        .then_ignore(just("->").critical_with_no_message())
+                        .then_ignore(char('{').critical_with_no_message())
                         .then_ignore(msnl)
                         .then(
                             expr.clone()
                                 .critical("expected an expression to evaluate to"),
                         )
+                        .then_ignore(msnl)
+                        .then_ignore(char('}').critical_with_no_message())
                         .map(|(matches, then)| TypeMatchExprCase { matches, then })
                         .repeated_vec(),
                 )
                 .then_ignore(msnl)
                 .then_ignore(just("else").critical_with_no_message())
                 .then_ignore(msnl)
-                .then_ignore(just("->").critical_with_no_message())
+                .then_ignore(char('{').critical_with_no_message())
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
                         .map(Box::new)
                         .critical("expected an expression to evaluate to"),
                 )
+                .then_ignore(msnl)
+                .then_ignore(char('}').critical_with_no_message())
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_with_no_message())
                 .map(|((expr, cases), els)| ExprInnerContent::TypeMatch { expr, cases, els }),
