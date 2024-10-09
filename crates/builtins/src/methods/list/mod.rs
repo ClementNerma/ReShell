@@ -7,6 +7,7 @@ pub mod contains;
 pub mod each;
 pub mod filter;
 pub mod filter_map;
+pub mod find;
 pub mod flat_map;
 pub mod flattened;
 pub mod fold;
