@@ -277,16 +277,22 @@ fn complete_cmd_name(
     span: Span,
     ctx: &Context,
 ) -> Vec<Suggestion> {
-    // If so, complete as a function's name
+    // First try to complete as a method's name
+    if let Some(word) = word.strip_prefix('.') {
+        let comp =
+            build_method_completions(word, next_char, Some("."), span, ctx).collect::<Vec<_>>();
+
+        // If we've got at least one result, return it
+        if !comp.is_empty() {
+            return sort_results(word, comp);
+        }
+    }
+
+    // Complete as a function's name...
     let mut cmd_comp =
         build_fn_completions(word, next_char, None, None, span, ctx).collect::<Vec<_>>();
 
-    // Also try to complete as a method's name
-    if let Some(word) = word.strip_prefix('.') {
-        cmd_comp.extend(build_method_completions(word, Some("."), span, ctx));
-    }
-
-    // Try to complete as an external command's name
+    // ...and as an external command's name
     cmd_comp.extend(
         build_external_cmd_completions(word, next_char, span)
             .ok()
@@ -343,11 +349,15 @@ fn build_fn_completions<'a>(
 
 fn build_method_completions<'a>(
     word: &str,
+    next_char: Option<char>,
     add_prefix: Option<&str>,
     span: Span,
     ctx: &'a Context,
 ) -> impl Iterator<Item = SortableSuggestion> + 'a {
     let word = word.to_lowercase();
+
+    let append_whitespace = next_char != Some(' ') && next_char != Some('(');
+
     let add_prefix = add_prefix.map(str::to_owned);
 
     ctx.visible_scopes_content()
@@ -373,7 +383,7 @@ fn build_method_completions<'a>(
                         style: None,
                         extra: None,
                         span,
-                        append_whitespace: false,
+                        append_whitespace,
                     },
                 )
             })
