@@ -4,6 +4,7 @@ use reshell_runtime::{
 };
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 use time::{
+    format_description::well_known::Rfc2822,
     util::local_offset::{set_soundness, Soundness},
     OffsetDateTime, UtcOffset,
 };
@@ -76,7 +77,7 @@ impl PrettyPrintable for DateTimeValue {
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
-            pretty_print_string(&self.0.to_string()),
+            pretty_print_string(&self.0.format(&Rfc2822).unwrap()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }
