@@ -12,8 +12,6 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { duration }, _, _| {
-        Ok(Some(RuntimeValue::Int(
-            duration.inner.subsec_millis().into(),
-        )))
+        Ok(Some(RuntimeValue::Int(duration.subsec_millis().into())))
     })
 }

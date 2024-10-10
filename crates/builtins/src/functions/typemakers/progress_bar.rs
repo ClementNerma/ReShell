@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use colored::Color;
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
 use reshell_runtime::{gc::GcReadOnlyCell, values::CustomValueType};
@@ -65,10 +67,8 @@ fn run() -> Runner {
                 pb = pb.with_finish(ProgressFinish::AndLeave);
             }
 
-            let pb = ProgressBarValue { inner: pb };
-
             Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                pb,
+                ProgressBarValue(pb),
             )))))
         },
     )
@@ -76,8 +76,20 @@ fn run() -> Runner {
 
 /// Progress bar displayer
 #[derive(Debug, Clone)]
-pub struct ProgressBarValue {
-    pub inner: ProgressBar,
+pub struct ProgressBarValue(ProgressBar);
+
+// impl ProgressBarValue {
+//     pub fn new(pb: ProgressBar) -> Self {
+//         Self(pb)
+//     }
+// }
+
+impl Deref for ProgressBarValue {
+    type Target = ProgressBar;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl CustomValueType for ProgressBarValue {

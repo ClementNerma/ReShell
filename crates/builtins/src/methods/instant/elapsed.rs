@@ -14,12 +14,8 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { instant }, _, _| {
-        let duration = DurationValue {
-            inner: instant.inner.elapsed(),
-        };
-
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            duration,
+            DurationValue::new(instant.elapsed()),
         )))))
     })
 }

@@ -14,9 +14,9 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { pb, clear }, _, _| {
         if clear {
-            pb.inner.finish_and_clear();
+            pb.finish_and_clear();
         } else {
-            pb.inner.abandon();
+            pb.abandon();
         }
 
         Ok(None)

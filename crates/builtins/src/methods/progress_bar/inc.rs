@@ -13,7 +13,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { pb, amount }, _, _| {
-        pb.inner.inc(amount.unwrap_or(1));
+        pb.inc(amount.unwrap_or(1));
 
         Ok(None)
     })

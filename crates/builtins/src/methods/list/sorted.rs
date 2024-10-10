@@ -1,6 +1,10 @@
-use std::cmp::Ordering;
+use reshell_runtime::{
+    errors::ExecInfoType,
+    gc::{GcCell, GcReadOnlyCell},
+};
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use reshell_runtime::gc::GcCell;
+use crate::functions::{DateTimeValue, DurationValue};
 
 crate::define_internal_fn!(
     //
@@ -19,65 +23,41 @@ fn run() -> Runner {
     Runner::new(|_, Args { list }, args_at, ctx| {
         let list = list.read_promise_no_write();
 
-        let sorted_list =
-        // integers
-        try_sort_type(
-            &list,
-            |item| match item {
-                RuntimeValue::Int(int) => Some(*int),
-                _ => None,
-            },
-            RuntimeValue::Int,
-            i64::cmp,
+        macro_rules! try_sort_type {
+            ($($typ: ty => $remap: expr),+) => {{
+                $(
+                    let typ = <$typ>::new_single_direct();
+
+                    if let Ok(mut items) = list.iter().cloned().map(|item| SingleTyping::parse(&typ, item)).collect::<Result<Vec<_>, _>>() {
+                        items.sort();
+
+                        return Ok(Some(RuntimeValue::List(GcCell::new(
+                            items.into_iter().map($remap).collect(),
+                        ))));
+                    }
+                )+
+
+                Err(
+                    ctx.throw(args_at.list, "only lists containing items of a comparable type can be sorted")
+                     $(.with_info(
+                        ExecInfoType::Note,
+                        format!(
+                            "comparable type: {}",
+                            <$typ>::new_single_direct()
+                                .underlying_single_type()
+                                .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            )
+                        )
+                    )+
+                )
+            }};
+        }
+
+        try_sort_type!(
+            StringType => RuntimeValue::String,
+            IntType => RuntimeValue::Int,
+            CustomType<DurationValue> => |item| RuntimeValue::Custom(GcReadOnlyCell::new(item)),
+            CustomType<DateTimeValue> => |item| RuntimeValue::Custom(GcReadOnlyCell::new(item))
         )
-        // floats
-        .or_else(|| {
-            try_sort_type(
-                &list,
-                |item| match item {
-                    RuntimeValue::Float(float) => Some(*float),
-                    _ => None,
-                },
-                RuntimeValue::Float,
-                |a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal),
-            )
-        })
-        // strings
-        .or_else(|| {
-            try_sort_type(
-                &list,
-                |item| match item {
-                    RuntimeValue::String(string) => Some(string.clone()),
-                    _ => None,
-                },
-                RuntimeValue::String,
-                String::cmp,
-            )
-        })
-        // failure
-        .ok_or_else(|| {
-            ctx.throw(args_at.list, "only integer, floating-point and string lists can be sorted")
-        })?;
-
-        Ok(Some(sorted_list))
     })
-}
-
-fn try_sort_type<T>(
-    list: &[RuntimeValue],
-    extract: impl Fn(&RuntimeValue) -> Option<T>,
-    remap: fn(T) -> RuntimeValue,
-    sort_by: impl Fn(&T, &T) -> Ordering,
-) -> Option<RuntimeValue> {
-    let mut items = list
-        .iter()
-        .map(|item| extract(item).ok_or(()))
-        .collect::<Result<Vec<_>, ()>>()
-        .ok()?;
-
-    items.sort_by(sort_by);
-
-    Some(RuntimeValue::List(GcCell::new(
-        items.into_iter().map(remap).collect(),
-    )))
 }

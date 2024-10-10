@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 
 use colored::{Color, Colorize};
 use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
@@ -57,9 +57,7 @@ fn run() -> Runner {
             };
 
             Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                RegexValue {
-                    inner: Arc::new(regex),
-                },
+                RegexValue(Arc::new(regex)),
             )))))
         },
     )
@@ -69,13 +67,25 @@ fn run() -> Runner {
 ///
 /// Backed with a thread-shared [`Regex`]
 #[derive(Debug, Clone)]
-pub struct RegexValue {
-    inner: Arc<Regex>,
+pub struct RegexValue(Arc<Regex>);
+
+// impl RegexValue {
+//     pub fn new(dur: Arc<Regex>) -> Self {
+//         Self(dur)
+//     }
+// }
+
+impl Deref for RegexValue {
+    type Target = Regex;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl RegexValue {
     pub fn inner(&self) -> &Regex {
-        &self.inner
+        &self.0
     }
 }
 
@@ -98,7 +108,7 @@ impl PrettyPrintable for RegexValue {
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("regex(", Color::Magenta),
-            pretty_print_string(self.inner.as_str()),
+            pretty_print_string(self.0.as_str()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }

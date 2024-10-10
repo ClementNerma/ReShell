@@ -41,7 +41,7 @@ fn run() -> Runner {
         })?;
 
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue(OffsetDateTime::from(mtime)),
+            DateTimeValue::new(OffsetDateTime::from(mtime)),
         )))))
     })
 }

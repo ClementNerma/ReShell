@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use colored::Color;
 use reshell_runtime::{
     gc::GcReadOnlyCell, pretty_impl::pretty_print_string, values::CustomValueType,
@@ -55,8 +57,22 @@ fn get_utc_offset() -> UtcOffset {
 /// Date and time value
 ///
 /// Backed by an [`OffsetDateTime`]
-#[derive(Debug, Clone)]
-pub struct DateTimeValue(pub OffsetDateTime);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DateTimeValue(OffsetDateTime);
+
+impl DateTimeValue {
+    pub fn new(datetime: OffsetDateTime) -> Self {
+        Self(datetime)
+    }
+}
+
+impl Deref for DateTimeValue {
+    type Target = OffsetDateTime;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl CustomValueType for DateTimeValue {
     fn typename(&self) -> &'static str {

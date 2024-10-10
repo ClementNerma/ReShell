@@ -12,7 +12,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { pb }, _, _| {
-        pb.inner.finish_and_clear();
+        pb.finish_and_clear();
 
         Ok(None)
     })

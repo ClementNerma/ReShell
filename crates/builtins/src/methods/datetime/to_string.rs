@@ -26,13 +26,11 @@ fn run() -> Runner {
                 })?;
 
                 moment
-                    .0
                     .format(&format)
                     .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?
             }
 
             None => moment
-                .0
                 .format(&Rfc2822)
                 .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?,
         };
