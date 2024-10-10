@@ -85,58 +85,73 @@ pub fn generate_completions(
     ctx: &mut Context,
     external_completer: Option<&ExternalCompleter>,
 ) -> Vec<Suggestion> {
+    // Parse the last command present in the provided line
+    // (up to the cursor's position)
+    // into a list made of the command name and its arguments
     let cmd_pieces = compute_command_pieces(&line[..pos]);
 
+    // Get the word the cursor is currently positioned at
     let CmdPiece {
         start: word_start,
+        // This contains the word until the cursor's position,
+        // so it may be incomplete
         content: word,
     } = cmd_pieces.last().copied().unwrap_or(CmdPiece {
         start: 0,
         content: "",
     });
 
+    // Compute the word's end location
     let word_end = word_start + word.len();
 
+    // Make a span that delimitates the word in the provided line string
     let span = Span {
         start: word_start,
         end: word_end,
     };
 
+    // Extract the word
     let word = &line[word_start..word_end];
 
+    // Check if the current word is a command's beginning,
+    // which means it's a command's name and not an argument
     let cmd_beginning = cmd_pieces.len() <= 1;
 
-    let after_cmd_separator = line[..word_start].trim_end().ends_with(['|', ';'])
+    // Check if the word we're completing is a command name that's piped another command
+    let is_pipe_cmd_name = line[..word_start].trim_end().ends_with('|')
         && !line[..word_start].trim_end().ends_with("||");
 
-    let next_char = line[word_end..].chars().next();
-
-    if after_cmd_separator && !word.starts_with(['\'', '"']) {
-        if let Some(s_word) = word.strip_prefix('.') {
-            return sort_results(
-                word,
-                build_method_completions(s_word, Some("."), span, ctx).collect(),
-            );
-        }
-
-        let mut cmd_comp =
-            build_fn_completions(word, next_char, None, None, span, ctx).collect::<Vec<_>>();
-
-        cmd_comp.extend(
-            build_cmd_completions(word, next_char, span)
-                .ok()
-                .flatten()
-                .unwrap_or_default(),
-        );
-
-        return sort_results(word, cmd_comp);
+    // Safety check for the logic
+    if is_pipe_cmd_name {
+        assert!(cmd_beginning);
     }
 
-    let mode = complete_special_instructions(&cmd_pieces);
+    let mode = if is_pipe_cmd_name {
+        // Check if we're completing a special instruction
+        // e.g. a loop, a variable declaration, etc.
+        //
+        // If so, this is incorrect as we're currently trying to complete a command
+        // that comes after a pipe (|).
+        //
+        // As a result, we return an empty set of completions (as the current content is invalid anyway)
+        if complete_special_instructions(&cmd_pieces).is_some() {
+            return vec![];
+        }
+
+        // Otherwise, we try to complete the command's name
+        CompletionMode::CmdName
+    } else {
+        complete_special_instructions(&cmd_pieces).unwrap_or(CompletionMode::Any)
+    };
+
+    // Get the character coming right after the word's end
+    let next_char = line[word_end..].chars().next();
 
     match mode {
+        // Return no completion result
         CompletionMode::None => return vec![],
 
+        // Return a single completion result
         CompletionMode::Single(single) => {
             return vec![Suggestion {
                 value: single.to_owned(),
@@ -148,66 +163,83 @@ pub fn generate_completions(
             }]
         }
 
-        CompletionMode::Default | CompletionMode::Expr | CompletionMode::CmdName => {}
-    }
+        // Complete as a command's name
+        CompletionMode::CmdName => return complete_cmd_name(word, next_char, span, ctx),
 
-    if matches!(mode, CompletionMode::Default | CompletionMode::Expr) {
-        if let Some(s_word) = word.strip_prefix('$') {
-            return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
-                complete_path(&unescape_str(word), span, ctx)
-            } else {
-                complete_var_name(s_word, Some("$"), span, ctx)
-            };
+        // Complete as an external command's name
+        CompletionMode::ExternalCmdName => {
+            let results = build_external_cmd_completions(word, next_char, span)
+                .ok()
+                .flatten()
+                .unwrap_or_default();
+
+            return sort_results(word, results);
         }
 
-        if let Some(s_word) = word.strip_prefix('@') {
-            return sort_results(
-                word,
-                build_fn_completions(s_word, next_char, Some("@"), None, span, ctx).collect(),
-            );
+        // Complete as an expression or normally
+        CompletionMode::Expr | CompletionMode::Any => {
+            // Try to complete a variable's name
+            if let Some(s_word) = word.strip_prefix('$') {
+                return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
+                    complete_path(&unescape_str(word), span, ctx)
+                } else {
+                    complete_var_name(s_word, Some("$"), span, ctx)
+                };
+            }
+
+            // Try to complete a function-as-a-value's name
+            if let Some(s_word) = word.strip_prefix('@') {
+                return sort_results(
+                    word,
+                    build_fn_completions(s_word, next_char, Some("@"), None, span, ctx).collect(),
+                );
+            }
+
+            // Otherwise, if the current word does not contain a path separator or a string delimiter...
+            if !word.contains(['/', '\\', '\'', '"']) {
+                match mode {
+                    CompletionMode::Any => {
+                        // Then it may be a command's name
+                        if cmd_beginning {
+                            return complete_cmd_name(word, next_char, span, ctx);
+                        }
+                    }
+
+                    // Or it may be a function's name inside an expression
+                    // (external commands, aliases and paths are nonsense here)
+                    //
+                    // If it's not, then we can't perform any completion
+                    CompletionMode::Expr => {
+                        return sort_results(
+                            word,
+                            build_fn_completions(word, next_char, None, Some("("), span, ctx)
+                                .collect(),
+                        )
+                    }
+
+                    _ => unreachable!(),
+                }
+            }
         }
-    }
+    };
 
-    if !word.contains(['/', '\\', '\'', '"']) {
-        if matches!(mode, CompletionMode::CmdName)
-            || (cmd_beginning && !matches!(mode, CompletionMode::Expr))
-        {
-            let mut cmd_comp = match mode {
-                CompletionMode::CmdName => vec![],
-                _ => build_fn_completions(word, next_char, None, None, span, ctx).collect(),
-            };
-
-            cmd_comp.extend(
-                build_cmd_completions(word, next_char, span)
-                    .ok()
-                    .flatten()
-                    .unwrap_or_default(),
-            );
-
-            return sort_results(word, cmd_comp);
-        }
-
-        if matches!(mode, CompletionMode::Expr) {
-            return sort_results(
-                word,
-                build_fn_completions(word, next_char, None, Some("("), span, ctx).collect(),
-            );
-        }
-    }
-
+    // If we're in a command's argument...
     if !cmd_beginning {
+        // Bring the (optional) external completer
         if let Some(external_completer) = external_completer {
-            // let cmd_start = cmd_pieces.first().map_or(0, |piece| piece.start);
-            // let cmd = &line[cmd_start..pos];
-
+            // Unescape all strings to simplify to allow the external completer
+            // (which doesn't know ReShell's syntax) to work correctly
             let cmd_pieces = cmd_pieces
                 .iter()
                 .map(|piece| unescape_str(piece.content))
                 .collect::<Vec<_>>();
 
+            // Call the external completer
             let completions = external_completer(&cmd_pieces, ctx);
 
+            // If it returned some results...
             if !completions.is_empty() {
+                // Return them
                 return completions
                     .into_iter()
                     .map(|comp| {
@@ -227,11 +259,43 @@ pub fn generate_completions(
         }
     }
 
-    if matches!(mode, CompletionMode::Default) {
-        complete_path(&unescape_str(word), span, ctx)
-    } else {
-        vec![]
+    match mode {
+        // If everything else failed, try to complete the current word as a path
+        CompletionMode::Any => complete_path(&unescape_str(word), span, ctx),
+
+        CompletionMode::None
+        | CompletionMode::Single(_)
+        | CompletionMode::Expr
+        | CompletionMode::CmdName
+        | CompletionMode::ExternalCmdName => unreachable!(),
     }
+}
+
+fn complete_cmd_name(
+    word: &str,
+    next_char: Option<char>,
+    span: Span,
+    ctx: &Context,
+) -> Vec<Suggestion> {
+    // If so, complete as a function's name
+    let mut cmd_comp =
+        build_fn_completions(word, next_char, None, None, span, ctx).collect::<Vec<_>>();
+
+    // Also try to complete as a method's name
+    if let Some(word) = word.strip_prefix('.') {
+        cmd_comp.extend(build_method_completions(word, Some("."), span, ctx));
+    }
+
+    // Try to complete as an external command's name
+    cmd_comp.extend(
+        build_external_cmd_completions(word, next_char, span)
+            .ok()
+            .flatten()
+            .unwrap_or_default(),
+    );
+
+    // Return the results (even if we've got nothing)
+    sort_results(word, cmd_comp)
 }
 
 fn build_fn_completions<'a>(
@@ -316,7 +380,7 @@ fn build_method_completions<'a>(
         })
 }
 
-fn build_cmd_completions(
+fn build_external_cmd_completions(
     word: &str,
     next_char: Option<char>,
     span: Span,
@@ -571,25 +635,36 @@ fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestio
         .collect()
 }
 
+/// Description of how to complete a provided input
 #[derive(Debug)]
 enum CompletionMode {
-    Default,
-    Single(&'static str),
+    /// Complete without doing anything special
+    Any,
+
+    // No completion is possible
     None,
+
+    /// Only a single completion is possible
+    Single(&'static str),
+
+    // Complete as an expression
     Expr,
+
+    // Command name (internal or external)
     CmdName,
+
+    // Complete as an external command's name
+    ExternalCmdName,
 }
 
-fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> CompletionMode {
+fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> Option<CompletionMode> {
     if cmd_pieces.len() == 1 {
-        return CompletionMode::Default;
+        return None;
     }
 
-    let Some(cmd_name) = cmd_pieces.first().map(|piece| piece.content) else {
-        return CompletionMode::Default;
-    };
+    let cmd_name = cmd_pieces.first()?.content;
 
-    match cmd_name {
+    let comp = match cmd_name {
         "for" => {
             match cmd_pieces.len() {
                 // for [<...>]
@@ -659,18 +734,21 @@ fn complete_special_instructions(cmd_pieces: &[CmdPiece]) -> CompletionMode {
         },
 
         // TODO: complete like usual but with "^" stripped
-        //       => and ignore aliases / functions
+        //       and add the "^"  back
+        //       and ignore command aliases
         "^" => match cmd_pieces.len() {
             1 => CompletionMode::None,
 
-            2 => CompletionMode::CmdName,
+            2 => CompletionMode::ExternalCmdName,
 
-            _ => CompletionMode::Default,
+            _ => CompletionMode::Any,
         },
 
         // Not a special instruction
-        _ => CompletionMode::Default,
-    }
+        _ => return None,
+    };
+
+    Some(comp)
 }
 
 #[derive(Debug)]
