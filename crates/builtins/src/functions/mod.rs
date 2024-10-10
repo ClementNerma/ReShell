@@ -16,6 +16,7 @@ mod current_script_path;
 mod dbg;
 mod dbg_type;
 mod dir_exists;
+mod dirname;
 mod echo;
 mod env;
 mod error;
@@ -64,6 +65,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::dbg::build_fn(),
         self::dbg_type::build_fn(),
         self::dir_exists::build_fn(),
+        self::dirname::build_fn(),
         self::echo::build_fn(),
         self::env::build_fn(),
         self::error::build_fn(),
