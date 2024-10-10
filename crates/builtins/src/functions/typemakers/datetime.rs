@@ -25,7 +25,7 @@ fn run() -> Runner {
         let now = OffsetDateTime::now_utc().to_offset(offset);
 
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue { inner: now },
+            DateTimeValue(now),
         )))))
     })
 }
@@ -55,9 +55,7 @@ fn get_utc_offset() -> UtcOffset {
 ///
 /// Backed by an [`OffsetDateTime`]
 #[derive(Debug, Clone)]
-pub struct DateTimeValue {
-    pub inner: OffsetDateTime,
-}
+pub struct DateTimeValue(pub OffsetDateTime);
 
 impl CustomValueType for DateTimeValue {
     fn typename(&self) -> &'static str {
@@ -78,7 +76,7 @@ impl PrettyPrintable for DateTimeValue {
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
-            pretty_print_string(&self.inner.to_string()),
+            pretty_print_string(&self.0.to_string()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }

@@ -27,6 +27,7 @@ mod glob;
 mod human_size;
 mod map;
 mod mkdir;
+mod mtime;
 mod parent_dir;
 mod parse_json;
 mod parse_toml;
@@ -76,6 +77,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::human_size::build_fn(),
         self::map::build_fn(),
         self::mkdir::build_fn(),
+        self::mtime::build_fn(),
         self::parent_dir::build_fn(),
         self::parse_json::build_fn(),
         self::parse_toml::build_fn(),
