@@ -161,6 +161,8 @@ pub enum RuntimeValue {
     Function(GcReadOnlyCell<RuntimeFnValue>),
 
     // Custom value type
+    // We use a `Box` to get a 'static lifetime with the dynamic dispatch
+    // And we wrap it inside an `GcReadOnlyCell` as `Box` is costly to clone (requires an allocation)
     Custom(GcReadOnlyCell<Box<dyn CustomValueType>>),
 }
 
