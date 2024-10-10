@@ -3,7 +3,7 @@ crate::define_internal_fn!(
     // reverse a list's order
     //
 
-    "reverse",
+    "reversed",
 
     (
         string: RequiredArg<StringType> = Arg::method_self()
