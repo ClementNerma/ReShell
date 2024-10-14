@@ -471,22 +471,31 @@ pub fn program(
 
     let lambda = char('{')
         .ignore_then(msnl)
-        .ignore_then(char('|'))
-        .ignore_then(msnl)
         .ignore_then(
-            fn_arg
-                .separated_by(char(',').padded_by(msnl))
-                .spanned()
-                .map(RuntimeEaten::from)
-                .map(|args| FnSignature {
-                    args,
+            choice::<_, FnSignature>((
+                char('|')
+                    .ignore_then(msnl)
+                    .ignore_then(
+                        fn_arg
+                            .separated_by(char(',').padded_by(msnl))
+                            .spanned()
+                            .map(RuntimeEaten::from)
+                            .map(|args| FnSignature {
+                                args,
+                                ret_type: None,
+                            }),
+                    )
+                    .then_ignore(msnl)
+                    .then_ignore(char('|').critical_with_no_message())
+                    .then_ignore(msnl),
+                // Arg-less
+                empty().spanned().map(|eaten| FnSignature {
+                    args: RuntimeEaten::from(eaten.replace(vec![])),
                     ret_type: None,
-                })
-                .spanned(),
+                }),
+            ))
+            .spanned(),
         )
-        .then_ignore(msnl)
-        .then_ignore(char('|').critical_with_no_message())
-        .then_ignore(msnl)
         .then(
             raw_block
                 .clone()
