@@ -98,7 +98,7 @@ impl<'a, T> GcRef<'a, T> {
     }
 }
 
-impl<'a, T> Drop for GcRef<'a, T> {
+impl<T> Drop for GcRef<'_, T> {
     fn drop(&mut self) {
         if self.is_read_lock_initiator {
             *self.read_lock.write().unwrap() = None;

@@ -136,7 +136,7 @@ impl RlHistory for History {
     }
 
     fn load(&self, id: HistoryItemId) -> reedline::Result<HistoryItem> {
-        let cmd_line = self.entries.get(&id).cloned().ok_or_else(|| {
+        let cmd_line = self.entries.get(&id).cloned().ok_or({
             ReedlineError(ReedlineErrorVariants::OtherHistoryError(
                 "Provided entry does not exist",
             ))
