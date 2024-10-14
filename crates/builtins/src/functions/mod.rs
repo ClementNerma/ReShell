@@ -25,6 +25,7 @@ mod file_exists;
 mod file_size;
 mod glob;
 mod human_size;
+mod in_dir;
 mod map;
 mod mkdir;
 mod mtime;
@@ -75,6 +76,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::file_size::build_fn(),
         self::glob::build_fn(),
         self::human_size::build_fn(),
+        self::in_dir::build_fn(),
         self::map::build_fn(),
         self::mkdir::build_fn(),
         self::mtime::build_fn(),
