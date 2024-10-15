@@ -1,10 +1,11 @@
 use std::{
     collections::HashMap,
-    io::Write,
+    io::{Seek, SeekFrom, Write},
     path::MAIN_SEPARATOR,
     process::{Child, Command, Stdio},
 };
 
+use memfile::{CreateOptions, MemFile};
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
@@ -561,11 +562,8 @@ fn exec_cmd(
             )
         })?;
 
-    // String to write to STDIN
-    let mut write_to_stdin = None;
-
     // Actually run the command
-    let mut child = Command::new(cmd_path)
+    let child = Command::new(cmd_path)
         .envs(env_vars)
         .args(args_str)
         .stdin(match input {
@@ -575,8 +573,37 @@ fn exec_cmd(
             },
 
             Some(CmdInput::String(string)) => {
-                write_to_stdin = Some(string);
-                Stdio::piped()
+                // Unfortunately, it's not possible to provide a direct string as an input to a command
+                // We actually need to provide an actual file descriptor (as is a usual stdin "pipe")
+                // So what we do here is that we create a temporary, in-memory file...
+                let mut file =
+                    MemFile::create("<cmdmeminput>", CreateOptions::default()).map_err(|err| {
+                        ctx.error(
+                            call_at,
+                            format!(
+                                "failed to create an in-memory file for the command's input: {err}"
+                            ),
+                        )
+                    })?;
+
+                // ...then we write the input string into it...
+                file.write_all(string.as_bytes())
+                    .and_then(|()|
+                    // ...we make its 'cursor' go back to the beginning...
+                    // (otherwise reading the file would start from the end, which means it would read nothing)
+                    file.seek(SeekFrom::Start(0)))
+                    .map_err(|err| {
+                        ctx.error(
+                            call_at,
+                            format!(
+                                "failed to write the command's input in the in-memory file: {err}"
+                            ),
+                        )
+                    })?;
+
+                // ...and then we convert it to a 'pipe'!
+                // And this whole operation had a pretty low cost since we didn't wrote to an actual file
+                Stdio::from(file)
             }
 
             None => {
@@ -622,18 +649,6 @@ fn exec_cmd(
                 },
             )
         })?;
-
-    // Write to STDIN if we have a string input to pass on
-    if let Some(string) = write_to_stdin {
-        let mut stdin = child
-            .stdin
-            .take()
-            .expect("Failed to open STDIN from spawned command");
-
-        stdin
-            .write_all(string.as_bytes())
-            .map_err(|err| ctx.error(call_at, format!("failed to write input to STDIN: {err}")))?;
-    }
 
     Ok(child)
 }
