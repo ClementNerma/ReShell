@@ -54,7 +54,7 @@ fn run() -> Runner {
                         flattened.extend(list.read_promise_no_write().iter().cloned());
                     }
 
-                    _ => flattened.push(value)
+                    _ => flattened.push(value),
                 }
             }
 
