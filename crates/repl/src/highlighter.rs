@@ -154,13 +154,16 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 simple("(\\->|\\!?\\|)", [LightYellow]),
 
                 // Markers
-                simple("\\b(include)(?:\\s|$)", [Magenta]),
+                simple("^\\s*(include)(?:\\s|$)", [Magenta]),
 
                 // Normalized flags
                 simple_followed_by("\\s((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
 
                 // Keywords
-                simple("\\b(alias|fn|for|while|if|else|continue|typematch|match|break|throw|try|catch|return|self)\\b", [Magenta]),
+                simple("\\b(alias|fn|for|while|if|else|continue|typematch|match|break|throw|try|catch|return)(?:\\s|$)", [Magenta]),
+
+                // 'self' keyword
+                simple("\\b(self)(?:\\.|$)", [Magenta]),
 
                 // Numbers
                 simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
