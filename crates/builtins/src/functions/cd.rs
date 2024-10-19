@@ -31,11 +31,30 @@ fn run() -> Runner {
             ));
         }
 
-        std::env::set_current_dir(path)
-            .map_err(|err| ctx.error(at, format!("failed to change current directory: {err}")))?;
-
-        ctx.trigger_directory_jump_event(at)?;
+        change_current_dir(path, at, ctx)?;
 
         Ok(None)
     })
+}
+
+pub fn change_current_dir(
+    path: impl AsRef<Path>,
+    at: RuntimeCodeRange,
+    ctx: &mut Context,
+) -> ExecResult<()> {
+    let path = path.as_ref();
+
+    std::env::set_current_dir(path).map_err(|err| {
+        ctx.error(
+            at,
+            format!(
+                "failed to change current directory to '{}': {err}",
+                path.display()
+            ),
+        )
+    })?;
+
+    ctx.trigger_directory_jump_event(at)?;
+
+    Ok(())
 }
