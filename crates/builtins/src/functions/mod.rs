@@ -46,6 +46,7 @@ mod typemakers;
 mod whereis;
 mod which;
 mod write_file;
+mod write_to_file;
 
 use crate::helpers::fns::InternalFunction;
 
@@ -96,6 +97,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::whereis::build_fn(),
         self::which::build_fn(),
         self::write_file::build_fn(),
+        self::write_to_file::build_fn(),
     ]
     .into_iter()
     .chain(
