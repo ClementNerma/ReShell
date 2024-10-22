@@ -27,7 +27,7 @@ fn func_type() -> RequiredArg<TypedFunctionType> {
 fn run() -> Runner {
     Runner::new(|at, Args { path, func }, args_at, ctx| {
         let cur_dir = std::env::current_dir().map_err(|err| {
-            ctx.error(
+            ctx.throw(
                 args_at.path,
                 format!("Failed to get current directory: {err}"),
             )

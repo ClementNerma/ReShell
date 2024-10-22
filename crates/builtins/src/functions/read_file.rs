@@ -26,7 +26,7 @@ fn run() -> Runner {
         }
 
         let content = fs::read_to_string(path).map_err(|err| {
-            ctx.error(
+            ctx.throw(
                 at,
                 format!("failed to read file '{}': {err}", path.display()),
             )

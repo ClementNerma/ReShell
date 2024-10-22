@@ -22,7 +22,7 @@ fn run() -> Runner {
                 name: RuntimeEaten {
                     at: args_at.name,
                     data: CmdFlagNameArg::dynamic(name).map_err(|err| {
-                        ctx.error(args_at.name /* TODO: correct location */, err)
+                        ctx.throw(args_at.name /* TODO: correct location */, err)
                     })?,
                 },
                 value: value.map(|value| FlagArgValueResult {

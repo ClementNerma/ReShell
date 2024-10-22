@@ -34,7 +34,7 @@ fn run() -> Runner {
 
             if !append {
                 fs::write(path, content).map_err(|err| {
-                    ctx.error(
+                    ctx.throw(
                         at,
                         format!("failed to write file '{}': {err}", path.display()),
                     )
@@ -46,14 +46,14 @@ fn run() -> Runner {
                     .append(true)
                     .open(path)
                     .map_err(|err| {
-                        ctx.error(
+                        ctx.throw(
                             at,
                             format!("failed to open file '{}': {err}", path.display()),
                         )
                     })?
                     .write_all(format!("{content}\n").as_bytes())
                     .map_err(|err| {
-                        ctx.error(
+                        ctx.throw(
                             at,
                             format!("failed to append to file '{}': {err}", path.display()),
                         )

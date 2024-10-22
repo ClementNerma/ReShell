@@ -38,7 +38,7 @@ fn run() -> Runner {
             };
 
             result.map_err(|err| {
-                ctx.error(
+                ctx.throw(
                     at,
                     format!("failed to remove item at path '{}': {err}", path.display()),
                 )

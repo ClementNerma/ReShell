@@ -18,15 +18,15 @@ fn run() -> Runner {
 
         io::stdout()
             .flush()
-            .map_err(|err| ctx.error(at, format!("failed to flush stdout: {err}")))?;
+            .map_err(|err| ctx.throw(at, format!("failed to flush stdout: {err}")))?;
 
         io::stderr()
             .flush()
-            .map_err(|err| ctx.error(at, format!("failed to flush stdout: {err}")))?;
+            .map_err(|err| ctx.throw(at, format!("failed to flush stdout: {err}")))?;
 
         io::stdin()
             .read_line(&mut buffer)
-            .map_err(|err| ctx.error(at, format!("failed to read line: {err}")))?;
+            .map_err(|err| ctx.throw(at, format!("failed to read line: {err}")))?;
 
         if buffer.ends_with('\n') {
             buffer.pop();

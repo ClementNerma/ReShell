@@ -20,7 +20,7 @@ fn run() -> Runner {
         let path = Path::new(&path);
 
         if !path.exists() {
-            return Err(ctx.error(args_at.path, "Provided path does not exist"));
+            return Err(ctx.throw(args_at.path, "Provided path does not exist"));
         }
 
         let stat = path.metadata().map_err(|err| {

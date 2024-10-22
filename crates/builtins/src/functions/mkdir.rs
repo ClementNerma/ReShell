@@ -56,7 +56,7 @@ fn run() -> Runner {
             };
 
             result.map_err(|err| {
-                ctx.error(
+                ctx.throw(
                     at,
                     format!(
                         "failed to create directory at path '{}': {err}",

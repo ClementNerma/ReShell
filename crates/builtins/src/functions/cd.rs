@@ -48,7 +48,7 @@ pub fn change_current_dir(
     let path = path.as_ref();
 
     std::env::set_current_dir(path).map_err(|err| {
-        ctx.error(at, format!("failed to change current directory: {err}"))
+        ctx.throw(at, format!("failed to change current directory: {err}"))
             .with_info(
                 ExecInfoType::Note,
                 format!("tried path: {}", path.to_string_lossy().bright_blue()),

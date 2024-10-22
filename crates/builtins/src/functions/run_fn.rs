@@ -39,7 +39,7 @@ fn run() -> Runner {
             Ok(loc_val.map(|loc_val| loc_val.value))
         }
 
-        _ => Err(ctx.error(
+        _ => Err(ctx.throw(
             args_at.func,
             format!(
                 "expected a function, found a: {}",

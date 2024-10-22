@@ -43,7 +43,7 @@ fn run() -> Runner {
             let paths = paths
                 .map(|path| -> ExecResult<RuntimeValue> {
                     let path = path.map_err(|err| {
-                        ctx.error(at, format!("failed to access path during glob: {err}"))
+                        ctx.throw(at, format!("failed to access path during glob: {err}"))
                     })?;
 
                     if lossy {
@@ -51,7 +51,7 @@ fn run() -> Runner {
                     }
 
                     let path = path.to_str().ok_or_else(|| {
-                        ctx.error(
+                        ctx.throw(
                             at,
                             format!(
                                 "encountered path with invalid UTF-8 character(s): {}",
