@@ -13,28 +13,27 @@ define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(
-        |_, Args { path, lossy }, ArgsAt { path: path_at, .. }, ctx| {
-            let canon = dunce::canonicalize(path)
-                .map_err(|err| ctx.throw(path_at, format!("failed to canonicalize path: {err}")))?;
+    Runner::new(|_, Args { path, lossy }, args_at, ctx| {
+        let canon = dunce::canonicalize(path).map_err(|err| {
+            ctx.throw(args_at.path, format!("failed to canonicalize path: {err}"))
+        })?;
 
-            let Some(canon) = canon.to_str() else {
-                return if lossy {
-                    Ok(Some(RuntimeValue::String(
-                        canon.to_string_lossy().into_owned(),
-                    )))
-                } else {
-                    Err(ctx.throw(
-                        path_at,
-                        format!(
-                            "canonicalized path contains invalid UTF-8 characters: {}",
-                            canon.display()
-                        ),
-                    ))
-                };
+        let Some(canon) = canon.to_str() else {
+            return if lossy {
+                Ok(Some(RuntimeValue::String(
+                    canon.to_string_lossy().into_owned(),
+                )))
+            } else {
+                Err(ctx.throw(
+                    args_at.path,
+                    format!(
+                        "canonicalized path contains invalid UTF-8 characters: {}",
+                        canon.display()
+                    ),
+                ))
             };
+        };
 
-            Ok(Some(RuntimeValue::String(canon.to_owned())))
-        },
-    )
+        Ok(Some(RuntimeValue::String(canon.to_owned())))
+    })
 }

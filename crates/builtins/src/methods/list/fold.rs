@@ -37,14 +37,11 @@ fn run() -> Runner {
              init,
              fold_fn,
          },
-         ArgsAt {
-             fold_fn: fold_fn_at,
-             ..
-         },
+         args_at,
          ctx| {
-            let fold_fn = LocatedValue::new(fold_fn_at, RuntimeValue::Function(fold_fn));
+            let fold_fn = LocatedValue::new(args_at.fold_fn, RuntimeValue::Function(fold_fn));
 
-            let list = list.read(fold_fn_at);
+            let list = list.read(args_at.fold_fn);
 
             let mut folded = init.clone();
 
@@ -56,7 +53,7 @@ fn run() -> Runner {
                     ctx,
                 )
                 .and_then(|ret| {
-                    expect_returned_value(ret, fold_fn_at, AnyType::new_direct(), ctx)
+                    expect_returned_value(ret, args_at.fold_fn, AnyType::new_direct(), ctx)
                 })?;
             }
 

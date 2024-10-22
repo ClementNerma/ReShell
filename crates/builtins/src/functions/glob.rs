@@ -25,10 +25,7 @@ fn run() -> Runner {
              case_sensitive,
              lossy,
          },
-         ArgsAt {
-             pattern: pattern_at,
-             ..
-         },
+         args_at,
          ctx| {
             let mut options = MatchOptions::default();
 
@@ -37,7 +34,10 @@ fn run() -> Runner {
             }
 
             let paths = glob_with(&pattern, options).map_err(|err| {
-                ctx.throw(pattern_at, format!("invalid glob pattern provided: {err}"))
+                ctx.throw(
+                    args_at.pattern,
+                    format!("invalid glob pattern provided: {err}"),
+                )
             })?;
 
             let paths = paths

@@ -18,7 +18,7 @@ define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args {}, ArgsAt {}, _| {
+    Runner::new(|_, Args {}, _, _| {
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
             DateTimeValue(Zoned::now()),
         )))))

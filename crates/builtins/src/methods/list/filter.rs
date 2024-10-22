@@ -28,35 +28,27 @@ fn filter_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, filter },
-         ArgsAt {
-             list: _,
-             filter: filter_at,
-         },
-         ctx| {
-            let filter = LocatedValue::new(filter_at, RuntimeValue::Function(filter));
+    Runner::new(|_, Args { list, filter }, args_at, ctx| {
+        let filter = LocatedValue::new(args_at.filter, RuntimeValue::Function(filter));
 
-            let mut filtered = vec![];
+        let mut filtered = vec![];
 
-            for value in list.read(filter_at).iter() {
-                let keep = call_fn_checked(
-                    &filter,
-                    filter_type().base_typing().signature(),
-                    vec![value.clone()],
-                    ctx,
-                )
-                .and_then(|ret| {
-                    expect_returned_value(ret, filter_at, BoolType::new_direct(), ctx)
-                })?;
+        for value in list.read(args_at.filter).iter() {
+            let keep = call_fn_checked(
+                &filter,
+                filter_type().base_typing().signature(),
+                vec![value.clone()],
+                ctx,
+            )
+            .and_then(|ret| {
+                expect_returned_value(ret, args_at.filter, BoolType::new_direct(), ctx)
+            })?;
 
-                if keep {
-                    filtered.push(value.clone());
-                }
+            if keep {
+                filtered.push(value.clone());
             }
+        }
 
-            Ok(Some(RuntimeValue::List(GcCell::new(filtered))))
-        },
-    )
+        Ok(Some(RuntimeValue::List(GcCell::new(filtered))))
+    })
 }

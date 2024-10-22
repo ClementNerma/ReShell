@@ -26,36 +26,28 @@ fn checker_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, checker },
-         ArgsAt {
-             list: _,
-             checker: checker_at,
-         },
-         ctx| {
-            let filter = LocatedValue::new(checker_at, RuntimeValue::Function(checker));
+    Runner::new(|_, Args { list, checker }, args_at, ctx| {
+        let filter = LocatedValue::new(args_at.checker, RuntimeValue::Function(checker));
 
-            let mut any = false;
+        let mut any = false;
 
-            for value in list.read(checker_at).iter() {
-                let validated = call_fn_checked(
-                    &filter,
-                    checker_type().base_typing().signature(),
-                    vec![value.clone()],
-                    ctx,
-                )
-                .and_then(|ret| {
-                    expect_returned_value(ret, checker_at, BoolType::new_direct(), ctx)
-                })?;
+        for value in list.read(args_at.checker).iter() {
+            let validated = call_fn_checked(
+                &filter,
+                checker_type().base_typing().signature(),
+                vec![value.clone()],
+                ctx,
+            )
+            .and_then(|ret| {
+                expect_returned_value(ret, args_at.checker, BoolType::new_direct(), ctx)
+            })?;
 
-                if validated {
-                    any = true;
-                    break;
-                }
+            if validated {
+                any = true;
+                break;
             }
+        }
 
-            Ok(Some(RuntimeValue::Bool(any)))
-        },
-    )
+        Ok(Some(RuntimeValue::Bool(any)))
+    })
 }

@@ -26,24 +26,16 @@ fn inspect_fn_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { value, inspect_fn },
-         ArgsAt {
-             inspect_fn: inspect_fn_at,
-             ..
-         },
-         ctx| {
-            let inspect_fn = LocatedValue::new(inspect_fn_at, RuntimeValue::Function(inspect_fn));
+    Runner::new(|_, Args { value, inspect_fn }, args_at, ctx| {
+        let inspect_fn = LocatedValue::new(args_at.inspect_fn, RuntimeValue::Function(inspect_fn));
 
-            call_fn_checked(
-                &inspect_fn,
-                inspect_fn_type().base_typing().signature(),
-                vec![value.clone()],
-                ctx,
-            )?;
+        call_fn_checked(
+            &inspect_fn,
+            inspect_fn_type().base_typing().signature(),
+            vec![value.clone()],
+            ctx,
+        )?;
 
-            Ok(Some(value))
-        },
-    )
+        Ok(Some(value))
+    })
 }

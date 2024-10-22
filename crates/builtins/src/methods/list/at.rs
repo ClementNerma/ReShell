@@ -20,9 +20,7 @@ fn run() -> Runner {
              index,
              or_else,
          },
-         ArgsAt {
-             index: index_at, ..
-         },
+         args_at,
          ctx| {
             let items = list.read_promise_no_write();
 
@@ -32,7 +30,7 @@ fn run() -> Runner {
                 None => match or_else {
                     Some(value) => Ok(Some(value.clone())),
                     None => Err(ctx.throw(
-                        index_at,
+                        args_at.index,
                         format!(
                             "index '{index}' is out-of-bounds (list only contains {} elements)",
                             items.len()

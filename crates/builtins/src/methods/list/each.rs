@@ -26,27 +26,19 @@ fn for_each_fn_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, for_each_fn },
-         ArgsAt {
-             list: list_at,
-             for_each_fn: for_each_fn_at,
-         },
-         ctx| {
-            let for_each_fn =
-                LocatedValue::new(for_each_fn_at, RuntimeValue::Function(for_each_fn));
+    Runner::new(|_, Args { list, for_each_fn }, args_at, ctx| {
+        let for_each_fn =
+            LocatedValue::new(args_at.for_each_fn, RuntimeValue::Function(for_each_fn));
 
-            for value in list.read(list_at).iter() {
-                call_fn_checked(
-                    &for_each_fn,
-                    for_each_fn_type().base_typing().signature(),
-                    vec![value.clone()],
-                    ctx,
-                )?;
-            }
+        for value in list.read(args_at.list).iter() {
+            call_fn_checked(
+                &for_each_fn,
+                for_each_fn_type().base_typing().signature(),
+                vec![value.clone()],
+                ctx,
+            )?;
+        }
 
-            Ok(None)
-        },
-    )
+        Ok(None)
+    })
 }

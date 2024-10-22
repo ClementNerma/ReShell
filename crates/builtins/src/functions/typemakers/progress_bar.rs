@@ -29,15 +29,12 @@ fn run() -> Runner {
              prefix,
              keep_on_finish,
          },
-         ArgsAt {
-             template: template_at,
-             ..
-         },
+         args_at,
          ctx| {
             let style = match template {
                 Some(template) => ProgressStyle::with_template(&template).map_err(|err| {
                     ctx.throw(
-                        template_at.unwrap(),
+                        args_at.template.unwrap(),
                         format!("invalid template provided: {err}"),
                     )
                 })?,

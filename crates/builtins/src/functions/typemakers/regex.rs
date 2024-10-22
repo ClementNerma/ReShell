@@ -22,45 +22,38 @@ define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { pattern, pomsky },
-         ArgsAt {
-             pattern: pattern_at,
-             ..
-         },
-         ctx| {
-            let regex = if !pomsky {
-                Regex::new(&pattern).map_err(|err| ctx.throw(pattern_at, format!("{err}")))?
-            } else {
-                let (parsed, diag, _) =
-                    Expr::parse_and_compile(&pattern, CompileOptions::default());
+    Runner::new(|_, Args { pattern, pomsky }, args_at, ctx| {
+        let regex = if !pomsky {
+            Regex::new(&pattern).map_err(|err| ctx.throw(args_at.pattern, format!("{err}")))?
+        } else {
+            let (parsed, diag, _) = Expr::parse_and_compile(&pattern, CompileOptions::default());
 
-                for diag in diag {
-                    println!(
-                        "{} for regex at {}: {}",
-                        match diag.severity {
-                            Severity::Warning => "WARNING".bright_yellow(),
-                            Severity::Error => "ERROR".bright_red(),
-                        },
-                        pattern_at.render_colored(ctx.files_map(), PrettyPrintOptions::inline()),
-                        diag.msg
-                    );
+            for diag in diag {
+                println!(
+                    "{} for regex at {}: {}",
+                    match diag.severity {
+                        Severity::Warning => "WARNING".bright_yellow(),
+                        Severity::Error => "ERROR".bright_red(),
+                    },
+                    args_at
+                        .pattern
+                        .render_colored(ctx.files_map(), PrettyPrintOptions::inline()),
+                    diag.msg
+                );
+            }
+
+            match parsed {
+                Some(parsed) => Regex::new(&parsed).unwrap(),
+                None => {
+                    return Err(ctx.throw(args_at.pattern, "failed to parse Pomsky regex"));
                 }
+            }
+        };
 
-                match parsed {
-                    Some(parsed) => Regex::new(&parsed).unwrap(),
-                    None => {
-                        return Err(ctx.throw(pattern_at, "failed to parse Pomsky regex"));
-                    }
-                }
-            };
-
-            Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                RegexValue(Arc::new(regex)),
-            )))))
-        },
-    )
+        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
+            RegexValue(Arc::new(regex)),
+        )))))
+    })
 }
 
 /// Regular expression

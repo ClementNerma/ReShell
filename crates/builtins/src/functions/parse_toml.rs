@@ -14,17 +14,17 @@ define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { string }, ArgsAt { string: string_at }, ctx| {
+    Runner::new(|_, Args { string }, args_at, ctx| {
         let toml = string.parse::<Table>().map_err(|err| {
             ctx.throw(
-                string_at,
+                args_at.string,
                 format!("Failed to parse input string as JSON: {err:?}"),
             )
         })?;
 
         let json = toml_to_value(Value::Table(toml)).map_err(|err| {
             ctx.throw(
-                string_at,
+                args_at.string,
                 format!("Failed to parse input string as JSON: {err}",),
             )
         })?;

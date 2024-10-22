@@ -26,33 +26,25 @@ fn finder_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, finder },
-         ArgsAt {
-             list: _,
-             finder: finder_at,
-         },
-         ctx| {
-            let finder = LocatedValue::new(finder_at, RuntimeValue::Function(finder));
+    Runner::new(|_, Args { list, finder }, args_at, ctx| {
+        let finder = LocatedValue::new(args_at.finder, RuntimeValue::Function(finder));
 
-            for value in list.read(finder_at).iter() {
-                let keep = call_fn_checked(
-                    &finder,
-                    finder_type().base_typing().signature(),
-                    vec![value.clone()],
-                    ctx,
-                )
-                .and_then(|ret| {
-                    expect_returned_value(ret, finder_at, BoolType::new_direct(), ctx)
-                })?;
+        for value in list.read(args_at.finder).iter() {
+            let keep = call_fn_checked(
+                &finder,
+                finder_type().base_typing().signature(),
+                vec![value.clone()],
+                ctx,
+            )
+            .and_then(|ret| {
+                expect_returned_value(ret, args_at.finder, BoolType::new_direct(), ctx)
+            })?;
 
-                if keep {
-                    return Ok(Some(value.clone()));
-                }
+            if keep {
+                return Ok(Some(value.clone()));
             }
+        }
 
-            Ok(Some(RuntimeValue::Null))
-        },
-    )
+        Ok(Some(RuntimeValue::Null))
+    })
 }

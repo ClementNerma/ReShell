@@ -32,13 +32,10 @@ fn run() -> Runner {
              value,
              transform_fn,
          },
-         ArgsAt {
-             transform_fn: transform_fn_at,
-             ..
-         },
+         args_at,
          ctx| {
             let transform_fn =
-                LocatedValue::new(transform_fn_at, RuntimeValue::Function(transform_fn));
+                LocatedValue::new(args_at.transform_fn, RuntimeValue::Function(transform_fn));
 
             let value = call_fn_checked(
                 &transform_fn,
@@ -47,7 +44,7 @@ fn run() -> Runner {
                 ctx,
             )
             .and_then(|ret| {
-                expect_returned_value(ret, transform_fn_at, AnyType::new_direct(), ctx)
+                expect_returned_value(ret, args_at.transform_fn, AnyType::new_direct(), ctx)
             })?;
 
             Ok(Some(value))

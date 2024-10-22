@@ -29,40 +29,32 @@ fn reduce_fn_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, reduce_fn },
-         ArgsAt {
-             reduce_fn: reduce_fn_at,
-             ..
-         },
-         ctx| {
-            let reduce_fn = LocatedValue::new(reduce_fn_at, RuntimeValue::Function(reduce_fn));
+    Runner::new(|_, Args { list, reduce_fn }, args_at, ctx| {
+        let reduce_fn = LocatedValue::new(args_at.reduce_fn, RuntimeValue::Function(reduce_fn));
 
-            let list = list.read(reduce_fn_at);
+        let list = list.read(args_at.reduce_fn);
 
-            let result = match list.first() {
-                None => RuntimeValue::Null,
-                Some(first) => {
-                    let mut acc = first.clone();
+        let result = match list.first() {
+            None => RuntimeValue::Null,
+            Some(first) => {
+                let mut acc = first.clone();
 
-                    for value in list.iter().skip(1) {
-                        acc = call_fn_checked(
-                            &reduce_fn,
-                            reduce_fn_type().base_typing().signature(),
-                            vec![acc.clone(), value.clone()],
-                            ctx,
-                        )
-                        .and_then(|ret| {
-                            expect_returned_value(ret, reduce_fn_at, AnyType::new_direct(), ctx)
-                        })?;
-                    }
-
-                    acc
+                for value in list.iter().skip(1) {
+                    acc = call_fn_checked(
+                        &reduce_fn,
+                        reduce_fn_type().base_typing().signature(),
+                        vec![acc.clone(), value.clone()],
+                        ctx,
+                    )
+                    .and_then(|ret| {
+                        expect_returned_value(ret, args_at.reduce_fn, AnyType::new_direct(), ctx)
+                    })?;
                 }
-            };
 
-            Ok(Some(result))
-        },
-    )
+                acc
+            }
+        };
+
+        Ok(Some(result))
+    })
 }

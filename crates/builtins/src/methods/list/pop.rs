@@ -13,9 +13,9 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { list }, ArgsAt { list: list_at }, ctx| {
+    Runner::new(|_, Args { list }, args_at, ctx| {
         Ok(Some(
-            list.write(list_at, ctx)?
+            list.write(args_at.list, ctx)?
                 .pop()
                 .unwrap_or(RuntimeValue::Null),
         ))

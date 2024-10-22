@@ -15,8 +15,8 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { obj }, ArgsAt { obj: obj_at }, _| {
-        let entries = obj.read(obj_at).clone();
+    Runner::new(|_, Args { obj }, _, _| {
+        let entries = obj.read_promise_no_write().clone();
 
         Ok(Some(RuntimeValue::Map(GcCell::new(entries))))
     })

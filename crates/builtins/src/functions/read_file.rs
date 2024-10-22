@@ -15,12 +15,12 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|at, Args { path }, ArgsAt { path: path_at }, ctx| {
+    Runner::new(|at, Args { path }, args_at, ctx| {
         let path = Path::new(&path);
 
         if !path.is_file() {
             return Err(ctx.throw(
-                path_at,
+                args_at.path,
                 format!("no file exists at path '{}'", path.display()),
             ));
         }

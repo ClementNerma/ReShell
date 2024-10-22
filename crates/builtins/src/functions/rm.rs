@@ -16,35 +16,33 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(
-        |at, Args { path, recursive }, ArgsAt { path: path_at, .. }, ctx| {
-            let path = Path::new(&path);
+    Runner::new(|at, Args { path, recursive }, args_at, ctx| {
+        let path = Path::new(&path);
 
-            let file_type = path.metadata().map_err(|_| {
-                ctx.throw(
-                    path_at,
-                    format!("provided path '{}' does not exist", path.display()),
-                )
-            })?;
+        let file_type = path.metadata().map_err(|_| {
+            ctx.throw(
+                args_at.path,
+                format!("provided path '{}' does not exist", path.display()),
+            )
+        })?;
 
-            let result = if file_type.is_dir() {
-                if !recursive {
-                    return Err(ctx.throw(path_at, "provided path is a directory ; to remove it, use the '--recursive' / '-r' flag."));
-                }
+        let result = if file_type.is_dir() {
+            if !recursive {
+                return Err(ctx.throw(args_at.path, "provided path is a directory ; to remove it, use the '--recursive' / '-r' flag."));
+            }
 
-                fs::remove_dir_all(path)
-            } else {
-                fs::remove_file(path)
-            };
+            fs::remove_dir_all(path)
+        } else {
+            fs::remove_file(path)
+        };
 
-            result.map_err(|err| {
-                ctx.throw(
-                    at,
-                    format!("failed to remove item at path '{}': {err}", path.display()),
-                )
-            })?;
+        result.map_err(|err| {
+            ctx.throw(
+                at,
+                format!("failed to remove item at path '{}': {err}", path.display()),
+            )
+        })?;
 
-            Ok(None)
-        },
-    )
+        Ok(None)
+    })
 }

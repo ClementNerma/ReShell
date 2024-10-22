@@ -28,37 +28,30 @@ fn mapper_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, mapper },
-         ArgsAt {
-             mapper: mapper_at, ..
-         },
-         ctx| {
-            let mapper = LocatedValue::new(mapper_at, RuntimeValue::Function(mapper));
+    Runner::new(|_, Args { list, mapper }, args_at, ctx| {
+        let mapper = LocatedValue::new(args_at.mapper, RuntimeValue::Function(mapper));
 
-            let mut flattened = vec![];
+        let mut flattened = vec![];
 
-            for value in list.read(mapper_at).iter() {
-                let value = call_fn_checked(
-                    &mapper,
-                    mapper_type().base_typing().signature(),
-                    vec![value.clone()],
-                    ctx,
-                )?;
+        for value in list.read(args_at.mapper).iter() {
+            let value = call_fn_checked(
+                &mapper,
+                mapper_type().base_typing().signature(),
+                vec![value.clone()],
+                ctx,
+            )?;
 
-                let value = expect_returned_value(value, mapper_at, AnyType::new_direct(), ctx)?;
+            let value = expect_returned_value(value, args_at.mapper, AnyType::new_direct(), ctx)?;
 
-                match value {
-                    RuntimeValue::List(list) => {
-                        flattened.extend(list.read_promise_no_write().iter().cloned());
-                    }
-
-                    _ => flattened.push(value),
+            match value {
+                RuntimeValue::List(list) => {
+                    flattened.extend(list.read_promise_no_write().iter().cloned());
                 }
-            }
 
-            Ok(Some(RuntimeValue::List(GcCell::new(flattened))))
-        },
-    )
+                _ => flattened.push(value),
+            }
+        }
+
+        Ok(Some(RuntimeValue::List(GcCell::new(flattened))))
+    })
 }

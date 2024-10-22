@@ -24,7 +24,7 @@ fn run() -> Runner {
              parents,
              ignore_if_exists,
          },
-         ArgsAt { path: path_at, .. },
+         args_at,
          ctx| {
             let path = Path::new(&path);
 
@@ -33,7 +33,7 @@ fn run() -> Runner {
                     Ok(None)
                 } else {
                     Err(ctx.throw(
-                        path_at,
+                        args_at.path,
                         format!("a directory already exists at path '{}'", path.display()),
                     ))
                 };
@@ -41,7 +41,7 @@ fn run() -> Runner {
 
             if path.exists() {
                 return Err(ctx.throw(
-                    path_at,
+                    args_at.path,
                     format!(
                         "a non-directory item already exists at path '{}'",
                         path.display()

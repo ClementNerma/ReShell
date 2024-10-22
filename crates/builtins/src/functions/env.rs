@@ -14,28 +14,20 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { var_name, lossy },
-         ArgsAt {
-             var_name: var_name_at,
-             ..
-         },
-         ctx| {
-            let Some(var_value) = std::env::var_os(&var_name) else {
-                return Ok(Some(RuntimeValue::Null));
-            };
+    Runner::new(|_, Args { var_name, lossy }, args_at, ctx| {
+        let Some(var_value) = std::env::var_os(&var_name) else {
+            return Ok(Some(RuntimeValue::Null));
+        };
 
-            let var_value = if lossy {
-                var_value.to_string_lossy().into_owned()
-            } else {
-                var_value
+        let var_value = if lossy {
+            var_value.to_string_lossy().into_owned()
+        } else {
+            var_value
                 .to_str()
-                .ok_or_else(|| ctx.throw(var_name_at, format!("environment variable '{var_name}' contains invalid UTF-8 characters: '{}'", var_value.to_string_lossy())))?
+                .ok_or_else(|| ctx.throw(args_at.var_name, format!("environment variable '{var_name}' contains invalid UTF-8 characters: '{}'", var_value.to_string_lossy())))?
                 .to_owned()
-            };
+        };
 
-            Ok(Some(RuntimeValue::String(var_value)))
-        },
-    )
+        Ok(Some(RuntimeValue::String(var_value)))
+    })
 }

@@ -31,35 +31,27 @@ fn filter_type() -> RequiredArg<TypedFunctionType> {
 }
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args { list, filter },
-         ArgsAt {
-             list: _,
-             filter: filter_at,
-         },
-         ctx| {
-            let filter = LocatedValue::new(filter_at, RuntimeValue::Function(filter));
+    Runner::new(|_, Args { list, filter }, args_at, ctx| {
+        let filter = LocatedValue::new(args_at.filter, RuntimeValue::Function(filter));
 
-            let mut filtered = vec![];
+        let mut filtered = vec![];
 
-            for value in list.read(filter_at).iter() {
-                let result = call_fn_checked(
-                    &filter,
-                    filter_type().base_typing().signature(),
-                    vec![value.clone()],
-                    ctx,
-                )
-                .and_then(|ret| {
-                    expect_returned_value(ret, filter_at, AnyType::new_direct(), ctx)
-                })?;
+        for value in list.read(args_at.filter).iter() {
+            let result = call_fn_checked(
+                &filter,
+                filter_type().base_typing().signature(),
+                vec![value.clone()],
+                ctx,
+            )
+            .and_then(|ret| {
+                expect_returned_value(ret, args_at.filter, AnyType::new_direct(), ctx)
+            })?;
 
-                if !matches!(result, RuntimeValue::Null) {
-                    filtered.push(result);
-                }
+            if !matches!(result, RuntimeValue::Null) {
+                filtered.push(result);
             }
+        }
 
-            Ok(Some(RuntimeValue::List(GcCell::new(filtered))))
-        },
-    )
+        Ok(Some(RuntimeValue::List(GcCell::new(filtered))))
+    })
 }

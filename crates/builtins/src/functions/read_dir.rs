@@ -26,7 +26,7 @@ fn run() -> Runner {
              lossy,
              full_path,
          },
-         ArgsAt { path: path_at, .. },
+         args_at,
          ctx| {
             let reading_dir = match path {
                 None => std::env::current_dir().map_err(|err| {
@@ -41,7 +41,7 @@ fn run() -> Runner {
 
                     if !path.is_dir() {
                         return Err(ctx.throw(
-                            path_at.unwrap(),
+                            args_at.path.unwrap(),
                             format!("Directory not found at path: {}", path.display()),
                         ));
                     }

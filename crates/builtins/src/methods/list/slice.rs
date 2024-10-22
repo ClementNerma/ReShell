@@ -17,17 +17,15 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(
-        |_, Args { list, from, length }, ArgsAt { list: list_at, .. }, _| {
-            let sliced = list
-                .read(list_at)
-                .iter()
-                .skip(from)
-                .take(length.unwrap_or(usize::MAX))
-                .cloned()
-                .collect::<Vec<_>>();
+    Runner::new(|_, Args { list, from, length }, _, _| {
+        let sliced = list
+            .read_promise_no_write()
+            .iter()
+            .skip(from)
+            .take(length.unwrap_or(usize::MAX))
+            .cloned()
+            .collect::<Vec<_>>();
 
-            Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
-        },
-    )
+        Ok(Some(RuntimeValue::List(GcCell::new(sliced))))
+    })
 }
