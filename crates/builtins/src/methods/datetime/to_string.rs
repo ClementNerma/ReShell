@@ -1,5 +1,4 @@
-use time::format_description;
-use time::format_description::well_known::Rfc2822;
+use jiff::fmt::rfc2822;
 
 use crate::functions::DateTimeValue;
 
@@ -15,23 +14,11 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|at, Args { moment, format }, args_at, ctx| {
+    Runner::new(|at, Args { moment, format }, _, ctx| {
         let out = match format {
-            Some(format) => {
-                let format = format_description::parse(&format).map_err(|err| {
-                    ctx.throw(
-                        args_at.format.unwrap(),
-                        format!("Failed to parse date/time formatting: {err}"),
-                    )
-                })?;
+            Some(format) => moment.strftime(&format).to_string(),
 
-                moment
-                    .format(&format)
-                    .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?
-            }
-
-            None => moment
-                .format(&Rfc2822)
+            None => rfc2822::to_string(&moment)
                 .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?,
         };
 

@@ -1,15 +1,11 @@
 use std::ops::Deref;
 
 use colored::Color;
+use jiff::{fmt::rfc2822, Zoned};
 use reshell_runtime::{
     gc::GcReadOnlyCell, pretty_impl::pretty_print_string, values::CustomValueType,
 };
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
-use time::{
-    format_description::well_known::Rfc2822,
-    util::local_offset::{set_soundness, Soundness},
-    OffsetDateTime, UtcOffset,
-};
 
 use crate::define_internal_fn;
 
@@ -23,51 +19,26 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args {}, ArgsAt {}, _| {
-        let offset = get_utc_offset();
-
-        let now = OffsetDateTime::now_utc().to_offset(offset);
-
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue(now),
+            DateTimeValue(Zoned::now()),
         )))))
     })
-}
-
-/// UNSAFE CODE
-///
-/// Due to [`std::env::set_var`] being unsound, we can only get the UtcOffset
-/// if the program is single-threaded.
-///
-/// This means that ReShell's runtime is actually only sound if the program
-/// is single-threaded.
-fn get_utc_offset() -> UtcOffset {
-    unsafe {
-        set_soundness(Soundness::Unsound);
-    }
-
-    let offset = UtcOffset::current_local_offset().unwrap();
-
-    unsafe {
-        set_soundness(Soundness::Sound);
-    }
-
-    offset
 }
 
 /// Date and time value
 ///
 /// Backed by an [`OffsetDateTime`]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DateTimeValue(OffsetDateTime);
+pub struct DateTimeValue(Zoned);
 
 impl DateTimeValue {
-    pub fn new(datetime: OffsetDateTime) -> Self {
+    pub fn new(datetime: Zoned) -> Self {
         Self(datetime)
     }
 }
 
 impl Deref for DateTimeValue {
-    type Target = OffsetDateTime;
+    type Target = Zoned;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -93,7 +64,7 @@ impl PrettyPrintable for DateTimeValue {
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
-            pretty_print_string(&self.0.format(&Rfc2822).unwrap()),
+            pretty_print_string(&rfc2822::to_string(&self.0).unwrap()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }

@@ -3,11 +3,10 @@
 //!
 //! This crate contains utilities to generate the native library as well as
 //! tools to render the REPL's prompt
-
-// TODO: Restore this forbid() once time has a sound way to get local offset
-// #![forbid(unsafe_code)]
+#![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
+// TODO: remove this line when trait upscating is not feature-gated anymore
 #![feature(trait_upcasting)]
 
 mod content;

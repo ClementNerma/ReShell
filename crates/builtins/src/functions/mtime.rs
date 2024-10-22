@@ -1,7 +1,7 @@
 use std::path::Path;
 
+use jiff::{tz::TimeZone, Timestamp, Zoned};
 use reshell_runtime::gc::GcReadOnlyCell;
-use time::OffsetDateTime;
 
 use super::DateTimeValue;
 
@@ -40,8 +40,13 @@ fn run() -> Runner {
             )
         })?;
 
+        let mtime = Timestamp::try_from(mtime)
+            .map_err(|err| ctx.throw(args_at.path, format!("Failed to decode timestamp: {err}")))?;
+
+        let mtime = Zoned::new(mtime, TimeZone::system());
+
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue::new(OffsetDateTime::from(mtime)),
+            DateTimeValue::new(mtime),
         )))))
     })
 }
