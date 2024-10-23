@@ -239,7 +239,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let range_chars_len = if offset + len.max(1) == source.len() + 1 {
         1
     } else {
-        source[offset..offset + len.max(1)].chars().count()
+        source[offset..offset + len.max(1)].len()
     };
 
     let snippet = Level::Error.title(&nature).snippet(
