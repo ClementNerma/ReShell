@@ -13,12 +13,12 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { content }, args_at, ctx| {
+    Runner::new(|at, Args { content }, _, ctx| {
         let len = content.len();
 
         let len = i64::try_from(len).map_err(|_| {
             ctx.throw(
-                args_at.content,
+                at,
                 format!("length is too big to fit in the integer type ({len})"),
             )
         })?;

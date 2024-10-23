@@ -14,13 +14,13 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(
-        |_,
+        |at,
          Args {
              list,
              index,
              or_else,
          },
-         args_at,
+         _,
          ctx| {
             let items = list.read_promise_no_write();
 
@@ -30,7 +30,7 @@ fn run() -> Runner {
                 None => match or_else {
                     Some(value) => Ok(Some(value.clone())),
                     None => Err(ctx.throw(
-                        args_at.index,
+                        at,
                         format!(
                             "index '{index}' is out-of-bounds (list only contains {} elements)",
                             items.len()

@@ -20,7 +20,7 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { list }, args_at, ctx| {
+    Runner::new(|at, Args { list }, _, ctx| {
         let list = list.read_promise_no_write();
 
         macro_rules! try_sort_type {
@@ -38,7 +38,7 @@ fn run() -> Runner {
                 )+
 
                 Err(
-                    ctx.throw(args_at.list, "only lists containing items of a comparable type can be sorted")
+                    ctx.throw(at, "only lists containing items of a comparable type can be sorted")
                      $(.with_info(
                         ExecInfoType::Note,
                         format!(

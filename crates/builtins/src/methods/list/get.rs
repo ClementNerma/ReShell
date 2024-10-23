@@ -13,13 +13,13 @@ define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { map, key, or_else }, args_at, ctx| {
+    Runner::new(|at, Args { map, key, or_else }, _, ctx| {
         match map.read_promise_no_write().get(&key) {
             Some(value) => Ok(Some(value.clone())),
 
             None => match or_else {
                 Some(value) => Ok(Some(value.clone())),
-                None => Err(ctx.throw(args_at.key, format!("key '{key}' was not found"))),
+                None => Err(ctx.throw(at, format!("key '{key}' was not found"))),
             },
         }
     })

@@ -10,12 +10,12 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { list, index }, args_at, ctx| {
+    Runner::new(|at, Args { list, index }, args_at, ctx| {
         let mut list = list.write(args_at.list, ctx)?;
 
         if index > list.len() {
             return Err(ctx.throw(
-                args_at.index,
+                at,
                 format!(
                     "cannot remove index {index} from a list with {} elements",
                     list.len()

@@ -14,13 +14,9 @@ define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { value, pretty }, args_at, ctx| {
-        let value = value_to_serde_json(value).map_err(|err| {
-            ctx.throw(
-                args_at.value,
-                format!("failed to stringify value to JSON: {err}"),
-            )
-        })?;
+    Runner::new(|at, Args { value, pretty }, _, ctx| {
+        let value = value_to_serde_json(value)
+            .map_err(|err| ctx.throw(at, format!("failed to stringify value to JSON: {err}")))?;
 
         Ok(Some(RuntimeValue::String(if pretty {
             serde_json::to_string_pretty(&value).unwrap()
