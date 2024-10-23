@@ -914,7 +914,7 @@ pub fn find_applicable_method<'s>(
                 err = err.with_info(
                     ExecInfoType::Note,
                     format!(
-                        "found method for another type: {}",
+                        "a method with the same name exists for type: {}",
                         method
                             .on_type
                             .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
