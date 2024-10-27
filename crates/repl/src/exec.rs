@@ -14,7 +14,7 @@ pub fn run_script(
 ) -> Result<Option<LocatedValue>, ReportableError> {
     let ExecArgs {
         print_ast,
-        only_check, // TODO
+        only_check,
     } = exec_args;
 
     let file_id = ctx.files_map().register_file(file_loc, input.to_string());
