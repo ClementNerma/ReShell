@@ -1,5 +1,3 @@
-// TODO: errors thrown by type handlers should be turned into panics! Or give them directly a way to panic and remove the "Result" wrapping?
-
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     SingleValueType, ValueType,
