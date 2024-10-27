@@ -24,6 +24,7 @@ impl RlPrompt for Prompt {
             return str.into();
         }
 
+        // TODO: there are times where current dir doesn't exist (e.g. was just deleted!)
         std::env::current_dir()
             .unwrap()
             .to_string_lossy()
