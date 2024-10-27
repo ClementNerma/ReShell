@@ -546,15 +546,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
-name = "memfile"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f64636fdb65a5f0740f920c4281f3dbb76a71e25e25914b6d27000739897d40e"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "mio"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -879,7 +870,6 @@ dependencies = [
  "colored",
  "dyn-clone",
  "indexmap",
- "memfile",
  "parsy",
  "reshell-checker",
  "reshell-parser",

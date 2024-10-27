@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
+// TODO: remove when not a nightly feature anymore
+#![feature(anonymous_pipe)]
 
 pub mod bin_resolver;
 pub mod cmd;

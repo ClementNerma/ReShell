@@ -1,11 +1,11 @@
 use std::{
     collections::HashMap,
     io::{Seek, SeekFrom, Write},
+    os::fd::AsFd,
     path::MAIN_SEPARATOR,
     process::{Child, Command, Stdio},
 };
 
-use memfile::{CreateOptions, MemFile};
 use parsy::{CodeRange, Eaten};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
@@ -575,35 +575,14 @@ fn exec_cmd(
             Some(CmdInput::String(string)) => {
                 // Unfortunately, it's not possible to provide a direct string as an input to a command
                 // We actually need to provide an actual file descriptor (as is a usual stdin "pipe")
-                // So what we do here is that we create a temporary, in-memory file...
-                let mut file =
-                    MemFile::create("<cmdmeminput>", CreateOptions::default()).map_err(|err| {
-                        ctx.error(
-                            call_at,
-                            format!(
-                                "failed to create an in-memory file for the command's input: {err}"
-                            ),
-                        )
-                    })?;
+                // So we create a new pair of pipes here...
+                let (reader, mut writer) = std::pipe::pipe().unwrap();
 
-                // ...then we write the input string into it...
-                file.write_all(string.as_bytes())
-                    .and_then(|()|
-                    // ...we make its 'cursor' go back to the beginning...
-                    // (otherwise reading the file would start from the end, which means it would read nothing)
-                    file.seek(SeekFrom::Start(0)))
-                    .map_err(|err| {
-                        ctx.error(
-                            call_at,
-                            format!(
-                                "failed to write the command's input in the in-memory file: {err}"
-                            ),
-                        )
-                    })?;
+                // ...write the string to one end...
+                writer.write_all(string.as_bytes()).unwrap();
 
-                // ...and then we convert it to a 'pipe'!
-                // And this whole operation had a pretty low cost since we didn't wrote to an actual file
-                Stdio::from(file)
+                // ...and then transform the other to pipe it into the command as soon as it spawns!
+                Stdio::from(reader)
             }
 
             None => {
