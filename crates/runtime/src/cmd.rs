@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Seek, SeekFrom, Write},
-    os::fd::AsFd,
+    io::Write,
     path::MAIN_SEPARATOR,
     process::{Child, Command, Stdio},
 };
@@ -146,7 +145,6 @@ pub fn run_cmd(
                 let mut children = children.unwrap_or_default();
 
                 let child = exec_cmd(
-                    call_at,
                     ExecCmdArgs {
                         name: &cmd_name,
                         args,
@@ -522,7 +520,6 @@ struct ExecCmdArgs<'a> {
 }
 
 fn exec_cmd(
-    call_at: CodeRange,
     args: ExecCmdArgs,
     input: Option<CmdInput<'_>>,
     ctx: &mut Context,
