@@ -102,6 +102,7 @@ impl<'a> State<'a> {
     ) -> CheckerResult {
         // TODO: internal functions, variables and methods are NOT registered as dependencies
         //       (as we don't have a way to tell apart methods with the same name if they don't have a different decl_at for instance)
+        // This is a problem if a non-builtin scope contains e.g. native functions
 
         match dep_type {
             DependencyType::Variable => {
