@@ -6,7 +6,7 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
-// TODO: remove this line when trait upscating is not feature-gated anymore
+// NOTE: nightly feature
 #![feature(trait_upcasting)]
 
 mod content;
