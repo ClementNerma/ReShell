@@ -5,7 +5,7 @@
 //! and look for a provided command name.
 //!
 //! It will check permissions and perform implicit extension for Windows executables
-//! (allowing to not manually writing `.exe`, `.cmd` or `.bat`).
+//! (allowing to not manually write `.exe`, `.cmd` or `.bat`).
 //!
 
 use std::{
