@@ -11,16 +11,16 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        filter: RequiredArg<TypedFunctionType> = filter_type()
+        filter: RequiredArg<SignatureBasedFunctionType> = filter_type()
     )
 
     -> Some(UntypedListType::direct_underlying_type())
 );
 
-fn filter_type() -> RequiredArg<TypedFunctionType> {
+fn filter_type() -> RequiredArg<SignatureBasedFunctionType> {
     Arg::new(
         ArgNames::Positional("filter"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![("value", AnyType::direct_underlying_type())],
             Some(BoolType::direct_underlying_type()),
         )),

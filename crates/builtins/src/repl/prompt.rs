@@ -11,8 +11,8 @@ use crate::{
     helpers::{
         args::{Typing, TypingDirectCreation},
         types::{
-            BoolType, ExactIntType, IntType, NullableType, StringType, TypedStruct1Type,
-            TypedStruct3Type, TypedStruct4Type,
+            BoolType, ExactIntType, IntType, NullableType, StringType, Struct1Type, Struct3Type,
+            Struct4Type,
         },
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
@@ -22,7 +22,7 @@ pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
 
 macro_rules! ret_type {
     () => {
-        TypedStruct4Type::new(
+        Struct4Type::new(
             ("promptLeft", NullableType::<StringType>::new_direct()),
             ("promptRight", NullableType::<StringType>::new_direct()),
             ("promptIndicator", NullableType::<StringType>::new_direct()),
@@ -120,9 +120,9 @@ pub fn prompt_renderer_signature() -> FnSignature {
     forge_basic_fn_signature(
         vec![(
             "prompt_data",
-            TypedStruct1Type::new((
+            Struct1Type::new((
                 "last_cmd_status",
-                TypedStruct3Type::new(
+                Struct3Type::new(
                     ("success", BoolType),
                     ("exit_code", NullableType::<IntType>::new_direct()),
                     ("duration_ms", ExactIntType::<i64>::new_direct()),

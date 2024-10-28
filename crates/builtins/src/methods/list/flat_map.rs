@@ -11,16 +11,16 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        mapper: RequiredArg<TypedFunctionType> = mapper_type()
+        mapper: RequiredArg<SignatureBasedFunctionType> = mapper_type()
     )
 
     -> Some(UntypedListType::direct_underlying_type())
 );
 
-fn mapper_type() -> RequiredArg<TypedFunctionType> {
+fn mapper_type() -> RequiredArg<SignatureBasedFunctionType> {
     RequiredArg::new(
         ArgNames::Positional("mapper"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![("value", AnyType::direct_underlying_type())],
             Some(UntypedListType::direct_underlying_type()),
         )),

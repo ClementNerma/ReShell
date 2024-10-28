@@ -9,16 +9,16 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        reduce_fn: RequiredArg<TypedFunctionType> = reduce_fn_type()
+        reduce_fn: RequiredArg<SignatureBasedFunctionType> = reduce_fn_type()
     )
 
     -> Some(AnyType::direct_underlying_type())
 );
 
-fn reduce_fn_type() -> RequiredArg<TypedFunctionType> {
+fn reduce_fn_type() -> RequiredArg<SignatureBasedFunctionType> {
     RequiredArg::new(
         ArgNames::Positional("reduce_fn"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![
                 ("acc", AnyType::direct_underlying_type()),
                 ("value", ExactIntType::<usize>::direct_underlying_type()),

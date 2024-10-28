@@ -9,16 +9,16 @@ crate::define_internal_fn!(
 
     (
         value: RequiredArg<AnyType> = Arg::method_self(),
-        inspect_fn: RequiredArg<TypedFunctionType> = inspect_fn_type()
+        inspect_fn: RequiredArg<SignatureBasedFunctionType> = inspect_fn_type()
     )
 
     -> Some(AnyType::direct_underlying_type())
 );
 
-fn inspect_fn_type() -> RequiredArg<TypedFunctionType> {
+fn inspect_fn_type() -> RequiredArg<SignatureBasedFunctionType> {
     RequiredArg::new(
         ArgNames::Positional("inspect_fn"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![("value", AnyType::direct_underlying_type())],
             None,
         )),

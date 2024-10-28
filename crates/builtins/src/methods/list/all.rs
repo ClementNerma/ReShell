@@ -9,16 +9,16 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        checker: RequiredArg<TypedFunctionType> = checker_type()
+        checker: RequiredArg<SignatureBasedFunctionType> = checker_type()
     )
 
     -> Some(BoolType::direct_underlying_type())
 );
 
-fn checker_type() -> RequiredArg<TypedFunctionType> {
+fn checker_type() -> RequiredArg<SignatureBasedFunctionType> {
     Arg::new(
         ArgNames::Positional("checker"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![("value", AnyType::direct_underlying_type())],
             Some(BoolType::direct_underlying_type()),
         )),

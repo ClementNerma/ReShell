@@ -10,16 +10,16 @@ crate::define_internal_fn!(
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
         init: RequiredArg<AnyType> = Arg::positional("init"),
-        fold_fn: RequiredArg<TypedFunctionType> = fold_fn_type()
+        fold_fn: RequiredArg<SignatureBasedFunctionType> = fold_fn_type()
     )
 
     -> Some(AnyType::direct_underlying_type())
 );
 
-fn fold_fn_type() -> RequiredArg<TypedFunctionType> {
+fn fold_fn_type() -> RequiredArg<SignatureBasedFunctionType> {
     RequiredArg::new(
         ArgNames::Positional("fold_fn"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![
                 ("acc", AnyType::direct_underlying_type()),
                 ("value", ExactIntType::<usize>::direct_underlying_type()),

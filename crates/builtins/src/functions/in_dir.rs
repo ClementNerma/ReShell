@@ -11,16 +11,16 @@ crate::define_internal_fn!(
 
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
-        func: RequiredArg<TypedFunctionType> = func_type()
+        func: RequiredArg<SignatureBasedFunctionType> = func_type()
     )
 
     -> None
 );
 
-fn func_type() -> RequiredArg<TypedFunctionType> {
+fn func_type() -> RequiredArg<SignatureBasedFunctionType> {
     Arg::new(
         ArgNames::Positional("func"),
-        TypedFunctionType::new(forge_basic_fn_signature(vec![], None)),
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(vec![], None)),
     )
 }
 

@@ -9,16 +9,16 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        finder: RequiredArg<TypedFunctionType> = finder_type()
+        finder: RequiredArg<SignatureBasedFunctionType> = finder_type()
     )
 
     -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type())
 );
 
-fn finder_type() -> RequiredArg<TypedFunctionType> {
+fn finder_type() -> RequiredArg<SignatureBasedFunctionType> {
     Arg::new(
         ArgNames::Positional("finder"),
-        TypedFunctionType::new(forge_basic_fn_signature(
+        SignatureBasedFunctionType::new(forge_basic_fn_signature(
             vec![("value", AnyType::direct_underlying_type())],
             Some(BoolType::direct_underlying_type()),
         )),

@@ -17,6 +17,8 @@ use reshell_runtime::{
 
 use super::args::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
 
+/// This macro helps create a type handler for any variant of the [`SingleValueType`] enum,
+/// associated to a variant of the [`RuntimeValue`]
 macro_rules! declare_basic_type_handlers {
     ($($name: ident ($variant: ident) = $type: ty => $value_ident: ident: $parser: expr),+) => {
         $(
@@ -43,6 +45,7 @@ macro_rules! declare_basic_type_handlers {
     };
 }
 
+// Implement type handlers for the most basic types
 declare_basic_type_handlers!(
     AnyType (Any) = RuntimeValue => value: Ok(value),
 
@@ -107,11 +110,12 @@ declare_basic_type_handlers!(
     }
 );
 
-pub struct ExactIntType<From: SpecificIntType> {
+/// Type handler for a specific integer type
+pub struct ExactIntType<From: RustIntType> {
     _f: PhantomData<From>,
 }
 
-impl<From: SpecificIntType> SingleTyping for ExactIntType<From> {
+impl<From: RustIntType> SingleTyping for ExactIntType<From> {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Int
     }
@@ -132,21 +136,23 @@ impl<From: SpecificIntType> SingleTyping for ExactIntType<From> {
     }
 }
 
-impl<From: SpecificIntType> SingleTypingDirectCreation for ExactIntType<From> {
+impl<From: RustIntType> SingleTypingDirectCreation for ExactIntType<From> {
     fn new_single_direct() -> Self {
         Self { _f: PhantomData }
     }
 }
 
-pub trait SpecificIntType: TryFrom<i64> + Display + std::fmt::Debug {
+/// Trait representing a specific Rust integer type
+pub trait RustIntType: TryFrom<i64> + Display + std::fmt::Debug {
     const MIN: Self;
     const MAX: Self;
 }
 
+/// Macro to add support for conversion between the shell's integer type and Rust's ones
 macro_rules! implement_specific_int_types {
     ($($int_type: ident),+) => {
         $(
-            impl SpecificIntType for $int_type {
+            impl RustIntType for $int_type {
                 const MIN: Self = Self::MIN;
                 const MAX: Self = Self::MAX;
             }
@@ -156,6 +162,7 @@ macro_rules! implement_specific_int_types {
 
 implement_specific_int_types!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
 
+/// Type handler that clones a list before accessing it
 pub struct DetachedListType<Inner: Typing> {
     inner: Inner,
 }
@@ -200,6 +207,7 @@ impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedListTyp
     }
 }
 
+/// Type handler that clones a map before accessing it
 pub struct DetachedMapType<Inner: Typing> {
     inner: Inner,
 }
@@ -243,6 +251,7 @@ impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedMapType
     }
 }
 
+/// Type handler that accepts either the provided generic type or the `null` value
 pub struct NullableType<Inner: SingleTyping> {
     inner: Inner,
 }
@@ -277,11 +286,12 @@ impl<Inner: SingleTypingDirectCreation> TypingDirectCreation for NullableType<In
     }
 }
 
-pub struct TypedFunctionType {
+/// Type handler for functions following a specific signature
+pub struct SignatureBasedFunctionType {
     signature: FnSignature,
 }
 
-impl TypedFunctionType {
+impl SignatureBasedFunctionType {
     pub fn new(signature: FnSignature) -> Self {
         Self { signature }
     }
@@ -291,7 +301,7 @@ impl TypedFunctionType {
     }
 }
 
-impl SingleTyping for TypedFunctionType {
+impl SingleTyping for SignatureBasedFunctionType {
     fn underlying_single_type(&self) -> SingleValueType {
         SingleValueType::Function(RuntimeEaten::internal(
             "native library's type generator",
@@ -313,6 +323,7 @@ impl SingleTyping for TypedFunctionType {
     }
 }
 
+/// Type handler for custom types
 pub struct CustomType<C: CustomValueType> {
     _c: PhantomData<C>,
 }
@@ -346,6 +357,7 @@ impl<C: CustomValueType> SingleTypingDirectCreation for CustomType<C> {
     }
 }
 
+/// Type handler for a list made of 2 elements
 pub struct Tuple2Type<A: Typing, B: Typing> {
     a: A,
     b: B,
@@ -404,7 +416,8 @@ impl<A: TypingDirectCreation, B: TypingDirectCreation> SingleTypingDirectCreatio
     }
 }
 
-macro_rules! declare_typed_union_hanlder {
+/// Macro to implement a type handler for a union type
+macro_rules! declare_typed_union_handler {
     ($handler_struct: ident ($($generic: ident),+) => $result_struct: ident) => {
         #[allow(non_snake_case)]
         pub struct $handler_struct<$($generic: SingleTyping),+> {
@@ -454,10 +467,12 @@ macro_rules! declare_typed_union_hanlder {
     };
 }
 
-declare_typed_union_hanlder!(Union2Type (A, B) => Union2Result);
-declare_typed_union_hanlder!(Union3Type (A, B, C) => Union3Result);
-declare_typed_union_hanlder!(Union4Type (A, B, C, D) => Union4Result);
+// Create union type handlers
+declare_typed_union_handler!(Union2Type (A, B) => Union2Result);
+declare_typed_union_handler!(Union3Type (A, B, C) => Union3Result);
+declare_typed_union_handler!(Union4Type (A, B, C, D) => Union4Result);
 
+/// Macro to create a struct type handler
 macro_rules! declare_typed_struct_handler {
     ($( $struct: ident { $( $member: ident : $generic: ident ),+ } ),+ ) => {
         $(
@@ -513,11 +528,12 @@ macro_rules! declare_typed_struct_handler {
     }
 }
 
+// Implement struct type handlers
 declare_typed_struct_handler!(
-    TypedStruct1Type { a: A },
-    TypedStruct2Type { a: A, b: B },
-    TypedStruct3Type { a: A, b: B, c: C },
-    TypedStruct4Type {
+    Struct1Type { a: A },
+    Struct2Type { a: A, b: B },
+    Struct3Type { a: A, b: B, c: C },
+    Struct4Type {
         a: A,
         b: B,
         c: C,

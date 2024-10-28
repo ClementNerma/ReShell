@@ -8,7 +8,7 @@ use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::
 use crate::{
     helpers::{
         args::{Typing, TypingDirectCreation},
-        types::{DetachedListType, NullType, StringType, TypedStruct2Type, Union2Type},
+        types::{DetachedListType, NullType, StringType, Struct2Type, Union2Type},
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
@@ -22,7 +22,7 @@ pub enum CompletionStringSegment {
 
 macro_rules! ret_type {
     () => {
-        DetachedListType::new(TypedStruct2Type::new(
+        DetachedListType::new(Struct2Type::new(
             ("description", StringType::new_direct()),
             ("value", StringType::new_direct()),
         ))
