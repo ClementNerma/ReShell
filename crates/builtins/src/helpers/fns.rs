@@ -70,15 +70,16 @@ macro_rules! define_internal_fn {
                         placeholder_args_at.$arg_name = Some(arg.arg_value_at);
                     }
 
-                    let arg_may_be_at = arg.as_ref().map(|arg| arg.arg_value_at).unwrap_or(
+                    let arg_at = arg.as_ref().map_or(
                         // TODO: use arguments' location, not the whole call's
-                        call_at
+                        call_at,
+                        |arg| arg.arg_value_at
                     );
 
                     arg_handler.parse(<$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.value))).map_err(|err| {
                         match err {
-                            ArgError::TypeError(error) => (arg_may_be_at, error),
-                            ArgError::Panic(error) => ctx.panic(arg_may_be_at, error)
+                            ArgError::TypeError(error) => (arg_at, error),
+                            ArgError::Panic(error) => ctx.panic(arg_at, error)
                         }
                     })?
                 } ),*
