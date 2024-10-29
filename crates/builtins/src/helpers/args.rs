@@ -7,7 +7,7 @@ use reshell_runtime::values::{CmdArgValue, RuntimeValue};
 
 use crate::builder::internal_runtime_eaten;
 
-use super::types::{BoolType, DetachedListType, UntypedListType};
+use super::types::{BoolType, DetachedListType};
 
 // #[derive(Clone)]
 pub enum ArgNames {
@@ -309,66 +309,66 @@ impl<T: TypingDirectCreation> RestArg<T> {
     }
 }
 
-pub struct UntypedRestArg {
-    names: ArgNames,
-}
+// pub struct UntypedRestArg {
+//     names: ArgNames,
+// }
 
-impl UntypedRestArg {
-    pub fn rest(name: &'static str) -> Self {
-        Self {
-            names: ArgNames::Positional(name),
-        }
-    }
-}
+// impl UntypedRestArg {
+//     pub fn rest(name: &'static str) -> Self {
+//         Self {
+//             names: ArgNames::Positional(name),
+//         }
+//     }
+// }
 
-impl ArgHandler for UntypedRestArg {
-    fn is_optional(&self) -> bool {
-        false
-    }
+// impl ArgHandler for UntypedRestArg {
+//     fn is_optional(&self) -> bool {
+//         false
+//     }
 
-    fn is_rest(&self) -> bool {
-        true
-    }
+//     fn is_rest(&self) -> bool {
+//         true
+//     }
 
-    fn names(&self) -> &ArgNames {
-        &self.names
-    }
+//     fn names(&self) -> &ArgNames {
+//         &self.names
+//     }
 
-    type FixedOptionality<Z> = Z;
+//     type FixedOptionality<Z> = Z;
 
-    fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
-        value.unwrap()
-    }
+//     fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
+//         value.unwrap()
+//     }
 
-    type Parsed = Vec<CmdArgValue>;
+//     type Parsed = Vec<CmdArgValue>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
-        match value {
-            RuntimeValue::List(values) => values
-                .read_promise_no_write()
-                .iter()
-                .map(|value| match value {
-                    RuntimeValue::CmdArg(arg) => Ok(CmdArgValue::clone(arg)),
-                    _ => Err(ArgError::Panic(format!("rest arguments should be provided as a list of command arguments, got: {value:?}"))),
-                })
-                .collect::<Result<Vec<_>, _>>(),
+//     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
+//         match value {
+//             RuntimeValue::List(values) => values
+//                 .read_promise_no_write()
+//                 .iter()
+//                 .map(|value| match value {
+//                     RuntimeValue::CmdArg(arg) => Ok(CmdArgValue::clone(arg)),
+//                     _ => Err(ArgError::Panic(format!("rest arguments should be provided as a list of command arguments, got: {value:?}"))),
+//                 })
+//                 .collect::<Result<Vec<_>, _>>(),
 
-            _ => Err(ArgError::Panic(format!(
-                "rest arguments should be a list, got: {value:?}"
-            ))),
-        }
-    }
+//             _ => Err(ArgError::Panic(format!(
+//                 "rest arguments should be a list, got: {value:?}"
+//             ))),
+//         }
+//     }
 
-    type BaseTyping = UntypedListType;
+//     type BaseTyping = UntypedListType;
 
-    fn base_typing(&self) -> &Self::BaseTyping {
-        &UntypedListType
-    }
+//     fn base_typing(&self) -> &Self::BaseTyping {
+//         &UntypedListType
+//     }
 
-    fn hide_type(&self) -> bool {
-        true
-    }
-}
+//     fn hide_type(&self) -> bool {
+//         true
+//     }
+// }
 
 /// Compute the variable name for a long flag
 /// Converst a raw flag name to a valid (variable) identifier
