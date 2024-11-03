@@ -81,6 +81,27 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 },
                 enforced_type: vec![SingleValueType::String, SingleValueType::Null],
             },
+            // Name of the current OS
+            BuiltinVar {
+                name: "OS_NAME",
+                is_mut: false,
+                init_value: RuntimeValue::String(std::env::consts::OS.to_owned()),
+                enforced_type: vec![SingleValueType::String],
+            },
+            // Name of the current OS family
+            BuiltinVar {
+                name: "OS_FAMILY_NAME",
+                is_mut: false,
+                init_value: RuntimeValue::String(std::env::consts::FAMILY.to_owned()),
+                enforced_type: vec![SingleValueType::String],
+            },
+            // Name of the machine's architecture
+            BuiltinVar {
+                name: "ARCH_NAME",
+                is_mut: false,
+                init_value: RuntimeValue::String(std::env::consts::ARCH.to_owned()),
+                enforced_type: vec![SingleValueType::String],
+            },
             // OS family
             BuiltinVar {
                 name: "IS_PLATFORM_WINDOWS",
