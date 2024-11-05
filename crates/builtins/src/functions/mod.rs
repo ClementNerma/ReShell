@@ -20,6 +20,7 @@ mod echo;
 mod env;
 mod error;
 mod exit;
+mod extname;
 mod file_exists;
 mod file_size;
 mod glob;
@@ -70,6 +71,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::env::build_fn(),
         self::error::build_fn(),
         self::exit::build_fn(),
+        self::extname::build_fn(),
         self::file_exists::build_fn(),
         self::file_size::build_fn(),
         self::glob::build_fn(),
