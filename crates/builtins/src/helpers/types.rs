@@ -341,6 +341,7 @@ macro_rules! declare_typed_union_handler {
         }
 
         impl<$($generic: TypedValueParser),+> $result_struct<$($generic),+> {
+            #[allow(dead_code, clippy::wrong_self_convention)]
             pub fn from_value_type(&self) -> ValueType {
                 match self {
                     $(Self::$generic(_) => $generic::value_type()),+
