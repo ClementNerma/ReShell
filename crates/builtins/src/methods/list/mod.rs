@@ -25,3 +25,4 @@ pub mod reversed;
 pub mod shuffled;
 pub mod slice;
 pub mod sorted;
+pub mod sorted_by_key;

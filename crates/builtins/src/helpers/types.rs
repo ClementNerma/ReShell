@@ -339,6 +339,14 @@ macro_rules! declare_typed_union_handler {
         pub enum $result_struct<$($generic: TypedValueParser),+> {
             $( $generic($generic::Parsed), )+
         }
+
+        impl<$($generic: TypedValueParser),+> $result_struct<$($generic),+> {
+            pub fn from_value_type(&self) -> ValueType {
+                match self {
+                    $(Self::$generic(_) => $generic::value_type()),+
+                }
+            }
+        }
     };
 }
 
