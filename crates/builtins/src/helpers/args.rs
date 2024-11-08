@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     SingleValueType, ValueType,
@@ -51,51 +53,11 @@ impl ArgNames {
     }
 }
 
-pub trait SingleTyping {
-    fn underlying_single_type(&self) -> SingleValueType;
+pub trait TypedValueParser {
+    fn value_type() -> ValueType;
 
     type Parsed;
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
-}
-
-pub trait SingleTypingDirectCreation: SingleTyping {
-    fn new_single_direct() -> Self;
-}
-
-pub trait Typing {
-    fn underlying_type(&self) -> ValueType;
-
-    type Parsed;
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String>;
-}
-
-impl<T: SingleTyping> Typing for T {
-    fn underlying_type(&self) -> ValueType {
-        ValueType::Single(self.underlying_single_type())
-    }
-
-    type Parsed = T::Parsed;
-
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        SingleTyping::parse(self, value)
-    }
-}
-
-pub trait TypingDirectCreation: Typing {
-    fn new_direct() -> Self;
-
-    fn direct_underlying_type() -> ValueType
-    where
-        Self: Sized,
-    {
-        Self::new_direct().underlying_type()
-    }
-}
-
-impl<T: SingleTypingDirectCreation> TypingDirectCreation for T {
-    fn new_direct() -> Self {
-        <T as SingleTypingDirectCreation>::new_single_direct()
-    }
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
 pub trait ArgHandler {
@@ -109,8 +71,7 @@ pub trait ArgHandler {
     type Parsed;
     fn parse(&self, value: Self::FixedOptionality<RuntimeValue>) -> Result<Self::Parsed, ArgError>;
 
-    type BaseTyping: Typing;
-    fn base_typing(&self) -> &Self::BaseTyping;
+    type TypedValueParser: TypedValueParser;
 
     fn hide_type(&self) -> bool {
         false
@@ -123,38 +84,35 @@ pub enum ArgError {
     Panic(String),
 }
 
-pub struct Arg<const OPTIONAL: bool, T: Typing> {
+pub struct Arg<const OPTIONAL: bool, T: TypedValueParser> {
     names: ArgNames,
-    base_typing: T,
+    _t: PhantomData<T>,
 }
 
 pub type RequiredArg<T> = Arg<false, T>;
 pub type OptionalArg<T> = Arg<true, T>;
 pub type PresenceFlag = RequiredArg<BoolType>;
 
-impl<const OPTIONAL: bool, T: Typing> Arg<OPTIONAL, T> {
-    pub fn new(names: ArgNames, base_typing: T) -> Self {
-        Self { names, base_typing }
-    }
-}
-
-impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
-    pub fn direct(names: ArgNames) -> Self {
-        Self::new(names, T::new_direct())
+impl<const OPTIONAL: bool, T: TypedValueParser> Arg<OPTIONAL, T> {
+    pub fn new(names: ArgNames) -> Self {
+        Self {
+            names,
+            _t: PhantomData,
+        }
     }
 
     pub fn positional(name: &'static str) -> Self {
-        Self::direct(ArgNames::Positional(name))
+        Self::new(ArgNames::Positional(name))
     }
 
     pub fn long_flag(long: &'static str) -> Self {
-        Self::direct(ArgNames::Flag(ArgFlagNames::Long(ArgLongFlagName::new(
+        Self::new(ArgNames::Flag(ArgFlagNames::Long(ArgLongFlagName::new(
             long,
         ))))
     }
 
     pub fn long_and_short_flag(long: &'static str, short: char) -> Self {
-        Self::direct(ArgNames::Flag(ArgFlagNames::LongAndShort(
+        Self::new(ArgNames::Flag(ArgFlagNames::LongAndShort(
             ArgLongFlagName::new(long),
             short,
         )))
@@ -165,7 +123,7 @@ impl<const OPTIONAL: bool, T: TypingDirectCreation> Arg<OPTIONAL, T> {
     }
 }
 
-impl<T: Typing> ArgHandler for Arg<false, T> {
+impl<T: TypedValueParser> ArgHandler for Arg<false, T> {
     fn names(&self) -> &ArgNames {
         &self.names
     }
@@ -187,17 +145,13 @@ impl<T: Typing> ArgHandler for Arg<false, T> {
     type Parsed = T::Parsed;
 
     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
-        self.base_typing.parse(value).map_err(ArgError::TypeError)
+        T::parse(value).map_err(ArgError::TypeError)
     }
 
-    type BaseTyping = T;
-
-    fn base_typing(&self) -> &Self::BaseTyping {
-        &self.base_typing
-    }
+    type TypedValueParser = T;
 }
 
-impl<T: Typing> ArgHandler for Arg<true, T> {
+impl<T: TypedValueParser> ArgHandler for Arg<true, T> {
     fn names(&self) -> &ArgNames {
         &self.names
     }
@@ -219,34 +173,27 @@ impl<T: Typing> ArgHandler for Arg<true, T> {
     type Parsed = Option<T::Parsed>;
 
     fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, ArgError> {
-        value
-            .map(|value| self.base_typing.parse(value))
-            .transpose()
-            .map_err(ArgError::TypeError)
+        value.map(T::parse).transpose().map_err(ArgError::TypeError)
     }
 
-    type BaseTyping = T;
-
-    fn base_typing(&self) -> &Self::BaseTyping {
-        &self.base_typing
-    }
+    type TypedValueParser = T;
 }
 
-pub struct RestArg<T: Typing> {
+pub struct RestArg<T: TypedValueParser> {
     names: ArgNames,
-    list_typing: DetachedListType<T>,
+    _t: PhantomData<T>,
 }
 
-impl<T: Typing> RestArg<T> {
-    pub fn new(name: &'static str, base_typing: T) -> Self {
+impl<T: TypedValueParser> RestArg<T> {
+    pub fn new(name: &'static str) -> Self {
         Self {
             names: ArgNames::Positional(name),
-            list_typing: DetachedListType::new(base_typing),
+            _t: PhantomData,
         }
     }
 }
 
-impl<T: Typing> ArgHandler for RestArg<T> {
+impl<T: TypedValueParser> ArgHandler for RestArg<T> {
     fn names(&self) -> &ArgNames {
         &self.names
     }
@@ -275,10 +222,7 @@ impl<T: Typing> ArgHandler for RestArg<T> {
                 .enumerate()
                 .map(|(i, value)| match value {
                     RuntimeValue::CmdArg(arg) => match arg.as_ref() {
-                        CmdArgValue::Basic(loc_val) => self
-                            .base_typing()
-                            .inner()
-                            .parse(loc_val.value.clone())
+                        CmdArgValue::Basic(loc_val) => T::parse(loc_val.value.clone())
                             .map_err(|err| {
                                 ArgError::TypeError(format!("in list item {}: {err}", i + 1))
                             }),
@@ -296,79 +240,8 @@ impl<T: Typing> ArgHandler for RestArg<T> {
         }
     }
 
-    type BaseTyping = DetachedListType<T>;
-
-    fn base_typing(&self) -> &Self::BaseTyping {
-        &self.list_typing
-    }
+    type TypedValueParser = DetachedListType<T>;
 }
-
-impl<T: TypingDirectCreation> RestArg<T> {
-    pub fn rest(name: &'static str) -> Self {
-        Self::new(name, T::new_direct())
-    }
-}
-
-// pub struct UntypedRestArg {
-//     names: ArgNames,
-// }
-
-// impl UntypedRestArg {
-//     pub fn rest(name: &'static str) -> Self {
-//         Self {
-//             names: ArgNames::Positional(name),
-//         }
-//     }
-// }
-
-// impl ArgHandler for UntypedRestArg {
-//     fn is_optional(&self) -> bool {
-//         false
-//     }
-
-//     fn is_rest(&self) -> bool {
-//         true
-//     }
-
-//     fn names(&self) -> &ArgNames {
-//         &self.names
-//     }
-
-//     type FixedOptionality<Z> = Z;
-
-//     fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z> {
-//         value.unwrap()
-//     }
-
-//     type Parsed = Vec<CmdArgValue>;
-
-//     fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
-//         match value {
-//             RuntimeValue::List(values) => values
-//                 .read_promise_no_write()
-//                 .iter()
-//                 .map(|value| match value {
-//                     RuntimeValue::CmdArg(arg) => Ok(CmdArgValue::clone(arg)),
-//                     _ => Err(ArgError::Panic(format!("rest arguments should be provided as a list of command arguments, got: {value:?}"))),
-//                 })
-//                 .collect::<Result<Vec<_>, _>>(),
-
-//             _ => Err(ArgError::Panic(format!(
-//                 "rest arguments should be a list, got: {value:?}"
-//             ))),
-//         }
-//     }
-
-//     type BaseTyping = UntypedListType;
-
-//     fn base_typing(&self) -> &Self::BaseTyping {
-//         &UntypedListType
-//     }
-
-//     fn hide_type(&self) -> bool {
-//         true
-//     }
-// }
 
 /// Compute the variable name for a long flag
 /// Converst a raw flag name to a valid (variable) identifier
@@ -398,8 +271,8 @@ pub fn long_flag_var_name(name: &str) -> String {
 
 pub fn generate_internal_arg_decl<
     Parsed,
-    BaseTyping: Typing,
-    A: ArgHandler<Parsed = Parsed, BaseTyping = BaseTyping>,
+    Parser: TypedValueParser,
+    A: ArgHandler<Parsed = Parsed, TypedValueParser = Parser>,
 >(
     arg: A,
 ) -> FnArg {
@@ -408,7 +281,7 @@ pub fn generate_internal_arg_decl<
             let name = internal_runtime_eaten((*name).to_owned());
 
             let typ = if !arg.hide_type() {
-                Some(arg.base_typing().underlying_type())
+                Some(Parser::value_type())
             } else {
                 None
             };
@@ -443,7 +316,7 @@ pub fn generate_internal_arg_decl<
                 },
             };
 
-            match arg.base_typing().underlying_type() {
+            match Parser::value_type() {
                 ValueType::Single(SingleValueType::Bool) => {
                     FnArg::PresenceFlag(FnPresenceFlagArg { names })
                 }

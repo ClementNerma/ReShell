@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         list: RequiredArg<UntypedListType> = Arg::method_self()
     )
 
-    -> Some(UntypedListType::direct_underlying_type())
+    -> Some(UntypedListType::value_type())
 );
 
 fn run() -> Runner {

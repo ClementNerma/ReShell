@@ -13,7 +13,7 @@ crate::define_internal_fn!(
         replacement: RequiredArg<StringType> = Arg::positional("replacement")
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(StringType::value_type())
 );
 
 fn run() -> Runner {

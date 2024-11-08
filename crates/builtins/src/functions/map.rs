@@ -16,7 +16,7 @@ crate::define_internal_fn!(
         > = Arg::positional("entries")
     )
 
-    -> Some(UntypedMapType::direct_underlying_type())
+    -> Some(UntypedMapType::value_type())
 );
 
 fn run() -> Runner {

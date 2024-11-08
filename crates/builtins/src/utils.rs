@@ -11,7 +11,7 @@ use reshell_runtime::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{builder::internal_runtime_eaten, helpers::args::Typing};
+use crate::{builder::internal_runtime_eaten, helpers::args::TypedValueParser};
 
 /// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(
@@ -123,17 +123,13 @@ pub fn call_fn_checked_with_parsed_args(
 /// Parse a function's optional return value
 ///
 /// This function uses a [`Typing`] parser to handle the provided value
-pub fn expect_returned_value<T>(
+pub fn expect_returned_value<T, P: TypedValueParser<Parsed = T>>(
     value: Option<LocatedValue>,
     at: RuntimeCodeRange,
-    type_parser: impl Typing<Parsed = T>,
     ctx: &Context,
 ) -> ExecResult<T> {
     let loc_val = value.ok_or_else(|| ctx.error(at, "function did not return a value"))?;
 
-    let typed = type_parser
-        .parse(loc_val.value)
-        .map_err(|err| ctx.error(at, format!("function returned wrong value type: {err}")))?;
-
-    Ok(typed)
+    P::parse(loc_val.value)
+        .map_err(|err| ctx.error(at, format!("function returned wrong value type: {err}")))
 }

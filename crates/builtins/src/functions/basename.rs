@@ -9,7 +9,7 @@ define_internal_fn!(
         path: RequiredArg<StringType> = Arg::positional("path")
     )
 
-    -> Some(NullableType::<StringType>::direct_underlying_type())
+    -> Some(NullableType::<StringType>::value_type())
 );
 
 fn run() -> Runner {

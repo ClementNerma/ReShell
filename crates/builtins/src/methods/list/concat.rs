@@ -8,7 +8,7 @@ crate::define_internal_fn!(
         concat: RequiredArg<UntypedListType> = RequiredArg::positional("concat")
     )
 
-    -> Some(UntypedListType::direct_underlying_type())
+    -> Some(UntypedListType::value_type())
 );
 
 fn run() -> Runner {

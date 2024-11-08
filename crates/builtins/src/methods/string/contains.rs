@@ -8,7 +8,7 @@ define_internal_fn!(
         sub: RequiredArg<StringType> = Arg::positional("sub")
     )
 
-    -> Some(BoolType::direct_underlying_type())
+    -> Some(BoolType::value_type())
 );
 
 fn run() -> Runner {

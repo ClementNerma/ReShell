@@ -8,31 +8,25 @@ use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
+    declare_typed_struct_handler,
     helpers::{
-        args::{Typing, TypingDirectCreation},
-        types::{
-            BoolType, ExactIntType, IntType, NullableType, StringType, Struct1Type, Struct3Type,
-            Struct4Type,
-        },
+        args::TypedValueParser,
+        types::{BoolType, ExactIntType, IntType, NullableType, StringType},
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
 
 pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
 
-macro_rules! ret_type {
-    () => {
-        Struct4Type::new(
-            ("promptLeft", NullableType::<StringType>::new_direct()),
-            ("promptRight", NullableType::<StringType>::new_direct()),
-            ("promptIndicator", NullableType::<StringType>::new_direct()),
-            (
-                "promptMultilineIndicator",
-                NullableType::<StringType>::new_direct(),
-            ),
-        )
-    };
-}
+declare_typed_struct_handler!(
+    #[allow(non_snake_case)]
+    PromptReturnType {
+        promptLeft: NullableType<StringType>,
+        promptRight: NullableType<StringType>,
+        promptIndicator: NullableType<StringType>,
+        promptMultilineIndicator: NullableType<StringType>
+    }
+);
 
 /// Render the prompt (used for the REPL)
 pub fn render_prompt(
@@ -66,14 +60,14 @@ pub fn render_prompt(
             RuntimeValue::Struct(GcCell::new(HashMap::from([
                 ("success".to_string(), RuntimeValue::Bool(success)),
                 (
-                    "exit_code".to_string(),
+                    "exitCode".to_string(),
                     match exit_code {
                         Some(code) => RuntimeValue::Int(code.into()),
                         None => RuntimeValue::Null,
                     },
                 ),
                 (
-                    "duration_ms".to_string(),
+                    "durationMs".to_string(),
                     RuntimeValue::Int(i64::try_from(duration_ms).unwrap_or(i64::MAX)),
                 ),
             ])))
@@ -81,7 +75,7 @@ pub fn render_prompt(
     };
 
     let prompt_data = RuntimeValue::Struct(GcCell::new(HashMap::from([(
-        "last_cmd_status".to_string(),
+        "lastCmdStatus".to_string(),
         last_cmd_status,
     )])));
 
@@ -99,13 +93,17 @@ pub fn render_prompt(
         )
     })?;
 
-    let (prompt_left, prompt_right, prompt_indicator, prompt_multiline_indicator) =
-        ret_type!().parse(ret_val.value).map_err(|err| {
-            ctx.error(
-                ret_val.from,
-                format!("type error in prompt function's return value: {err}"),
-            )
-        })?;
+    let PromptReturnType {
+        promptLeft: prompt_left,
+        promptRight: prompt_right,
+        promptIndicator: prompt_indicator,
+        promptMultilineIndicator: prompt_multiline_indicator,
+    } = PromptReturnType::parse(ret_val.value).map_err(|err| {
+        ctx.error(
+            ret_val.from,
+            format!("type error in prompt function's return value: {err}"),
+        )
+    })?;
 
     Ok(Some(PromptRendering {
         prompt_left,
@@ -117,20 +115,26 @@ pub fn render_prompt(
 
 /// Generate prompt rendering function's signature
 pub fn prompt_renderer_signature() -> FnSignature {
+    declare_typed_struct_handler!(
+        #[allow(non_snake_case)]
+        LastCmdStatus {
+            #[allow(dead_code)] success: BoolType,
+            #[allow(dead_code)] exitCode: NullableType<IntType>,
+            #[allow(dead_code)] durationMs: ExactIntType<i64>
+        }
+    );
+
+    declare_typed_struct_handler!(
+        #[allow(non_snake_case)]
+        PromptData {
+            #[allow(dead_code)]
+            lastCmdStatus: LastCmdStatus
+        }
+    );
+
     forge_basic_fn_signature(
-        vec![(
-            "prompt_data",
-            Struct1Type::new((
-                "last_cmd_status",
-                Struct3Type::new(
-                    ("success", BoolType),
-                    ("exit_code", NullableType::<IntType>::new_direct()),
-                    ("duration_ms", ExactIntType::<i64>::new_direct()),
-                ),
-            ))
-            .underlying_type(),
-        )],
-        Some(ret_type!().underlying_type()),
+        vec![("promptData", PromptData::value_type())],
+        Some(PromptReturnType::value_type()),
     )
 }
 

@@ -13,7 +13,7 @@ define_internal_fn!(
         silent: PresenceFlag = Arg::long_flag("silent")
     )
 
-    -> Some(BoolType::direct_underlying_type())
+    -> Some(BoolType::value_type())
 );
 
 fn run() -> Runner {

@@ -5,7 +5,7 @@ define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        prepend: RestArg<AnyType> = RestArg::rest("prepend")
+        prepend: RestArg<AnyType> = RestArg::new("prepend")
     )
 
     -> None

@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         path: RequiredArg<StringType> = Arg::positional("path")
     )
 
-    -> Some(CustomType::<DateTimeValue>::direct_underlying_type())
+    -> Some(CustomType::<DateTimeValue>::value_type())
 );
 
 fn run() -> Runner {

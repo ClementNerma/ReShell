@@ -18,7 +18,7 @@ define_internal_fn!(
         pomsky: PresenceFlag = Arg::long_and_short_flag("pomsky", 'p')
     )
 
-    -> Some(CustomType::<RegexValue>::direct_underlying_type())
+    -> Some(CustomType::<RegexValue>::value_type())
 );
 
 fn run() -> Runner {

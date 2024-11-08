@@ -6,7 +6,7 @@ crate::define_internal_fn!(
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
-    -> Some(NullableType::<StringType>::direct_underlying_type())
+    -> Some(NullableType::<StringType>::value_type())
 );
 
 fn run() -> Runner {

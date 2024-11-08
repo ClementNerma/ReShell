@@ -11,7 +11,7 @@ crate::define_internal_fn!(
         data: RequiredArg<AnyType> = Arg::positional("data")
     )
 
-    -> Some(ErrorType::direct_underlying_type())
+    -> Some(ErrorType::value_type())
 );
 
 fn run() -> Runner {

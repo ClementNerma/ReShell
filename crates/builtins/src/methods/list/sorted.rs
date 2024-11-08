@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         list: RequiredArg<ComparableListType> = Arg::method_self()
     )
 
-     -> Some(UntypedListType::direct_underlying_type())
+     -> Some(UntypedListType::value_type())
 );
 
 pub type ComparableValueType =
@@ -29,7 +29,7 @@ fn run() -> Runner {
     Runner::new(|_, Args { list }, _, _| Ok(Some(RuntimeValue::List(GcCell::new(sort_list(list))))))
 }
 
-pub fn sort_list(list: <ComparableListType as Typing>::Parsed) -> Vec<RuntimeValue> {
+pub fn sort_list(list: <ComparableListType as TypedValueParser>::Parsed) -> Vec<RuntimeValue> {
     match list {
         Union4Result::A(mut strings) => {
             strings.sort();

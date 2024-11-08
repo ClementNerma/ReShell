@@ -11,7 +11,7 @@ define_internal_fn!(
         subject: RequiredArg<StringType> = Arg::positional("subject")
     )
 
-    -> Some(NullableType::<DetachedMapType::<StringType>>::direct_underlying_type())
+    -> Some(NullableType::<DetachedMapType::<StringType>>::value_type())
 );
 
 fn run() -> Runner {

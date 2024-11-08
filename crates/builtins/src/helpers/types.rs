@@ -6,16 +6,14 @@
 use std::{any::Any, collections::HashMap, fmt::Display, marker::PhantomData};
 
 use parsy::CodeRange;
-use reshell_parser::ast::{
-    FnSignature, RuntimeEaten, SingleValueType, StructTypeMember, ValueType,
-};
+use reshell_parser::ast::{SingleValueType, ValueType};
 
 use reshell_runtime::{
-    gc::{GcCell, GcReadOnlyCell},
-    values::{CmdArgValue, CustomValueType, ErrorValueContent, RuntimeFnValue, RuntimeValue},
+    gc::GcCell,
+    values::{CmdArgValue, CustomValueType, ErrorValueContent, RuntimeValue},
 };
 
-use super::args::{SingleTyping, SingleTypingDirectCreation, Typing, TypingDirectCreation};
+use super::args::TypedValueParser;
 
 /// This macro helps create a type handler for any variant of the [`SingleValueType`] enum,
 /// associated to a variant of the [`RuntimeValue`]
@@ -24,21 +22,15 @@ macro_rules! declare_basic_type_handlers {
         $(
             pub struct $name;
 
-            impl SingleTyping for $name {
-                fn underlying_single_type(&self) -> SingleValueType {
-                    SingleValueType::$variant
+            impl TypedValueParser for $name {
+                fn value_type() -> ValueType {
+                    ValueType::Single(SingleValueType::$variant)
                 }
 
                 type Parsed = $type;
 
-                fn parse(&self, $value_ident: RuntimeValue) -> Result<Self::Parsed, String> {
+                fn parse($value_ident: RuntimeValue) -> Result<Self::Parsed, String> {
                     $parser
-                }
-            }
-
-            impl SingleTypingDirectCreation for $name {
-                fn new_single_direct() -> Self {
-                    Self
                 }
             }
         )+
@@ -115,14 +107,14 @@ pub struct ExactIntType<From: RustIntType> {
     _f: PhantomData<From>,
 }
 
-impl<From: RustIntType> SingleTyping for ExactIntType<From> {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Int
+impl<From: RustIntType> TypedValueParser for ExactIntType<From> {
+    fn value_type() -> ValueType {
+        ValueType::Single(SingleValueType::Int)
     }
 
     type Parsed = From;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
             RuntimeValue::Int(int) => From::try_from(int).map_err(|_| {
                 format!(
@@ -133,12 +125,6 @@ impl<From: RustIntType> SingleTyping for ExactIntType<From> {
             }),
             _ => Err("expected an integer".to_owned()),
         }
-    }
-}
-
-impl<From: RustIntType> SingleTypingDirectCreation for ExactIntType<From> {
-    fn new_single_direct() -> Self {
-        Self { _f: PhantomData }
     }
 }
 
@@ -163,28 +149,18 @@ macro_rules! implement_specific_int_types {
 implement_specific_int_types!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
 
 /// Type handler that clones a list before accessing it
-pub struct DetachedListType<Inner: Typing> {
-    inner: Inner,
+pub struct DetachedListType<Inner: TypedValueParser> {
+    _i: PhantomData<Inner>,
 }
 
-impl<Inner: Typing> DetachedListType<Inner> {
-    pub fn new(inner: Inner) -> Self {
-        Self { inner }
-    }
-
-    pub fn inner(&self) -> &Inner {
-        &self.inner
-    }
-}
-
-impl<Inner: Typing> SingleTyping for DetachedListType<Inner> {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::TypedList(Box::new(self.inner.underlying_type()))
+impl<Inner: TypedValueParser> TypedValueParser for DetachedListType<Inner> {
+    fn value_type() -> ValueType {
+        ValueType::Single(SingleValueType::TypedList(Box::new(Inner::value_type())))
     }
 
     type Parsed = Vec<Inner::Parsed>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         let list = match value {
             RuntimeValue::List(list) => list,
             _ => return Err("expected a list".to_owned()),
@@ -194,38 +170,26 @@ impl<Inner: Typing> SingleTyping for DetachedListType<Inner> {
             .read_promise_no_write()
             .iter()
             .cloned()
-            .map(|item| self.inner.parse(item))
+            .map(|item| Inner::parse(item))
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(values)
     }
 }
 
-impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedListType<Inner> {
-    fn new_single_direct() -> Self {
-        Self::new(Inner::new_direct())
-    }
-}
-
 /// Type handler that clones a map before accessing it
-pub struct DetachedMapType<Inner: Typing> {
-    inner: Inner,
+pub struct DetachedMapType<Inner: TypedValueParser> {
+    _i: PhantomData<Inner>,
 }
 
-impl<Inner: Typing> DetachedMapType<Inner> {
-    pub fn new(inner: Inner) -> Self {
-        Self { inner }
-    }
-}
-
-impl<Inner: Typing> SingleTyping for DetachedMapType<Inner> {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::TypedMap(Box::new(self.inner.underlying_type()))
+impl<Inner: TypedValueParser> TypedValueParser for DetachedMapType<Inner> {
+    fn value_type() -> ValueType {
+        ValueType::Single(SingleValueType::TypedMap(Box::new(Inner::value_type())))
     }
 
     type Parsed = HashMap<String, Inner::Parsed>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         let map = match value {
             RuntimeValue::Map(map) => map,
             _ => return Err("expected a map".to_owned()),
@@ -234,91 +198,36 @@ impl<Inner: Typing> SingleTyping for DetachedMapType<Inner> {
         let values = map
             .read_promise_no_write()
             .iter()
-            .map(|(key, item)| {
-                self.inner
-                    .parse(item.clone())
-                    .map(|parsed| (key.clone(), parsed))
-            })
+            .map(|(key, item)| Inner::parse(item.clone()).map(|parsed| (key.clone(), parsed)))
             .collect::<Result<HashMap<_, _>, _>>()?;
 
         Ok(values)
     }
 }
 
-impl<Inner: TypingDirectCreation> SingleTypingDirectCreation for DetachedMapType<Inner> {
-    fn new_single_direct() -> Self {
-        Self::new(Inner::new_direct())
-    }
-}
-
 /// Type handler that accepts either the provided generic type or the `null` value
-pub struct NullableType<Inner: SingleTyping> {
-    inner: Inner,
+pub struct NullableType<Inner: TypedValueParser> {
+    _i: PhantomData<Inner>,
 }
 
-impl<Inner: SingleTyping> NullableType<Inner> {
-    pub fn new(inner: Inner) -> Self {
-        Self { inner }
-    }
-}
+impl<Inner: TypedValueParser> TypedValueParser for NullableType<Inner> {
+    fn value_type() -> ValueType {
+        let mut union = match Inner::value_type() {
+            ValueType::Single(single_value_type) => vec![single_value_type],
+            ValueType::Union(vec) => vec,
+        };
 
-impl<Inner: SingleTyping> Typing for NullableType<Inner> {
-    fn underlying_type(&self) -> ValueType {
-        ValueType::Union(vec![
-            self.inner.underlying_single_type(),
-            NullType.underlying_single_type(),
-        ])
+        union.push(SingleValueType::Null);
+
+        ValueType::Union(union)
     }
 
     type Parsed = Option<Inner::Parsed>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
             RuntimeValue::Null => Ok(None),
-            _ => Ok(Some(self.inner.parse(value)?)),
-        }
-    }
-}
-
-impl<Inner: SingleTypingDirectCreation> TypingDirectCreation for NullableType<Inner> {
-    fn new_direct() -> Self {
-        Self::new(Inner::new_single_direct())
-    }
-}
-
-/// Type handler for functions following a specific signature
-pub struct SignatureBasedFunctionType {
-    signature: FnSignature,
-}
-
-impl SignatureBasedFunctionType {
-    pub fn new(signature: FnSignature) -> Self {
-        Self { signature }
-    }
-
-    pub fn signature(&self) -> &FnSignature {
-        &self.signature
-    }
-}
-
-impl SingleTyping for SignatureBasedFunctionType {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Function(RuntimeEaten::internal(
-            "native library's type generator",
-            self.signature.clone(),
-        ))
-    }
-
-    type Parsed = GcReadOnlyCell<RuntimeFnValue>;
-
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
-        match value {
-            RuntimeValue::Function(func) => {
-                // NOTE: we don't check the function as it was already checked by the runtime
-                // at call time
-                Ok(func)
-            }
-            _ => Err("expected a function".to_owned()),
+            _ => Ok(Some(Inner::parse(value)?)),
         }
     }
 }
@@ -328,14 +237,14 @@ pub struct CustomType<C: CustomValueType> {
     _c: PhantomData<C>,
 }
 
-impl<C: CustomValueType> SingleTyping for CustomType<C> {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::Custom(C::typename_static())
+impl<C: CustomValueType> TypedValueParser for CustomType<C> {
+    fn value_type() -> ValueType {
+        ValueType::Single(SingleValueType::Custom(C::typename_static()))
     }
 
     type Parsed = Box<C>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
             RuntimeValue::Custom(value) => {
                 Box::<dyn Any>::downcast::<C>(dyn_clone::clone_box::<dyn CustomValueType>(&**value))
@@ -351,32 +260,19 @@ impl<C: CustomValueType> SingleTyping for CustomType<C> {
     }
 }
 
-impl<C: CustomValueType> SingleTypingDirectCreation for CustomType<C> {
-    fn new_single_direct() -> Self {
-        Self { _c: PhantomData }
-    }
-}
-
 /// Type handler for a list made of 2 elements
-pub struct Tuple2Type<A: Typing, B: Typing> {
-    a: A,
-    b: B,
+pub struct Tuple2Type<A: TypedValueParser, B: TypedValueParser> {
+    _ab: PhantomData<(A, B)>,
 }
 
-// impl<A: Typing, B: Typing> Tuple2Type<A, B> {
-//     pub fn new(a: A, b: B) -> Self {
-//         Self { a, b }
-//     }
-// }
-
-impl<A: Typing, B: Typing> SingleTyping for Tuple2Type<A, B> {
-    fn underlying_single_type(&self) -> SingleValueType {
-        SingleValueType::UntypedList
+impl<A: TypedValueParser, B: TypedValueParser> TypedValueParser for Tuple2Type<A, B> {
+    fn value_type() -> ValueType {
+        ValueType::Single(SingleValueType::UntypedList)
     }
 
     type Parsed = (A::Parsed, B::Parsed);
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         let items = match value {
             RuntimeValue::List(items) => items,
             _ => return Err("expected a tuple (list)".to_owned()),
@@ -391,28 +287,13 @@ impl<A: Typing, B: Typing> SingleTyping for Tuple2Type<A, B> {
             ));
         }
 
-        let a = self
-            .a
-            .parse(items[0].clone())
+        let a = A::parse(items[0].clone())
             .map_err(|err| format!("error in tuple's first element: {err}"))?;
 
-        let b = self
-            .b
-            .parse(items[1].clone())
+        let b = B::parse(items[1].clone())
             .map_err(|err| format!("error in tuple's second element: {err}"))?;
 
         Ok((a, b))
-    }
-}
-
-impl<A: TypingDirectCreation, B: TypingDirectCreation> SingleTypingDirectCreation
-    for Tuple2Type<A, B>
-{
-    fn new_single_direct() -> Self {
-        Self {
-            a: A::new_direct(),
-            b: B::new_direct(),
-        }
     }
 }
 
@@ -420,30 +301,33 @@ impl<A: TypingDirectCreation, B: TypingDirectCreation> SingleTypingDirectCreatio
 macro_rules! declare_typed_union_handler {
     ($handler_struct: ident ($($generic: ident),+) => $result_struct: ident) => {
         #[allow(non_snake_case)]
-        pub struct $handler_struct<$($generic: SingleTyping),+> {
-            $( $generic: $generic ),+
+        pub struct $handler_struct<$($generic: TypedValueParser),+> {
+            $( #[allow(dead_code)] $generic: $generic ),+
         }
 
-        impl<$($generic: SingleTyping),+> $handler_struct<$($generic,)+> {
-            pub fn new($( #[allow(non_snake_case)] $generic: $generic ),+) -> Self {
-                Self { $($generic),+ }
-            }
-        }
-
-        impl<$($generic: SingleTyping),+> Typing
+        impl<$($generic: TypedValueParser),+> TypedValueParser
             for $handler_struct<$($generic,)+>
         {
-            fn underlying_type(&self) -> ValueType {
-                ValueType::Union(vec![
-                    $( self.$generic.underlying_single_type() ),+
-                ])
+            fn value_type() -> ValueType {
+                let mut types = vec![];
+
+                $(
+                    match $generic::value_type() {
+                        ValueType::Single(single) => types.push(single),
+                        ValueType::Union(sub_types) => {
+                            types.extend(sub_types);
+                        }
+                    }
+                )+
+
+                ValueType::Union(types)
             }
 
             type Parsed = $result_struct<$($generic,)+>;
 
-            fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+            fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
                 $(
-                    if let Ok(parsed) = self.$generic.parse(value.clone()) {
+                    if let Ok(parsed) = $generic::parse(value.clone()) {
                         return Ok($result_struct::$generic(parsed))
                     }
                 )+;
@@ -452,16 +336,7 @@ macro_rules! declare_typed_union_handler {
             }
         }
 
-        impl<$($generic: SingleTypingDirectCreation),+> TypingDirectCreation for $handler_struct<$($generic,)+>
-        {
-            fn new_direct() -> Self {
-                Self::new(
-                    $($generic::new_direct()),+
-                )
-            }
-        }
-
-        pub enum $result_struct<$($generic: SingleTyping),+> {
+        pub enum $result_struct<$($generic: TypedValueParser),+> {
             $( $generic($generic::Parsed), )+
         }
     };
@@ -473,35 +348,32 @@ declare_typed_union_handler!(Union3Type (A, B, C) => Union3Result);
 declare_typed_union_handler!(Union4Type (A, B, C, D) => Union4Result);
 
 /// Macro to create a struct type handler
+#[macro_export]
 macro_rules! declare_typed_struct_handler {
-    ($( $struct: ident { $( $member: ident : $generic: ident ),+ } ),+ ) => {
+    ($( $(#[$meta: meta])* $struct: ident { $( $(#[$member_meta: meta])* $name: ident: $parser: ty ),+ } ),+ ) => {
         $(
-            pub struct $struct<$($generic: Typing),+> {
-                $($member: (String, $generic)),+
+            $(#[$meta])*
+            struct $struct {
+                // TODO: auto snake case on idents
+                $( $(#[$member_meta])* $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed ),+
             }
 
-            impl<$($generic: Typing),+> $struct<$($generic),+> {
-                pub fn new( $($member: (impl Into<String>, $generic)),+ ) -> Self {
-                    Self { $( $member: ($member.0.into(), $member.1) ),+ }
-                }
-            }
-
-            impl<$($generic: Typing),+> SingleTyping for $struct<$($generic),+> {
-                fn underlying_single_type(&self) -> SingleValueType {
-                    SingleValueType::TypedStruct(vec![
+            impl $crate::helpers::args::TypedValueParser for $struct {
+                fn value_type() -> ::reshell_parser::ast::ValueType {
+                    ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::TypedStruct(vec![
                         $(
-                            StructTypeMember {
-                                name: RuntimeEaten::internal("native library's type generator", self.$member.0.clone()),
-                                typ: self.$member.1.underlying_type()
+                            ::reshell_parser::ast::StructTypeMember {
+                                name: ::reshell_parser::ast::RuntimeEaten::internal("native library's type generator", stringify!($name).to_owned()),
+                                typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type()
                             }
                         ),+
-                    ])
+                    ]))
                 }
 
                 #[allow(unused_parens)]
-                type Parsed = ( $( $generic::Parsed ),+ );
+                type Parsed = Self;
 
-                fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+                fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
                     let members = match value {
                         RuntimeValue::Struct(members) => members,
                         _ => return Err("expected a struct".to_owned()),
@@ -509,34 +381,56 @@ macro_rules! declare_typed_struct_handler {
 
                     let members = members.read_promise_no_write();
 
-                    $(
-                        let $member = members
-                            .get(&self.$member.0)
-                            .ok_or_else(|| format!("property '{}' is missing", self.$member.0))?;
+                    Ok(Self {
+                        $($name: {
+                            let value = members
+                                .get(stringify!($name))
+                                .ok_or_else(|| format!("property '{}' is missing", stringify!($name)))?;
 
-                        let $member = self
-                            .$member
-                            .1
-                            .parse($member.clone())
-                            .map_err(|err| format!("type mismatch in struct member '{}': {err}", self.$member.0))?;
-                    )+
-
-                    Ok(( $( $member ),+ ))
+                            <$parser>::parse(value.clone())
+                                .map_err(|err| format!("type mismatch in struct member '{}': {err}", stringify!($name)))?
+                        }),+
+                    })
                 }
             }
         )+
     }
 }
 
-// Implement struct type handlers
-declare_typed_struct_handler!(
-    Struct1Type { a: A },
-    Struct2Type { a: A, b: B },
-    Struct3Type { a: A, b: B, c: C },
-    Struct4Type {
-        a: A,
-        b: B,
-        c: C,
-        d: D
+/// Macro to create a function type handler
+#[macro_export]
+macro_rules! declare_typed_fn_handler {
+    ($( $typename: ident => $signature: expr ),+ ) => {
+        $(
+            struct $typename;
+
+            impl $typename {
+                pub fn signature() -> ::reshell_parser::ast::FnSignature {
+                    $signature
+                }
+            }
+
+            impl $crate::helpers::args::TypedValueParser for $typename {
+                fn value_type() -> ::reshell_parser::ast::ValueType {
+                    ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::Function(
+                        ::reshell_parser::ast::RuntimeEaten::internal(
+                            "native library's type generator",
+                            Self::signature(),
+                        ),
+                    ))
+                }
+
+                type Parsed = ::reshell_runtime::gc::GcReadOnlyCell<::reshell_runtime::values::RuntimeFnValue>;
+
+                fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
+                    // NOTE: we don't check the function as it was already checked by the runtime
+                    // at call time
+                    match value {
+                        RuntimeValue::Function(func) => Ok(func),
+                        _ => Err("expected a function".to_owned()),
+                    }
+                }
+            }
+        )+
     }
-);
+}

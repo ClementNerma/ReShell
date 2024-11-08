@@ -10,7 +10,7 @@ crate::define_internal_fn!(
         glue: RequiredArg<StringType> = Arg::positional("glue")
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(StringType::value_type())
 );
 
 fn run() -> Runner {

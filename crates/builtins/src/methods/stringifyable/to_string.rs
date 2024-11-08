@@ -18,7 +18,7 @@ fn run() -> Runner {
 
 pub type StringifyableType = Union4Type<StringType, IntType, FloatType, BoolType>;
 
-pub fn stringify_value(value: <StringifyableType as Typing>::Parsed) -> String {
+pub fn stringify_value(value: <StringifyableType as TypedValueParser>::Parsed) -> String {
     match value {
         Union4Result::A(string) => string,
         Union4Result::B(int) => int.to_string(),

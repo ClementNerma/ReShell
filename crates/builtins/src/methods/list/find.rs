@@ -1,4 +1,7 @@
-use crate::utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature};
+use crate::{
+    declare_typed_fn_handler,
+    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+};
 
 crate::define_internal_fn!(
     //
@@ -9,36 +12,29 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        finder: RequiredArg<SignatureBasedFunctionType> = finder_type()
+        predicate: RequiredArg<PredicateFn> = Arg::positional("predicate")
     )
 
-    -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type())
+    -> Some(Union2Type::<AnyType, NullType>::value_type())
 );
 
-fn finder_type() -> RequiredArg<SignatureBasedFunctionType> {
-    Arg::new(
-        ArgNames::Positional("finder"),
-        SignatureBasedFunctionType::new(forge_basic_fn_signature(
-            vec![("value", AnyType::direct_underlying_type())],
-            Some(BoolType::direct_underlying_type()),
-        )),
-    )
-}
+declare_typed_fn_handler!(PredicateFn => forge_basic_fn_signature(
+    vec![("value", Union2Type::<AnyType, NullType>::value_type())],
+    Some(BoolType::value_type()),
+));
 
 fn run() -> Runner {
-    Runner::new(|_, Args { list, finder }, args_at, ctx| {
-        let finder = LocatedValue::new(args_at.finder, RuntimeValue::Function(finder));
+    Runner::new(|_, Args { list, predicate }, args_at, ctx| {
+        let predicate = LocatedValue::new(args_at.predicate, RuntimeValue::Function(predicate));
 
-        for value in list.read(args_at.finder).iter() {
+        for value in list.read(args_at.predicate).iter() {
             let keep = call_fn_checked(
-                &finder,
-                finder_type().base_typing().signature(),
+                &predicate,
+                &PredicateFn::signature(),
                 vec![value.clone()],
                 ctx,
             )
-            .and_then(|ret| {
-                expect_returned_value(ret, args_at.finder, BoolType::new_direct(), ctx)
-            })?;
+            .and_then(|ret| expect_returned_value::<_, BoolType>(ret, args_at.predicate, ctx))?;
 
             if keep {
                 return Ok(Some(value.clone()));

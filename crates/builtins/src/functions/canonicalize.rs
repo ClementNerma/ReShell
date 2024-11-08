@@ -9,7 +9,7 @@ define_internal_fn!(
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(StringType::value_type())
 );
 
 fn run() -> Runner {

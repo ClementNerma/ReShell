@@ -1,4 +1,7 @@
-use crate::utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature};
+use crate::{
+    declare_typed_fn_handler,
+    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+};
 
 crate::define_internal_fn!(
     //
@@ -10,54 +13,38 @@ crate::define_internal_fn!(
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
         init: RequiredArg<AnyType> = Arg::positional("init"),
-        fold_fn: RequiredArg<SignatureBasedFunctionType> = fold_fn_type()
+        folder: RequiredArg<FolderFn> = Arg::positional("folder")
     )
 
-    -> Some(AnyType::direct_underlying_type())
+    -> Some(AnyType::value_type())
 );
 
-fn fold_fn_type() -> RequiredArg<SignatureBasedFunctionType> {
-    RequiredArg::new(
-        ArgNames::Positional("fold_fn"),
-        SignatureBasedFunctionType::new(forge_basic_fn_signature(
-            vec![
-                ("acc", AnyType::direct_underlying_type()),
-                ("value", ExactIntType::<usize>::direct_underlying_type()),
-            ],
-            Some(NullableType::<AnyType>::direct_underlying_type()),
-        )),
-    )
-}
+declare_typed_fn_handler!(FolderFn => forge_basic_fn_signature(
+    vec![
+        ("acc", AnyType::value_type()),
+        ("value", ExactIntType::<usize>::value_type()),
+    ],
+    Some(NullableType::<AnyType>::value_type()),
+));
 
 fn run() -> Runner {
-    Runner::new(
-        |_,
-         Args {
-             list,
-             init,
-             fold_fn,
-         },
-         args_at,
-         ctx| {
-            let fold_fn = LocatedValue::new(args_at.fold_fn, RuntimeValue::Function(fold_fn));
+    Runner::new(|_, Args { list, init, folder }, args_at, ctx| {
+        let folder = LocatedValue::new(args_at.folder, RuntimeValue::Function(folder));
 
-            let list = list.read(args_at.fold_fn);
+        let list = list.read(args_at.folder);
 
-            let mut folded = init.clone();
+        let mut folded = init.clone();
 
-            for value in list.iter() {
-                folded = call_fn_checked(
-                    &fold_fn,
-                    fold_fn_type().base_typing().signature(),
-                    vec![folded.clone(), value.clone()],
-                    ctx,
-                )
-                .and_then(|ret| {
-                    expect_returned_value(ret, args_at.fold_fn, AnyType::new_direct(), ctx)
-                })?;
-            }
+        for value in list.iter() {
+            folded = call_fn_checked(
+                &folder,
+                &FolderFn::signature(),
+                vec![folded.clone(), value.clone()],
+                ctx,
+            )
+            .and_then(|ret| expect_returned_value::<_, AnyType>(ret, args_at.folder, ctx))?;
+        }
 
-            Ok(Some(folded))
-        },
-    )
+        Ok(Some(folded))
+    })
 }

@@ -9,7 +9,7 @@ crate::define_internal_fn!(
         instant: RequiredArg<CustomType<InstantValue>> = Arg::method_self()
     )
 
-    -> Some(CustomType::<DurationValue>::direct_underlying_type())
+    -> Some(CustomType::<DurationValue>::value_type())
 );
 
 fn run() -> Runner {

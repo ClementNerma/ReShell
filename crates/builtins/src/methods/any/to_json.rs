@@ -10,7 +10,7 @@ define_internal_fn!(
         pretty: PresenceFlag = Arg::long_and_short_flag("pretty", 'p')
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(StringType::value_type())
 );
 
 fn run() -> Runner {

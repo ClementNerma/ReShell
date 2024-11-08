@@ -11,7 +11,7 @@ crate::define_internal_fn!(
         path: RequiredArg<StringType> = Arg::positional("path")
     )
 
-    -> Some(BoolType::direct_underlying_type())
+    -> Some(BoolType::value_type())
 );
 
 fn run() -> Runner {

@@ -5,7 +5,7 @@ crate::define_internal_fn!(
         value: RequiredArg<UntypedMapType> = Arg::method_self()
     )
 
-    -> Some(BoolType::direct_underlying_type())
+    -> Some(BoolType::value_type())
 );
 
 fn run() -> Runner {

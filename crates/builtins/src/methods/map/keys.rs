@@ -11,7 +11,7 @@ crate::define_internal_fn!(
         map: RequiredArg<UntypedMapType> = Arg::method_self()
     )
 
-    -> Some(DetachedListType::<StringType>::direct_underlying_type())
+    -> Some(DetachedListType::<StringType>::value_type())
 );
 
 fn run() -> Runner {

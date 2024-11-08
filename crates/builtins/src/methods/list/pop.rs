@@ -9,7 +9,7 @@ crate::define_internal_fn!(
         list: RequiredArg<UntypedListType> = Arg::method_self()
     )
 
-    -> Some(Union2Type::<AnyType, NullType>::direct_underlying_type())
+    -> Some(Union2Type::<AnyType, NullType>::value_type())
 );
 
 fn run() -> Runner {

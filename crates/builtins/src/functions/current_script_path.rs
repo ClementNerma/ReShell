@@ -6,7 +6,7 @@ crate::define_internal_fn!(
 
     ()
 
-    -> Some(NullableType::<StringType>::direct_underlying_type())
+    -> Some(NullableType::<StringType>::value_type())
 );
 
 fn run() -> Runner {

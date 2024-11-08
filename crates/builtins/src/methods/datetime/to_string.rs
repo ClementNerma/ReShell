@@ -10,7 +10,7 @@ crate::define_internal_fn!(
         format: OptionalArg<StringType> = Arg::positional("format")
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(StringType::value_type())
 );
 
 fn run() -> Runner {

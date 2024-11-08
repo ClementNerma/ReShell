@@ -7,7 +7,7 @@ define_internal_fn!(
         string: RequiredArg<StringType> = Arg::method_self()
     )
 
-    -> Some(StringType::direct_underlying_type())
+    -> Some(StringType::value_type())
 );
 
 fn run() -> Runner {

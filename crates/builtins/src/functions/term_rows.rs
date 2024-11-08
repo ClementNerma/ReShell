@@ -9,7 +9,7 @@ crate::define_internal_fn!(
 
     ()
 
-    -> Some(NullableType::<ExactIntType<usize>>::direct_underlying_type())
+    -> Some(NullableType::<ExactIntType<usize>>::value_type())
 );
 
 fn run() -> Runner {

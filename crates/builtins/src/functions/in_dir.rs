@@ -1,4 +1,7 @@
-use crate::utils::{call_fn_checked, forge_basic_fn_signature};
+use crate::{
+    declare_typed_fn_handler,
+    utils::{call_fn_checked, forge_basic_fn_signature},
+};
 
 use super::cd::change_current_dir;
 
@@ -11,18 +14,13 @@ crate::define_internal_fn!(
 
     (
         path: RequiredArg<StringType> = Arg::positional("path"),
-        func: RequiredArg<SignatureBasedFunctionType> = func_type()
+        func: RequiredArg<RunFn> = Arg::positional("func")
     )
 
     -> None
 );
 
-fn func_type() -> RequiredArg<SignatureBasedFunctionType> {
-    Arg::new(
-        ArgNames::Positional("func"),
-        SignatureBasedFunctionType::new(forge_basic_fn_signature(vec![], None)),
-    )
-}
+declare_typed_fn_handler!(RunFn => forge_basic_fn_signature(vec![], None));
 
 fn run() -> Runner {
     Runner::new(|at, Args { path, func }, args_at, ctx| {
@@ -37,7 +35,7 @@ fn run() -> Runner {
 
         let result = call_fn_checked(
             &LocatedValue::new(args_at.func, RuntimeValue::Function(func)),
-            func_type().base_typing().signature(),
+            &RunFn::signature(),
             vec![],
             ctx,
         );

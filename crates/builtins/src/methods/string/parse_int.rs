@@ -5,7 +5,7 @@ crate::define_internal_fn!(
         string: RequiredArg<StringType> = Arg::method_self()
     )
 
-    -> Some(ExactIntType::<i64>::direct_underlying_type())
+    -> Some(ExactIntType::<i64>::value_type())
 );
 
 fn run() -> Runner {

@@ -8,7 +8,7 @@ use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, values::RuntimeValue};
 
 use crate::{
-    helpers::{args::TypingDirectCreation, types::StringType},
+    helpers::{args::TypedValueParser, types::StringType},
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
 
@@ -48,8 +48,5 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
 
 /// Generate prompt rendering function's signature
 pub fn dir_jump_handler_signature() -> FnSignature {
-    forge_basic_fn_signature(
-        vec![("new_current_dir", StringType::direct_underlying_type())],
-        None,
-    )
+    forge_basic_fn_signature(vec![("new_current_dir", StringType::value_type())], None)
 }

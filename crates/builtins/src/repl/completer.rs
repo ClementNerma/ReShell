@@ -6,9 +6,10 @@ use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
+    declare_typed_struct_handler,
     helpers::{
-        args::{Typing, TypingDirectCreation},
-        types::{DetachedListType, NullType, StringType, Struct2Type, Union2Type},
+        args::TypedValueParser,
+        types::{DetachedListType, NullType, StringType, Union2Type},
     },
     utils::{call_fn_checked, forge_basic_fn_signature},
 };
@@ -20,14 +21,12 @@ pub enum CompletionStringSegment {
     String(String),
 }
 
-macro_rules! ret_type {
-    () => {
-        DetachedListType::new(Struct2Type::new(
-            ("description", StringType::new_direct()),
-            ("value", StringType::new_direct()),
-        ))
-    };
-}
+declare_typed_struct_handler!(CompleterResultType {
+    description: StringType,
+    value: StringType
+});
+
+type CompleterReturnType = DetachedListType<CompleterResultType>;
 
 /// Generated completion
 pub struct GeneratedCompletion {
@@ -94,7 +93,7 @@ pub fn generate_completions(
         )
     })?;
 
-    let results = ret_type!().parse(ret_val.value).map_err(|err| {
+    let results = CompleterReturnType::parse(ret_val.value).map_err(|err| {
         ctx.error(
             ret_val.from,
             format!("type error in completion function's return value: {err}"),
@@ -104,7 +103,12 @@ pub fn generate_completions(
     Ok(Some(
         results
             .into_iter()
-            .map(|(description, value)| GeneratedCompletion { description, value })
+            .map(
+                |CompleterResultType { description, value }| GeneratedCompletion {
+                    description,
+                    value,
+                },
+            )
             .collect(),
     ))
 }
@@ -114,8 +118,8 @@ pub fn completer_signature() -> FnSignature {
     forge_basic_fn_signature(
         vec![(
             "line",
-            DetachedListType::<Union2Type<StringType, NullType>>::direct_underlying_type(),
+            DetachedListType::<Union2Type<StringType, NullType>>::value_type(),
         )],
-        Some(ret_type!().underlying_type()),
+        Some(CompleterReturnType::value_type()),
     )
 }

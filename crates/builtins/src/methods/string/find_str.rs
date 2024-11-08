@@ -6,7 +6,7 @@ crate::define_internal_fn!(
         pattern: RequiredArg<StringType> = Arg::positional("pattern")
     )
 
-    -> Some(NullableType::<IntType>::direct_underlying_type())
+    -> Some(NullableType::<IntType>::value_type())
 );
 
 fn run() -> Runner {

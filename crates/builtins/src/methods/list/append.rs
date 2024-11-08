@@ -5,7 +5,7 @@ define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        append: RestArg<AnyType> = RestArg::rest("append")
+        append: RestArg<AnyType> = RestArg::new("append")
     )
 
     -> None

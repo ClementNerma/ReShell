@@ -17,7 +17,7 @@ define_internal_fn!(
         string: RequiredArg<StringType> = Arg::positional("string")
     )
 
-    -> Some(AnyType::direct_underlying_type())
+    -> Some(AnyType::value_type())
 );
 
 fn run() -> Runner {

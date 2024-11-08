@@ -5,7 +5,7 @@ crate::define_internal_fn!(
         list: RequiredArg<UntypedListType> = Arg::method_self()
     )
 
-    -> Some(NullableType::<AnyType>::direct_underlying_type())
+    -> Some(NullableType::<AnyType>::value_type())
 );
 
 fn run() -> Runner {

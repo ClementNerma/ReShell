@@ -10,7 +10,7 @@ define_internal_fn!(
         value: RequiredArg<AnyType> = Arg::positional("value")
     )
 
-    -> Some(BoolType::direct_underlying_type())
+    -> Some(BoolType::value_type())
 );
 
 fn run() -> Runner {

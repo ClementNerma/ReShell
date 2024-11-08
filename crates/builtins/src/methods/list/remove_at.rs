@@ -6,7 +6,7 @@ crate::define_internal_fn!(
         index: RequiredArg<ExactIntType<usize>> = Arg::positional("index")
     )
 
-    -> Some(AnyType::direct_underlying_type())
+    -> Some(AnyType::value_type())
 );
 
 fn run() -> Runner {

@@ -9,7 +9,7 @@ crate::define_internal_fn!(
         content: RequiredArg<UntypedMapType> = Arg::method_self()
     )
 
-    -> Some(ExactIntType::<usize>::direct_underlying_type())
+    -> Some(ExactIntType::<usize>::value_type())
 );
 
 fn run() -> Runner {

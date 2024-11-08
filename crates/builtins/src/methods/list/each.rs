@@ -1,4 +1,7 @@
-use crate::utils::{call_fn_checked, forge_basic_fn_signature};
+use crate::{
+    declare_typed_fn_handler,
+    utils::{call_fn_checked, forge_basic_fn_signature},
+};
 
 crate::define_internal_fn!(
     //
@@ -9,21 +12,16 @@ crate::define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        for_each_fn: RequiredArg<SignatureBasedFunctionType> = for_each_fn_type()
+        for_each_fn: RequiredArg<ForEachFn> = Arg::positional("for_each_fn")
     )
 
     -> None
 );
 
-fn for_each_fn_type() -> RequiredArg<SignatureBasedFunctionType> {
-    RequiredArg::new(
-        ArgNames::Positional("for_each_fn"),
-        SignatureBasedFunctionType::new(forge_basic_fn_signature(
-            vec![("value", AnyType::direct_underlying_type())],
-            Some(AnyType::direct_underlying_type()),
-        )),
-    )
-}
+declare_typed_fn_handler!(ForEachFn => forge_basic_fn_signature(
+    vec![("value", AnyType::value_type())],
+    Some(AnyType::value_type()),
+));
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, for_each_fn }, args_at, ctx| {
@@ -33,7 +31,7 @@ fn run() -> Runner {
         for value in list.read(args_at.list).iter() {
             call_fn_checked(
                 &for_each_fn,
-                for_each_fn_type().base_typing().signature(),
+                &ForEachFn::signature(),
                 vec![value.clone()],
                 ctx,
             )?;

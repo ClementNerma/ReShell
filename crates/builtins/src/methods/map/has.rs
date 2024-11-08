@@ -10,7 +10,7 @@ crate::define_internal_fn!(
         key: RequiredArg<StringType> = Arg::positional("key")
     )
 
-    -> Some(BoolType::direct_underlying_type())
+    -> Some(BoolType::value_type())
 );
 
 fn run() -> Runner {
