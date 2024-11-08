@@ -1,8 +1,4 @@
-use reshell_runtime::{
-    errors::ExecInfoType,
-    gc::{GcCell, GcReadOnlyCell},
-};
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_runtime::gc::{GcCell, GcReadOnlyCell};
 
 use crate::functions::{DateTimeValue, DurationValue};
 
@@ -13,51 +9,55 @@ crate::define_internal_fn!(
     "sorted",
 
     (
-        list: RequiredArg<UntypedListType> = Arg::method_self()
+        list: RequiredArg<ComparableListType> = Arg::method_self()
     )
 
      -> Some(UntypedListType::direct_underlying_type())
 );
 
+pub type ComparableValueType =
+    Union4Type<StringType, IntType, CustomType<DurationValue>, CustomType<DateTimeValue>>;
+
+pub type ComparableListType = Union4Type<
+    DetachedListType<StringType>,
+    DetachedListType<IntType>,
+    DetachedListType<CustomType<DurationValue>>,
+    DetachedListType<CustomType<DateTimeValue>>,
+>;
+
 fn run() -> Runner {
-    Runner::new(|at, Args { list }, _, ctx| {
-        let list = list.read_promise_no_write();
+    Runner::new(|_, Args { list }, _, _| Ok(Some(RuntimeValue::List(GcCell::new(sort_list(list))))))
+}
 
-        macro_rules! try_sort_type {
-            ($($typ: ty => $remap: expr),+) => {{
-                $(
-                    let typ = <$typ>::new_single_direct();
+pub fn sort_list(list: <ComparableListType as Typing>::Parsed) -> Vec<RuntimeValue> {
+    match list {
+        Union4Result::A(mut strings) => {
+            strings.sort();
 
-                    if let Ok(mut items) = list.iter().cloned().map(|item| SingleTyping::parse(&typ, item)).collect::<Result<Vec<_>, _>>() {
-                        items.sort();
-
-                        return Ok(Some(RuntimeValue::List(GcCell::new(
-                            items.into_iter().map($remap).collect(),
-                        ))));
-                    }
-                )+
-
-                Err(
-                    ctx.throw(at, "only lists containing items of a comparable type can be sorted")
-                     $(.with_info(
-                        ExecInfoType::Note,
-                        format!(
-                            "comparable type: {}",
-                            <$typ>::new_single_direct()
-                                .underlying_single_type()
-                                .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                            )
-                        )
-                    )+
-                )
-            }};
+            strings.into_iter().map(RuntimeValue::String).collect()
         }
 
-        try_sort_type!(
-            StringType => RuntimeValue::String,
-            IntType => RuntimeValue::Int,
-            CustomType<DurationValue> => |item| RuntimeValue::Custom(GcReadOnlyCell::new(item)),
-            CustomType<DateTimeValue> => |item| RuntimeValue::Custom(GcReadOnlyCell::new(item))
-        )
-    })
+        Union4Result::B(mut integers) => {
+            integers.sort();
+
+            integers.into_iter().map(RuntimeValue::Int).collect()
+        }
+
+        Union4Result::C(mut durations) => {
+            durations.sort();
+
+            durations
+                .into_iter()
+                .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
+                .collect()
+        }
+
+        Union4Result::D(mut datetimes) => {
+            datetimes.sort();
+            datetimes
+                .into_iter()
+                .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
+                .collect()
+        }
+    }
 }
