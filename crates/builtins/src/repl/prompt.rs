@@ -19,7 +19,6 @@ use crate::{
 pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
 
 declare_typed_struct_handler!(
-    #[allow(non_snake_case)]
     PromptReturnType {
         promptLeft: NullableType<StringType>,
         promptRight: NullableType<StringType>,
@@ -116,7 +115,6 @@ pub fn render_prompt(
 /// Generate prompt rendering function's signature
 pub fn prompt_renderer_signature() -> FnSignature {
     declare_typed_struct_handler!(
-        #[allow(non_snake_case)]
         LastCmdStatus {
             #[allow(dead_code)] success: BoolType,
             #[allow(dead_code)] exitCode: NullableType<IntType>,
@@ -124,13 +122,10 @@ pub fn prompt_renderer_signature() -> FnSignature {
         }
     );
 
-    declare_typed_struct_handler!(
-        #[allow(non_snake_case)]
-        PromptData {
-            #[allow(dead_code)]
-            lastCmdStatus: LastCmdStatus
-        }
-    );
+    declare_typed_struct_handler!(PromptData {
+        #[allow(dead_code)]
+        lastCmdStatus: LastCmdStatus
+    });
 
     forge_basic_fn_signature(
         vec![("promptData", PromptData::value_type())],

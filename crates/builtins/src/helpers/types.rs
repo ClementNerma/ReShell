@@ -359,12 +359,13 @@ declare_typed_union_handler!(Union4Type (A, B, C, D) => Union4Result);
 /// Macro to create a struct type handler
 #[macro_export]
 macro_rules! declare_typed_struct_handler {
-    ($( $(#[$meta: meta])* $struct: ident { $( $(#[$member_meta: meta])* $name: ident: $parser: ty ),+ } ),+ ) => {
+    ($( $struct: ident { $( $(#[$member_meta: meta])* $name: ident: $parser: ty ),+ } ),+ ) => {
         $(
-            $(#[$meta])*
+            #[allow(non_snake_case)] // TODO: auto snake case on idents instead of this
             struct $struct {
-                // TODO: auto snake case on idents
-                $( $(#[$member_meta])* $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed ),+
+                $(
+                    $(#[$member_meta])* $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed
+                ),+
             }
 
             impl $crate::helpers::args::TypedValueParser for $struct {
