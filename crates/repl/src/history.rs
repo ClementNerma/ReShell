@@ -5,7 +5,6 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use rand::{rngs::SmallRng, Rng, SeedableRng};
 use reedline::{
     CommandLineSearch, History as RlHistory, HistoryItem, HistoryItemId, HistorySessionId,
     ListMenu, MenuBuilder, ReedlineError, ReedlineErrorVariants, ReedlineMenu, SearchDirection,
@@ -51,7 +50,6 @@ pub fn create_history_menu() -> ReedlineMenu {
 
 /// Custom history implementation for [`reedline`] using an API proposal (currently unmerged)
 pub struct History {
-    rng: SmallRng,
     entries: IndexMap<HistoryItemId, String>,
     file: Option<PathBuf>,
 }
@@ -59,8 +57,6 @@ pub struct History {
 impl History {
     fn with_file(path: PathBuf) -> Result<Self, String> {
         let mut entries = IndexMap::new();
-
-        let mut rng = SmallRng::from_entropy();
 
         let file = OpenOptions::new()
             .create(true)
@@ -73,11 +69,10 @@ impl History {
         for (i, line) in BufReader::new(file).lines().enumerate() {
             let line = line.map_err(|err| format!("Failed to read line {}: {err}", i + 1))?;
 
-            entries.insert(HistoryItemId(rng.gen()), line.to_owned());
+            entries.insert(HistoryItemId(i.try_into().unwrap()), line.to_owned());
         }
 
         Ok(Self {
-            rng,
             entries,
             file: Some(path),
         })
@@ -85,7 +80,6 @@ impl History {
 
     fn in_memory() -> Self {
         Self {
-            rng: SmallRng::from_entropy(),
             entries: IndexMap::new(),
             file: None,
         }
@@ -93,7 +87,7 @@ impl History {
 
     fn construct_entry(id: HistoryItemId, command_line: String) -> HistoryItem {
         HistoryItem {
-            id,
+            id: Some(id),
             command_line,
             start_timestamp: None,
             session_id: None,
@@ -107,11 +101,7 @@ impl History {
 }
 
 impl RlHistory for History {
-    fn generate_id(&mut self) -> HistoryItemId {
-        HistoryItemId(self.rng.gen())
-    }
-
-    fn save(&mut self, h: &HistoryItem) -> reedline::Result<()> {
+    fn save(&mut self, mut h: HistoryItem) -> reedline::Result<HistoryItem> {
         if let Some(file) = &self.file {
             let mut file = OpenOptions::new()
                 .create(true)
@@ -125,14 +115,13 @@ impl RlHistory for History {
                 .map_err(ReedlineError)?;
         }
 
-        let dup = self.entries.insert(h.id, h.command_line.clone());
+        let id = HistoryItemId(self.entries.last().map_or(0, |(last, _)| last.0 + 1));
+        h.id = Some(id);
+
+        let dup = self.entries.insert(id, h.command_line.clone());
         assert!(dup.is_none());
 
-        Ok(())
-    }
-
-    fn replace(&mut self, h: &HistoryItem) -> reedline::Result<()> {
-        self.save(h)
+        Ok(h)
     }
 
     fn load(&self, id: HistoryItemId) -> reedline::Result<HistoryItem> {
@@ -145,10 +134,10 @@ impl RlHistory for History {
         Ok(Self::construct_entry(id, cmd_line))
     }
 
-    fn count(&self, query: SearchQuery) -> reedline::Result<u64> {
+    fn count(&self, query: SearchQuery) -> reedline::Result<i64> {
         self.search(query)?.len().try_into().map_err(|_| {
             ReedlineError(ReedlineErrorVariants::OtherHistoryError(
-                "too many results (exceeds u64::MAX)",
+                "too many results (exceeds i64::MAX)",
             ))
         })
     }
@@ -248,11 +237,12 @@ impl RlHistory for History {
                 return None;
             }
 
-            if let Some(str) = &filter.not_command_line {
-                if &cmd_lc == str {
-                    return None;
-                }
-            }
+            // TODO
+            // if let Some(str) = &filter.not_command_line {
+            //     if &cmd_lc == str {
+            //         return None;
+            //     }
+            // }
 
             Some(Self::construct_entry(*id, cmd.clone()))
         };
