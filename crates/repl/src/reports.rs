@@ -132,7 +132,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ReportableError::Runtime(err, _) => Some(&err.call_stack),
     };
 
-    let (source_file, offset, len, msg) = match at {
+    let (source_file, offset, len) = match at {
         RuntimeCodeRange::Parsed(at) => match at.start.file_id {
             FileId::None => unreachable!("internal error: got 'None' file ID in error"),
             FileId::Internal => unreachable!("internal error: got internal file ID in error"),
@@ -150,14 +150,13 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                     },
                     0,
                     src.len(),
-                    msg,
                 )
             }
 
             FileId::SourceFile(id) => {
                 let file = files.get_file(id).unwrap();
 
-                (file.clone(), at.start.offset(), at.len, msg)
+                (file.clone(), at.start.offset(), at.len)
             }
         },
 
@@ -173,7 +172,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 },
                 0,
                 src_len,
-                msg,
             )
         }
     };
