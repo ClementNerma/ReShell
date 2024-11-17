@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-    FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeEaten,
+    FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeSpan,
     ValueType,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -23,7 +23,7 @@ use crate::{
 };
 
 pub fn eval_fn_call(
-    call: &Eaten<FnCall>,
+    call: &Span<FnCall>,
     piped: Option<LocatedValue>,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {
@@ -413,7 +413,7 @@ struct ParsedFnCallArgs {
 }
 
 struct SimplifiedPositionalFnArg<'a> {
-    name: &'a RuntimeEaten<String>,
+    name: &'a RuntimeSpan<String>,
     is_optional: bool,
     typ: &'a Option<ValueType>,
 }
@@ -708,7 +708,7 @@ fn flatten_fn_call_args(
 
                     FnCallArg::Flag { name, value } => {
                         out.push(SingleCmdArgResult::Flag(CmdFlagValue {
-                            name: RuntimeEaten::from(name.clone()),
+                            name: RuntimeSpan::from(name.clone()),
                             value: Some(FlagArgValueResult {
                                 value: LocatedValue::new(
                                     RuntimeCodeRange::Parsed(value.at),
@@ -894,7 +894,7 @@ fn get_matching_var_name(
 }
 
 pub fn find_applicable_method<'s>(
-    name: &Eaten<String>,
+    name: &Span<String>,
     for_value: &RuntimeValue,
     ctx: &'s Context,
 ) -> ExecResult<&'s ScopeMethod> {
@@ -933,7 +933,7 @@ pub struct FnCallInfos<'a> {
 }
 
 pub enum FnPossibleCallArgs<'a> {
-    Parsed(&'a Eaten<Vec<Eaten<FnCallArg>>>),
+    Parsed(&'a Span<Vec<Span<FnCallArg>>>),
     ParsedCmdArgs(Vec<(CmdArgResult, CodeRange)>),
     Internal(Vec<CmdArgResult>),
 }

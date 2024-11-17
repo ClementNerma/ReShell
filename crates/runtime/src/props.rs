@@ -5,7 +5,7 @@
 
 use std::collections::hash_map::{Entry, VacantEntry};
 
-use parsy::Eaten;
+use parsy::Span;
 use reshell_parser::ast::PropAccessNature;
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -21,7 +21,7 @@ use crate::{context::Context, errors::ExecResult, expr::eval_expr, values::Runti
 ///             writing or creating the tail property based on the provided policy
 pub fn eval_props_access<'ast, 'c, T>(
     left: &'c mut RuntimeValue,
-    accesses: impl ExactSizeIterator<Item = &'ast Eaten<PropAccessNature>>,
+    accesses: impl ExactSizeIterator<Item = &'ast Span<PropAccessNature>>,
     policy: TailPropAccessPolicy,
     ctx: &'c mut Context,
     finalize: impl FnOnce(PropAccessMode, &mut Context) -> T,

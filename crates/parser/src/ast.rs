@@ -1,75 +1,72 @@
 use std::collections::HashMap;
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 
 use crate::scope::AstScopeId;
 
 /// A complete parsed program
 #[derive(Debug, Clone)]
 pub struct Program {
-    pub content: Eaten<Block>,
+    pub content: Span<Block>,
 }
 
 /// A block (= set of instructions)
 #[derive(Debug, Clone)]
 pub struct Block {
     pub scope_id: AstScopeId,
-    pub instructions: Vec<Eaten<Instruction>>,
+    pub instructions: Vec<Span<Instruction>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
-        names: Eaten<VarDeconstruction>,
-        init_expr: Eaten<Expr>,
+        names: Span<VarDeconstruction>,
+        init_expr: Span<Expr>,
     },
 
     /// Variable assignment
     AssignVar {
-        name: Eaten<String>,
-        prop_acc: Vec<Eaten<PropAccessNature>>,
-        list_push: Option<Eaten<()>>,
-        expr: Eaten<Expr>,
+        name: Span<String>,
+        prop_acc: Vec<Span<PropAccessNature>>,
+        list_push: Option<Span<()>>,
+        expr: Span<Expr>,
     },
 
     /// 'if' conditional
     IfCond {
-        cond: Eaten<Expr>,
-        body: Eaten<Block>,
-        elsif: Vec<Eaten<ElsIf>>,
-        els: Option<Eaten<Block>>,
+        cond: Span<Expr>,
+        body: Span<Block>,
+        elsif: Vec<Span<ElsIf>>,
+        els: Option<Span<Block>>,
     },
 
     /// 'for' loop
     ForLoop {
-        iter_var: Eaten<String>,
-        iter_on: Eaten<Expr>,
-        body: Eaten<Block>,
+        iter_var: Span<String>,
+        iter_on: Span<Expr>,
+        body: Span<Block>,
     },
 
     /// Ranged 'for' loop
     ForLoopRanged {
-        iter_var: Eaten<String>,
-        iter_from: Eaten<RangeBound>,
-        iter_to: Eaten<RangeBound>,
+        iter_var: Span<String>,
+        iter_from: Span<RangeBound>,
+        iter_to: Span<RangeBound>,
         inclusive: bool,
-        body: Eaten<Block>,
+        body: Span<Block>,
     },
 
     /// Keyed 'for' loop
     ForLoopKeyed {
-        key_iter_var: Eaten<String>,
-        value_iter_var: Eaten<String>,
-        iter_on: Eaten<Expr>,
-        body: Eaten<Block>,
+        key_iter_var: Span<String>,
+        value_iter_var: Span<String>,
+        iter_on: Span<Expr>,
+        body: Span<Block>,
     },
 
     /// 'while' loop
-    WhileLoop {
-        cond: Eaten<Expr>,
-        body: Eaten<Block>,
-    },
+    WhileLoop { cond: Span<Expr>, body: Span<Block> },
 
     /// 'continue' in a loop
     LoopContinue,
@@ -79,62 +76,62 @@ pub enum Instruction {
 
     /// 'match' statement
     Match {
-        expr: Eaten<Expr>,
+        expr: Span<Expr>,
         cases: Vec<MatchCase>,
-        els: Option<Eaten<Block>>,
+        els: Option<Span<Block>>,
     },
 
     /// 'typematch' statement
     TypeMatch {
-        expr: Eaten<Expr>,
+        expr: Span<Expr>,
         cases: Vec<TypeMatchCase>,
-        els: Option<Eaten<Block>>,
+        els: Option<Span<Block>>,
     },
 
     /// Function declaration
     FnDecl {
-        name: Eaten<String>,
+        name: Span<String>,
         content: Function,
     },
 
     /// Method declaration
     MethodDecl {
-        name: Eaten<String>,
+        name: Span<String>,
         on_type: ValueType,
         content: Function,
     },
 
     /// Function return statement
-    FnReturn { expr: Option<Eaten<Expr>> },
+    FnReturn { expr: Option<Span<Expr>> },
 
     /// Throw statement
-    Throw(Eaten<Expr>),
+    Throw(Span<Expr>),
 
     /// Try block
     Try {
-        try_expr: Eaten<Expr>,
-        catch_var: Eaten<String>,
-        catch_body: Eaten<Block>,
+        try_expr: Span<Expr>,
+        catch_var: Span<String>,
+        catch_body: Span<Block>,
     },
 
     /// Command alias declaration
     CmdAliasDecl {
-        name: Eaten<String>,
+        name: Span<String>,
         content_scope_id: AstScopeId,
-        content: Eaten<SingleCmdCall>,
+        content: Span<SingleCmdCall>,
     },
 
     /// Type alias declaration
     TypeAliasDecl {
-        name: Eaten<String>,
-        content: Eaten<ValueType>,
+        name: Span<String>,
+        content: Span<ValueType>,
     },
 
     /// 'do' block
-    DoBlock(Eaten<Block>),
+    DoBlock(Span<Block>),
 
     /// Command call
-    CmdCall(Eaten<CmdCall>),
+    CmdCall(Span<CmdCall>),
 
     /// Program inclusion
     Include(Program),
@@ -143,22 +140,22 @@ pub enum Instruction {
 #[derive(Debug, Clone)]
 pub enum VarDeconstruction {
     Single(SingleVarDecl),
-    Tuple(Vec<Eaten<VarDeconstruction>>),
-    MapOrStruct(Vec<(Eaten<SingleVarDecl>, Option<MapDestructBinding>)>),
+    Tuple(Vec<Span<VarDeconstruction>>),
+    MapOrStruct(Vec<(Span<SingleVarDecl>, Option<MapDestructBinding>)>),
 }
 
 #[derive(Debug, Clone)]
 pub enum MapDestructBinding {
-    BindTo(Eaten<String>),
-    Destruct(Box<Eaten<VarDeconstruction>>),
+    BindTo(Span<String>),
+    Destruct(Box<Span<VarDeconstruction>>),
 }
 
 #[derive(Debug, Clone)]
 pub struct SingleVarDecl {
-    pub name: Eaten<String>,
+    pub name: Span<String>,
 
     /// Location of this item points to the "mut" keyword
-    pub is_mut: Option<Eaten<()>>,
+    pub is_mut: Option<Span<()>>,
 
     /// Enforced type
     pub enforced_type: Option<ValueType>,
@@ -166,44 +163,44 @@ pub struct SingleVarDecl {
 
 #[derive(Debug, Clone)]
 pub struct ElsIf {
-    pub cond: Eaten<Expr>,
-    pub body: Eaten<Block>,
+    pub cond: Span<Expr>,
+    pub body: Span<Block>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MatchCase {
-    pub matches: Eaten<Expr>,
-    pub body: Eaten<Block>,
+    pub matches: Span<Expr>,
+    pub body: Span<Block>,
 }
 
 #[derive(Debug, Clone)]
 pub struct TypeMatchCase {
     pub matches: ValueType,
-    pub body: Eaten<Block>,
+    pub body: Span<Block>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Function {
-    pub signature: Eaten<FnSignature>,
-    pub body: Eaten<Block>,
+    pub signature: Span<FnSignature>,
+    pub body: Span<Block>,
 }
 
 #[derive(Debug, Clone)]
 pub enum RangeBound {
     Literal(i64),
-    Variable(Eaten<String>),
-    Expr(Eaten<Expr>),
+    Variable(Span<String>),
+    Expr(Span<Expr>),
 }
 
 #[derive(Debug, Clone)]
 pub struct Expr {
-    pub inner: Eaten<ExprInner>,
+    pub inner: Span<ExprInner>,
     pub right_ops: Vec<ExprOp>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ExprInner {
-    pub content: Eaten<ExprInnerContent>,
+    pub content: Span<ExprInnerContent>,
     pub chainings: Vec<ExprInnerChaining>,
 }
 
@@ -211,14 +208,14 @@ pub struct ExprInner {
 pub enum ExprInnerContent {
     SingleOp {
         op: SingleOp,
-        right: Eaten<Box<ExprInnerContent>>,
-        right_chainings: Vec<Eaten<ExprInnerChaining>>,
+        right: Span<Box<ExprInnerContent>>,
+        right_chainings: Vec<Span<ExprInnerChaining>>,
     },
     ParenExpr(Box<Expr>),
     Value(Value),
-    FnAsValue(Eaten<String>),
+    FnAsValue(Span<String>),
     Ternary {
-        cond: Eaten<Box<Expr>>,
+        cond: Span<Box<Expr>>,
         body: Box<Expr>,
         elsif: Vec<ElsIfExpr>,
         els: Box<Expr>,
@@ -235,22 +232,22 @@ pub enum ExprInnerContent {
     },
     Try {
         try_expr: Box<Expr>,
-        catch_var: Eaten<String>,
+        catch_var: Span<String>,
         catch_expr: Box<Expr>,
         catch_expr_scope_id: AstScopeId,
     },
-    Throw(Eaten<Box<Expr>>),
+    Throw(Span<Box<Expr>>),
 }
 
 #[derive(Debug, Clone)]
 pub struct ElsIfExpr {
-    pub cond: Eaten<Box<Expr>>,
+    pub cond: Span<Box<Expr>>,
     pub body: Box<Expr>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MatchExprCase {
-    pub matches: Eaten<Expr>,
+    pub matches: Span<Expr>,
     pub then: Expr,
 }
 
@@ -263,25 +260,25 @@ pub struct TypeMatchExprCase {
 #[derive(Debug, Clone)]
 pub enum ExprInnerChaining {
     PropAccess(PropAccess),
-    MethodCall(Eaten<FnCall>),
+    MethodCall(Span<FnCall>),
 }
 
 #[derive(Debug, Clone)]
 pub struct PropAccess {
-    pub nature: Eaten<PropAccessNature>,
+    pub nature: Span<PropAccessNature>,
     pub nullable: bool,
 }
 
 #[derive(Debug, Clone)]
 pub enum PropAccessNature {
-    Key(Box<Eaten<Expr>>),
-    Prop(Eaten<String>),
+    Key(Box<Span<Expr>>),
+    Prop(Span<String>),
 }
 
 #[derive(Debug, Clone)]
 pub struct ExprOp {
-    pub op: Eaten<DoubleOp>,
-    pub with: Box<Eaten<ExprInner>>,
+    pub op: Span<DoubleOp>,
+    pub with: Box<Span<ExprInner>>,
 }
 
 #[derive(Debug, Clone)]
@@ -289,13 +286,13 @@ pub enum Value {
     Null,
     Literal(LiteralValue),
     ComputedString(ComputedString),
-    List(Vec<Eaten<Expr>>),
+    List(Vec<Span<Expr>>),
     Struct(HashMap<String, Expr>),
-    Variable(Eaten<String>),
-    FnCall(Eaten<FnCall>),
-    CmdOutput(Eaten<CmdCall>),
-    CmdCall(Eaten<CmdCall>),
-    FnAsValue(Eaten<String>),
+    Variable(Span<String>),
+    FnCall(Span<FnCall>),
+    CmdOutput(Span<CmdCall>),
+    CmdCall(Span<CmdCall>),
+    FnAsValue(Span<String>),
     Lambda(Function),
 }
 
@@ -321,8 +318,8 @@ pub enum SingleValueType {
     TypedMap(Box<ValueType>),
     UntypedStruct,
     TypedStruct(Vec<StructTypeMember>),
-    Function(RuntimeEaten<FnSignature>),
-    TypeAlias(Eaten<String>),
+    Function(RuntimeSpan<FnSignature>),
+    TypeAlias(Span<String>),
     CmdCall,
     CmdArg,
     // TODO: parsable?
@@ -331,14 +328,14 @@ pub enum SingleValueType {
 
 #[derive(Debug, Clone, Hash)]
 pub struct StructTypeMember {
-    pub name: RuntimeEaten<String>,
+    pub name: RuntimeSpan<String>,
     pub typ: ValueType,
 }
 
 #[derive(Debug, Clone, Hash)]
 pub struct FnSignature {
-    pub args: RuntimeEaten<Vec<FnArg>>,
-    pub ret_type: Option<RuntimeEaten<Box<ValueType>>>,
+    pub args: RuntimeSpan<Vec<FnArg>>,
+    pub ret_type: Option<RuntimeSpan<Box<ValueType>>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -381,9 +378,9 @@ pub struct ComputedString {
 pub enum ComputedStringPiece {
     Literal(String),
     Escaped(EscapableChar),
-    Variable(Eaten<String>),
-    Expr(Eaten<Expr>),
-    CmdCall(Eaten<CmdCall>),
+    Variable(Span<String>),
+    Expr(Span<Expr>),
+    CmdCall(Span<CmdCall>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -409,59 +406,59 @@ pub struct CmdCall {
 // The 'Expr' variant is rare enough to not cause a problem with enum size variants difference
 #[allow(clippy::large_enum_variant)]
 pub enum CmdCallBase {
-    Expr(Eaten<Box<Expr>>),
-    SingleCmdCall(Eaten<SingleCmdCall>),
+    Expr(Span<Box<Expr>>),
+    SingleCmdCall(Span<SingleCmdCall>),
 }
 
 #[derive(Debug, Clone)]
 pub struct SingleCmdCall {
-    pub env_vars: Eaten<Vec<Eaten<CmdEnvVar>>>,
-    pub path: Eaten<CmdPath>,
-    pub args: Eaten<Vec<Eaten<CmdArg>>>,
+    pub env_vars: Span<Vec<Span<CmdEnvVar>>>,
+    pub path: Span<CmdPath>,
+    pub args: Span<Vec<Span<CmdArg>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdEnvVar {
-    pub name: Eaten<String>,
-    pub value: Eaten<CmdValueMakingArg>,
+    pub name: Span<String>,
+    pub value: Span<CmdValueMakingArg>,
 }
 
 #[derive(Debug, Clone)]
 pub enum CmdPath {
-    Raw(Eaten<String>),
+    Raw(Span<String>),
     External(CmdExternalPath),
-    Method(Eaten<String>),
+    Method(Span<String>),
 }
 
 #[derive(Debug, Clone)]
 pub enum CmdExternalPath {
-    Raw(Eaten<String>),
-    LiteralString(Eaten<String>),
-    ComputedString(Eaten<ComputedString>),
+    Raw(Span<String>),
+    LiteralString(Span<String>),
+    ComputedString(Span<ComputedString>),
 }
 
 #[derive(Debug, Clone)]
 
 pub struct CmdRawString {
-    pub pieces: Vec<Eaten<CmdRawStringPiece>>,
+    pub pieces: Vec<Span<CmdRawStringPiece>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum CmdRawStringPiece {
     Literal(String),
-    Variable(Eaten<String>),
+    Variable(Span<String>),
 }
 
 #[derive(Debug, Clone)]
 pub enum CmdArg {
-    ValueMaking(Eaten<CmdValueMakingArg>),
+    ValueMaking(Span<CmdValueMakingArg>),
     Flag(CmdFlagArg),
-    Spread(Eaten<CmdSpreadArg>),
+    Spread(Span<CmdSpreadArg>),
 }
 
 #[derive(Debug, Clone)]
 pub enum CmdSpreadArg {
-    Variable(Eaten<String>),
+    Variable(Span<String>),
     Expr(Expr),
 }
 
@@ -469,17 +466,17 @@ pub enum CmdSpreadArg {
 pub enum CmdValueMakingArg {
     LiteralValue(LiteralValue),
     ComputedString(ComputedString),
-    InlineCmdCall(Eaten<CmdCall>),
-    CmdOutput(Eaten<CmdCall>),
-    ParenExpr(Eaten<Expr>),
-    CmdRawString(Eaten<CmdRawString>),
-    Variable(Eaten<String>),
-    Lambda(Eaten<Function>),
+    InlineCmdCall(Span<CmdCall>),
+    CmdOutput(Span<CmdCall>),
+    ParenExpr(Span<Expr>),
+    CmdRawString(Span<CmdRawString>),
+    Variable(Span<String>),
+    Lambda(Span<Function>),
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdFlagArg {
-    pub name: Eaten<CmdFlagNameArg>,
+    pub name: Span<CmdFlagNameArg>,
     pub value: Option<CmdFlagValueArg>,
 }
 
@@ -494,7 +491,7 @@ pub enum CmdFlagNameArg {
 #[derive(Debug, Clone)]
 pub struct CmdFlagValueArg {
     pub value_sep: FlagValueSeparator,
-    pub value: Eaten<CmdValueMakingArg>,
+    pub value: Span<CmdValueMakingArg>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -505,8 +502,8 @@ pub enum FlagValueSeparator {
 
 #[derive(Debug, Clone)]
 pub struct CmdPipe {
-    pub pipe_type: Eaten<CmdPipeType>,
-    pub cmd: Eaten<SingleCmdCall>,
+    pub pipe_type: Span<CmdPipeType>,
+    pub cmd: Span<SingleCmdCall>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -525,7 +522,7 @@ pub enum FnArg {
 
 #[derive(Debug, Clone, Hash)]
 pub struct FnPositionalArg {
-    pub name: RuntimeEaten<String>,
+    pub name: RuntimeSpan<String>,
     pub is_optional: bool,
     pub typ: Option<ValueType>,
 }
@@ -544,25 +541,25 @@ pub struct FnNormalFlagArg {
 
 #[derive(Debug, Clone, Hash)]
 pub struct FnRestArg {
-    pub name: RuntimeEaten<String>,
-    pub typ: Option<RuntimeEaten<ValueType>>,
+    pub name: RuntimeSpan<String>,
+    pub typ: Option<RuntimeSpan<ValueType>>,
 }
 
 #[derive(Debug, Clone, Hash)]
 pub enum FnFlagArgNames {
-    ShortFlag(RuntimeEaten<char>),
-    LongFlag(RuntimeEaten<String>),
+    ShortFlag(RuntimeSpan<char>),
+    LongFlag(RuntimeSpan<String>),
     LongAndShortFlag {
-        long: RuntimeEaten<String>,
-        short: RuntimeEaten<char>,
+        long: RuntimeSpan<String>,
+        short: RuntimeSpan<char>,
     },
 }
 
 #[derive(Debug, Clone)]
 pub struct FnCall {
     pub nature: FnCallNature,
-    pub name: Eaten<String>,
-    pub call_args: Eaten<Vec<Eaten<FnCallArg>>>,
+    pub name: Span<String>,
+    pub call_args: Span<Vec<Span<FnCallArg>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -574,17 +571,17 @@ pub enum FnCallNature {
 
 #[derive(Debug, Clone)]
 pub enum FnCallArg {
-    Expr(Eaten<Expr>),
+    Expr(Span<Expr>),
     Flag {
-        name: Eaten<CmdFlagNameArg>,
-        value: Eaten<Expr>,
+        name: Span<CmdFlagNameArg>,
+        value: Span<Expr>,
     },
-    CmdArg(Eaten<CmdArg>),
+    CmdArg(Span<CmdArg>),
 }
 
 /// A token that's either eaten from a real input or generated at runtime
 #[derive(Debug, Clone, Copy, Hash)]
-pub struct RuntimeEaten<T> {
+pub struct RuntimeSpan<T> {
     pub at: RuntimeCodeRange,
     pub data: T,
 }

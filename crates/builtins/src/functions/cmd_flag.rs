@@ -19,7 +19,7 @@ fn run() -> Runner {
     Runner::new(|_, Args { name, value }, args_at, ctx| {
         Ok(Some(RuntimeValue::CmdArg(Box::new(CmdArgValue::Flag(
             CmdFlagValue {
-                name: RuntimeEaten {
+                name: RuntimeSpan {
                     at: args_at.name,
                     data: CmdFlagNameArg::dynamic(name)
                         .map_err(|err| ctx.throw(args_at.name, err))?,

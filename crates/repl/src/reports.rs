@@ -11,7 +11,7 @@ use std::borrow::Cow;
 
 use annotate_snippets::{Level, Renderer, Snippet};
 use colored::Colorize;
-use parsy::{CodeRange, Eaten, FileId, ParserExpectation, ParsingError, SourceFileID};
+use parsy::{CodeRange, Span, FileId, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
@@ -27,7 +27,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 pub enum ReportableError {
     Parsing(ParsingError),
     Checking(CheckerError),
-    Runtime(Box<ExecError>, Option<Eaten<Program>>),
+    Runtime(Box<ExecError>, Option<Span<Program>>),
 }
 
 impl ReportableError {

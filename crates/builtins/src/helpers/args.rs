@@ -7,7 +7,7 @@ use reshell_parser::ast::{
 
 use reshell_runtime::values::{CmdArgValue, RuntimeValue};
 
-use crate::builder::internal_runtime_eaten;
+use crate::builder::internal_runtime_span;
 
 use super::types::{BoolType, DetachedListType};
 
@@ -278,7 +278,7 @@ pub fn generate_internal_arg_decl<
 ) -> FnArg {
     match arg.names() {
         ArgNames::Positional(name) => {
-            let name = internal_runtime_eaten((*name).to_owned());
+            let name = internal_runtime_span((*name).to_owned());
 
             let typ = if !arg.hide_type() {
                 Some(Parser::value_type())
@@ -289,7 +289,7 @@ pub fn generate_internal_arg_decl<
             if arg.is_rest() {
                 FnArg::Rest(FnRestArg {
                     name,
-                    typ: typ.map(internal_runtime_eaten),
+                    typ: typ.map(internal_runtime_span),
                 })
             } else {
                 FnArg::Positional(FnPositionalArg {
@@ -303,16 +303,16 @@ pub fn generate_internal_arg_decl<
         ArgNames::Flag(flag) => {
             let names = match flag {
                 // ArgFlagNames::Short(short) => {
-                //     FnFlagArgNames::ShortFlag(RuntimeEaten::Internal(short))
+                //     FnFlagArgNames::ShortFlag(RuntimeSpan::Internal(short))
                 // }
                 //
                 ArgFlagNames::Long(long) => {
-                    FnFlagArgNames::LongFlag(internal_runtime_eaten(long.raw.to_owned()))
+                    FnFlagArgNames::LongFlag(internal_runtime_span(long.raw.to_owned()))
                 }
 
                 ArgFlagNames::LongAndShort(long, short) => FnFlagArgNames::LongAndShortFlag {
-                    long: internal_runtime_eaten(long.raw.to_owned()),
-                    short: internal_runtime_eaten(*short),
+                    long: internal_runtime_span(long.raw.to_owned()),
+                    short: internal_runtime_span(*short),
                 },
             };
 

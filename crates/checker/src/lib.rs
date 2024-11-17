@@ -18,7 +18,7 @@ pub mod typechecker;
 
 use std::collections::{HashMap, HashSet};
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
@@ -63,12 +63,12 @@ pub fn check(
     Ok(())
 }
 
-fn check_block(block: &Eaten<Block>, state: &mut State) -> CheckerResult {
+fn check_block(block: &Span<Block>, state: &mut State) -> CheckerResult {
     check_block_with(block, state, |_| {})
 }
 
 fn check_block_with(
-    block: &Eaten<Block>,
+    block: &Span<Block>,
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
@@ -108,8 +108,8 @@ fn check_block_with(
 }
 
 fn block_first_pass(
-    instructions: &[Eaten<Instruction>],
-    block: &Eaten<Block>,
+    instructions: &[Span<Instruction>],
+    block: &Span<Block>,
     state: &mut State,
 ) -> CheckerResult {
     for instr in instructions {
@@ -250,7 +250,7 @@ fn block_first_pass(
     Ok(())
 }
 
-fn check_instr(instr: &Eaten<Instruction>, state: &mut State) -> CheckerResult {
+fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
     match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             // if state.curr_scope().vars.contains_key(&name.data) {
@@ -684,7 +684,7 @@ fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
     Ok(())
 }
 
-fn check_expr_inner(inner: &Eaten<ExprInner>, state: &mut State) -> CheckerResult {
+fn check_expr_inner(inner: &Span<ExprInner>, state: &mut State) -> CheckerResult {
     let ExprInner { content, chainings } = &inner.data;
 
     check_expr_inner_content(&content.data, state)?;
@@ -820,7 +820,7 @@ fn check_single_op(single_op: &SingleOp, _: &mut State) -> CheckerResult {
     }
 }
 
-fn check_double_op(double_op: &Eaten<DoubleOp>, _: &mut State) -> CheckerResult {
+fn check_double_op(double_op: &Span<DoubleOp>, _: &mut State) -> CheckerResult {
     match &double_op.data {
         DoubleOp::Add
         | DoubleOp::Sub
@@ -848,7 +848,7 @@ fn check_prop_access(prop_acc: &PropAccess, state: &mut State) -> CheckerResult 
     check_prop_access_nature(nature, state)
 }
 
-fn check_prop_access_nature(nature: &Eaten<PropAccessNature>, state: &mut State) -> CheckerResult {
+fn check_prop_access_nature(nature: &Span<PropAccessNature>, state: &mut State) -> CheckerResult {
     match &nature.data {
         PropAccessNature::Key(key) => check_expr(&key.data, state),
         PropAccessNature::Prop(_) => Ok(()),
@@ -934,7 +934,7 @@ fn check_computed_string_piece(piece: &ComputedStringPiece, state: &mut State) -
     }
 }
 
-fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
+fn check_fn_call(fn_call: &Span<FnCall>, state: &mut State) -> CheckerResult {
     let FnCall {
         nature,
         name,
@@ -954,7 +954,7 @@ fn check_fn_call(fn_call: &Eaten<FnCall>, state: &mut State) -> CheckerResult {
     Ok(())
 }
 
-fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult {
+fn check_fn_call_arg(arg: &Span<FnCallArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
         FnCallArg::Expr(expr) => check_expr(&expr.data, state),
         FnCallArg::Flag { name: _, value } => check_expr(&value.data, state),
@@ -962,7 +962,7 @@ fn check_fn_call_arg(arg: &Eaten<FnCallArg>, state: &mut State) -> CheckerResult
     }
 }
 
-fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult {
+fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult {
     let CmdCall { base, pipes } = &cmd_call.data;
 
     let mut has_prev_stderr = match base {
@@ -1000,7 +1000,7 @@ fn check_cmd_call(cmd_call: &Eaten<CmdCall>, state: &mut State) -> CheckerResult
 }
 
 fn check_single_cmd_call(
-    single_cmd_call: &Eaten<SingleCmdCall>,
+    single_cmd_call: &Span<SingleCmdCall>,
     state: &mut State,
 ) -> CheckerResult<CmdPathTargetType> {
     let SingleCmdCall {
@@ -1081,7 +1081,7 @@ fn check_single_cmd_call(
 }
 
 fn check_if_cmd_or_fn_and_register(
-    name: &Eaten<String>,
+    name: &Span<String>,
     developed_aliases: &mut Vec<DevelopedCmdAliasCall>,
     state: &mut State,
 ) -> CheckerResult<CmdPathTargetType> {
@@ -1144,13 +1144,13 @@ fn check_if_cmd_or_fn_and_register(
     }
 }
 
-fn check_cmd_env_var(cmd_env_var: &Eaten<CmdEnvVar>, state: &mut State) -> CheckerResult {
+fn check_cmd_env_var(cmd_env_var: &Span<CmdEnvVar>, state: &mut State) -> CheckerResult {
     let CmdEnvVar { name: _, value } = &cmd_env_var.data;
 
     check_cmd_value_making_arg(&value.data, state)
 }
 
-fn check_cmd_arg(arg: &Eaten<CmdArg>, state: &mut State) -> CheckerResult {
+fn check_cmd_arg(arg: &Span<CmdArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
         CmdArg::ValueMaking(value_making) => check_cmd_value_making_arg(&value_making.data, state),
 
@@ -1223,7 +1223,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     state.register_function_body(body.clone());
 
-    let checked_args = check_fn_signature(&Eaten::ate(signature.at, &signature.data), state)?;
+    let checked_args = check_fn_signature(&Span::ate(signature.at, &signature.data), state)?;
 
     let mut vars = HashMap::with_capacity(checked_args.len());
 
@@ -1452,7 +1452,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
 }
 
 fn check_fn_signature(
-    signature: &Eaten<&FnSignature>,
+    signature: &Span<&FnSignature>,
     state: &mut State,
 ) -> CheckerResult<Vec<CheckedFnArg>> {
     state.register_function_signature(signature.map(FnSignature::clone));

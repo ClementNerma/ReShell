@@ -11,7 +11,7 @@ use reshell_runtime::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{builder::internal_runtime_eaten, helpers::args::TypedValueParser};
+use crate::{builder::internal_runtime_span, helpers::args::TypedValueParser};
 
 /// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(
@@ -19,11 +19,11 @@ pub fn forge_basic_fn_signature(
     ret_type: Option<ValueType>,
 ) -> FnSignature {
     FnSignature {
-        args: internal_runtime_eaten(
+        args: internal_runtime_span(
             args.into_iter()
                 .map(|(name, typ)| {
                     FnArg::Positional(FnPositionalArg {
-                        name: internal_runtime_eaten(name.into()),
+                        name: internal_runtime_span(name.into()),
                         is_optional: false,
                         typ: Some(typ),
                     })
@@ -31,7 +31,7 @@ pub fn forge_basic_fn_signature(
                 .collect(),
         ),
 
-        ret_type: ret_type.map(|ret_type| internal_runtime_eaten(Box::new(ret_type))),
+        ret_type: ret_type.map(|ret_type| internal_runtime_span(Box::new(ret_type))),
     }
 }
 

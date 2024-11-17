@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_parser::{
     ast::{Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
@@ -97,7 +97,7 @@ impl<'a> State<'a> {
     /// The process of 'collection' is to mark an item as requiring capture at runtime.
     pub fn register_usage(
         &mut self,
-        item_usage: &Eaten<String>,
+        item_usage: &Span<String>,
         dep_type: DependencyType,
     ) -> CheckerResult {
         // TODO: internal functions, variables and methods are NOT registered as dependencies
@@ -257,9 +257,9 @@ impl<'a> State<'a> {
     /// Register a type alias declaration
     pub fn register_type_alias(
         &mut self,
-        name: &Eaten<String>,
-        content: &Eaten<ValueType>,
-        inside_block: &Eaten<Block>,
+        name: &Span<String>,
+        content: &Span<ValueType>,
+        inside_block: &Span<Block>,
     ) {
         let content = shared(content.clone());
 
@@ -276,7 +276,7 @@ impl<'a> State<'a> {
 
     /// Register usage of a type alias
     /// This function will check if the type alias exists and register the usage globally
-    pub fn register_type_alias_usage(&mut self, name: &Eaten<String>) -> CheckerResult {
+    pub fn register_type_alias_usage(&mut self, name: &Span<String>) -> CheckerResult {
         let decl_scope = self
             .scopes
             .iter()
@@ -308,7 +308,7 @@ impl<'a> State<'a> {
     }
 
     /// Register a command alias
-    pub fn register_cmd_alias(&mut self, alias_content: Eaten<SingleCmdCall>) {
+    pub fn register_cmd_alias(&mut self, alias_content: Span<SingleCmdCall>) {
         let dup = self
             .collected
             .cmd_aliases
@@ -321,7 +321,7 @@ impl<'a> State<'a> {
     /// By default they are not marked as ready to prevent circular references
     ///
     /// e.g. `alias echo = echo` would result in an infinite loop otherwise
-    pub fn mark_cmd_alias_as_ready(&mut self, name: &Eaten<String>) {
+    pub fn mark_cmd_alias_as_ready(&mut self, name: &Span<String>) {
         let cmd_alias = self
             .scopes
             .iter_mut()
@@ -333,7 +333,7 @@ impl<'a> State<'a> {
     }
 
     /// Register a function's signature
-    pub fn register_function_signature(&mut self, signature: Eaten<FnSignature>) {
+    pub fn register_function_signature(&mut self, signature: Span<FnSignature>) {
         let dup = self
             .collected
             .fn_signatures
@@ -342,7 +342,7 @@ impl<'a> State<'a> {
     }
 
     /// Register a function's body
-    pub fn register_function_body(&mut self, body: Eaten<Block>) {
+    pub fn register_function_body(&mut self, body: Span<Block>) {
         let dup = self.collected.fn_bodies.insert(body.at, shared(body));
 
         assert!(dup.is_none());
@@ -351,7 +351,7 @@ impl<'a> State<'a> {
     /// Register a developed single command call
     pub fn register_developed_single_cmd_call(
         &mut self,
-        from: &Eaten<SingleCmdCall>,
+        from: &Span<SingleCmdCall>,
         collected: DevelopedSingleCmdCall,
     ) {
         assert!(from.at == collected.at);
@@ -361,7 +361,7 @@ impl<'a> State<'a> {
     }
 
     /// Register a command call used as a value
-    pub fn register_cmd_call_value(&mut self, from: &Eaten<CmdCall>) {
+    pub fn register_cmd_call_value(&mut self, from: &Span<CmdCall>) {
         let dup = self
             .collected
             .cmd_call_values

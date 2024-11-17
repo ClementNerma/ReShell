@@ -6,12 +6,12 @@ use std::{collections::HashMap, fmt::Debug};
 
 use dyn_clone::DynClone;
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_checker::output::Dependency;
 use reshell_parser::ast::CmdFlagNameArg;
 use reshell_parser::{
     ast::{
-        Block, FnSignature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall, SingleValueType,
+        Block, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall, SingleValueType,
         StructTypeMember, ValueType,
     },
     scope::AstScopeId,
@@ -42,13 +42,13 @@ pub struct RuntimeFnValue {
 /// Runtime function signature
 #[derive(Debug)]
 pub enum RuntimeFnSignature {
-    Shared(Arc<Eaten<FnSignature>>),
+    Shared(Arc<Span<FnSignature>>),
     Owned(FnSignature),
 }
 
 /// Runtime function body
 pub enum RuntimeFnBody {
-    Block(Arc<Eaten<Block>>),
+    Block(Arc<Span<Block>>),
     Internal(InternalFnBody),
 }
 
@@ -97,7 +97,7 @@ pub struct RuntimeCmdAlias {
     pub name: String,
 
     /// Content of the alias
-    pub content: Arc<Eaten<SingleCmdCall>>,
+    pub content: Arc<Span<SingleCmdCall>>,
 
     /// Content scope ID
     pub content_scope_id: AstScopeId,
@@ -135,7 +135,7 @@ pub enum CmdArgValue {
 /// Content of a command flag
 #[derive(Debug, Clone)]
 pub struct CmdFlagValue {
-    pub name: RuntimeEaten<CmdFlagNameArg>,
+    pub name: RuntimeSpan<CmdFlagNameArg>,
     pub value: Option<FlagArgValueResult>,
 }
 
@@ -195,7 +195,7 @@ impl RuntimeValue {
                     .read_promise_no_write()
                     .iter()
                     .map(|(name, value)| StructTypeMember {
-                        name: RuntimeEaten::internal("type deducer", name.clone()),
+                        name: RuntimeSpan::internal("type deducer", name.clone()),
                         typ: ValueType::Single(value.compute_type()),
                     })
                     .collect(),
@@ -203,9 +203,9 @@ impl RuntimeValue {
             RuntimeValue::Function(content) => {
                 // TODO: performance (use already collected data from checker?)
                 SingleValueType::Function(match &content.signature {
-                    RuntimeFnSignature::Shared(shared) => RuntimeEaten::from(Eaten::clone(shared)),
+                    RuntimeFnSignature::Shared(shared) => RuntimeSpan::from(Span::clone(shared)),
                     RuntimeFnSignature::Owned(owned) => {
-                        RuntimeEaten::internal("type deducer", owned.clone())
+                        RuntimeSpan::internal("type deducer", owned.clone())
                     }
                 })
             }

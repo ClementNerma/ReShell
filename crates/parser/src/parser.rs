@@ -18,7 +18,7 @@ use crate::{
         ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
         FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
-        MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeEaten,
+        MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
         SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
         TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
@@ -80,7 +80,7 @@ pub fn program(
     let fn_signature = late::<FnSignature>();
 
     let value_type = recursive::<ValueType, _>(|value_type| {
-        let single_value_type = choice::<_, SingleValueType>((
+        let single_value_type = choice::<SingleValueType, _>((
             just("any")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::Any),
@@ -108,7 +108,7 @@ pub fn program(
             just("fn")
                 .ignore_then(fn_signature.clone())
                 .spanned()
-                .map(RuntimeEaten::from)
+                .map(RuntimeSpan::from)
                 .map(SingleValueType::Function),
             just("list[")
                 .ignore_then(value_type.clone().map(Box::new))
@@ -131,7 +131,7 @@ pub fn program(
                 .ignore_then(
                     ident
                         .spanned()
-                        .map(RuntimeEaten::from)
+                        .map(RuntimeSpan::from)
                         .then_ignore(ms)
                         .then_ignore(char(':').critical_with_no_message())
                         .then_ignore(msnl)
@@ -183,30 +183,30 @@ pub fn program(
         )
         .followed_by(not(possible_ident_char).critical("expected a single-character identifier"));
 
-    let fn_flag_arg_names = choice::<_, FnFlagArgNames>((
+    let fn_flag_arg_names = choice::<FnFlagArgNames, _>((
         // Long *and* short flags
         fn_arg_long_flag
-            .map(RuntimeEaten::from)
+            .map(RuntimeSpan::from)
             .then_ignore(ms)
             .then_ignore(char('('))
-            .then(fn_arg_short_flag.map(RuntimeEaten::from))
+            .then(fn_arg_short_flag.map(RuntimeSpan::from))
             .then_ignore(char(')').critical_with_no_message())
             .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
         // Long flag only
         fn_arg_long_flag
-            .map(RuntimeEaten::from)
+            .map(RuntimeSpan::from)
             .map(FnFlagArgNames::LongFlag),
         // Long flag only
         fn_arg_short_flag
-            .map(RuntimeEaten::from)
+            .map(RuntimeSpan::from)
             .map(FnFlagArgNames::ShortFlag),
     ));
 
-    let fn_arg = choice::<_, FnArg>((
+    let fn_arg = choice::<FnArg, _>((
         // Positional
         ident
             .spanned()
-            .map(RuntimeEaten::from)
+            .map(RuntimeSpan::from)
             .then_ignore(msnl)
             .then(char('?').or_not())
             .then(
@@ -255,7 +255,7 @@ pub fn program(
         just("...")
             .ignore_then(ident)
             .spanned()
-            .map(RuntimeEaten::from)
+            .map(RuntimeSpan::from)
             .then(
                 msnl.ignore_then(char(':'))
                     .ignore_then(msnl)
@@ -264,7 +264,7 @@ pub fn program(
                             .clone()
                             .critical("expected a type for the rest parameter")
                             .spanned()
-                            .map(RuntimeEaten::from),
+                            .map(RuntimeSpan::from),
                     )
                     .or_not(),
             )
@@ -278,7 +278,7 @@ pub fn program(
                     .clone()
                     .separated_by(char(',').padded_by(msnl))
                     .spanned()
-                    .map(RuntimeEaten::from),
+                    .map(RuntimeSpan::from),
             )
             .then_ignore(msnl)
             .then_ignore(char(')').critical_with_no_message())
@@ -290,7 +290,7 @@ pub fn program(
                             .clone()
                             .map(Box::new)
                             .spanned()
-                            .map(RuntimeEaten::from)
+                            .map(RuntimeSpan::from)
                             .critical("expected a type"),
                     )
                     .then_ignore(ms)
@@ -299,7 +299,7 @@ pub fn program(
             .map(|(args, ret_type)| FnSignature { args, ret_type }),
     );
 
-    let fn_call_arg = choice::<_, FnCallArg>((
+    let fn_call_arg = choice::<FnCallArg, _>((
         ident
             .spanned()
             .then_ignore(ms)
@@ -323,7 +323,7 @@ pub fn program(
         expr.clone().spanned().map(FnCallArg::Expr),
     ));
 
-    let fn_call = choice::<_, FnCallNature>((
+    let fn_call = choice::<FnCallNature, _>((
         char('$').to(FnCallNature::Variable),
         char('.').to(FnCallNature::Method),
         empty().to(FnCallNature::NamedFunction),
@@ -382,7 +382,7 @@ pub fn program(
         .collect_string()
         .map(|num| str::parse::<i64>(&num).unwrap());
 
-    let literal_value = choice::<_, LiteralValue>((
+    let literal_value = choice::<LiteralValue, _>((
         // Strings
         literal_string.map(LiteralValue::String).followed_by(
             silent_choice((
@@ -428,7 +428,7 @@ pub fn program(
 
     let computed_string = char('"')
             .ignore_then(
-                choice::<_, ComputedStringPiece>((
+                choice::<ComputedStringPiece, _>((
                     // Escaped
                     escaped_char.map(ComputedStringPiece::Escaped),
                     // Command calls
@@ -472,14 +472,14 @@ pub fn program(
     let lambda = char('{')
         .ignore_then(msnl)
         .ignore_then(
-            choice::<_, FnSignature>((
+            choice::<FnSignature, _>((
                 char('|')
                     .ignore_then(msnl)
                     .ignore_then(
                         fn_arg
                             .separated_by(char(',').padded_by(msnl))
                             .spanned()
-                            .map(RuntimeEaten::from)
+                            .map(RuntimeSpan::from)
                             .map(|args| FnSignature {
                                 args,
                                 ret_type: None,
@@ -490,7 +490,7 @@ pub fn program(
                     .then_ignore(msnl),
                 // Arg-less
                 empty().spanned().map(|eaten| FnSignature {
-                    args: RuntimeEaten::from(eaten.replace(vec![])),
+                    args: RuntimeSpan::from(eaten.replace(vec![])),
                     ret_type: None,
                 }),
             ))
@@ -517,7 +517,7 @@ pub fn program(
         .then_ignore(msnl)
         .then_ignore(char(')').critical_with_no_message());
 
-    let value = choice::<_, Value>((
+    let value = choice::<Value, _>((
         just("null").map(|_| Value::Null),
         // Literals
         literal_value.map(Value::Literal),
@@ -569,9 +569,9 @@ pub fn program(
         lambda.clone().map(Value::Lambda),
     ));
 
-    let single_op = choice::<_, SingleOp>((char('!').to(SingleOp::Neg),));
+    let single_op = choice::<SingleOp, _>((char('!').to(SingleOp::Neg),));
 
-    let double_op = not(just("->")).ignore_then(choice::<_, DoubleOp>((
+    let double_op = not(just("->")).ignore_then(choice::<DoubleOp, _>((
         char('+').to(DoubleOp::Add),
         char('-').to(DoubleOp::Sub),
         char('*').to(DoubleOp::Mul),
@@ -600,7 +600,7 @@ pub fn program(
     let scope_id_gen_bis = scope_id_gen.clone();
 
     let expr_inner_content = recursive(|expr_inner_content| {
-        choice::<_, ExprInnerContent>((
+        choice::<ExprInnerContent, _>((
             //
             // Single operator (e.g. '!') application
             //
@@ -821,7 +821,7 @@ pub fn program(
         ))
     });
 
-    let prop_access_nature = choice::<_, PropAccessNature>((
+    let prop_access_nature = choice::<PropAccessNature, _>((
         char('.')
             .ignore_then(ident.spanned().critical("expected a property name"))
             .not_followed_by(char('('))
@@ -847,7 +847,7 @@ pub fn program(
             nature,
         });
 
-    expr_inner_chaining.finish(choice::<_, ExprInnerChaining>((
+    expr_inner_chaining.finish(choice::<ExprInnerChaining, _>((
         msnl.ignore_then(lookahead(char('.')))
             .ignore_then(fn_call.clone())
             .spanned()
@@ -884,7 +884,7 @@ pub fn program(
     );
 
     let cmd_raw_string = not(just("->")).ignore_then(
-        choice::<_, CmdRawStringPiece>((
+        choice::<CmdRawStringPiece, _>((
             // Variables
             var_name.spanned().map(CmdRawStringPiece::Variable),
             // Literal character suites
@@ -905,7 +905,7 @@ pub fn program(
         .at_least(1)
         .collect_string();
 
-    let cmd_path = choice::<_, CmdPath>((
+    let cmd_path = choice::<CmdPath, _>((
         // Method
         char('.')
             .ignore_then(ident.spanned())
@@ -918,7 +918,7 @@ pub fn program(
         // External commands
         char('^')
             .ignore_then(
-                choice::<_, CmdExternalPath>((
+                choice::<CmdExternalPath, _>((
                     // Raw path
                     raw_cmd_name.spanned().map(CmdExternalPath::Raw),
                     // Single-quoted string
@@ -934,7 +934,7 @@ pub fn program(
             .map(CmdPath::External),
     ));
 
-    let cmd_value_making_arg = choice::<_, CmdValueMakingArg>((
+    let cmd_value_making_arg = choice::<CmdValueMakingArg, _>((
         // Literal values
         literal_value.map(CmdValueMakingArg::LiteralValue),
         // Variable
@@ -995,7 +995,7 @@ pub fn program(
         )
         .map(|(name, value)| CmdEnvVar { name, value });
 
-    let cmd_flag_name_arg = choice::<_, CmdFlagNameArg>((
+    let cmd_flag_name_arg = choice::<CmdFlagNameArg, _>((
         just("--")
             .ignore_then(
                 first_ident_char
@@ -1034,13 +1034,13 @@ pub fn program(
             .map(|(name, value)| CmdFlagArg { name, value }),
     );
 
-    let cmd_arg = choice::<_, CmdArg>((
+    let cmd_arg = choice::<CmdArg, _>((
         // Flag arguments
         cmd_flag_arg.map(CmdArg::Flag),
         // Spread
         just("...")
             .ignore_then(
-                choice::<_, CmdSpreadArg>((
+                choice::<CmdSpreadArg, _>((
                     char('$')
                         .ignore_then(ident)
                         .spanned()
@@ -1088,7 +1088,7 @@ pub fn program(
             args,
         });
 
-    let cmd_call_base = choice::<_, CmdCallBase>((
+    let cmd_call_base = choice::<CmdCallBase, _>((
         //
         // Expressions
         //
@@ -1106,7 +1106,7 @@ pub fn program(
         cmd_call_base
             .then(
                 msnl.ignore_then(
-                    choice::<_, CmdPipeType>((
+                    choice::<CmdPipeType, _>((
                         just("!|").to(CmdPipeType::Stderr),
                         char('|').to(CmdPipeType::ValueOrStdout),
                     ))
@@ -1151,7 +1151,7 @@ pub fn program(
         });
 
     let var_decl_type = recursive(|var_decl_type| {
-        choice::<_, VarDeconstruction>((
+        choice::<VarDeconstruction, _>((
             char('[')
                 .ignore_then(msnl)
                 .ignore_then(
@@ -1173,7 +1173,7 @@ pub fn program(
                             char(':')
                                 .ignore_then(msnl)
                                 .ignore_then(
-                                    choice::<_, MapDestructBinding>((
+                                    choice::<MapDestructBinding, _>((
                                         ident.spanned().map(MapDestructBinding::BindTo),
                                         var_decl_type
                                             .clone()
@@ -1194,7 +1194,7 @@ pub fn program(
         ))
     });
 
-    let range_bound = choice::<_, RangeBound>((
+    let range_bound = choice::<RangeBound, _>((
         int_literal.map(RangeBound::Literal),
         var_name.spanned().map(RangeBound::Variable),
         char('(')
@@ -1204,7 +1204,7 @@ pub fn program(
             .map(RangeBound::Expr),
     ));
 
-    let instr = choice::<_, Instruction>((
+    let instr = choice::<Instruction, _>((
         //
         // Variables declaration
         //
@@ -1644,7 +1644,7 @@ pub fn program(
                 literal_string
                     .spanned()
                     .critical("expected a file path")
-                    .and_then_str(move |path| load_file(path.data, path.at.start.file_id))
+                    .and_then_or_str_err(move |path| load_file(path.data, path.at.start.file_id))
                     .and_then(move |file| {
                         program_bis.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
                     })

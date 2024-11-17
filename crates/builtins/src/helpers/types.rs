@@ -373,7 +373,7 @@ macro_rules! declare_typed_struct_handler {
                     ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::TypedStruct(vec![
                         $(
                             ::reshell_parser::ast::StructTypeMember {
-                                name: ::reshell_parser::ast::RuntimeEaten::internal("native library's type generator", stringify!($name).to_owned()),
+                                name: ::reshell_parser::ast::RuntimeSpan::internal("native library's type generator", stringify!($name).to_owned()),
                                 typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type()
                             }
                         ),+
@@ -423,7 +423,7 @@ macro_rules! declare_typed_fn_handler {
             impl $crate::helpers::args::TypedValueParser for $typename {
                 fn value_type() -> ::reshell_parser::ast::ValueType {
                     ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::Function(
-                        ::reshell_parser::ast::RuntimeEaten::internal(
+                        ::reshell_parser::ast::RuntimeSpan::internal(
                             "native library's type generator",
                             Self::signature(),
                         ),

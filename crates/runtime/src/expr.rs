@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use parsy::Eaten;
+use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
     ExprInnerContent, ExprOp, Function, LiteralValue, MatchExprCase, PropAccess, RangeBound,
@@ -29,7 +29,7 @@ pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
 }
 
 fn eval_expr_ref(
-    inner: &Eaten<ExprInner>,
+    inner: &Span<ExprInner>,
     right_ops: &[ExprOp],
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
@@ -75,7 +75,7 @@ fn eval_expr_ref(
 fn apply_double_op(
     left: RuntimeValue,
     right: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
-    op: &Eaten<DoubleOp>,
+    op: &Span<DoubleOp>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
     let result = match op.data {
@@ -262,7 +262,7 @@ fn apply_double_op(
     Ok(result)
 }
 
-fn eval_expr_inner(inner: &Eaten<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
+fn eval_expr_inner(inner: &Span<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let ExprInner { content, chainings } = &inner.data;
 
     let mut left_val = eval_expr_inner_content(&content.data, ctx)?;
@@ -646,7 +646,7 @@ pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
     }))
 }
 
-pub fn eval_range_bound(range_bound: &Eaten<RangeBound>, ctx: &mut Context) -> ExecResult<i64> {
+pub fn eval_range_bound(range_bound: &Span<RangeBound>, ctx: &mut Context) -> ExecResult<i64> {
     let value = match &range_bound.data {
         RangeBound::Literal(literal) => RuntimeValue::Int(*literal),
         RangeBound::Variable(var) => ctx

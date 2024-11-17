@@ -5,12 +5,12 @@ use std::{
     process::{Child, Command, Stdio},
 };
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagValueArg, CmdPath,
     CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
-    FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+    FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -44,7 +44,7 @@ pub enum CmdPipeCapture {
 }
 
 pub fn run_cmd(
-    call: &Eaten<CmdCall>,
+    call: &Span<CmdCall>,
     ctx: &mut Context,
     params: CmdExecParams,
 ) -> ExecResult<CmdExecResult> {
@@ -347,7 +347,7 @@ impl CmdExecResult {
 }
 
 /// Build command execution data
-fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<EvaluatedCmdData> {
+fn build_cmd_data(call: &Span<SingleCmdCall>, ctx: &mut Context) -> ExecResult<EvaluatedCmdData> {
     let mut args = EvaluatedCmdArgs {
         env_vars: HashMap::new(),
         args: vec![],
@@ -423,7 +423,7 @@ fn build_cmd_data(call: &Eaten<SingleCmdCall>, ctx: &mut Context) -> ExecResult<
 
 /// Complete a commands' data with evaluated arguments and environment variables
 fn complete_cmd_data(
-    call: &Eaten<SingleCmdCall>,
+    call: &Span<SingleCmdCall>,
     out: &mut EvaluatedCmdArgs,
     ctx: &mut Context,
 ) -> ExecResult<()> {
@@ -457,7 +457,7 @@ fn complete_cmd_data(
 }
 
 fn evaluate_cmd_target(
-    call: &Eaten<SingleCmdCall>,
+    call: &Span<SingleCmdCall>,
     ctx: &mut Context,
 ) -> ExecResult<EvaluatedCmdTarget> {
     let developed = ctx.get_developed_cmd_call(call);
@@ -506,15 +506,15 @@ struct EvaluatedCmdArgs {
 }
 
 enum EvaluatedCmdTarget {
-    ExternalCommand(Eaten<String>),
+    ExternalCommand(Span<String>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
-    Method(Eaten<String>),
+    Method(Span<String>),
 }
 
 struct ExecCmdArgs<'a> {
-    name: &'a Eaten<String>,
+    name: &'a Span<String>,
     args: EvaluatedCmdArgs,
-    pipe_type: Option<Eaten<CmdPipeType>>,
+    pipe_type: Option<Span<CmdPipeType>>,
     next_pipe_type: Option<CmdPipeType>,
     params: CmdExecParams,
 }
@@ -693,14 +693,14 @@ fn append_cmd_arg_as_string(
     Ok(())
 }
 
-pub fn eval_cmd_arg(arg: &Eaten<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgResult> {
+pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgResult> {
     match &arg.data {
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
             .map(|value| CmdArgResult::Single(SingleCmdArgResult::Basic(value))),
 
         CmdArg::Flag(CmdFlagArg { name, value }) => Ok(CmdArgResult::Single(
             SingleCmdArgResult::Flag(CmdFlagValue {
-                name: RuntimeEaten::from(name.clone()),
+                name: RuntimeSpan::from(name.clone()),
                 value: value
                     .as_ref()
                     .map(|CmdFlagValueArg { value, value_sep }| {
@@ -766,7 +766,7 @@ pub fn eval_cmd_arg(arg: &Eaten<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArg
 }
 
 fn eval_cmd_value_making_arg(
-    arg: &Eaten<CmdValueMakingArg>,
+    arg: &Span<CmdValueMakingArg>,
     ctx: &mut Context,
 ) -> ExecResult<LocatedValue> {
     let value = match &arg.data {
@@ -808,7 +808,7 @@ fn eval_cmd_value_making_arg(
     Ok(LocatedValue::new(RuntimeCodeRange::Parsed(arg.at), value))
 }
 
-pub fn eval_cmd_raw_string(value: &Eaten<CmdRawString>, ctx: &mut Context) -> ExecResult<String> {
+pub fn eval_cmd_raw_string(value: &Span<CmdRawString>, ctx: &mut Context) -> ExecResult<String> {
     value
         .data
         .pieces
@@ -819,7 +819,7 @@ pub fn eval_cmd_raw_string(value: &Eaten<CmdRawString>, ctx: &mut Context) -> Ex
 }
 
 fn eval_cmd_raw_string_piece(
-    piece: &Eaten<CmdRawStringPiece>,
+    piece: &Span<CmdRawStringPiece>,
     transmute_tilde: bool,
     ctx: &mut Context,
 ) -> ExecResult<String> {
@@ -955,7 +955,7 @@ pub struct FlagArgValueResult {
 pub enum CmdEvalArg {
     Value(RuntimeValue),
     Flag {
-        name: Eaten<String>,
+        name: Span<String>,
         value: Option<RuntimeValue>,
     },
 }

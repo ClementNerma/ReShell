@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten, FileId};
+use parsy::{CodeRange, Span, FileId};
 use reshell_parser::ast::{
     Block, ElsIf, Instruction, MapDestructBinding, MatchCase, Program, RuntimeCodeRange,
     SingleVarDecl, TypeMatchCase, VarDeconstruction,
@@ -26,7 +26,7 @@ use crate::{
 };
 
 pub fn run_program(
-    program: &Eaten<Program>,
+    program: &Span<Program>,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {
     // Reset Ctrl+C requests
@@ -70,7 +70,7 @@ pub fn run_program(
 }
 
 fn run_block(
-    block: &Eaten<Block>,
+    block: &Span<Block>,
     ctx: &mut Context,
     content: Option<ScopeContent>,
 ) -> ExecResult<Option<InstrRet>> {
@@ -103,7 +103,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 }
 
 fn run_instructions_in_current_scope(
-    instructions: &[Eaten<Instruction>],
+    instructions: &[Span<Instruction>],
     ctx: &mut Context,
 ) -> ExecResult<Option<InstrRet>> {
     let mut wandering_value = None;
@@ -126,7 +126,7 @@ fn run_instructions_in_current_scope(
 }
 
 fn block_first_pass(
-    instructions: &[Eaten<Instruction>],
+    instructions: &[Span<Instruction>],
     block: &Block,
     ctx: &mut Context,
 ) -> ExecResult<()> {
@@ -213,7 +213,7 @@ fn block_first_pass(
 }
 
 pub(crate) fn run_body_with_deps(
-    body: &Eaten<Block>,
+    body: &Span<Block>,
     captured_deps: CapturedDependencies,
     ctx: &mut Context,
     scope_content: Option<ScopeContent>,
@@ -235,7 +235,7 @@ pub(crate) fn run_body_with_deps(
     result
 }
 
-fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
+fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     let instr_ret = match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             let init_value = eval_expr(&init_expr.data, ctx)?;
@@ -849,7 +849,7 @@ fn run_instr(instr: &Eaten<Instruction>, ctx: &mut Context) -> ExecResult<Option
 }
 
 fn declare_vars(
-    names: &Eaten<VarDeconstruction>,
+    names: &Span<VarDeconstruction>,
     value: RuntimeValue,
     value_at: CodeRange,
     ctx: &mut Context,

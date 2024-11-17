@@ -25,7 +25,7 @@ macro_rules! define_internal_fn {
     ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
         use std::collections::HashMap;
 
-        use reshell_parser::ast::{FnArg, FnPositionalArg, RuntimeCodeRange, RuntimeEaten};
+        use reshell_parser::ast::{FnArg, FnPositionalArg, RuntimeCodeRange, RuntimeSpan};
 
         use reshell_runtime::{
             context::Context,
@@ -125,7 +125,7 @@ macro_rules! define_internal_fn {
 
             let method_on_type = args.first().and_then(|first_arg| match first_arg {
                 FnArg::Positional(FnPositionalArg {
-                    name: RuntimeEaten {
+                    name: RuntimeSpan {
                         at: RuntimeCodeRange::Internal(_),
                         data: name,
                     },

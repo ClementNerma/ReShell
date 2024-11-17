@@ -7,7 +7,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    builder::{internal_runtime_eaten, BuiltinVar, NativeLibDefinition, NativeLibParams},
+    builder::{internal_runtime_span, BuiltinVar, NativeLibDefinition, NativeLibParams},
     functions::native_functions,
     methods::native_methods,
     repl::{
@@ -33,7 +33,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 is_mut: true,
                 init_value: RuntimeValue::Null,
                 enforced_type: vec![
-                    SingleValueType::Function(internal_runtime_eaten(prompt_renderer_signature())),
+                    SingleValueType::Function(internal_runtime_span(prompt_renderer_signature())),
                     SingleValueType::Null,
                 ],
             },
@@ -43,7 +43,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 is_mut: true,
                 init_value: RuntimeValue::Null,
                 enforced_type: vec![
-                    SingleValueType::Function(internal_runtime_eaten(completer_signature())),
+                    SingleValueType::Function(internal_runtime_span(completer_signature())),
                     SingleValueType::Null,
                 ],
             },
@@ -53,7 +53,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 is_mut: true,
                 init_value: RuntimeValue::Null,
                 enforced_type: vec![
-                    SingleValueType::Function(internal_runtime_eaten(dir_jump_handler_signature())),
+                    SingleValueType::Function(internal_runtime_span(dir_jump_handler_signature())),
                     SingleValueType::Null,
                 ],
             },

@@ -1,12 +1,12 @@
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 
 use crate::ast::{
     CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgNames,
-    RuntimeCodeRange, RuntimeEaten,
+    RuntimeCodeRange, RuntimeSpan,
 };
 
 impl FnFlagArgNames {
-    pub fn short_flag(&self) -> Option<RuntimeEaten<char>> {
+    pub fn short_flag(&self) -> Option<RuntimeSpan<char>> {
         match self {
             FnFlagArgNames::ShortFlag(flag) => Some(*flag),
             FnFlagArgNames::LongFlag(_) => None,
@@ -14,7 +14,7 @@ impl FnFlagArgNames {
         }
     }
 
-    pub fn long_flag(&self) -> Option<&RuntimeEaten<String>> {
+    pub fn long_flag(&self) -> Option<&RuntimeSpan<String>> {
         match self {
             FnFlagArgNames::ShortFlag(_) => None,
             FnFlagArgNames::LongFlag(flag) => Some(flag),
@@ -32,12 +32,12 @@ impl CmdFlagNameArg {
     }
 }
 
-impl<T> RuntimeEaten<T> {
-    pub fn as_parsed(&self) -> Option<Eaten<&T>> {
+impl<T> RuntimeSpan<T> {
+    pub fn as_parsed(&self) -> Option<Span<&T>> {
         let Self { at, data } = &self;
 
         match at {
-            RuntimeCodeRange::Parsed(at) => Some(Eaten::ate(*at, data)),
+            RuntimeCodeRange::Parsed(at) => Some(Span::ate(*at, data)),
             RuntimeCodeRange::Internal(_) => None,
         }
     }
@@ -50,9 +50,9 @@ impl<T> RuntimeEaten<T> {
     }
 }
 
-impl<T> From<Eaten<T>> for RuntimeEaten<T> {
-    fn from(value: Eaten<T>) -> Self {
-        let Eaten { at, data } = value;
+impl<T> From<Span<T>> for RuntimeSpan<T> {
+    fn from(value: Span<T>) -> Self {
+        let Span { at, data } = value;
 
         Self {
             at: RuntimeCodeRange::Parsed(at),

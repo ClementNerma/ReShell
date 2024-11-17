@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_parser::{
     ast::{Block, CmdCall, FnSignature, SingleCmdCall, ValueType},
     scope::AstScopeId,
@@ -34,7 +34,7 @@ pub struct CheckerOutput {
     /// List of type aliases declaration
     ///
     /// Maps the type alias' name token location to its content
-    pub type_aliases_decl: HashMap<CodeRange, SharingType<Eaten<ValueType>>>,
+    pub type_aliases_decl: HashMap<CodeRange, SharingType<Span<ValueType>>>,
 
     /// List of all type aliases usage
     ///
@@ -43,29 +43,29 @@ pub struct CheckerOutput {
     ///
     /// This is useful to determine what type alias a type is referring to,
     /// especially when multiple type aliases in different scopes have the same name
-    pub type_aliases_usages: HashMap<Eaten<String>, SharingType<Eaten<ValueType>>>,
+    pub type_aliases_usages: HashMap<Span<String>, SharingType<Span<ValueType>>>,
 
     /// List of all type aliases declaration, by scope
     ///
     /// Associates a scope's ID to a mapping between the type aliases' name and location.
     /// The aliases can then be retrieved using `type_alias_decl` in this struct
     pub type_aliases_decl_by_scope:
-        HashMap<AstScopeId, HashMap<String, SharingType<Eaten<ValueType>>>>,
+        HashMap<AstScopeId, HashMap<String, SharingType<Span<ValueType>>>>,
 
     /// Signature of all functions and lambdas
     ///
     /// Maps the signature's location to its content
-    pub fn_signatures: HashMap<CodeRange, SharingType<Eaten<FnSignature>>>,
+    pub fn_signatures: HashMap<CodeRange, SharingType<Span<FnSignature>>>,
 
     /// Body of all functions and lambdas
     ///
     /// Maps the body's location to its content
-    pub fn_bodies: HashMap<CodeRange, SharingType<Eaten<Block>>>,
+    pub fn_bodies: HashMap<CodeRange, SharingType<Span<Block>>>,
 
     /// List of command aliases
     ///
     /// Maps the command alias' content token location to its content
-    pub cmd_aliases: HashMap<CodeRange, SharingType<Eaten<SingleCmdCall>>>,
+    pub cmd_aliases: HashMap<CodeRange, SharingType<Span<SingleCmdCall>>>,
 
     /// List of command calls
     ///
@@ -77,8 +77,8 @@ pub struct CheckerOutput {
 
     /// List of command calls as values
     ///
-    /// Used to avoid cloning Eaten<CmdCall> every time a value is used
-    pub cmd_call_values: HashMap<CodeRange, SharingType<Eaten<CmdCall>>>,
+    /// Used to avoid cloning Span<CmdCall> every time a value is used
+    pub cmd_call_values: HashMap<CodeRange, SharingType<Span<CmdCall>>>,
 }
 
 impl CheckerOutput {
@@ -100,7 +100,7 @@ impl CheckerOutput {
 /// Developed command call
 #[derive(Debug, Clone)]
 pub struct DevelopedSingleCmdCall {
-    /// Location that can be found in the related [`Eaten::<SingleCmdCall>::at`]
+    /// Location that can be found in the related [`Span::<SingleCmdCall>::at`]
     pub at: CodeRange,
 
     /// Is the target a function?
@@ -114,7 +114,7 @@ pub struct DevelopedSingleCmdCall {
 #[derive(Debug, Clone)]
 pub struct DevelopedCmdAliasCall {
     /// Location where the alias was called
-    pub alias_called_at: Eaten<String>,
+    pub alias_called_at: Span<String>,
 
     /// Location of the alias' content
     pub alias_content_at: CodeRange,

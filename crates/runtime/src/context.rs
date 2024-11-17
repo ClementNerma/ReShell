@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Eaten};
+use parsy::{CodeRange, Span};
 use reshell_checker::{
     long_flag_var_name,
     output::{
@@ -11,7 +11,7 @@ use reshell_checker::{
 };
 use reshell_parser::{
     ast::{
-        Block, CmdCall, FnSignature, Program, RuntimeCodeRange, RuntimeEaten, SingleCmdCall,
+        Block, CmdCall, FnSignature, Program, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
         ValueType,
     },
     files::FilesMap,
@@ -330,7 +330,7 @@ impl Context {
     /// Requires the program to have already been checked
     pub(crate) fn prepare_for_new_program(
         &mut self,
-        program: &Eaten<Program>,
+        program: &Span<Program>,
     ) -> Result<(), CheckerError> {
         // Check the program
         reshell_checker::check(
@@ -560,7 +560,7 @@ impl Context {
     /// Get a specific function
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub(crate) fn get_visible_fn<'s>(&'s self, name: &Eaten<String>) -> Option<&'s ScopeFn> {
+    pub(crate) fn get_visible_fn<'s>(&'s self, name: &Span<String>) -> Option<&'s ScopeFn> {
         self.visible_scopes_content()
             .find_map(|scope| scope.fns.get(&name.data))
     }
@@ -570,7 +570,7 @@ impl Context {
     /// as the scopes building ensures this will automatically return the correct one
     pub(crate) fn get_visible_fn_value<'s>(
         &'s self,
-        name: &Eaten<String>,
+        name: &Span<String>,
     ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
         let Some(func) = self.get_visible_fn(name) else {
             self.panic(name.at, "function not found");
@@ -584,7 +584,7 @@ impl Context {
     /// as the scopes building ensures this will automatically return the correct one
     pub(crate) fn find_applicable_method<'s>(
         &'s self,
-        name: &Eaten<String>,
+        name: &Span<String>,
         for_value: &RuntimeValue,
     ) -> Result<&'s ScopeMethod, Vec<&'s ScopeMethod>> {
         let mut not_matching = vec![];
@@ -607,7 +607,7 @@ impl Context {
     /// Get a specific variable
     /// It is guaranteed to be the one referenced at that point in time
     /// as the scopes building ensures this will automatically return the correct one
-    pub(crate) fn get_visible_var<'c>(&'c self, name: &Eaten<String>) -> &'c ScopeVar {
+    pub(crate) fn get_visible_var<'c>(&'c self, name: &Span<String>) -> &'c ScopeVar {
         self.visible_scopes_content()
             .find_map(|scope| scope.vars.get(&name.data))
             .unwrap_or_else(|| self.panic(name.at, "variable was not found"))
@@ -616,7 +616,7 @@ impl Context {
     /// Get a specific type alias
     /// It is guaranteed to be the one referenced at that point in time
     /// as type alias usages are collected before runtime
-    pub(crate) fn get_type_alias<'c>(&'c self, name: &Eaten<String>) -> &'c Eaten<ValueType> {
+    pub(crate) fn get_type_alias<'c>(&'c self, name: &Span<String>) -> &'c Span<ValueType> {
         self.collected
             .type_aliases_usages
             .get(name)
@@ -633,7 +633,7 @@ impl Context {
 
     /// Get a specific type signature from its location
     /// Avoids cloning the entire (heavy) [`FnSignature`] value
-    pub(crate) fn get_fn_signature(&self, from: &Eaten<FnSignature>) -> Arc<Eaten<FnSignature>> {
+    pub(crate) fn get_fn_signature(&self, from: &Span<FnSignature>) -> Arc<Span<FnSignature>> {
         match self.collected.fn_signatures.get(&from.at) {
             Some(signature) => Arc::clone(signature),
             None => self.panic(from.at, "function signature is not registered"),
@@ -641,8 +641,8 @@ impl Context {
     }
 
     /// Get a specific function's body from its location
-    /// Avoids cloning the entire (heavy) [`Eaten<Block>`]
-    pub fn get_fn_body(&self, from: &Eaten<Block>) -> Arc<Eaten<Block>> {
+    /// Avoids cloning the entire (heavy) [`Span<Block>`]
+    pub fn get_fn_body(&self, from: &Span<Block>) -> Arc<Span<Block>> {
         match self.collected.fn_bodies.get(&from.at) {
             Some(fn_body) => Arc::clone(fn_body),
             None => self.panic(from.at, "function body is not registered"),
@@ -650,11 +650,11 @@ impl Context {
     }
 
     /// Get a specific command alias' content from its location
-    /// Avoids cloning the entire (heavy) [`Eaten<SingleCmdCall>`]
+    /// Avoids cloning the entire (heavy) [`Span<SingleCmdCall>`]
     pub(crate) fn get_cmd_alias_content(
         &self,
-        from: &Eaten<SingleCmdCall>,
-    ) -> Arc<Eaten<SingleCmdCall>> {
+        from: &Span<SingleCmdCall>,
+    ) -> Arc<Span<SingleCmdCall>> {
         match self.collected.cmd_aliases.get(&from.at) {
             Some(cmd_alias) => Arc::clone(cmd_alias),
             None => self.panic(from.at, "command alias content is not registered"),
@@ -662,11 +662,11 @@ impl Context {
     }
 
     /// Get a specific command alias' content from a developed version
-    /// Avoids cloning the entire (heavy) [`Eaten<SingleCmdCall>`]
+    /// Avoids cloning the entire (heavy) [`Span<SingleCmdCall>`]
     pub(crate) fn get_developed_cmd_alias_content(
         &self,
         from: &DevelopedCmdAliasCall,
-    ) -> Arc<Eaten<SingleCmdCall>> {
+    ) -> Arc<Span<SingleCmdCall>> {
         match self.collected.cmd_aliases.get(&from.alias_content_at) {
             Some(developed) => Arc::clone(developed),
             None => self.panic(from.alias_content_at, "command alias is missing"),
@@ -677,7 +677,7 @@ impl Context {
     /// Avoids cloning the entire (potentially heavy) [`DevelopedSingleCmdCall`]
     pub(crate) fn get_developed_cmd_call(
         &self,
-        from: &Eaten<SingleCmdCall>,
+        from: &Span<SingleCmdCall>,
     ) -> Arc<DevelopedSingleCmdCall> {
         match self.collected.cmd_calls.get(&from.at) {
             Some(developed) => Arc::clone(developed),
@@ -686,8 +686,8 @@ impl Context {
     }
 
     /// Get a specific command call used as a value
-    /// Avoids cloning the entire (heavy) [`Eaten<CmdCall>`]
-    pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Arc<Eaten<CmdCall>> {
+    /// Avoids cloning the entire (heavy) [`Span<CmdCall>`]
+    pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Arc<Span<CmdCall>> {
         match self.collected.cmd_call_values.get(&at) {
             Some(cmd_call) => Arc::clone(cmd_call),
             None => self.panic(at, "command call data is missing"),
@@ -695,7 +695,7 @@ impl Context {
     }
 
     /// Get (ideally cached) variable name for the given long flag
-    pub(crate) fn get_long_flag_var_name(&mut self, from: &RuntimeEaten<String>) -> String {
+    pub(crate) fn get_long_flag_var_name(&mut self, from: &RuntimeSpan<String>) -> String {
         self.long_flags_var_name
             .entry(from.data.clone())
             .or_insert_with(|| long_flag_var_name(&from.data))

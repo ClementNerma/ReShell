@@ -5,7 +5,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use colored::Color;
-use parsy::{CodeRange, Eaten, FileId};
+use parsy::{CodeRange, FileId, Span};
 use reshell_parser::{
     ast::{
         CmdFlagNameArg, FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
@@ -16,7 +16,7 @@ use reshell_parser::{
 
 use crate::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
 
-pub type TypeAliasStore = HashMap<Eaten<String>, Arc<Eaten<ValueType>>>;
+pub type TypeAliasStore = HashMap<Span<String>, Arc<Span<ValueType>>>;
 
 impl PrettyPrintable for ValueType {
     type Context = TypeAliasStore;
