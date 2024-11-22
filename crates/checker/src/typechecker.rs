@@ -137,9 +137,7 @@ pub fn check_if_single_type_fits_single(
 
                 a.iter()
                     .find(|member| member.name.data == name.data)
-                    .map_or(false, |a_member| {
-                        check_if_type_fits_type(&a_member.typ, typ, ctx)
-                    })
+                    .is_some_and(|a_member| check_if_type_fits_type(&a_member.typ, typ, ctx))
             })
         } //
           // (SingleValueType::UntypedStruct, _) | (_, SingleValueType::UntypedStruct) => false,
