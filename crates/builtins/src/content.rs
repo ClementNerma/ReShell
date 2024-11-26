@@ -1,8 +1,9 @@
-use std::path::MAIN_SEPARATOR;
+use std::{ffi::OsStr, path::MAIN_SEPARATOR};
 
-use reshell_parser::ast::SingleValueType;
+use reshell_parser::ast::{SingleValueType, ValueType};
 use reshell_runtime::{
     compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
+    gc::GcCell,
     values::RuntimeValue,
 };
 
@@ -19,7 +20,10 @@ use crate::{
 
 /// Generate definitions of the native library
 pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
-    let NativeLibParams { home_dir } = params;
+    let NativeLibParams {
+        home_dir,
+        shell_args,
+    } = params;
 
     NativeLibDefinition {
         functions: native_functions(),
@@ -148,6 +152,20 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 is_mut: false,
                 init_value: RuntimeValue::Float(f64::MAX),
                 enforced_type: vec![SingleValueType::Float],
+            },
+            // Shell arguments
+            BuiltinVar {
+                name: "SHELL_ARGS",
+                is_mut: false,
+                init_value: RuntimeValue::List(GcCell::new(
+                    shell_args
+                        .into_iter()
+                        .map(|str| RuntimeValue::String(OsStr::to_string_lossy(&str).into_owned()))
+                        .collect(),
+                )),
+                enforced_type: vec![SingleValueType::TypedList(Box::new(ValueType::Single(
+                    SingleValueType::String,
+                )))],
             },
         ],
     }

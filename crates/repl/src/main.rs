@@ -147,6 +147,8 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         BinariesResolver::empty()
     });
 
+    let shell_args = std::env::args_os().collect::<Vec<_>>();
+
     let mut ctx = Context::new(
         ContextCreationParams {
             // TODO: allow to configure through CLI
@@ -155,10 +157,12 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             take_ctrl_c_indicator: take_pending_ctrl_c_request,
             home_dir: HOME_DIR.clone(),
             on_dir_jump,
+            shell_args: shell_args.clone(),
         },
         bin_resolver,
         build_native_lib_content(NativeLibParams {
             home_dir: HOME_DIR.clone(),
+            shell_args,
         }),
     );
 

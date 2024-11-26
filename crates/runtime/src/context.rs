@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, ffi::OsString, path::PathBuf, sync::Arc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Span};
@@ -858,6 +858,9 @@ pub struct ContextCreationParams {
     /// Path to the current user's home directory
     /// Used for tilde '~' expansion
     pub home_dir: Option<PathBuf>,
+
+    /// Shell arguments
+    pub shell_args: Vec<OsString>,
 }
 
 /// Content of a scope

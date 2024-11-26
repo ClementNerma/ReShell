@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, ffi::OsString, path::PathBuf};
 
 use indexmap::IndexSet;
 use reshell_parser::{
@@ -27,6 +27,7 @@ pub fn internal_runtime_span<T>(data: T) -> RuntimeSpan<T> {
 /// Parameters of the native library
 pub struct NativeLibParams {
     pub home_dir: Option<PathBuf>,
+    pub shell_args: Vec<OsString>,
 }
 
 /// Definition of the native library
