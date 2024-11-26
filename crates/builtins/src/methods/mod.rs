@@ -109,6 +109,8 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::string::is_empty::build_fn(),
         self::string::len::build_fn(),
         self::string::lines::build_fn(),
+        self::string::pad_end::build_fn(),
+        self::string::pad_start::build_fn(),
         self::string::parse_float::build_fn(),
         self::string::parse_int::build_fn(),
         self::string::reversed::build_fn(),

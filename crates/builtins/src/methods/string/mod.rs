@@ -5,6 +5,8 @@ pub mod find_str;
 pub mod is_empty;
 pub mod len;
 pub mod lines;
+pub mod pad_end;
+pub mod pad_start;
 pub mod parse_float;
 pub mod parse_int;
 pub mod repeat;
