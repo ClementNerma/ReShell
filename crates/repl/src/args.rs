@@ -6,7 +6,7 @@ use clap::Parser;
 #[derive(Parser)]
 #[clap(name = "ReShell", version, about = "ReShell, a modern shell program")]
 pub struct Args {
-    #[clap(help = "Execute a script file")]
+    #[clap(help = "Execute a script file", conflicts_with = "eval")]
     pub exec_file: Option<PathBuf>,
 
     #[clap(

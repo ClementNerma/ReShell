@@ -22,7 +22,7 @@ use crate::{
 pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
     let NativeLibParams {
         home_dir,
-        shell_args,
+        script_args,
     } = params;
 
     NativeLibDefinition {
@@ -158,7 +158,7 @@ pub fn define_native_lib(params: NativeLibParams) -> NativeLibDefinition {
                 name: "SHELL_ARGS",
                 is_mut: false,
                 init_value: RuntimeValue::List(GcCell::new(
-                    shell_args
+                    script_args
                         .into_iter()
                         .map(|str| RuntimeValue::String(OsStr::to_string_lossy(&str).into_owned()))
                         .collect(),

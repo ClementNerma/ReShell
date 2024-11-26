@@ -59,13 +59,20 @@ fn main() -> ExitCode {
 }
 
 fn inner_main(started: Instant) -> Result<ExitCode, String> {
+    let args = std::env::args_os().collect::<Vec<_>>();
+
+    let (base_args, script_args) = match args.iter().position(|arg| arg == "--") {
+        Some(pos) => (&args[0..pos], &args[pos + 1..]),
+        None => (args.as_slice(), &[] as &[_]),
+    };
+
     let Args {
         exec_file,
         eval,
         skip_init_script,
         timings,
         exec_args,
-    } = Args::parse();
+    } = Args::parse_from(base_args);
 
     // Set up Ctrl+C handler
     setup_ctrl_c_handler().map_err(|err| format!("Failed to setup Ctrl+C handler: {err}"))?;
@@ -147,8 +154,6 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         BinariesResolver::empty()
     });
 
-    let shell_args = std::env::args_os().collect::<Vec<_>>();
-
     let mut ctx = Context::new(
         ContextCreationParams {
             // TODO: allow to configure through CLI
@@ -157,12 +162,12 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             take_ctrl_c_indicator: take_pending_ctrl_c_request,
             home_dir: HOME_DIR.clone(),
             on_dir_jump,
-            shell_args: shell_args.clone(),
+            script_args: script_args.to_vec(),
         },
         bin_resolver,
         build_native_lib_content(NativeLibParams {
             home_dir: HOME_DIR.clone(),
-            shell_args,
+            script_args: script_args.to_vec(),
         }),
     );
 

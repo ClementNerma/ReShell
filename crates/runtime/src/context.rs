@@ -860,7 +860,7 @@ pub struct ContextCreationParams {
     pub home_dir: Option<PathBuf>,
 
     /// Shell arguments
-    pub shell_args: Vec<OsString>,
+    pub script_args: Vec<OsString>,
 }
 
 /// Content of a scope

@@ -27,7 +27,7 @@ pub fn internal_runtime_span<T>(data: T) -> RuntimeSpan<T> {
 /// Parameters of the native library
 pub struct NativeLibParams {
     pub home_dir: Option<PathBuf>,
-    pub shell_args: Vec<OsString>,
+    pub script_args: Vec<OsString>,
 }
 
 /// Definition of the native library
