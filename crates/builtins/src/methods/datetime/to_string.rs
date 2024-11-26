@@ -1,4 +1,4 @@
-use jiff::fmt::rfc2822;
+use jiff::{fmt::rfc2822, Zoned};
 
 use crate::functions::DateTimeValue;
 
@@ -15,12 +15,13 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { moment, format }, _, ctx| {
-        let out = match format {
-            Some(format) => moment.strftime(&format).to_string(),
+        // TODO: check if format is valid (otherwise the program currently panics)
 
-            None => rfc2822::to_string(&moment)
-                .map_err(|err| ctx.throw(at, format!("Failed to format date/time: {err}")))?,
-        };
+        let out = match format {
+            Some(format) => jiff::fmt::strtime::format(&format, &moment as &Zoned),
+            None => rfc2822::to_string(&moment),
+        }
+        .map_err(|err| ctx.throw(at, err.to_string()))?;
 
         Ok(Some(RuntimeValue::String(out)))
     })
