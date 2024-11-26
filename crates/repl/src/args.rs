@@ -4,12 +4,7 @@ use clap::Parser;
 
 /// Command line arguments of the shell's binary
 #[derive(Parser)]
-#[clap(
-    name = "ReShell",
-    version,
-    about,
-    about = "ReShell, a modern shell program"
-)]
+#[clap(name = "ReShell", version, about = "ReShell, a modern shell program")]
 pub struct Args {
     #[clap(help = "Execute a script file")]
     pub exec_file: Option<PathBuf>,
