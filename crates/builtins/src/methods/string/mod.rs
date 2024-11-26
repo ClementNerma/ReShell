@@ -18,3 +18,5 @@ pub mod substr;
 pub mod to_lowercase;
 pub mod to_uppercase;
 pub mod trim;
+pub mod trim_end;
+pub mod trim_start;

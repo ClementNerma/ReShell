@@ -121,6 +121,8 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::string::substr::build_fn(),
         self::string::to_lowercase::build_fn(),
         self::string::to_uppercase::build_fn(),
+        self::string::trim_end::build_fn(),
+        self::string::trim_start::build_fn(),
         self::string::trim::build_fn(),
         //
         // Stringifyables (union type)
