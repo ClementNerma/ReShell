@@ -432,7 +432,7 @@ pub enum CmdPath {
 
 #[derive(Debug, Clone)]
 pub enum CmdExternalPath {
-    Raw(Span<String>),
+    RawString(Span<CmdRawString>),
     LiteralString(Span<String>),
     ComputedString(Span<ComputedString>),
 }

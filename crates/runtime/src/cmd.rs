@@ -484,7 +484,8 @@ fn evaluate_cmd_target(
         CmdPath::Raw(name) => name.clone(),
 
         CmdPath::External(path) => match path {
-            CmdExternalPath::Raw(name) | CmdExternalPath::LiteralString(name) => name.clone(),
+            CmdExternalPath::RawString(r_str) => r_str.forge_here(eval_cmd_raw_string(r_str, ctx)?),
+            CmdExternalPath::LiteralString(name) => name.clone(),
             CmdExternalPath::ComputedString(c_str) => {
                 c_str.forge_here(eval_computed_string(&c_str.data, ctx)?)
             }

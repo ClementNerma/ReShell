@@ -1024,7 +1024,10 @@ fn check_single_cmd_call(
 
         CmdPath::External(path) => {
             match path {
-                CmdExternalPath::Raw(_) | CmdExternalPath::LiteralString(_) => {}
+                CmdExternalPath::RawString(r_str) => {
+                    check_cmd_raw_string(&r_str.data, state)?;
+                }
+                CmdExternalPath::LiteralString(_) => {}
                 CmdExternalPath::ComputedString(c_str) => {
                     check_computed_string(&c_str.data, state)?
                 }

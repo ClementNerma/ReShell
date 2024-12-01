@@ -920,7 +920,7 @@ pub fn program(
             .ignore_then(
                 choice::<CmdExternalPath, _>((
                     // Raw path
-                    raw_cmd_name.spanned().map(CmdExternalPath::Raw),
+                    cmd_raw_string.spanned().map(CmdExternalPath::RawString),
                     // Single-quoted string
                     literal_string.spanned().map(CmdExternalPath::LiteralString),
                     // Double-quoted string
