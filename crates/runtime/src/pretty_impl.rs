@@ -59,7 +59,11 @@ impl PrettyPrintable for RuntimeValue {
                 PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
             ]),
 
-            RuntimeValue::CmdArg(cmd_arg) => cmd_arg.generate_pretty_data(ctx),
+            RuntimeValue::CmdArg(cmd_arg) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic("cmdarg(", Color::Magenta),
+                cmd_arg.generate_pretty_data(ctx),
+                PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+            ]),
 
             RuntimeValue::List(list) => PrettyPrintablePiece::List {
                 begin: Styled::colored("[", Color::Blue),
