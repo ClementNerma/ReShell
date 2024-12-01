@@ -1497,11 +1497,11 @@ fn check_fn_signature(
             var_name,
             name_at,
             is_rest,
-            has_explicit_type,
+            has_explicit_type: _,
         } = &checked_arg;
 
         if let Some(rest_arg) = &rest_arg {
-            if !has_explicit_type {
+            if !rest_arg.has_explicit_type {
                 return Err(CheckerError::new(
                     rest_arg.name_at,
                     "a rest argument must the last of the function unless it has an explicit type",
