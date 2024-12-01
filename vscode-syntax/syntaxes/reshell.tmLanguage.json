@@ -65,7 +65,7 @@
 					"name": "variable.name"
 				},
 				{
-					"match": "(?<=\\s)\\-\\-[a-zA-Z0-9\\-_]+|\\-[a-zA-Z]\\b",
+					"match": "(?<=\\s)\\-\\-?(\\w|[\\+\\-_])*\\b",
 					"name": "constant"
 				},
 				{

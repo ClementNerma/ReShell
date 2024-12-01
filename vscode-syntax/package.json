@@ -26,5 +26,6 @@
 				"path": "./syntaxes/reshell.tmLanguage.json"
 			}
 		]
-	}
+	},
+	"files": ["syntaxes/", "language-configuration.json", "LICENSE.md"]
 }
