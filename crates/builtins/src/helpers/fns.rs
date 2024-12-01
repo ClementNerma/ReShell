@@ -76,12 +76,7 @@ macro_rules! define_internal_fn {
                         |arg| arg.arg_value_at
                     );
 
-                    arg_handler.parse(<$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.value))).map_err(|err| {
-                        match err {
-                            ArgError::TypeError(error) => (arg_at, error),
-                            ArgError::Panic(error) => ctx.panic(arg_at, error)
-                        }
-                    })?
+                    arg_handler.parse(<$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.value))).map_err(|err| (arg_at, err))?
                 } ),*
             };
 

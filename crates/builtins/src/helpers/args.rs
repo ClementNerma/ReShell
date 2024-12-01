@@ -5,7 +5,7 @@ use reshell_parser::ast::{
     SingleValueType, ValueType,
 };
 
-use reshell_runtime::values::{CmdArgValue, RuntimeValue};
+use reshell_runtime::values::RuntimeValue;
 
 use crate::builder::internal_runtime_span;
 
@@ -69,19 +69,13 @@ pub trait ArgHandler {
     fn min_unwrap<Z>(value: Option<Z>) -> Self::FixedOptionality<Z>;
 
     type Parsed;
-    fn parse(&self, value: Self::FixedOptionality<RuntimeValue>) -> Result<Self::Parsed, ArgError>;
+    fn parse(&self, value: Self::FixedOptionality<RuntimeValue>) -> Result<Self::Parsed, String>;
 
     type TypedValueParser: TypedValueParser;
 
     fn hide_type(&self) -> bool {
         false
     }
-}
-
-#[derive(Debug)]
-pub enum ArgError {
-    TypeError(String),
-    Panic(String),
 }
 
 pub struct Arg<const OPTIONAL: bool, T: TypedValueParser> {
@@ -144,8 +138,8 @@ impl<T: TypedValueParser> ArgHandler for Arg<false, T> {
 
     type Parsed = T::Parsed;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
-        T::parse(value).map_err(ArgError::TypeError)
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        T::parse(value)
     }
 
     type TypedValueParser = T;
@@ -172,8 +166,8 @@ impl<T: TypedValueParser> ArgHandler for Arg<true, T> {
 
     type Parsed = Option<T::Parsed>;
 
-    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, ArgError> {
-        value.map(T::parse).transpose().map_err(ArgError::TypeError)
+    fn parse(&self, value: Option<RuntimeValue>) -> Result<Self::Parsed, String> {
+        value.map(T::parse).transpose()
     }
 
     type TypedValueParser = T;
@@ -214,30 +208,8 @@ impl<T: TypedValueParser> ArgHandler for RestArg<T> {
 
     type Parsed = Vec<T::Parsed>;
 
-    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, ArgError> {
-        match value {
-            RuntimeValue::List(values) => values
-                .read_promise_no_write()
-                .iter()
-                .enumerate()
-                .map(|(i, value)| match value {
-                    RuntimeValue::CmdArg(arg) => match arg.as_ref() {
-                        CmdArgValue::Basic(loc_val) => T::parse(loc_val.value.clone())
-                            .map_err(|err| {
-                                ArgError::TypeError(format!("in list item {}: {err}", i + 1))
-                            }),
-
-                            CmdArgValue::Flag(_) => Err(ArgError::Panic("typed rest arguments should be provided as a list of basic values, found a flag".to_owned())),
-                    },
-
-                    _ => Err(ArgError::Panic(format!("rest arguments should be provided as a list of command arguments, got: {value:?}"))),
-                })
-                .collect::<Result<Vec<_>, _>>(),
-
-            _ => Err(ArgError::Panic(format!(
-                "rest arguments should be a list, got: {value:?}"
-            ))),
-        }
+    fn parse(&self, value: RuntimeValue) -> Result<Self::Parsed, String> {
+        DetachedListType::<T>::parse(value)
     }
 
     type TypedValueParser = DetachedListType<T>;
