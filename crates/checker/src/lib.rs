@@ -1504,7 +1504,7 @@ fn check_fn_signature(
             if !has_explicit_type {
                 return Err(CheckerError::new(
                     rest_arg.name_at,
-                    "rest argument must be the very last of the function (unless it has an explicit type)",
+                    "a rest argument must the last of the function unless it has an explicit type",
                 ));
             }
         }
