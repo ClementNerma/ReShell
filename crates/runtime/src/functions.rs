@@ -251,28 +251,42 @@ fn fill_fn_args(
                 );
             }
 
-            FnArg::Rest(_) => {
+            FnArg::Rest(rest_arg) => {
                 // This trick allows to avoid ownership problems
                 // We will never have to fill the rest argument twice of course,
                 // so we can .unwrap() here
                 let rest_args = rest_args.take().unwrap();
+
+                // By default, rest arguments are collected into a list of cmdarg values
+                let rest_args = if rest_arg.typ.is_none() {
+                    rest_args
+                        .into_iter()
+                        .map(|arg| match arg {
+                            SingleCmdArgResult::Basic(data) => CmdArgValue::Basic(data),
+                            SingleCmdArgResult::Flag(data) => CmdArgValue::Flag(data),
+                        })
+                        .map(Box::new)
+                        .map(RuntimeValue::CmdArg)
+                        .collect()
+                }
+                // But if an explicit type is provided (such as e.g. `list[string]`), that specific type
+                // is used instead
+                else {
+                    rest_args
+                        .into_iter()
+                        .map(|arg| match arg {
+                            SingleCmdArgResult::Basic(loc_val) => loc_val.value,
+                            SingleCmdArgResult::Flag(_) => unreachable!(),
+                        })
+                        .collect()
+                };
 
                 parsed_args.insert(
                     arg_var_name,
                     ValidatedFnCallArg {
                         decl_name_at: fn_arg_var_at(arg),
                         arg_value_at: call_at,
-                        value: RuntimeValue::List(GcCell::new(
-                            rest_args
-                                .into_iter()
-                                .map(|arg| match arg {
-                                    SingleCmdArgResult::Basic(data) => CmdArgValue::Basic(data),
-                                    SingleCmdArgResult::Flag(data) => CmdArgValue::Flag(data),
-                                })
-                                .map(Box::new)
-                                .map(RuntimeValue::CmdArg)
-                                .collect(),
-                        )),
+                        value: RuntimeValue::List(GcCell::new(rest_args)),
                     },
                 );
             }
