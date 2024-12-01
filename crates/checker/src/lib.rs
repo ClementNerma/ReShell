@@ -1235,6 +1235,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
             name_at,
             var_name,
             is_rest: _,
+            has_explicit_type: _,
         } = checked_arg;
 
         let dup = vars.insert(
@@ -1263,7 +1264,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 }
 
 fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
-    let (name, name_at, alt_var_name, is_rest) = match arg {
+    let (name, name_at, alt_var_name, is_rest, typ) = match arg {
         FnArg::Positional(FnPositionalArg {
             name,
             is_optional: _,
@@ -1273,17 +1274,20 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 check_value_type(typ, state)?;
             }
 
-            (name.data.clone(), name.at, None, false)
+            (name.data.clone(), name.at, None, false, typ.as_ref())
         }
 
         FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
-            FnFlagArgNames::ShortFlag(short) => (short.data.to_string(), short.at, None, false),
+            FnFlagArgNames::ShortFlag(short) => {
+                (short.data.to_string(), short.at, None, false, None)
+            }
 
             FnFlagArgNames::LongFlag(long) => (
                 long.data.clone(),
                 long.at,
                 Some(long_flag_var_name(&long.data)),
                 false,
+                None,
             ),
 
             FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
@@ -1291,6 +1295,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 long.at,
                 Some(long_flag_var_name(&long.data)),
                 false,
+                None,
             ),
         },
 
@@ -1302,13 +1307,16 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             check_value_type(typ, state)?;
 
             match names {
-                FnFlagArgNames::ShortFlag(short) => (short.data.to_string(), short.at, None, false),
+                FnFlagArgNames::ShortFlag(short) => {
+                    (short.data.to_string(), short.at, None, false, Some(typ))
+                }
 
                 FnFlagArgNames::LongFlag(long) => (
                     long.data.clone(),
                     long.at,
                     Some(long_flag_var_name(&long.data)),
                     false,
+                    Some(typ),
                 ),
 
                 FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
@@ -1316,6 +1324,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                     long.at,
                     Some(long_flag_var_name(&long.data)),
                     false,
+                    Some(typ),
                 ),
             }
         }
@@ -1345,7 +1354,13 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 }
             }
 
-            (name.data.clone(), name.at, None, true)
+            (
+                name.data.clone(),
+                name.at,
+                None,
+                true,
+                typ.as_ref().map(|typ| &typ.data),
+            )
         }
     };
 
@@ -1356,13 +1371,16 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             RuntimeCodeRange::Internal(_) => unreachable!(),
         },
         is_rest,
+        has_explicit_type: typ.is_some(),
     })
 }
 
+#[derive(Clone)]
 struct CheckedFnArg {
     name_at: CodeRange,
     var_name: String,
     is_rest: bool,
+    has_explicit_type: bool,
 }
 
 /// Compute the variable name for a long flag
@@ -1465,7 +1483,8 @@ fn check_fn_signature(
     assert!(args.as_parsed().is_some());
 
     let mut used_idents = HashSet::new();
-    let mut rest_arg_name_at = None;
+
+    let mut rest_arg = None::<CheckedFnArg>;
 
     let mut checked_args = Vec::with_capacity(args.data.len());
 
@@ -1478,7 +1497,17 @@ fn check_fn_signature(
             var_name,
             name_at,
             is_rest,
+            has_explicit_type,
         } = &checked_arg;
+
+        if let Some(rest_arg) = &rest_arg {
+            if !has_explicit_type {
+                return Err(CheckerError::new(
+                    rest_arg.name_at,
+                    "rest argument must be the very last of the function (unless it has an explicit type)",
+                ));
+            }
+        }
 
         if let FnArg::Positional(FnPositionalArg {
             name,
@@ -1486,6 +1515,13 @@ fn check_fn_signature(
             typ: _,
         }) = arg
         {
+            if rest_arg.is_some() {
+                return Err(CheckerError::new(
+                    name.at.parsed_range().unwrap(),
+                    "no positional argument can follow a rest argument",
+                ));
+            }
+
             if *is_optional {
                 had_optional = true;
             } else if had_optional {
@@ -1501,15 +1537,8 @@ fn check_fn_signature(
             }
         }
 
-        if let Some(rest_arg_name_at) = rest_arg_name_at {
-            return Err(CheckerError::new(
-                rest_arg_name_at,
-                "rest argument must be the very last of the function",
-            ));
-        }
-
         if *is_rest {
-            rest_arg_name_at = Some(*name_at);
+            rest_arg = Some(checked_arg.clone());
         }
 
         if !used_idents.insert(var_name.clone()) {

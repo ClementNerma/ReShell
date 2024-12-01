@@ -190,6 +190,8 @@ fn fill_fn_args(
         RuntimeFnBody::Internal(_) => true,
     };
 
+    let mut rest_args = Some(rest_args);
+
     for arg in fn_args {
         let arg_var_name = fn_arg_var_name(arg, ctx);
 
@@ -208,18 +210,7 @@ fn fill_fn_args(
                 is_optional,
                 typ: _,
             }) => {
-                if *is_optional {
-                    if !is_native_fn {
-                        parsed_args.insert(
-                            arg_var_name,
-                            ValidatedFnCallArg {
-                                decl_name_at: fn_arg_var_at(arg),
-                                arg_value_at: RuntimeCodeRange::Internal("unprovided argument"),
-                                value: RuntimeValue::Null,
-                            },
-                        );
-                    }
-                } else {
+                if !*is_optional {
                     return Err(ctx
                         .error(
                             call_at,
@@ -236,6 +227,17 @@ fn fill_fn_args(
                             ),
                         ));
                 }
+
+                if !is_native_fn {
+                    parsed_args.insert(
+                        arg_var_name,
+                        ValidatedFnCallArg {
+                            decl_name_at: fn_arg_var_at(arg),
+                            arg_value_at: RuntimeCodeRange::Internal("unprovided argument"),
+                            value: RuntimeValue::Null,
+                        },
+                    );
+                }
             }
 
             FnArg::PresenceFlag(_) => {
@@ -250,6 +252,11 @@ fn fill_fn_args(
             }
 
             FnArg::Rest(_) => {
+                // This trick allows to avoid ownership problems
+                // We will never have to fill the rest argument twice of course,
+                // so we can .unwrap() here
+                let rest_args = rest_args.take().unwrap();
+
                 parsed_args.insert(
                     arg_var_name,
                     ValidatedFnCallArg {
@@ -268,11 +275,6 @@ fn fill_fn_args(
                         )),
                     },
                 );
-
-                // Rest argument is the last of a function's
-                // This 'break' prevents having to deal with 'rest_args' being
-                // potentially re-borrowed in the next loop's iteration
-                break;
             }
         }
     }
@@ -317,14 +319,9 @@ fn parse_fn_call_args(
     });
 
     while let Some(arg_result) = value_on_hold.take().or_else(|| call_args.pop()) {
-        if !rest_args.is_empty() {
-            rest_args.push(arg_result);
-            continue;
-        }
-
         let parsed = parse_single_fn_call_arg(
             func,
-            rest_arg.is_some(),
+            rest_arg,
             &mut positional_fn_args,
             arg_result,
             fn_args,
@@ -418,9 +415,12 @@ struct SimplifiedPositionalFnArg<'a> {
     typ: &'a Option<ValueType>,
 }
 
+/// Parse a single function call argument
+///
+/// Depending on the provided informations, it will determine the argument it belongs to along with its value
 fn parse_single_fn_call_arg<'a>(
     func: &RuntimeFnValue,
-    has_rest_argument: bool,
+    rest_arg: Option<&FnRestArg>,
     positional_fn_args: &mut impl Iterator<Item = SimplifiedPositionalFnArg<'a>>,
     arg_result: SingleCmdArgResult,
     fn_args: &[FnArg],
@@ -564,43 +564,50 @@ fn parse_single_fn_call_arg<'a>(
                 }
             }
 
-            if has_rest_argument {
-                Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Flag(
+            // Here we have no match for the provided flag
+            // If there is a rest argument *without* an explicit type, we can push it there
+            if rest_arg.is_some_and(|rest_arg| rest_arg.typ.is_none()) {
+                return Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Flag(
                     CmdFlagValue { name, value },
-                )))
-            } else {
-                Err(ctx.error(name.at, "unknown flag provided").with_info(
-                    ExecInfoType::Tip,
-                    format!(
-                        "called function's signature is: {}",
-                        func.signature
-                            .inner()
-                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                ))
+                )));
             }
+
+            // Otherwise, we have found an unknown flag
+            Err(ctx.error(name.at, "unknown flag provided").with_info(
+                ExecInfoType::Tip,
+                format!(
+                    "called function's signature is: {}",
+                    func.signature
+                        .inner()
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                ),
+            ))
         }
 
         SingleCmdArgResult::Basic(loc_val) => {
             let Some(positional_fn_arg) = positional_fn_args.next() else {
-                if has_rest_argument {
-                    return Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Basic(
+                // If we are out of positional arguments to fill, we check if there is a rest argument
+                // If so, we can push it there
+                return if rest_arg.is_some() {
+                    Ok(ParsedSingleFnCallArg::Rest(SingleCmdArgResult::Basic(
                         loc_val,
-                    )));
+                    )))
                 }
-
-                return Err(ctx
-                    .error(loc_val.from, "too many arguments provided")
-                    .with_info(
-                        ExecInfoType::Tip,
-                        format!(
-                            "called function's signature is: {}",
-                            func.signature.inner().render_colored(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
-                        ),
-                    ));
+                // Otherwise, we have found an argument that doesn't belong anywhere
+                else {
+                    Err(ctx
+                        .error(loc_val.from, "too many arguments provided")
+                        .with_info(
+                            ExecInfoType::Tip,
+                            format!(
+                                "called function's signature is: {}",
+                                func.signature.inner().render_colored(
+                                    ctx.type_alias_store(),
+                                    PrettyPrintOptions::inline()
+                                )
+                            ),
+                        ))
+                };
             };
 
             let SimplifiedPositionalFnArg {
