@@ -19,6 +19,7 @@ Everything you need to master it is written in this document, so take your time 
   - [String interpolation](#string-interpolation)
   - [Conditionals](#conditionals)
   - [Loops](#loops)
+  - [Matching](#matching)
 - [Functions](#functions)
   - [Fundamentals](#fundamentals)
   - [Returning values](#returning-values)
@@ -37,6 +38,8 @@ Everything you need to master it is written in this document, so take your time 
   - [Type aliases](#type-aliases)
   - [Function signatures](#function-signatures)
   - [Sub-typing](#sub-typing)
+  - [Union types](#union-types)
+  - [Matching on types](#matching-on-types)
 
 ## Installing
 
@@ -136,6 +139,29 @@ if $name == 'John F. Kennedy' {
 }
 ```
 
+We can then chain additional conditions that run entirely if the first one wasn't met:
+
+```shell
+if $name == 'John' {
+  echo 'Hello John!'
+} else if $name == 'Jack' {
+  echo 'Hi there Jack!'
+}
+```
+
+And we can add a final block for when none of the conditions were met:
+
+```shell
+if $name == 'John' {
+  echo 'Hello John!'
+} else if $name == 'Jack' {
+  echo 'Hi there Jack!'
+} else if $name == 'Jerry' {
+  echo 'Ho hi there, Jerry!'
+} else {
+  echo "Hello, person going by the name of $name!"
+}
+```
 
 ### Loops
 
@@ -169,6 +195,47 @@ while $i <= 10 {
 ```
 
 This is equivalent to the previous loop.
+
+Loops can also use two special instructions:
+
+```shell
+# 'continue' will just skip all instructions below it
+# and jump to the beginning of the loop
+continue
+
+# 'break' exits the loop immediatly
+break
+```
+
+### Matching
+
+Sometimes we can get pretty ugly conditions like one of the previous examples:
+
+```shell
+if $name == 'John' {
+  echo 'Hello John!'
+} else if $name == 'Jack' {
+  echo 'Hi there Jack!'
+} else if $name == 'Jerry' {
+  echo 'Ho hi there, Jerry!'
+} else {
+  echo "Hello, person going by the name of $name!"
+}
+```
+
+We can simplify this by using a `match` statement:
+
+```shell
+match $name {
+  case 'John'  { echo 'Hello John!' }
+  case 'Jack'  { echo 'Hi there Jack!' }
+  case 'Jerry' { echo 'Ho hi there, Jerry!' }
+
+  else {
+    echo "Hello, person going by the name of $name!"
+  }
+}
+```
 
 ## Functions
 
@@ -313,6 +380,14 @@ let lambda = {|msg: string, --repeat?: int|
 $lambda('Hello world!', repeat: 10)
 ```
 
+Lambdas are where the trailing statement rule are very useful:
+
+```shell
+let add = {|a, b| $a + $b }
+
+add 2 3 # 5
+```
+
 ## Types
 
 Each value has an associated _type_ which indicates what "category" it belongs to.
@@ -361,6 +436,14 @@ add 'Hello!' 'World!'
 ```
 
 Basically, explicit typing ensures that a variable always hold a value of the correct type.
+
+Note that the last statement of a value (called the _trailing_ one) is returned as a value:
+
+```shell
+fn add(a, b) { $a + $b }
+```
+
+Most of the time, you should prefer explicitly using the `return` keyword as it makes your intent clearer and avoids mistakes.
 
 ### Structures
 
@@ -551,4 +634,42 @@ type FnExample = fn(name: string)
 
 # This works fine
 let lambda: FnExample = {|name: any| echo $name}
+```
+
+### Union types
+
+Sometimes we need to specify that a variable may have different types, we then use _unions_:
+
+```shell
+fn displayValue(value: (string | int)) {
+  echo $value
+}
+
+# Both of these work fine
+displayValue('Hello!')
+displayValue(2)
+```
+
+Note that union types must always be wrapped inside parenthesis.
+
+### Matching on types
+
+When we use an union type - or `any`, we may need to find out what's the type behind it.
+
+We have two ways of doing that: either use a list of conditions, or use a specific type of matching:
+
+```shell
+typematch $value {
+  case string {
+    # Here we know the value is a string
+  }
+
+  case int {
+    # Here we know the value is an integer
+  }
+
+  else {
+    # here we know it's neither a string nor an integer
+  }
+}
 ```
