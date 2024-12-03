@@ -161,51 +161,54 @@ pub fn check_if_fn_signature_fits_another(
 
     // Categorize arguments for easier comparison
     let FnCategorizedArgs {
+        positionals: into_positionals,
+        presence_flags: into_presence_flags,
+        normal_flags: into_normal_flags,
+        rest_arg: into_rest_arg,
+    } = FnCategorizedArgs::categorize_from(into);
+
+    let FnCategorizedArgs {
         positionals,
         presence_flags,
         normal_flags,
         rest_arg,
-    } = FnCategorizedArgs::categorize_from(into);
-
-    let FnCategorizedArgs {
-        positionals: cmp_positionals,
-        presence_flags: cmp_presence_flags,
-        normal_flags: cmp_normal_flags,
-        rest_arg: cmp_rest_arg,
     } = FnCategorizedArgs::categorize_from(signature);
 
     // If the target type has a rest argument, the source one must too
-    if rest_arg.is_some() && cmp_rest_arg.is_none() {
+    if into_rest_arg.is_some() && rest_arg.is_none() {
         return false;
     }
 
     // Compare rest arguments' type
-    if let (Some(rest_arg), Some(cmp_rest_arg)) = (rest_arg, cmp_rest_arg) {
-        if let (Some(rest_arg_type), Some(cmp_rest_arg_type)) = (&rest_arg.typ, &cmp_rest_arg.typ) {
-            if !check_if_type_fits_type(&rest_arg_type.data, &cmp_rest_arg_type.data, ctx) {
+    if let (Some(rest_arg), Some(into_rest_arg)) = (rest_arg, into_rest_arg) {
+        if let (Some(rest_arg_type), Some(into_rest_arg_type)) = (&rest_arg.typ, &into_rest_arg.typ)
+        {
+            if !check_if_type_fits_type(&rest_arg_type.data, &into_rest_arg_type.data, ctx) {
                 return false;
             }
         }
     }
 
     // Iterate over all positional arguments
-    let mut cmp_positionals = cmp_positionals.iter();
+    let mut positionals = positionals.iter();
 
-    for positional in positionals {
-        let compat = match cmp_positionals.next() {
-            Some(cmp_positional) => {
-                if positional.is_optional && !cmp_positional.is_optional && cmp_rest_arg.is_none() {
+    for into_positional in into_positionals {
+        let compat = match positionals.next() {
+            Some(positional) => {
+                if into_positional.is_optional && !positional.is_optional && rest_arg.is_none() {
                     false
-                } else if let (Some(cmp_positional_typ), Some(positional_typ)) =
-                    (&cmp_positional.typ, &positional.typ)
+                } else if let (Some(positional_typ), Some(into_positional_typ)) =
+                    (&positional.typ, &into_positional.typ)
                 {
-                    check_if_type_fits_type(cmp_positional_typ, positional_typ, ctx)
+                    // Here we comparison is inversed as we need to check if every single value from the
+                    // destination argument would be compatible with the provided signature
+                    check_if_type_fits_type(into_positional_typ, positional_typ, ctx)
                 } else {
                     true
                 }
             }
 
-            None => positional.is_optional,
+            None => into_positional.is_optional,
         };
 
         if !compat {
@@ -214,15 +217,15 @@ pub fn check_if_fn_signature_fits_another(
     }
 
     // Ensure that no required positional argument is only present in the source type
-    for cmp_positional in cmp_positionals {
-        if !cmp_positional.is_optional {
+    for positional in positionals {
+        if !positional.is_optional {
             return false;
         }
     }
 
     // Mark used flag names
     let mut used_flag_names = HashSet::new();
-    let mut use_cmp_flag_names = HashSet::new();
+    let mut used_into_flag_names = HashSet::new();
 
     let mark_used_name = |flag_names: &FnFlagArgNames, used_names: &mut HashSet<String>| -> bool {
         match flag_names {
@@ -234,17 +237,20 @@ pub fn check_if_fn_signature_fits_another(
         }
     };
 
-    for presence_flag in presence_flags {
+    for into_presence_flag in into_presence_flags {
         // Mark this flag's name as used (useful for next loop below)
-        assert!(mark_used_name(&presence_flag.names, &mut used_flag_names));
+        assert!(mark_used_name(
+            &into_presence_flag.names,
+            &mut used_flag_names
+        ));
 
         // Find a presence flag that matches the target type's one
-        match cmp_presence_flags
+        match presence_flags
             .iter()
-            .find(|c| check_fn_flag_args_name_compat(&presence_flag.names, &c.names))
+            .find(|c| check_fn_flag_args_name_compat(&into_presence_flag.names, &c.names))
         {
             // If there is a match...
-            Some(cmp_presence_flag) => {
+            Some(presence_flag) => {
                 // Mark the (source) flag's names as used
                 // If the names are already used, it means we have already associated it beforehand
                 // This can typically happen in the following scenario:
@@ -252,7 +258,7 @@ pub fn check_if_fn_signature_fits_another(
                 // fn(-r, --recursive) # two arguments '-r' and '--recursive'
                 // fn(--recursive (r)) # one argument which can be either '-r' or '--recursive'
                 // => these are NOT compatible
-                if !mark_used_name(&cmp_presence_flag.names, &mut use_cmp_flag_names) {
+                if !mark_used_name(&presence_flag.names, &mut used_into_flag_names) {
                     return false;
                 }
             }
@@ -260,7 +266,7 @@ pub fn check_if_fn_signature_fits_another(
             None => {
                 // If there is no matching flag on the other side, compatibility can only be ensured if the source type
                 // has a rest argument to collect it.
-                if cmp_rest_arg.is_none() {
+                if rest_arg.is_none() {
                     return false;
                 }
             }
@@ -268,21 +274,24 @@ pub fn check_if_fn_signature_fits_another(
     }
 
     // Ensure that no presence flag exists in the source type that refers to another argument in the target type
-    for cmp_presence_flag in cmp_presence_flags {
-        mark_used_name(&cmp_presence_flag.names, &mut use_cmp_flag_names);
+    for presence_flag in presence_flags {
+        mark_used_name(&presence_flag.names, &mut used_into_flag_names);
     }
 
-    for normal_flag in normal_flags {
+    for into_normal_flag in into_normal_flags {
         // Mark this flag's name as used (useful for next loop below)
-        assert!(mark_used_name(&normal_flag.names, &mut used_flag_names));
+        assert!(mark_used_name(
+            &into_normal_flag.names,
+            &mut used_flag_names
+        ));
 
         // Find a normal flag that matches the target type's one
-        match cmp_normal_flags
+        match normal_flags
             .iter()
-            .find(|c| check_fn_flag_args_name_compat(&normal_flag.names, &c.names))
+            .find(|c| check_fn_flag_args_name_compat(&into_normal_flag.names, &c.names))
         {
             // If there is a match...
-            Some(cmp_normal_flag) => {
+            Some(normal_flag) => {
                 // Mark the (source) flag's names as used
                 // If the names are already used, it means we have already associated it beforehand
                 // This can typically happen in the following scenario:
@@ -290,17 +299,17 @@ pub fn check_if_fn_signature_fits_another(
                 // fn(-n: string, --name: string) # two arguments '-n' and '--name'
                 // fn(--name (-n): string)        # one argument which can be either '-n' or '--name'
                 // => these are NOT compatible
-                if !mark_used_name(&cmp_normal_flag.names, &mut use_cmp_flag_names) {
+                if !mark_used_name(&normal_flag.names, &mut used_into_flag_names) {
                     return false;
                 }
 
                 // If the target type marks it as optional, the source type must too
-                if normal_flag.is_optional && !cmp_normal_flag.is_optional {
+                if into_normal_flag.is_optional && !normal_flag.is_optional {
                     return false;
                 }
 
                 // Check if the type fits as well
-                if !check_if_type_fits_type(&cmp_normal_flag.typ, &normal_flag.typ, ctx) {
+                if !check_if_type_fits_type(&normal_flag.typ, &into_normal_flag.typ, ctx) {
                     return false;
                 }
             }
@@ -308,7 +317,7 @@ pub fn check_if_fn_signature_fits_another(
             None => {
                 // If there is no matching flag on the other side, compatibility can only be ensured if the source type
                 // has a rest argument to collect it.
-                if cmp_rest_arg.is_none() {
+                if rest_arg.is_none() {
                     return false;
                 }
             }
@@ -317,8 +326,8 @@ pub fn check_if_fn_signature_fits_another(
 
     // Ensure that no normal flag exists in the source type that refers to another argument in the target type
     // Also ensure that no required normal flag is absent from the target type
-    for cmp_normal_flag in cmp_normal_flags {
-        if mark_used_name(&cmp_normal_flag.names, &mut use_cmp_flag_names)
+    for cmp_normal_flag in normal_flags {
+        if mark_used_name(&cmp_normal_flag.names, &mut used_into_flag_names)
             && !cmp_normal_flag.is_optional
         {
             return false;
