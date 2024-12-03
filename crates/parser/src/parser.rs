@@ -1571,9 +1571,9 @@ pub fn program(
         // Try/Catch
         //
         just("try")
-            .ignore_then(s)
+            .ignore_then(char('{').padded_by(msnl))
             .ignore_then(expr.clone().spanned().critical("expected an expression"))
-            .then_ignore(s.critical_with_no_message())
+            .then_ignore(char('}').padded_by(msnl))
             .then_ignore(just("catch").critical_with_no_message())
             .then_ignore(s.critical_with_no_message())
             .then(
@@ -1581,7 +1581,7 @@ pub fn program(
                     .spanned()
                     .critical("expected a variable to catch the throw value in"),
             )
-            .then_ignore(ms)
+            .then_ignore(s.critical_with_no_message())
             .then(block.clone().spanned().critical("expected a block"))
             .map(
                 move |((try_expr, catch_var), catch_body)| Instruction::Try {

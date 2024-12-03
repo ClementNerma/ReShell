@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Span, FileId};
+use parsy::{CodeRange, FileId, Span};
 use reshell_parser::ast::{
     Block, ElsIf, Instruction, MapDestructBinding, MatchCase, Program, RuntimeCodeRange,
     SingleVarDecl, TypeMatchCase, VarDeconstruction,
@@ -25,10 +25,7 @@ use crate::{
     },
 };
 
-pub fn run_program(
-    program: &Span<Program>,
-    ctx: &mut Context,
-) -> ExecResult<Option<LocatedValue>> {
+pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     // Reset Ctrl+C requests
     ctx.reset_ctrl_c_press_indicator();
 
@@ -708,6 +705,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         Instruction::Throw(expr) => {
             let message = match eval_expr(&expr.data, ctx)? {
                 RuntimeValue::String(string) => string,
+
                 value => {
                     return Err(ctx.error(
                         expr.at,
