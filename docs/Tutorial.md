@@ -24,7 +24,9 @@ Everything you need to master it is written in this document, so take your time 
   - [Returning values](#returning-values)
   - [Optional arguments](#optional-arguments)
   - [Flags](#flags)
+  - [Presence flags](#presence-flags)
   - [Methods](#methods)
+  - [Lambdas](#lambdas)
 - [Types](#types)
   - [Common types](#common-types)
   - [Typing variables](#typing-variables)
@@ -32,6 +34,9 @@ Everything you need to master it is written in this document, so take your time 
   - [Structures](#structures)
   - [Lists](#lists)
   - [Maps](#maps)
+  - [Type aliases](#type-aliases)
+  - [Function signatures](#function-signatures)
+  - [Sub-typing](#sub-typing)
 
 ## Installing
 
@@ -224,7 +229,9 @@ test        # 'value' will be set to `null`
 Functions can also use flag arguments:
 
 ```shell
-fn sayHello(name, --repeat?) {
+# The '?' marker indicates the argument is optional
+# The ': int' part is the argument's type, which we'll learn about later
+fn sayHello(name, --repeat?: int) {
   # The '??' operator allows to fall back to another value
   # if the left operand is `null`
   let repeat = $repeat ?? 1
@@ -242,6 +249,36 @@ sayHello $name --repeat 10
 sayHello $name --repeat=10
 ```
 
+When calling a function inside an expression, flags use a special syntax:
+
+```shell
+sayHello($name, repeat: 10)
+```
+
+### Presence flags
+
+_Presence flags_ are flags that don't take a value, they are either present or they're not:
+
+```shell
+# Here, the value of 'twice' inside the function's body
+# will either be `true` or `false`
+fn sayHello(name: string, --twice?) {
+  echo "Hello, $name!"
+
+  if $twice {
+    echo "Hello, $name! (bis)"
+  }
+}
+
+sayHello Jack
+sayHello Jack --twice
+
+sayHello('Jack', twice: true)
+
+# Incorrect, will fail
+sayHello Jack --twice=10
+```
+
 ### Methods
 
 Methods are special functions that can only be used on specific types (which we'll see in a moment). For instance, you can get the length of a string using its `.len` method:
@@ -252,6 +289,28 @@ $msg.len() # 5
 
 let num = 2
 $num.len() # this won't work because '.len' doesn't exist on numbers
+```
+
+### Lambdas
+
+There is a specific type of functions called _lambdas_. These are functions that are used as values instead of being declared:
+
+```shell
+let lambda = {|msg| echo $msg }
+
+$lambda('Hello world!')
+```
+
+They can use types for arguments, and take flags. They just can't specify an explicit return type.
+
+```shell
+let lambda = {|msg: string, --repeat?: int|
+  for _ in 0..($repeat ?? 1) {
+    echo $msg
+  }
+}
+
+$lambda('Hello world!', repeat: 10)
 ```
 
 ## Types
@@ -320,6 +379,19 @@ $person.name = 'Jack'
 echo ($person.name) # Prints: Jack
 ```
 
+Structures are typed like this:
+
+```shell
+fn sayHello(person: struct { name: string, age: int }) {
+  echo "Hello, `$person.name`!"
+}
+
+sayHello(struct {
+  name: 'John',
+  age: 20
+})
+```
+
 ### Lists
 
 Lists are a special type that can hold multiple values at once:
@@ -382,6 +454,17 @@ $list[] = 4
 $list.push(4)
 ```
 
+Lists can be typed using `list[<inner type>]`, e.g.:
+
+```shell
+let value: list[int]    = [1, 2, 3]
+let value: list[string] = ['a', 'b', 'c']
+
+# we can also use the 'list' type alone, which is functionally equivalent
+# to list[any]:
+let value: list = [1, 2, 3]
+```
+
 ### Maps
 
 Maps associate a set of key-values, but unlike with structures they can be added or removed:
@@ -416,4 +499,56 @@ We can also iterate over maps:
 for key, value in $map {
   echo "$key => $value"
 }
+```
+
+Maps can be typed using `map[<inner type>]`, e.g.:
+
+```shell
+let value: map[int]    = map(struct { a: 1, b: 2 })
+let value: map[string] = map(struct { a: 'a', b: 'b' })
+
+# we can also use the 'map' type alone, which is functionally equivalent
+# to map[any]:
+let value: map = map(struct { a: 1, b: 'c' })
+```
+
+### Type aliases
+
+Sometimes we may need to re-use a type, we can define an _alias_:
+
+```shell
+type Person = {
+  name: string,
+  age: int
+}
+
+fn sayHello(person: Person) {
+  echo "Hello, `$person.name`!"
+}
+
+sayHello(struct {
+  name: 'Jack',
+  age: 20
+})
+```
+
+### Function signatures
+
+Functions have type, which is called their _signature_:
+
+```shell
+type FnExample = fn(name: string)
+
+let lambda: FnExample = |name: string| { echo "Hello!" }
+```
+
+### Sub-typing
+
+All types accept anything that's _compatible_ with them, such as:
+
+```shell
+type FnExample = fn(name: string)
+
+# This works fine
+let lambda: FnExample = {|name: any| echo $name}
 ```
