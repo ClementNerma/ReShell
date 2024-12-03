@@ -13,7 +13,7 @@ fn run() -> Runner {
     Runner::new(|at, Args { list, index }, args_at, ctx| {
         let mut list = list.write(args_at.list, ctx)?;
 
-        if index > list.len() {
+        if index >= list.len() {
             return Err(ctx.throw(
                 at,
                 format!(
