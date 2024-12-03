@@ -359,6 +359,16 @@ let num = 2
 $num.len() # this won't work because '.len' doesn't exist on numbers
 ```
 
+You can define your own methods by simply declaring a function that takes a `self` argument:
+
+```shell
+fn twice(self: string) -> string {
+  return "$self$self"
+}
+
+("Hello").twice() # "HelloHello"
+```
+
 ### Lambdas
 
 There is a specific type of functions called _lambdas_. These are functions that are used as values instead of being declared:
