@@ -19,6 +19,7 @@ pub mod len;
 pub mod map;
 pub mod pop;
 pub mod prepend;
+pub mod push;
 pub mod reduce;
 pub mod remove_at;
 pub mod reversed;
