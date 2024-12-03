@@ -21,6 +21,7 @@ Everything you need to master it is written in this document, so take your time 
   - [Conditionals](#conditionals)
   - [Loops](#loops)
   - [Matching](#matching)
+  - [Splitting into multiple files](#splitting-into-multiple-files)
 - [Functions](#functions)
   - [Fundamentals](#fundamentals)
   - [Returning values](#returning-values)
@@ -258,6 +259,19 @@ match $name {
     echo "Hello, person going by the name of $name!"
   }
 }
+```
+
+### Splitting into multiple files
+
+When your script gets too big, you can split it into multiple files, and _include_:
+
+```shell
+# file: ask.rsh
+let name = ask('What is your name? ')
+
+# file: main.rsh
+include 'ask.rsh'
+echo $name
 ```
 
 ## Functions
