@@ -28,6 +28,7 @@ Everything you need to master it is written in this document, so take your time 
   - [Presence flags](#presence-flags)
   - [Methods](#methods)
   - [Lambdas](#lambdas)
+  - [Error handling](#error-handling)
 - [Types](#types)
   - [Common types](#common-types)
   - [Typing variables](#typing-variables)
@@ -386,6 +387,32 @@ Lambdas are where the trailing statement rule are very useful:
 let add = {|a, b| $a + $b }
 
 add 2 3 # 5
+```
+
+### Error handling
+
+Error handling can be used through values _throwing_ and _catching_:
+
+```shell
+fn divide(a: int, b: int) -> int {
+  if $b == 0 {
+    throw 'Division by zero is forbidden!'
+  }
+
+  return $a / $b
+}
+
+divide 2 0 # Will fail because the function 'throw'
+```
+
+This is a good way to return errors to the caller. Errors can be handled through a `try` / `catch` block:
+
+```shell
+try {
+  divide(2, 0)
+} catch e {
+  echo "Error: $e"
+}
 ```
 
 ## Types
