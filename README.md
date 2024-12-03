@@ -11,6 +11,10 @@ Everything is designed to work out-of-the-box: completion, syntax highlighting, 
 
 Compared to [NuShell](https://www.nushell.sh/), the latter is designed as an alternative way to interact with data. As it is mostly based on tables and functional data processing, it may be more suited to your needs depending on what you want. ReShell's scripting language provides some functional programming features as well, but remains an imperative language at core.
 
+## Tutorila
+
+You can find a guide to learn about the language [here](docs/Tutorial.md).
+
 ## Features
 
 * Fits in a single binary with zero dependency
