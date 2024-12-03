@@ -17,6 +17,21 @@ Everything you need to master it is written in this document, so take your time 
   - [Variables](#variables)
   - [User input](#user-input)
   - [String interpolation](#string-interpolation)
+  - [Conditionals](#conditionals)
+  - [Loops](#loops)
+- [Functions](#functions)
+  - [Fundamentals](#fundamentals)
+  - [Returning values](#returning-values)
+  - [Optional arguments](#optional-arguments)
+  - [Flags](#flags)
+  - [Methods](#methods)
+- [Types](#types)
+  - [Common types](#common-types)
+  - [Typing variables](#typing-variables)
+  - [Typing functions](#typing-functions)
+  - [Structures](#structures)
+  - [Lists](#lists)
+  - [Maps](#maps)
 
 ## Installing
 
@@ -96,4 +111,309 @@ Sometimes we want to use a variable inside a string. This is called _interpolati
 let name = ask('Please enter your name:')
 
 echo "Your name is: $name"
+```
+
+We can also directly call functions inside strings:
+
+```shell
+echo "Your name is: `ask('Please enter your name: ')`"
+```
+
+### Conditionals
+
+A _conditional_ allows to execute a set of instructions only if a certain condition is met:
+
+```shell
+let name = ask('Please enter your name:')
+
+if $name == 'John F. Kennedy' {
+  echo "You're probably lying"
+}
+```
+
+
+### Loops
+
+A _loop_ allows to execute a set of instructions multiple times:
+
+```shell
+for i in 0..10 {
+  echo $i
+}
+```
+
+This program will print numbers from `0` to `9`. The latest bound is not included, until you specifically request it:
+
+```shell
+for i in 1..=10 {
+  echo $i
+}
+```
+
+This program will print numbers from `1` to `10`.
+
+There is also the possibility of running instructions repeatedly _while_ a certain condition is met:
+
+```shell
+let mut i = 0
+
+while $i <= 10 {
+  $i = $i + 1
+  echo $i
+}
+```
+
+This is equivalent to the previous loop.
+
+## Functions
+
+Now let's go into the heavy part of scripting: functions!
+
+### Fundamentals
+
+A function is a specific type of command which can _return_ a value. It can be user-defined, but there are also builtin functions (like `echo` or `ask`).
+
+Here is how to declare a custom function:
+
+```shell
+fn sayHello(name) {
+  echo "Hello $name"
+}
+
+let name = ask('Please enter your name: ')
+sayHello $name
+```
+
+Let's look at the function more closely: we declare a function called `sayHello`. It takes a single argument called `name`, which is then used as a variable inside the function's _body_.
+
+### Returning values
+
+Functions can return values:
+
+```shell
+fn add(a, b) {
+  return $a + $b
+}
+
+let total = add(2, 3)
+echo $total # Prints: 5
+```
+
+The value returned (following the `return` keyword) can be used in various ways, like storing it into a variable.
+
+### Optional arguments
+
+Arguments can be set as _optional_. If they are not provided, their value is set to `null`:
+
+```shell
+# The '?' symbol indicates the argument is optional
+fn test(value?) {
+  if $value == null {
+    echo "You either didn't provide an argument or provided the 'null' value"
+  } else {
+    echo "Thanks for providing a non-null value!"
+  }
+}
+
+test Hello! # 'value' argument will be set to `'Hello!'`
+test        # 'value' will be set to `null`
+```
+
+### Flags
+
+Functions can also use flag arguments:
+
+```shell
+fn sayHello(name, --repeat?) {
+  # The '??' operator allows to fall back to another value
+  # if the left operand is `null`
+  let repeat = $repeat ?? 1
+
+  for i in 0..$repeat {
+    echo "Hello, $name!"
+  }
+}
+
+let name = ask('Tell me your name: ')
+
+sayHello $name
+sayHello $name --repeat 10
+# can also be written:
+sayHello $name --repeat=10
+```
+
+### Methods
+
+Methods are special functions that can only be used on specific types (which we'll see in a moment). For instance, you can get the length of a string using its `.len` method:
+
+```shell
+let msg = 'Hello!'
+$msg.len() # 5
+
+let num = 2
+$num.len() # this won't work because '.len' doesn't exist on numbers
+```
+
+## Types
+
+Each value has an associated _type_ which indicates what "category" it belongs to.
+
+### Common types
+
+Common types include the following:
+
+| Type name | Description            | Example            |
+| --------- | ---------------------- | ------------------ |
+| `string`  | Strings                | `'Hello world!'`   |
+| `int`     | Integer numbers        | `2`                |
+| `float`   | Floating-point numbers | `2.5`              |
+| `bool`    | Booleans               | `true` and `false` |
+| `null`    | The null value         | `null`             |
+
+There are other types, but these are the most fundamental ones. There is also a special type called `any` which accepts every single value.
+
+### Typing variables
+
+We can use them explicitly for various purposes, like enforcing a variable's type:
+
+```shell
+let mut name = 'Clément'
+$name = 2 # this works because variables accept any type by default
+
+let mut name: string = 'Clément'
+$name = 2 # this will actually fail because we're not assigning a string
+```
+
+### Typing functions
+
+Functions can type their arguments (including flags) as well as their return type. This is not required but helps to ensure the function is not called incorrectly and also doesn't return a value of the incorrect type:
+
+```shell
+fn add(a, b) { return $a + $b }
+
+# This will fail inside the function as we can't add strings together
+add 'Hello!' 'World!'
+
+# With explicit typing:
+fn add(a: int, b: int) -> int { return $a + $b }
+
+# This will fail as soon as we *call* the function as the arguments are incorrect
+add 'Hello!' 'World!'
+```
+
+Basically, explicit typing ensures that a variable always hold a value of the correct type.
+
+### Structures
+
+Structures have a rigid type that associated _fields_ and values:
+
+```shell
+let person = struct {
+  name: 'John',
+  age: 20
+}
+
+echo ($person.name) # Prints: John
+echo ($person.age)  # Prints: 20
+
+$person.name = 'Jack'
+echo ($person.name) # Prints: Jack
+```
+
+### Lists
+
+Lists are a special type that can hold multiple values at once:
+
+```shell
+let names = ['John', 'Jack', 'Jerry']
+
+# The 'dbg' function allows to display a value's content, no matter its type
+# Whereas 'echo' only accepts strings, numbers and booleans
+dbg $names
+```
+
+We can access lists using indexes:
+
+```shell
+let names = ['John', 'Jack', 'Jerry']
+
+# parenthesis allows to expressions in command arguments
+echo ($names[0]) # Prints: John
+```
+
+Note that indexes always start at `0`.
+
+You can add new values to a list:
+
+```shell
+# These two are functionally equivalent:
+$names[] = 'John 2'
+$names.push('John 2')
+```
+
+To remove values:
+
+```shell
+# Remove the latest value from a list
+# Will return 'null' if the list is empty
+$names.pop() # John 2
+
+# Remove a value at a specific index
+$names.removeAt(2)
+```
+
+Lists can be iterated through in a loop:
+
+```shell
+for name in $names {
+  echo $name
+}
+```
+
+Note that lists are what we call a _container type_, which means we can change its content even when the variable is immutable (as long as we use the `.push` method):
+
+```shell
+let list = [1, 2, 3]
+
+# Won't work because we're using the special syntax
+$list[] = 4
+
+# Works fine
+$list.push(4)
+```
+
+### Maps
+
+Maps associate a set of key-values, but unlike with structures they can be added or removed:
+
+```shell
+map(struct {
+  name: 'John',
+  age: 20
+})
+
+# equivalent syntax:
+map([
+  ['name', 'John'],
+  ['age', 20]
+])
+```
+
+We can use them like this:
+
+```shell
+echo ($map['name']) # Prints: John
+echo ($map['age'])  # Prints: 20
+
+$map['location'] = 'Paris' # We can add new keys!
+
+$map.remove('location') # We can also remove them!
+```
+
+We can also iterate over maps:
+
+```shell
+for key, value in $map {
+  echo "$key => $value"
+}
 ```
