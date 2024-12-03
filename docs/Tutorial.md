@@ -14,6 +14,7 @@ Everything you need to master it is written in this document, so take your time 
 - [Differences with Unix-like shells (Bash, ...)](#differences-with-unix-like-shells-bash-)
 - [The basics](#the-basics)
   - [Writing commands](#writing-commands)
+  - [Chaining commands](#chaining-commands)
   - [Variables](#variables)
   - [User input](#user-input)
   - [String interpolation](#string-interpolation)
@@ -77,6 +78,27 @@ This will print the same message, but in yellow this time. We have three argumen
 There are lots of available commands, to see them all, start from an empty prompt and using the `<TAB>` key to list all of them (warning: there may be thousands of them).
 
 If you try to write a command that doesn't exist, like `echoo Hello!`, the command's name will be highlighted in red instead of blue. This is to show you're trying to use an unknown command.
+
+### Chaining commands
+
+Commands can be chained using a `;` separator:
+
+```shell
+# Will print 'Hello' then 'World!' on separate lines
+echo Hello ; echo World!
+```
+
+Note that if any command in the chain fails, the remaining ones won't be run:
+
+```shell
+# Create a file named 'test'
+# Then remove it
+# Then try to remove it again: this will file as it was already deleted
+# So the 'echo' command afterwards won't be run
+touch test ; rm test ; rm test ; echo salut
+```
+
+This prevents executing an instruction that depends on the previous one, which would be in an inconsistent state.
 
 ### Variables
 
