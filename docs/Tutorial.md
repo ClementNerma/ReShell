@@ -36,6 +36,7 @@ Everything you need to master it is written in this document, so take your time 
   - [Error handling](#error-handling)
 - [Types](#types)
   - [Common types](#common-types)
+  - [Debugging a value's type](#debugging-a-values-type)
   - [Typing variables](#typing-variables)
   - [Typing functions](#typing-functions)
   - [Structures](#structures)
@@ -46,6 +47,9 @@ Everything you need to master it is written in this document, so take your time 
   - [Sub-typing](#sub-typing)
   - [Union types](#union-types)
   - [Matching on types](#matching-on-types)
+- [Advanced features](#advanced-features)
+  - [Variable shadowing](#variable-shadowing)
+  - [Destructuring](#destructuring)
 
 ## Installing
 
@@ -63,7 +67,7 @@ There are too many differences to count, but will you discover them along this t
 
 A command is made of two things: the command's _path_, and its _arguments_.
 
-```shell
+```reshell
 echo Hello!
 ```
 
@@ -73,7 +77,7 @@ If you run it, it will display `Hello!` in your terminal.
 
 Now let's add a little bit of color:
 
-```shell
+```reshell
 echo Hello! -c yellow
 ```
 
@@ -87,14 +91,14 @@ If you try to write a command that doesn't exist, like `echoo Hello!`, the comma
 
 Commands can be chained using a `;` separator:
 
-```shell
+```reshell
 # Will print 'Hello' then 'World!' on separate lines
 echo Hello ; echo World!
 ```
 
 Note that if any command in the chain fails, the remaining ones won't be run:
 
-```shell
+```reshell
 # Create a file named 'test'
 # Then remove it
 # Then try to remove it again: this will file as it was already deleted
@@ -108,7 +112,7 @@ This prevents executing an instruction that depends on the previous one, which w
 
 Sometimes we need to store informations, and we do that by using _variables_:
 
-```shell
+```reshell
 # Declare a variable called 'name'
 let message = 'Hello!';
 
@@ -124,13 +128,13 @@ This means that `echo 'Hello!'` is functionally equivalent to `echo Hello!`.
 
 We can ask for input from the user using the builtin `ask` _command_:
 
-```shell
+```reshell
 ask 'Please enter your name: '
 ```
 
 Enter your name, and it will print your answer again. This is because `ask` is actually a _function_, and functions can return values. We'll learn more about them later. For now, we just need a way to get the result and put it in a variable:
 
-```shell
+```reshell
 let name = ask('Please enter your name:')
 
 echo $name
@@ -142,7 +146,7 @@ Why did we use parenthesis here? Because traditionally, functions are called tha
 
 Sometimes we want to use a variable inside a string. This is called _interpolation_, and uses double quotes:
 
-```shell
+```reshell
 let name = ask('Please enter your name:')
 
 echo "Your name is: $name"
@@ -150,7 +154,7 @@ echo "Your name is: $name"
 
 We can also directly call functions inside strings:
 
-```shell
+```reshell
 echo "Your name is: `ask('Please enter your name: ')`"
 ```
 
@@ -206,7 +210,7 @@ In this part we'll going to learn how to write scripts that do more than just ru
 
 A _conditional_ allows to execute a set of instructions only if a certain condition is met:
 
-```shell
+```reshell
 let name = ask('Please enter your name:')
 
 if $name == 'John F. Kennedy' {
@@ -216,7 +220,7 @@ if $name == 'John F. Kennedy' {
 
 We can then chain additional conditions that run entirely if the first one wasn't met:
 
-```shell
+```reshell
 if $name == 'John' {
   echo 'Hello John!'
 } else if $name == 'Jack' {
@@ -226,7 +230,7 @@ if $name == 'John' {
 
 And we can add a final block for when none of the conditions were met:
 
-```shell
+```reshell
 if $name == 'John' {
   echo 'Hello John!'
 } else if $name == 'Jack' {
@@ -242,7 +246,7 @@ if $name == 'John' {
 
 A _loop_ allows to execute a set of instructions multiple times:
 
-```shell
+```reshell
 for i in 0..10 {
   echo $i
 }
@@ -250,7 +254,7 @@ for i in 0..10 {
 
 This program will print numbers from `0` to `9`. The latest bound is not included, until you specifically request it:
 
-```shell
+```reshell
 for i in 1..=10 {
   echo $i
 }
@@ -260,7 +264,7 @@ This program will print numbers from `1` to `10`.
 
 There is also the possibility of running instructions repeatedly _while_ a certain condition is met:
 
-```shell
+```reshell
 let mut i = 0
 
 while $i <= 10 {
@@ -273,7 +277,7 @@ This is equivalent to the previous loop.
 
 Loops can also use two special instructions:
 
-```shell
+```reshell
 # 'continue' will just skip all instructions below it
 # and jump to the beginning of the loop
 continue
@@ -286,7 +290,7 @@ break
 
 Sometimes we can get pretty ugly conditions like one of the previous examples:
 
-```shell
+```reshell
 if $name == 'John' {
   echo 'Hello John!'
 } else if $name == 'Jack' {
@@ -300,7 +304,7 @@ if $name == 'John' {
 
 We can simplify this by using a `match` statement:
 
-```shell
+```reshell
 match $name {
   case 'John'  { echo 'Hello John!' }
   case 'Jack'  { echo 'Hi there Jack!' }
@@ -316,7 +320,7 @@ match $name {
 
 When your script gets too big, you can split it into multiple files, and _include_:
 
-```shell
+```reshell
 # file: ask.rsh
 let name = ask('What is your name? ')
 
@@ -335,7 +339,7 @@ A function is a specific type of command which can _return_ a value. It can be u
 
 Here is how to declare a custom function:
 
-```shell
+```reshell
 fn sayHello(name) {
   echo "Hello $name"
 }
@@ -350,7 +354,7 @@ Let's look at the function more closely: we declare a function called `sayHello`
 
 Functions can return values:
 
-```shell
+```reshell
 fn add(a, b) {
   return $a + $b
 }
@@ -365,7 +369,7 @@ The value returned (following the `return` keyword) can be used in various ways,
 
 Arguments can be set as _optional_. If they are not provided, their value is set to `null`:
 
-```shell
+```reshell
 # The '?' symbol indicates the argument is optional
 fn test(value?) {
   if $value == null {
@@ -383,7 +387,7 @@ test        # 'value' will be set to `null`
 
 Functions can also use flag arguments:
 
-```shell
+```reshell
 # The '?' marker indicates the argument is optional
 # The ': int' part is the argument's type, which we'll learn about later
 fn sayHello(name, --repeat?: int) {
@@ -406,7 +410,7 @@ sayHello $name --repeat=10
 
 When calling a function inside an expression, flags use a special syntax:
 
-```shell
+```reshell
 sayHello($name, repeat: 10)
 ```
 
@@ -414,7 +418,7 @@ sayHello($name, repeat: 10)
 
 _Presence flags_ are flags that don't take a value, they are either present or they're not:
 
-```shell
+```reshell
 # Here, the value of 'twice' inside the function's body
 # will either be `true` or `false`
 fn sayHello(name: string, --twice?) {
@@ -438,7 +442,7 @@ sayHello Jack --twice=10
 
 Methods are special functions that can only be used on specific types (which we'll see in a moment). For instance, you can get the length of a string using its `.len` method:
 
-```shell
+```reshell
 let msg = 'Hello!'
 $msg.len() # 5
 
@@ -448,7 +452,7 @@ $num.len() # this won't work because '.len' doesn't exist on numbers
 
 You can define your own methods by simply declaring a function that takes a `self` argument:
 
-```shell
+```reshell
 fn twice(self: string) -> string {
   return "$self$self"
 }
@@ -460,7 +464,7 @@ fn twice(self: string) -> string {
 
 There is a specific type of functions called _lambdas_. These are functions that are used as values instead of being declared:
 
-```shell
+```reshell
 let lambda = {|msg| echo $msg }
 
 $lambda('Hello world!')
@@ -468,7 +472,7 @@ $lambda('Hello world!')
 
 They can use types for arguments, and take flags. They just can't specify an explicit return type.
 
-```shell
+```reshell
 let lambda = {|msg: string, --repeat?: int|
   for _ in 0..($repeat ?? 1) {
     echo $msg
@@ -480,7 +484,7 @@ $lambda('Hello world!', repeat: 10)
 
 Lambdas are where the trailing statement rule are very useful:
 
-```shell
+```reshell
 let add = {|a, b| $a + $b }
 
 add 2 3 # 5
@@ -490,7 +494,7 @@ add 2 3 # 5
 
 Error handling can be used through values _throwing_ and _catching_:
 
-```shell
+```reshell
 fn divide(a: int, b: int) -> int {
   if $b == 0 {
     throw 'Division by zero is forbidden!'
@@ -504,7 +508,7 @@ divide 2 0 # Will fail because the function 'throw'
 
 This is a good way to return errors to the caller. Errors can be handled through a `try` / `catch` block:
 
-```shell
+```reshell
 try {
   divide(2, 0)
 } catch e {
@@ -530,11 +534,21 @@ Common types include the following:
 
 There are other types, but these are the most fundamental ones. There is also a special type called `any` which accepts every single value.
 
+### Debugging a value's type
+
+To show a value's type, we can use the `dbgType` function:
+
+```reshell
+dbgType 2
+dbgType 'Hello!'
+dbgType ([1, 2, 3])
+```
+
 ### Typing variables
 
 We can use them explicitly for various purposes, like enforcing a variable's type:
 
-```shell
+```reshell
 let mut name = 'Clément'
 $name = 2 # this works because variables accept any type by default
 
@@ -546,7 +560,7 @@ $name = 2 # this will actually fail because we're not assigning a string
 
 Functions can type their arguments (including flags) as well as their return type. This is not required but helps to ensure the function is not called incorrectly and also doesn't return a value of the incorrect type:
 
-```shell
+```reshell
 fn add(a, b) { return $a + $b }
 
 # This will fail inside the function as we can't add strings together
@@ -563,7 +577,7 @@ Basically, explicit typing ensures that a variable always hold a value of the co
 
 Note that the last statement of a value (called the _trailing_ one) is returned as a value:
 
-```shell
+```reshell
 fn add(a, b) { $a + $b }
 ```
 
@@ -573,7 +587,7 @@ Most of the time, you should prefer explicitly using the `return` keyword as it 
 
 Structures have a rigid type that associated _fields_ and values:
 
-```shell
+```reshell
 let person = struct {
   name: 'John',
   age: 20
@@ -588,7 +602,7 @@ echo ($person.name) # Prints: Jack
 
 Structures are typed like this:
 
-```shell
+```reshell
 fn sayHello(person: struct { name: string, age: int }) {
   echo "Hello, `$person.name`!"
 }
@@ -599,11 +613,20 @@ sayHello(struct {
 })
 ```
 
+To debug a value of any type, we can use the `dbg` function:
+
+```shell
+dbg (struct {
+  name: 'John',
+  age: 20
+})
+```
+
 ### Lists
 
 Lists are a special type that can hold multiple values at once:
 
-```shell
+```reshell
 let names = ['John', 'Jack', 'Jerry']
 
 # The 'dbg' function allows to display a value's content, no matter its type
@@ -613,7 +636,7 @@ dbg $names
 
 We can access lists using indexes:
 
-```shell
+```reshell
 let names = ['John', 'Jack', 'Jerry']
 
 # parenthesis allows to expressions in command arguments
@@ -624,7 +647,7 @@ Note that indexes always start at `0`.
 
 You can add new values to a list:
 
-```shell
+```reshell
 # These two are functionally equivalent:
 $names[] = 'John 2'
 $names.push('John 2')
@@ -632,7 +655,7 @@ $names.push('John 2')
 
 To remove values:
 
-```shell
+```reshell
 # Remove the latest value from a list
 # Will return 'null' if the list is empty
 $names.pop() # John 2
@@ -643,7 +666,7 @@ $names.removeAt(2)
 
 Lists can be iterated through in a loop:
 
-```shell
+```reshell
 for name in $names {
   echo $name
 }
@@ -651,7 +674,7 @@ for name in $names {
 
 Note that lists are what we call a _container type_, which means we can change its content even when the variable is immutable (as long as we use the `.push` method):
 
-```shell
+```reshell
 let list = [1, 2, 3]
 
 # Won't work because we're using the special syntax
@@ -663,7 +686,7 @@ $list.push(4)
 
 Lists can be typed using `list[<inner type>]`, e.g.:
 
-```shell
+```reshell
 let value: list[int]    = [1, 2, 3]
 let value: list[string] = ['a', 'b', 'c']
 
@@ -676,7 +699,7 @@ let value: list = [1, 2, 3]
 
 Maps associate a set of key-values, but unlike with structures they can be added or removed:
 
-```shell
+```reshell
 map(struct {
   name: 'John',
   age: 20
@@ -691,7 +714,7 @@ map([
 
 We can use them like this:
 
-```shell
+```reshell
 echo ($map['name']) # Prints: John
 echo ($map['age'])  # Prints: 20
 
@@ -702,7 +725,7 @@ $map.remove('location') # We can also remove them!
 
 We can also iterate over maps:
 
-```shell
+```reshell
 for key, value in $map {
   echo "$key => $value"
 }
@@ -710,7 +733,7 @@ for key, value in $map {
 
 Maps can be typed using `map[<inner type>]`, e.g.:
 
-```shell
+```reshell
 let value: map[int]    = map(struct { a: 1, b: 2 })
 let value: map[string] = map(struct { a: 'a', b: 'b' })
 
@@ -723,7 +746,7 @@ let value: map = map(struct { a: 1, b: 'c' })
 
 Sometimes we may need to re-use a type, we can define an _alias_:
 
-```shell
+```reshell
 type Person = {
   name: string,
   age: int
@@ -743,7 +766,7 @@ sayHello(struct {
 
 Functions have type, which is called their _signature_:
 
-```shell
+```reshell
 type FnExample = fn(name: string)
 
 let lambda: FnExample = |name: string| { echo "Hello!" }
@@ -753,7 +776,7 @@ let lambda: FnExample = |name: string| { echo "Hello!" }
 
 All types accept anything that's _compatible_ with them, such as:
 
-```shell
+```reshell
 type FnExample = fn(name: string)
 
 # This works fine
@@ -764,7 +787,7 @@ let lambda: FnExample = {|name: any| echo $name}
 
 Sometimes we need to specify that a variable may have different types, we then use _unions_:
 
-```shell
+```reshell
 fn displayValue(value: (string | int)) {
   echo $value
 }
@@ -780,9 +803,23 @@ Note that union types must always be wrapped inside parenthesis.
 
 When we use an union type - or `any`, we may need to find out what's the type behind it.
 
-We have two ways of doing that: either use a list of conditions, or use a specific type of matching:
+We have two ways of doing that: either use the `typename` method with a list of conditions:
 
-```shell
+```reshell
+let typ = $value.typename()
+
+if $typ == 'string' {
+  # ...
+} else if $typ == 'int' {
+  # ...
+} else {
+  # ...
+}
+```
+
+Or we can use a specific type-matching:
+
+```reshell
 typematch $value {
   case string {
     # Here we know the value is a string
@@ -797,3 +834,47 @@ typematch $value {
   }
 }
 ```
+
+## Advanced features
+
+### Variable shadowing
+
+We can re-declare a variable with the same name to _shadow_ the previous one:
+
+```reshell
+let var = '{"a":1}'
+let var = parseJson($var)
+```
+
+### Destructuring
+
+To simplify some assignments, we can use _destructuring_:
+
+```reshell
+let [a, b, c] = [1, 2, 3]
+let { a, b, c } = struct { a: 1, b: 2, c: 3 }
+let { a, b, c } = map(struct { a: 1, b: 2, c: 3 })
+
+echo $a # Prints: 1
+echo $b # Prints: 2
+echo $c # Prints: 3
+```
+
+Variables can also be renamed:
+
+```reshell
+let { a: b } = struct { a: 1 }
+
+echo $b # Prints: 1
+```
+
+We can also do some nesting:
+
+```reshell
+let { a: [b, c, { d }] } = struct { a: [1, 2, struct { d: 3 }] }
+
+dbg $b # Prints: 1
+dbg $c # Prints: 2
+dbg #d # Prints: 3
+```
+
