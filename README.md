@@ -9,9 +9,42 @@ It is designed to be as easy to use as possible, and feature many functions that
 
 Everything is designed to work out-of-the-box: completion, syntax highlighting, history handling, etc.
 
-Compared to [NuShell](https://www.nushell.sh/), the latter is designed as an alternative way to interact with data. As it is mostly based on tables and functional data processing, it may be more suited to your needs depending on what you want. ReShell's scripting language provides some functional programming features as well, but remains an imperative language at core.
+Here is an example:
 
-## Tutorila
+```rust
+let num = randInt(1, 100)
+let mut lives = 10
+
+while true {
+    let guess = ask("Guess the number: ")
+
+    let guess = try { $guess.parseInt() } catch _ { null }
+
+    if $guess == null {
+        continue
+    }
+
+    if $guess > $num {
+        echo "Lower!"
+    } else if $guess < $num {
+        echo "Higher!"
+    } else {
+        echo "You win! :D"
+        break
+    }
+
+    $lives = $lives - 1
+
+    if $lives > 0 {
+        echo "Too bad... You have $lives attempt(s) left!"
+    } else {
+        echo "Too bad... You've lost :("
+        break
+    }
+}
+```
+
+## Tutorial
 
 You can find a guide to learn about the language [here](docs/Tutorial.md).
 
@@ -27,6 +60,10 @@ You can find a guide to learn about the language [here](docs/Tutorial.md).
 
 * Typing is dynamic, meaning there isn't optional ahead-of-time typechecking like NuShell
 * Strings are always valid UTF-8, which brings lots of advantages but will make dealing with some non-UTF-8 filenames more complicated or straight up impossible
+
+## vs. NuShell
+
+Compared to [NuShell](https://www.nushell.sh/), the latter is designed as an alternative way to interact with data. As it is mostly based on tables and functional data processing, it may be more suited to your needs depending on what you want. ReShell's scripting language provides some functional programming features as well, but remains an imperative language at core.
 
 ## Installing
 
@@ -49,24 +86,6 @@ cargo build --release
 
 # Run the produced binary
 ./target/release/reshell
-```
-
-## Code sample
-
-```
-# Compute Fibonacci sequence
-# Note that the type annotations are purely optional
-
-fn fib(n: int) -> int {
-    return if $n <= 1 {
-        $n
-    } else {
-        fib($n - 1) + fib($n - 2)
-    }
-}
-
-fib 3 # Prints: 2
-fib 7 # Prints: 13
 ```
 
 ## Code structure
