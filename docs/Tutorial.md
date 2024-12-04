@@ -18,6 +18,8 @@ Everything you need to master it is written in this document, so take your time 
   - [Variables](#variables)
   - [User input](#user-input)
   - [String interpolation](#string-interpolation)
+  - [External commands](#external-commands)
+- [Scripting](#scripting)
   - [Conditionals](#conditionals)
   - [Loops](#loops)
   - [Matching](#matching)
@@ -150,6 +152,39 @@ We can also directly call functions inside strings:
 ```shell
 echo "Your name is: `ask('Please enter your name: ')`"
 ```
+
+### External commands
+
+Sometimes we may want to run a command that exists both as an internal and as an external command. For instance, the builtin `echo` command doesn't work the same as Linux' `echo` one.
+
+To run an external command, we simply prefix the command's name with a caret `^`:
+
+```shell
+# Print a message without a newline using Linux' native 'echo' command
+^echo -n "Hello!"
+```
+
+This is especially useful when defining aliases or using external paths that start with a variable:
+
+```shell
+let a = 2
+$a / 2 # Evaluates to 1
+$a/1   # Same here
+
+let dir = '/some/directory'
+
+# This will fail because the shell cannot know if we're trying
+# to call the "$dir/cmd" command ('/some/directory/cmd')
+# or if we're trying to accidentally divide a string
+$dir/cmd
+
+# So we need to write this:
+^$dir/cmd
+```
+
+## Scripting
+
+In this part we'll going to learn how to write scripts that do more than just run commands!
 
 ### Conditionals
 
