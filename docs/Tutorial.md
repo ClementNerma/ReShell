@@ -19,6 +19,7 @@ Everything you need to master it is written in this document, so take your time 
   - [User input](#user-input)
   - [String interpolation](#string-interpolation)
   - [External commands](#external-commands)
+  - [Aliases](#aliases)
 - [Scripting](#scripting)
   - [Conditionals](#conditionals)
   - [Loops](#loops)
@@ -180,6 +181,21 @@ $dir/cmd
 
 # So we need to write this:
 ^$dir/cmd
+```
+
+### Aliases
+
+Aliases are a way to re-use easily a command that we run often:
+
+```shell
+# Let's say we always do commits with Git using the following syntax:
+git commit -m ...message...
+
+# We can create an alias to make it simpler:
+alias gm = git commit -m
+
+# Now we can use it like this:
+gm ...message...
 ```
 
 ## Scripting
