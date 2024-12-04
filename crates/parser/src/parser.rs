@@ -1137,11 +1137,7 @@ pub fn program(
         .then(
             ms.ignore_then(char(':'))
                 .ignore_then(ms)
-                .ignore_then(
-                    value_type
-                        .clone()
-                        .critical("expected a type after semicolon"),
-                )
+                .ignore_then(value_type.clone())
                 .or_not(),
         )
         .map(|((is_mut, name), enforced_type)| SingleVarDecl {
