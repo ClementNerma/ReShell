@@ -3,8 +3,7 @@
 //!
 //! Provides utilities to handle properties access from structs and maps
 
-use std::collections::hash_map::{Entry, VacantEntry};
-
+use indexmap::map::{Entry, VacantEntry};
 use parsy::Span;
 use reshell_parser::ast::PropAccessNature;
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};

@@ -1,11 +1,11 @@
 use std::any::Any;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
-use std::{collections::HashMap, fmt::Debug};
 
 use dyn_clone::DynClone;
-use indexmap::IndexSet;
+use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Span};
 use reshell_checker::output::Dependency;
 use reshell_parser::ast::CmdFlagNameArg;
@@ -113,16 +113,16 @@ pub struct RuntimeCmdAlias {
 #[derive(Default, Debug, Clone)]
 pub struct CapturedDependencies {
     /// Scoped variables
-    pub vars: HashMap<Dependency, ScopeVar>,
+    pub vars: IndexMap<Dependency, ScopeVar>,
 
     /// Scoped functions
-    pub fns: HashMap<Dependency, ScopeFn>,
+    pub fns: IndexMap<Dependency, ScopeFn>,
 
     /// Scoped methods
-    pub methods: HashMap<Dependency, ScopeMethod>,
+    pub methods: IndexMap<Dependency, ScopeMethod>,
 
     /// Scoped command aliases
-    pub cmd_aliases: HashMap<Dependency, ScopeCmdAlias>,
+    pub cmd_aliases: IndexMap<Dependency, ScopeCmdAlias>,
 }
 
 /// Content of a command argument
@@ -156,8 +156,8 @@ pub enum RuntimeValue {
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
     List(GcCell<Vec<RuntimeValue>>),
-    Map(GcCell<HashMap<String, RuntimeValue>>),
-    Struct(GcCell<HashMap<String, RuntimeValue>>),
+    Map(GcCell<IndexMap<String, RuntimeValue>>),
+    Struct(GcCell<IndexMap<String, RuntimeValue>>),
     Function(GcReadOnlyCell<RuntimeFnValue>),
 
     // Custom value type

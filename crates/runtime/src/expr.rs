@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
@@ -543,7 +542,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
 
                     Ok::<_, Box<ExecError>>((name.clone(), result))
                 })
-                .collect::<Result<HashMap<_, _>, _>>()?;
+                .collect::<Result<IndexMap<_, _>, _>>()?;
 
             RuntimeValue::Struct(GcCell::new(members))
         }

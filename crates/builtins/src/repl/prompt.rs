@@ -2,8 +2,7 @@
 //! Function to call to generate the REPL's prompt
 //!
 
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
@@ -56,7 +55,7 @@ pub fn render_prompt(
                 duration_ms,
             } = status;
 
-            RuntimeValue::Struct(GcCell::new(HashMap::from([
+            RuntimeValue::Struct(GcCell::new(IndexMap::from([
                 ("success".to_string(), RuntimeValue::Bool(success)),
                 (
                     "exitCode".to_string(),
@@ -73,7 +72,7 @@ pub fn render_prompt(
         }
     };
 
-    let prompt_data = RuntimeValue::Struct(GcCell::new(HashMap::from([(
+    let prompt_data = RuntimeValue::Struct(GcCell::new(IndexMap::from([(
         "lastCmdStatus".to_string(),
         last_cmd_status,
     )])));

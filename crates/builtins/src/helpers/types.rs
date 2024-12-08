@@ -5,6 +5,7 @@
 
 use std::{any::Any, collections::HashMap, fmt::Display, marker::PhantomData};
 
+use indexmap::IndexMap;
 use parsy::CodeRange;
 use reshell_parser::ast::{SingleValueType, ValueType};
 
@@ -86,12 +87,12 @@ declare_basic_type_handlers!(
         _ => Err("expected a list".to_owned())
     },
 
-    UntypedMapType (UntypedMap) = GcCell<HashMap<String, RuntimeValue>> => value: match value {
+    UntypedMapType (UntypedMap) = GcCell<IndexMap<String, RuntimeValue>> => value: match value {
         RuntimeValue::Map(items) => Ok(items),
         _ => Err("expected a map".to_owned())
     },
 
-    UntypedStructType (UntypedStruct) = GcCell<HashMap<String, RuntimeValue>> => value: match value {
+    UntypedStructType (UntypedStruct) = GcCell<IndexMap<String, RuntimeValue>> => value: match value {
         RuntimeValue::Struct(members) => Ok(members),
         _ => Err("expected a struct".to_owned())
     },

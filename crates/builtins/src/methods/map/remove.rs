@@ -14,7 +14,7 @@ fn run() -> Runner {
         let mut map = map.write(args_at.map, ctx)?;
 
         let removed = map
-            .remove(&key)
+            .shift_remove(&key)
             .ok_or_else(|| ctx.throw(at, format!("key {key:?} was not found in the map")))?;
 
         Ok(Some(removed))
