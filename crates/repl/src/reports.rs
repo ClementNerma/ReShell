@@ -11,7 +11,7 @@ use std::borrow::Cow;
 
 use annotate_snippets::{Level, Renderer, Snippet};
 use colored::Colorize;
-use parsy::{CodeRange, Span, FileId, ParserExpectation, ParsingError, SourceFileID};
+use parsy::{CodeRange, FileId, ParserExpectation, ParsingError, SourceFileID, Span};
 use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
@@ -70,10 +70,14 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ),
 
         ReportableError::Runtime(err, _) => match &err.nature {
-            ExecErrorNature::Exit { code: _ } => {
-                // These errors are designed to be consumed, not displayed
-                unreachable!()
-            }
+            ExecErrorNature::Exit { code } => (
+                err.at,
+                "Non-zero exit code",
+                match code {
+                    Some(code) => format!("program exited with code {code}"),
+                    None => "program failed".to_owned(),
+                },
+            ),
 
             ExecErrorNature::CtrlC => (
                 err.at,
