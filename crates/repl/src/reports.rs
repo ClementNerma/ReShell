@@ -122,7 +122,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 err.at,
                 "Thrown",
                 format!(
-                    "function thrown: {}",
+                    "thrown: {}",
                     // dbg_loc(*at, files).bright_magenta(),
                     message.bright_red()
                 ),
