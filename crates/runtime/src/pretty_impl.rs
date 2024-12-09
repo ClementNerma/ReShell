@@ -87,18 +87,12 @@ impl PrettyPrintable for RuntimeValue {
 
                     keys.iter()
                         .map(|key| {
-                            let mut styled_key = pretty_printable_string_parts(key);
-                            styled_key.push(Styled::colored(":", Color::Cyan));
-                            styled_key.push(Styled::colorless(" "));
-
-                            // Yes, that part is a hack :p
-                            PrettyPrintablePiece::List {
-                                begin: styled_key,
-                                items: vec![map.get(*key).unwrap().generate_pretty_data(ctx)],
-                                sep: vec![],
-                                end: vec![],
-                                suffix: None,
-                            }
+                            PrettyPrintablePiece::Join(vec![
+                                pretty_printable_string(key),
+                                PrettyPrintablePiece::colored_atomic(":", Color::Blue),
+                                PrettyPrintablePiece::Atomic(Styled::colorless(" ")),
+                                map.get(*key).unwrap().generate_pretty_data(ctx),
+                            ])
                         })
                         .collect()
                 },
@@ -116,16 +110,13 @@ impl PrettyPrintable for RuntimeValue {
                     let keys = obj.keys().collect::<BTreeSet<_>>();
 
                     keys.iter()
-                        .map(|field|
-                        // Yes, that part is a hack :p
-                        PrettyPrintablePiece::List {
-                            begin: vec![Styled::colored(field, Color::Red),Styled::colored(":", Color::Blue), Styled::colorless(" ")],
-                            items: vec![
-                                obj.get(*field).unwrap().generate_pretty_data(ctx)
-                            ],
-                            sep: vec![],
-                            end: vec![],
-                            suffix: None
+                        .map(|field| {
+                            PrettyPrintablePiece::Join(vec![
+                                PrettyPrintablePiece::colored_atomic(field, Color::Red),
+                                PrettyPrintablePiece::colored_atomic(":", Color::Blue),
+                                PrettyPrintablePiece::Atomic(Styled::colorless(" ")),
+                                obj.get(*field).unwrap().generate_pretty_data(ctx),
+                            ])
                         })
                         .collect()
                 },
@@ -228,11 +219,8 @@ impl PrettyPrintable for SingleCmdArgResult {
         }
     }
 }
-pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
-    PrettyPrintablePiece::Suite(pretty_printable_string_parts(string))
-}
 
-pub fn pretty_printable_string_parts(string: &str) -> Vec<Styled> {
+pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
     let mut pieces = vec![Styled::colored("'", Color::BrightGreen)];
 
     let mut shift = 0;
@@ -261,5 +249,5 @@ pub fn pretty_printable_string_parts(string: &str) -> Vec<Styled> {
 
     pieces.push(Styled::colored("'", Color::BrightGreen));
 
-    pieces
+    PrettyPrintablePiece::Suite(pieces)
 }

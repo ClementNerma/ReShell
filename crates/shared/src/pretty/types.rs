@@ -91,7 +91,7 @@ pub enum PrettyPrintablePiece {
 }
 
 impl PrettyPrintablePiece {
-    /// Create an atom
+    /// Create a colored atom
     pub fn colored_atomic(content: impl AsRef<str>, color: Color) -> Self {
         Self::Atomic(Styled::colored(content, color))
     }
