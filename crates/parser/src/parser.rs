@@ -121,9 +121,7 @@ pub fn program(
             just("map")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::UntypedMap),
-            just("struct")
-                .ignore_then(ms)
-                .ignore_then(char('{'))
+            char('{')
                 .ignore_then(msnl)
                 .ignore_then(
                     ident
@@ -469,29 +467,22 @@ pub fn program(
     let lambda = char('{')
         .ignore_then(msnl)
         .ignore_then(
-            choice::<FnSignature, _>((
-                char('|')
-                    .ignore_then(msnl)
-                    .ignore_then(
-                        fn_arg
-                            .separated_by(char(',').padded_by(msnl))
-                            .spanned()
-                            .map(RuntimeSpan::from)
-                            .map(|args| FnSignature {
-                                args,
-                                ret_type: None,
-                            }),
-                    )
-                    .then_ignore(msnl)
-                    .then_ignore(char('|').critical_with_no_message())
-                    .then_ignore(msnl),
-                // Arg-less
-                empty().spanned().map(|eaten| FnSignature {
-                    args: RuntimeSpan::from(eaten.replace(vec![])),
-                    ret_type: None,
-                }),
-            ))
-            .spanned(),
+            char('|')
+                .ignore_then(msnl)
+                .ignore_then(
+                    fn_arg
+                        .separated_by(char(',').padded_by(msnl))
+                        .spanned()
+                        .map(RuntimeSpan::from)
+                        .map(|args| FnSignature {
+                            args,
+                            ret_type: None,
+                        }),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char('|').critical_with_no_message())
+                .spanned()
+                .then_ignore(msnl),
         )
         .then(
             raw_block
@@ -560,10 +551,10 @@ pub fn program(
             .then_ignore(msnl)
             .then_ignore(char('}').critical_with_no_message())
             .map(Value::Map),
+        // Lambdas
+        lambda.clone().map(Value::Lambda),
         // Structures
-        just("struct")
-            .ignore_then(msnl)
-            .ignore_then(char('{'))
+        char('{')
             .ignore_then(msnl)
             .ignore_then(
                 ident
@@ -593,8 +584,6 @@ pub fn program(
             .ignore_then(ident.critical("expected a function name"))
             .spanned()
             .map(Value::FnAsValue),
-        // Lambdas
-        lambda.clone().map(Value::Lambda),
     ));
 
     let single_op = choice::<SingleOp, _>((char('!').to(SingleOp::Neg),));
@@ -1666,8 +1655,9 @@ pub fn program(
         //
         // Base blocks
         //
-        lookahead(char('{'))
-            .ignore_then(block.spanned())
+        just("do")
+            .ignore_then(s)
+            .ignore_then(block.spanned().critical("expected a block"))
             .map(Instruction::DoBlock),
         //
         // Include statement

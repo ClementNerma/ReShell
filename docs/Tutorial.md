@@ -588,7 +588,7 @@ Most of the time, you should prefer explicitly using the `return` keyword as it 
 Structures have a rigid type that associated _fields_ and values:
 
 ```reshell
-let person = struct {
+let person = {
   name: 'John',
   age: 20
 }
@@ -603,11 +603,11 @@ echo ($person.name) # Prints: Jack
 Structures are typed like this:
 
 ```reshell
-fn sayHello(person: struct { name: string, age: int }) {
+fn sayHello(person: { name: string, age: int }) {
   echo "Hello, `$person.name`!"
 }
 
-sayHello(struct {
+sayHello({
   name: 'John',
   age: 20
 })
@@ -616,7 +616,7 @@ sayHello(struct {
 To debug a value of any type, we can use the `dbg` function:
 
 ```shell
-dbg (struct {
+dbg ({
   name: 'John',
   age: 20
 })
@@ -746,12 +746,12 @@ for key, value in $map {
 Maps can be typed using `map[<inner type>]`, e.g.:
 
 ```reshell
-let value: map[int]    = map(struct { a: 1, b: 2 })
-let value: map[string] = map(struct { a: 'a', b: 'b' })
+let value: map[int]    = map { a: 1, b: 2 }
+let value: map[string] = map { a: 'a', b: 'b' }
 
 # we can also use the 'map' type alone, which is functionally equivalent
 # to map[any]:
-let value: map = map(struct { a: 1, b: 'c' })
+let value: map = map { a: 1, b: 'c' }
 ```
 
 ### Type aliases
@@ -768,7 +768,7 @@ fn sayHello(person: Person) {
   echo "Hello, `$person.name`!"
 }
 
-sayHello(struct {
+sayHello({
   name: 'Jack',
   age: 20
 })
@@ -864,8 +864,8 @@ To simplify some assignments, we can use _destructuring_:
 
 ```reshell
 let [a, b, c] = [1, 2, 3]
-let { a, b, c } = struct { a: 1, b: 2, c: 3 }
-let { a, b, c } = map(struct { a: 1, b: 2, c: 3 })
+let { a, b, c } = { a: 1, b: 2, c: 3 }
+let { a, b, c } = map { a: 1, b: 2, c: 3 }
 
 echo $a # Prints: 1
 echo $b # Prints: 2
@@ -875,7 +875,7 @@ echo $c # Prints: 3
 Variables can also be renamed:
 
 ```reshell
-let { a: b } = struct { a: 1 }
+let { a: b } = { a: 1 }
 
 echo $b # Prints: 1
 ```
@@ -883,7 +883,7 @@ echo $b # Prints: 1
 We can also do some nesting:
 
 ```reshell
-let { a: [b, c, { d }] } = struct { a: [1, 2, struct { d: 3 }] }
+let { a: [b, c, { d }] } = { a: [1, 2, { d: 3 }] }
 
 dbg $b # Prints: 1
 dbg $c # Prints: 2
