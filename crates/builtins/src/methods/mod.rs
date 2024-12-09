@@ -89,6 +89,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::map::keys::build_fn(),
         self::map::len::build_fn(),
         self::map::remove::build_fn(),
+        self::map::to_struct::build_fn(),
         self::map::values::build_fn(),
         //
         // Progress bars
