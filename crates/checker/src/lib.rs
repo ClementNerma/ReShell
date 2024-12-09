@@ -27,9 +27,10 @@ use reshell_parser::{
         ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall,
         FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue,
-        MapDestructBinding, MatchCase, MatchExprCase, Program, PropAccess, PropAccessNature,
-        RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        MapDestructBinding, MapKey, MatchCase, MatchExprCase, Program, PropAccess,
+        PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -879,6 +880,15 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
             Ok(())
         }
 
+        Value::Map(members) => {
+            for (key, value) in members {
+                check_map_key(&key.data, state)?;
+                check_expr(value, state)?;
+            }
+
+            Ok(())
+        }
+
         Value::Struct(members) => {
             for item in members.values() {
                 check_expr(item, state)?;
@@ -939,6 +949,15 @@ fn check_computed_string_piece(piece: &ComputedStringPiece, state: &mut State) -
         }
         ComputedStringPiece::Expr(expr) => check_expr(&expr.data, state),
         ComputedStringPiece::CmdCall(cmd_call) => check_cmd_call(cmd_call, state),
+    }
+}
+
+fn check_map_key(key: &MapKey, state: &mut State) -> CheckerResult {
+    match key {
+        MapKey::Raw(_) => Ok(()),
+        MapKey::LiteralString(_) => Ok(()),
+        MapKey::ComputedString(c_str) => check_computed_string(c_str, state),
+        MapKey::Expr(expr) => check_expr(expr, state),
     }
 }
 

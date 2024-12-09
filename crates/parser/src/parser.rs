@@ -17,7 +17,7 @@ use crate::{
         DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining,
         ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MatchCase,
+        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MapKey, MatchCase,
         MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
         SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
         TypeMatchExprCase, Value, ValueType, VarDeconstruction,
@@ -517,6 +517,18 @@ pub fn program(
         .then_ignore(msnl)
         .then_ignore(char(')').critical_with_no_message());
 
+    let map_key = choice::<MapKey, _>((
+        ident.map(MapKey::Raw),
+        literal_string.map(MapKey::LiteralString),
+        computed_string.clone().map(MapKey::ComputedString),
+        char('[')
+            .ignore_then(msnl)
+            .ignore_then(expr.clone().critical("expected an expression"))
+            .then_ignore(msnl)
+            .then_ignore(char(']'))
+            .map(MapKey::Expr),
+    ));
+
     let value = choice::<Value, _>((
         just("null").map(|_| Value::Null),
         // Literals
@@ -534,6 +546,24 @@ pub fn program(
             .then_ignore(msnl)
             .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
             .map(Value::List),
+        // Maps
+        just("map")
+            .ignore_then(msnl)
+            .ignore_then(char('{'))
+            .ignore_then(msnl)
+            .ignore_then(
+                map_key
+                    .spanned()
+                    .then_ignore(ms)
+                    .then_ignore(char(':'))
+                    .then_ignore(msnl)
+                    .then(expr.clone().critical("expected an expression"))
+                    .separated_by(char(',').padded_by(msnl)),
+            )
+            .then_ignore(msnl)
+            .then_ignore(char('}').critical_with_no_message())
+            .map(Value::Map),
+        // Structures
         just("struct")
             .ignore_then(msnl)
             .ignore_then(char('{'))

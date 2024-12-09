@@ -3,7 +3,7 @@ use std::ops::Deref;
 use colored::Color;
 use jiff::{fmt::rfc2822, Zoned};
 use reshell_runtime::{
-    gc::GcReadOnlyCell, pretty_impl::pretty_print_string, values::CustomValueType,
+    gc::GcReadOnlyCell, pretty_impl::pretty_printable_string, values::CustomValueType,
 };
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
@@ -64,7 +64,7 @@ impl PrettyPrintable for DateTimeValue {
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
-            pretty_print_string(&rfc2822::to_string(&self.0).unwrap()),
+            pretty_printable_string(&rfc2822::to_string(&self.0).unwrap()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }

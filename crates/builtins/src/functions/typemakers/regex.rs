@@ -4,7 +4,7 @@ use colored::{Color, Colorize};
 use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
 use regex::Regex;
 use reshell_runtime::{
-    gc::GcReadOnlyCell, pretty_impl::pretty_print_string, values::CustomValueType,
+    gc::GcReadOnlyCell, pretty_impl::pretty_printable_string, values::CustomValueType,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece};
 
@@ -101,7 +101,7 @@ impl PrettyPrintable for RegexValue {
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
             PrettyPrintablePiece::colored_atomic("regex(", Color::Magenta),
-            pretty_print_string(self.0.as_str()),
+            pretty_printable_string(self.0.as_str()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }

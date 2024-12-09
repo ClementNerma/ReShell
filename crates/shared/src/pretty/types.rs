@@ -36,6 +36,7 @@ pub trait PrettyPrintable {
 }
 
 /// Colored string
+#[derive(Clone)]
 pub struct Styled(ColoredString);
 
 impl Styled {
@@ -67,6 +68,7 @@ impl From<ColoredString> for Styled {
 }
 
 /// Pretty-printable piece
+#[derive(Clone)]
 pub enum PrettyPrintablePiece {
     /// Atom: a simple string with a single color
     Atomic(Styled),
@@ -266,5 +268,13 @@ impl PrettyPrintablePiece {
                 }
             }
         }
+    }
+}
+
+impl PrettyPrintable for PrettyPrintablePiece {
+    type Context = ();
+
+    fn generate_pretty_data(&self, _: &Self::Context) -> PrettyPrintablePiece {
+        self.clone()
     }
 }

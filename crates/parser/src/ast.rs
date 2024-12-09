@@ -288,6 +288,7 @@ pub enum Value {
     Literal(LiteralValue),
     ComputedString(ComputedString),
     List(Vec<Span<Expr>>),
+    Map(Vec<(Span<MapKey>, Expr)>),
     Struct(HashMap<String, Expr>),
     Variable(Span<String>),
     FnCall(Span<FnCall>),
@@ -295,6 +296,14 @@ pub enum Value {
     CmdCall(Span<CmdCall>),
     FnAsValue(Span<String>),
     Lambda(Function),
+}
+
+#[derive(Debug, Clone)]
+pub enum MapKey {
+    Raw(String),
+    LiteralString(String),
+    ComputedString(ComputedString),
+    Expr(Expr),
 }
 
 #[derive(Debug, Clone, Hash)]

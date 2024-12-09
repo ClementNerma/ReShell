@@ -39,7 +39,7 @@ impl PrettyPrintable for RuntimeValue {
                 PrettyPrintablePiece::colored_atomic(float.to_string(), Color::BrightYellow)
             }
 
-            RuntimeValue::String(string) => pretty_print_string(string),
+            RuntimeValue::String(string) => pretty_printable_string(string),
 
             RuntimeValue::Error(err) => {
                 let ErrorValueContent { at, data } = &**err;
@@ -236,7 +236,7 @@ impl PrettyPrintable for SingleCmdArgResult {
     }
 }
 
-pub fn pretty_print_string(string: &str) -> PrettyPrintablePiece {
+pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
     let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
         "'",
         Color::BrightGreen,

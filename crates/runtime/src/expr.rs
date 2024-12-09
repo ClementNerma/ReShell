@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-    ExprInnerContent, ExprOp, Function, LiteralValue, MatchExprCase, PropAccess, RangeBound,
-    RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value, ValueType,
+    ExprInnerContent, ExprOp, Function, LiteralValue, MapKey, MatchExprCase, PropAccess,
+    RangeBound, RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value, ValueType,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -13,6 +13,7 @@ use crate::{
     errors::{ExecError, ExecErrorNature, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
+    pretty_impl::pretty_printable_string,
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy},
     typechecker::check_if_value_fits_type,
     values::{
@@ -548,6 +549,33 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
                 .collect::<Result<Vec<_>, _>>()?,
         )),
 
+        Value::Map(members) => {
+            let mut map = IndexMap::with_capacity(members.len());
+
+            for (key, value) in members {
+                let key_at = key.at;
+
+                let key = eval_map_key(key, ctx)?;
+
+                if map.contains_key(&key) {
+                    return Err(ctx.error(
+                        key_at,
+                        format!(
+                            "key {} appears twice in this map",
+                            pretty_printable_string(&key)
+                                .render_colored(&(), PrettyPrintOptions::inline())
+                        ),
+                    ));
+                }
+
+                let value = eval_expr(value, ctx)?;
+
+                map.insert(key, value);
+            }
+
+            RuntimeValue::Map(GcCell::new(map))
+        }
+
         Value::Struct(obj) => {
             let members = obj
                 .iter()
@@ -642,6 +670,26 @@ fn eval_computed_string_piece(
         )?
         .as_captured()
         .unwrap()),
+    }
+}
+
+fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
+    match &key.data {
+        MapKey::Raw(str) => Ok(str.to_owned()),
+        MapKey::LiteralString(str) => Ok(str.to_owned()),
+        MapKey::ComputedString(computed_string) => eval_computed_string(computed_string, ctx),
+        MapKey::Expr(expr) => match eval_expr(expr, ctx)? {
+            RuntimeValue::String(str) => Ok(str),
+            value => Err(ctx.error(
+                key.at,
+                format!(
+                    "expected a string key for the map, got a: {}",
+                    value
+                        .compute_type()
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                ),
+            )),
+        },
     }
 }
 
