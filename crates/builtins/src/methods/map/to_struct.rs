@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "toStruct",
 
     (
-        obj: RequiredArg<UntypedMapType> = Arg::method_self(),
+        map: RequiredArg<UntypedMapType> = Arg::method_self(),
         linked: PresenceFlag = Arg::long_flag("linked")
     )
 
@@ -16,11 +16,11 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { obj, linked }, _, _| {
+    Runner::new(|_, Args { map, linked }, _, _| {
         Ok(Some(RuntimeValue::Struct(if linked {
-            obj
+            map
         } else {
-            GcCell::new(obj.read_promise_no_write().clone())
+            GcCell::new(map.read_promise_no_write().clone())
         })))
     })
 }
