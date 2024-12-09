@@ -26,13 +26,13 @@ impl PrettyPrintable for ValueType {
             Self::Single(single) => single.generate_pretty_data(ctx),
 
             Self::Union(types) => PrettyPrintablePiece::List {
-                begin: Styled::empty(),
+                begin: vec![Styled::empty()],
                 items: types
                     .iter()
                     .map(|typ| typ.generate_pretty_data(ctx))
                     .collect(),
-                sep: Styled::colored(" |", Color::Magenta),
-                end: Styled::empty(),
+                sep: vec![Styled::colored(" |", Color::Magenta)],
+                end: vec![],
                 suffix: None,
             },
         }
@@ -68,7 +68,7 @@ impl PrettyPrintable for SingleValueType {
             ]),
             Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
             Self::TypedStruct(members) => PrettyPrintablePiece::List {
-                begin: Styled::colored("struct { ", Color::Magenta),
+                begin: vec![Styled::colored("struct { ", Color::Magenta)],
                 items: members
                     .iter()
                     .map(|member| {
@@ -81,8 +81,8 @@ impl PrettyPrintable for SingleValueType {
                         ])
                     })
                     .collect(),
-                sep: Styled::colored(",", Color::BrightBlack),
-                end: Styled::colored(" }", Color::Magenta),
+                sep: vec![Styled::colored(",", Color::BrightBlack)],
+                end: vec![Styled::colored(" }", Color::Magenta)],
                 suffix: None,
             },
             Self::Function(signature) => signature.data.generate_pretty_data(ctx),
@@ -166,14 +166,14 @@ impl PrettyPrintable for FnSignature {
         let Self { args, ret_type } = self;
 
         PrettyPrintablePiece::List {
-            begin: Styled::colored("fn(", Color::BrightMagenta),
+            begin: vec![Styled::colored("fn(", Color::BrightMagenta)],
             items: args
                 .data
                 .iter()
                 .map(|item| item.generate_pretty_data(ctx))
                 .collect(),
-            sep: Styled::colored(",", Color::Blue),
-            end: Styled::colored(")", Color::BrightMagenta),
+            sep: vec![Styled::colored(",", Color::Blue)],
+            end: vec![Styled::colored(")", Color::BrightMagenta)],
             suffix: ret_type.as_ref().map(|ret_type| {
                 Box::new(PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),

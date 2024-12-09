@@ -79,10 +79,10 @@ pub enum PrettyPrintablePiece {
     /// List: a list with a beginning and end pieces, and a value separator
     /// Will be printed differently depending on the configuration
     List {
-        begin: Styled,
+        begin: Vec<Styled>,
         items: Vec<PrettyPrintablePiece>,
-        sep: Styled,
-        end: Styled,
+        sep: Vec<Styled>,
+        end: Vec<Styled>,
         suffix: Option<Box<PrettyPrintablePiece>>,
     },
 
@@ -157,14 +157,18 @@ impl PrettyPrintablePiece {
                 end,
                 suffix,
             } => {
-                begin.len_chars()
+                let begin_len = begin.iter().map(|s| s.len_chars()).sum::<usize>();
+                let sep_len = sep.iter().map(|s| s.len_chars()).sum::<usize>();
+                let end_len = end.iter().map(|s| s.len_chars()).sum::<usize>();
+
+                begin_len
                     + items.iter().map(Self::display_chars_count).sum::<usize>()
                     + if items.is_empty() {
                         0
                     } else {
-                        (sep.len_chars() + 1/* space */) * (items.len() - 1)
+                        (sep_len + 1/* space */) * (items.len() - 1)
                     }
-                    + end.len_chars()
+                    + end_len
                     + match suffix {
                         Some(suffix) => suffix.display_chars_count(),
                         None => 0,
@@ -221,21 +225,29 @@ impl PrettyPrintablePiece {
                 if !pretty || self.fits_in_line(max_line_size, current_ident + line_prefix_size) {
                     let space = Styled::colorless(" ");
 
-                    w(begin);
+                    for styled in begin {
+                        w(styled);
+                    }
 
                     for (i, item) in items.iter().enumerate() {
                         item.render_inner(opts, w, current_ident);
 
                         if i < items.len() - 1 {
-                            w(sep);
+                            for styled in sep {
+                                w(styled);
+                            }
+
                             w(&space);
                         }
                     }
 
-                    w(end);
+                    for styled in end {
+                        w(styled);
+                    }
                 } else {
-                    w(begin);
-
+                    for styled in begin {
+                        w(styled);
+                    }
                     let spacing =
                         Styled::colorless(format!("\n{}", " ".repeat(current_ident + tab_size)));
 
@@ -245,7 +257,9 @@ impl PrettyPrintablePiece {
                         item.render_inner(opts, w, current_ident + tab_size);
 
                         if i < items.len() - 1 {
-                            w(sep);
+                            for styled in sep {
+                                w(styled);
+                            }
                         }
                     }
 
@@ -254,7 +268,9 @@ impl PrettyPrintablePiece {
                         " ".repeat(current_ident)
                     )));
 
-                    w(end);
+                    for styled in end {
+                        w(styled);
+                    }
                 }
 
                 if let Some(suffix) = suffix {

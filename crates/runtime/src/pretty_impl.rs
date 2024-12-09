@@ -66,19 +66,19 @@ impl PrettyPrintable for RuntimeValue {
             ]),
 
             RuntimeValue::List(list) => PrettyPrintablePiece::List {
-                begin: Styled::colored("[", Color::Blue),
+                begin: vec![Styled::colored("[", Color::Blue)],
                 items: list
                     .read_promise_no_write()
                     .iter()
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
-                sep: Styled::colored(",", Color::Blue),
-                end: Styled::colored("]", Color::Blue),
+                sep: vec![Styled::colored(",", Color::Blue)],
+                end: vec![Styled::colored("]", Color::Blue)],
                 suffix: None,
             },
 
             RuntimeValue::Map(map) => PrettyPrintablePiece::List {
-                begin: Styled::colored("map({", Color::Magenta),
+                begin: vec![Styled::colored("map({", Color::Magenta)],
                 items: {
                     let map = map.read_promise_no_write();
 
@@ -87,32 +87,28 @@ impl PrettyPrintable for RuntimeValue {
 
                     keys.iter()
                         .map(|key| {
+                            let mut styled_key = pretty_printable_string_parts(key);
+                            styled_key.push(Styled::colored(":", Color::Cyan));
+                            styled_key.push(Styled::colorless(" "));
+
                             // Yes, that part is a hack :p
                             PrettyPrintablePiece::List {
-                                begin: Styled::colored(
-                                    format!(
-                                        "\"{}\": ",
-                                        key.replace('\\', "\\\\")
-                                            .replace('\"', "\\\"")
-                                            .replace('\n', "\\n")
-                                    ),
-                                    Color::Green,
-                                ),
+                                begin: styled_key,
                                 items: vec![map.get(*key).unwrap().generate_pretty_data(ctx)],
-                                sep: Styled::empty(),
-                                end: Styled::empty(),
+                                sep: vec![],
+                                end: vec![],
                                 suffix: None,
                             }
                         })
                         .collect()
                 },
-                sep: Styled::colored(",", Color::Blue),
-                end: Styled::colored("})", Color::Magenta),
+                sep: vec![Styled::colored(",", Color::Blue)],
+                end: vec![Styled::colored("})", Color::Magenta)],
                 suffix: None,
             },
 
             RuntimeValue::Struct(obj) => PrettyPrintablePiece::List {
-                begin: Styled::colored("{", Color::Blue),
+                begin: vec![Styled::colored("{", Color::Blue)],
                 items: {
                     let obj = obj.read_promise_no_write();
 
@@ -123,21 +119,18 @@ impl PrettyPrintable for RuntimeValue {
                         .map(|field|
                         // Yes, that part is a hack :p
                         PrettyPrintablePiece::List {
-                            begin: Styled::colored(
-                                format!("{field}: "),
-                                Color::Red
-                            ),
+                            begin: vec![Styled::colored(field, Color::Red),Styled::colored(":", Color::Blue), Styled::colorless(" ")],
                             items: vec![
                                 obj.get(*field).unwrap().generate_pretty_data(ctx)
                             ],
-                            sep: Styled::empty(),
-                            end: Styled::empty(),
+                            sep: vec![],
+                            end: vec![],
                             suffix: None
                         })
                         .collect()
                 },
-                sep: Styled::colored(",", Color::Blue),
-                end: Styled::colored("}", Color::Blue),
+                sep: vec![Styled::colored(",", Color::Blue)],
+                end: vec![Styled::colored("}", Color::Blue)],
                 suffix: None,
             },
 
@@ -212,13 +205,13 @@ impl PrettyPrintable for CmdArgResult {
             Self::Single(single) => single.generate_pretty_data(ctx),
 
             Self::Spreaded(items) => PrettyPrintablePiece::List {
-                begin: Styled::colored("spread(", Color::Magenta),
+                begin: vec![Styled::colored("spread(", Color::Magenta)],
                 items: items
                     .iter()
                     .map(|item| item.generate_pretty_data(ctx))
                     .collect(),
-                sep: Styled::colored(",", Color::Blue),
-                end: Styled::colored(")", Color::Magenta),
+                sep: vec![Styled::colored(",", Color::Blue)],
+                end: vec![Styled::colored(")", Color::Magenta)],
                 suffix: None,
             },
         }
@@ -235,12 +228,12 @@ impl PrettyPrintable for SingleCmdArgResult {
         }
     }
 }
-
 pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
-    let mut pieces = vec![PrettyPrintablePiece::colored_atomic(
-        "'",
-        Color::BrightGreen,
-    )];
+    PrettyPrintablePiece::Suite(pretty_printable_string_parts(string))
+}
+
+pub fn pretty_printable_string_parts(string: &str) -> Vec<Styled> {
+    let mut pieces = vec![Styled::colored("'", Color::BrightGreen)];
 
     let mut shift = 0;
 
@@ -248,10 +241,7 @@ pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
         pos += shift;
 
         if pos > shift {
-            pieces.push(PrettyPrintablePiece::colored_atomic(
-                &string[shift..pos],
-                Color::BrightGreen,
-            ));
+            pieces.push(Styled::colored(&string[shift..pos], Color::BrightGreen));
         }
 
         let to_escape = match &string[pos..pos + 1] {
@@ -260,25 +250,16 @@ pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
             str => str,
         };
 
-        pieces.push(PrettyPrintablePiece::colored_atomic(
-            format!("\\{to_escape}"),
-            Color::Cyan,
-        ));
+        pieces.push(Styled::colored(format!("\\{to_escape}"), Color::Cyan));
 
         shift = pos + 1;
     }
 
     if shift < string.len() {
-        pieces.push(PrettyPrintablePiece::colored_atomic(
-            &string[shift..],
-            Color::BrightGreen,
-        ));
+        pieces.push(Styled::colored(&string[shift..], Color::BrightGreen));
     }
 
-    pieces.push(PrettyPrintablePiece::colored_atomic(
-        "'",
-        Color::BrightGreen,
-    ));
+    pieces.push(Styled::colored("'", Color::BrightGreen));
 
-    PrettyPrintablePiece::Join(pieces)
+    pieces
 }
