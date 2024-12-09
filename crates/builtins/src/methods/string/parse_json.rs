@@ -7,7 +7,7 @@ define_internal_fn!(
     "parseJson",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("string"),
+        string: RequiredArg<StringType> = Arg::method_self(),
         use_maps: PresenceFlag = Arg::long_and_short_flag("use-maps", 'm')
     )
 

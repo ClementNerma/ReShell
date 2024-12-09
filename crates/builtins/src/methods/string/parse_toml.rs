@@ -14,7 +14,7 @@ define_internal_fn!(
     "parseToml",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("string")
+        string: RequiredArg<StringType> = Arg::method_self()
     )
 
     -> Some(AnyType::value_type())

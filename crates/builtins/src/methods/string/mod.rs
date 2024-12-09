@@ -9,6 +9,8 @@ pub mod pad_end;
 pub mod pad_start;
 pub mod parse_float;
 pub mod parse_int;
+pub mod parse_json;
+pub mod parse_toml;
 pub mod repeat;
 pub mod replace;
 pub mod reversed;
