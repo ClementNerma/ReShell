@@ -700,16 +700,10 @@ let value: list = [1, 2, 3]
 Maps associate a set of key-values, but unlike with structures they can be added or removed:
 
 ```reshell
-map(struct {
+map {
   name: 'John',
   age: 20
-})
-
-# equivalent syntax:
-map([
-  ['name', 'John'],
-  ['age', 20]
-])
+}
 ```
 
 We can use them like this:
@@ -721,6 +715,24 @@ echo ($map['age'])  # Prints: 20
 $map['location'] = 'Paris' # We can add new keys!
 
 $map.remove('location') # We can also remove them!
+```
+
+It is possible to use _computed keys_ for maps as well:
+
+```reshell
+map {
+  # Identifier
+  key1: 1,
+
+  # Literal string
+  'key2': 2,
+
+  # Computed string
+  "key`3`": 3,
+
+  # Expression
+  ["key`4`"]: 4
+}
 ```
 
 We can also iterate over maps:
