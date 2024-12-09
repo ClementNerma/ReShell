@@ -300,6 +300,9 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Symbols and operators
                 simple("(,|\\s[&\\|;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]\\s|&&|\\|\\|)", [LightYellow]),
 
+                // 'typeis' operator
+                simple("\\b(typeis)\\b", [Magenta]),
+
                 // Other characters
                 simple("(.)", [Green])
             ])
