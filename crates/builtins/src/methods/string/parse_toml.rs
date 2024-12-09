@@ -14,14 +14,15 @@ define_internal_fn!(
     "parseToml",
 
     (
-        string: RequiredArg<StringType> = Arg::method_self()
+        string: RequiredArg<StringType> = Arg::method_self(),
+        use_maps: PresenceFlag = Arg::long_and_short_flag("use-maps", 'm')
     )
 
     -> Some(AnyType::value_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { string }, args_at, ctx| {
+    Runner::new(|_, Args { string, use_maps }, args_at, ctx| {
         let toml = string.parse::<Table>().map_err(|err| {
             ctx.throw(
                 args_at.string,
@@ -29,7 +30,7 @@ fn run() -> Runner {
             )
         })?;
 
-        let json = toml_to_value(Value::Table(toml)).map_err(|err| {
+        let json = toml_to_value(Value::Table(toml), use_maps).map_err(|err| {
             ctx.throw(
                 args_at.string,
                 format!("Failed to parse input string as JSON: {err}",),
@@ -40,7 +41,7 @@ fn run() -> Runner {
     })
 }
 
-fn toml_to_value(value: Value) -> Result<RuntimeValue, String> {
+fn toml_to_value(value: Value, use_maps: bool) -> Result<RuntimeValue, String> {
     match value {
         Value::Boolean(bool) => Ok(RuntimeValue::Bool(bool)),
 
@@ -98,16 +99,24 @@ fn toml_to_value(value: Value) -> Result<RuntimeValue, String> {
         Value::Array(array) => Ok(RuntimeValue::List(GcCell::new(
             array
                 .into_iter()
-                .map(toml_to_value)
+                .map(|value| toml_to_value(value, use_maps))
                 .collect::<Result<_, _>>()?,
         ))),
 
-        Value::Table(object) => Ok(RuntimeValue::Map(GcCell::new(
-            object
-                .into_iter()
-                .map(|(key, value)| toml_to_value(value).map(|value| (key, value)))
-                .collect::<Result<_, _>>()?,
-        ))),
+        Value::Table(object) => {
+            let gc_cell = GcCell::new(
+                object
+                    .into_iter()
+                    .map(|(key, value)| toml_to_value(value, use_maps).map(|value| (key, value)))
+                    .collect::<Result<_, _>>()?,
+            );
+
+            Ok(if use_maps {
+                RuntimeValue::Map(gc_cell)
+            } else {
+                RuntimeValue::Struct(gc_cell)
+            })
+        }
     }
 }
 
