@@ -579,10 +579,10 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
         Value::Struct(obj) => {
             let members = obj
                 .iter()
-                .map(|(name, expr)| {
-                    let result = eval_expr(expr, ctx)?;
+                .map(|(field, value)| {
+                    let result = eval_expr(value, ctx)?;
 
-                    Ok::<_, Box<ExecError>>((name.clone(), result))
+                    Ok::<_, Box<ExecError>>((field.data.clone(), result))
                 })
                 .collect::<Result<IndexMap<_, _>, _>>()?;
 

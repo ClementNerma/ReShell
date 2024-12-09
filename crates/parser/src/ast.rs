@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use parsy::{CodeRange, Span};
 
 use crate::scope::AstScopeId;
@@ -289,7 +287,7 @@ pub enum Value {
     ComputedString(ComputedString),
     List(Vec<Span<Expr>>),
     Map(Vec<(Span<MapKey>, Expr)>),
-    Struct(HashMap<String, Expr>),
+    Struct(Vec<(Span<String>, Expr)>),
     Variable(Span<String>),
     FnCall(Span<FnCall>),
     CmdOutput(Span<CmdCall>),

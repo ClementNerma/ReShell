@@ -890,8 +890,17 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
         }
 
         Value::Struct(members) => {
-            for item in members.values() {
-                check_expr(item, state)?;
+            let mut fields = HashSet::new();
+
+            for (field, value) in members {
+                if !fields.insert(&field.data) {
+                    return Err(CheckerError::new(
+                        field.at,
+                        "duplicate identifier in struct",
+                    ));
+                }
+
+                check_expr(value, state)?;
             }
 
             Ok(())

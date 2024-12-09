@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::LazyLock,
-};
+use std::{collections::HashSet, sync::LazyLock};
 
 use parsy::{
     atoms::{alphanumeric, digits},
@@ -570,6 +567,7 @@ pub fn program(
             .ignore_then(msnl)
             .ignore_then(
                 ident
+                    .spanned()
                     .then_ignore(ms)
                     .then_ignore(char(':'))
                     .then_ignore(msnl)
@@ -578,7 +576,7 @@ pub fn program(
             )
             .then_ignore(msnl)
             .then_ignore(char('}').critical_with_no_message())
-            .map(|members| Value::Struct(members.into_iter().collect::<HashMap<_, _>>())),
+            .map(Value::Struct),
         // Function calls
         fn_call.clone().spanned().map(Value::FnCall),
         // Command calls
