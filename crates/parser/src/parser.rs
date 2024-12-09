@@ -911,7 +911,7 @@ pub fn program(
             .then(
                 s.ignore_then(just("typeis"))
                     .ignore_then(s.critical_with_no_message())
-                    .ignore_then(value_type.clone())
+                    .ignore_then(value_type.clone().critical("expected a type"))
                     .or_not(),
             )
             .map(|((inner, right_ops), check_if_type_is)| Expr {
