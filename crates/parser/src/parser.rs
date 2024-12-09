@@ -880,7 +880,17 @@ pub fn program(
         expr_inner
             .spanned()
             .then(ms.ignore_then(expr_op).repeated_vec())
-            .map(|(inner, right_ops)| Expr { inner, right_ops }),
+            .then(
+                s.ignore_then(just("typeis"))
+                    .ignore_then(s.critical_with_no_message())
+                    .ignore_then(value_type.clone())
+                    .or_not(),
+            )
+            .map(|((inner, right_ops), check_if_type_is)| Expr {
+                inner,
+                right_ops,
+                check_if_type_is,
+            }),
     );
 
     let cmd_raw_string = not(just("->")).ignore_then(

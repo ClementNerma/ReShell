@@ -3,7 +3,7 @@ use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
     ExprInnerContent, ExprOp, Function, LiteralValue, MatchExprCase, PropAccess, RangeBound,
-    RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value,
+    RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value, ValueType,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -22,14 +22,19 @@ use crate::{
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let Expr { inner, right_ops } = &expr;
+    let Expr {
+        inner,
+        right_ops,
+        check_if_type_is,
+    } = &expr;
 
-    eval_expr_ref(inner, right_ops, ctx)
+    eval_expr_ref(inner, right_ops, check_if_type_is.as_ref(), ctx)
 }
 
 fn eval_expr_ref(
     inner: &Span<ExprInner>,
     right_ops: &[ExprOp],
+    check_if_type_is: Option<&ValueType>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
     for precedence in (0..=4).rev() {
@@ -53,9 +58,10 @@ fn eval_expr_ref(
             }
         }
 
-        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
+        let left = eval_expr_ref(inner, &right_ops[..pos], None, ctx)?;
 
-        let right = |ctx: &'_ mut Context| eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], ctx);
+        let right =
+            |ctx: &'_ mut Context| eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], None, ctx);
 
         let result = apply_double_op(left, right, &expr_op.op, ctx)?;
 
@@ -64,7 +70,15 @@ fn eval_expr_ref(
 
     // We reach here only if there was no operator in the expression, so we just have to evaluate the inner
     assert!(right_ops.is_empty());
-    eval_expr_inner(inner, ctx)
+
+    let inner = eval_expr_inner(inner, ctx)?;
+
+    Ok(match check_if_type_is {
+        Some(check_if_type_is) => {
+            RuntimeValue::Bool(check_if_value_fits_type(&inner, check_if_type_is, ctx))
+        }
+        None => inner,
+    })
 }
 
 /// Apply a double operator (which is an operator taking two operands)

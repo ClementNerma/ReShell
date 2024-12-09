@@ -196,6 +196,7 @@ pub enum RangeBound {
 pub struct Expr {
     pub inner: Span<ExprInner>,
     pub right_ops: Vec<ExprOp>,
+    pub check_if_type_is: Option<ValueType>,
 }
 
 #[derive(Debug, Clone)]

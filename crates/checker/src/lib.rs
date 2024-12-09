@@ -673,12 +673,20 @@ fn check_expr_with(
 }
 
 fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
-    let Expr { inner, right_ops } = expr;
+    let Expr {
+        inner,
+        right_ops,
+        check_if_type_is,
+    } = expr;
 
     check_expr_inner(inner, state)?;
 
     for op in right_ops {
         check_expr_op(op, state)?;
+    }
+
+    if let Some(check_if_type_is) = check_if_type_is {
+        check_value_type(check_if_type_is, state)?;
     }
 
     Ok(())
