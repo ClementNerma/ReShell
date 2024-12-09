@@ -179,16 +179,22 @@ impl RuntimeValue {
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
             RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
             RuntimeValue::Error(_) => SingleValueType::Error,
-            RuntimeValue::List(items) => SingleValueType::TypedList(Box::new(
-                generate_values_types(items.read_promise_no_write().iter()),
-            )),
+            RuntimeValue::List(items) => {
+                match generate_values_types(items.read_promise_no_write().iter()) {
+                    Some(typ) => SingleValueType::TypedList(Box::new(typ)),
+                    None => SingleValueType::UntypedList,
+                }
+            }
             RuntimeValue::Map(entries) => {
-                SingleValueType::TypedMap(Box::new(generate_values_types(
+                match generate_values_types(
                     entries
                         .read_promise_no_write()
                         .iter()
                         .map(|(_, value)| value),
-                )))
+                ) {
+                    Some(typ) => SingleValueType::TypedMap(Box::new(typ)),
+                    None => SingleValueType::UntypedMap,
+                }
             }
             RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
                 members
@@ -234,7 +240,7 @@ impl RuntimeValue {
 }
 
 /// Generate types for list of values
-fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> ValueType {
+fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> Option<ValueType> {
     let mut types = vec![];
     let mut types_hash = HashSet::new();
 
@@ -251,9 +257,9 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
     }
 
     match types.len() {
-        0 => ValueType::Single(SingleValueType::Any),
-        1 => ValueType::Single(types.remove(0)),
-        _ => ValueType::Union(types),
+        0 => None,
+        1 => Some(ValueType::Single(types.remove(0))),
+        _ => Some(ValueType::Union(types)),
     }
 }
 
