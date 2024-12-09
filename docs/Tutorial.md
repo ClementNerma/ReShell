@@ -855,7 +855,9 @@ We can re-declare a variable with the same name to _shadow_ the previous one:
 
 ```reshell
 let var = '{"a":1}'
-let var = parseJson($var)
+let var = $var.parseJson()
+
+echo ($var.a) # Prints: 1
 ```
 
 ### Destructuring
