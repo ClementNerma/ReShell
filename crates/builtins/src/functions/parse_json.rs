@@ -7,14 +7,15 @@ define_internal_fn!(
     "parseJson",
 
     (
-        string: RequiredArg<StringType> = Arg::positional("string")
+        string: RequiredArg<StringType> = Arg::positional("string"),
+        use_maps: PresenceFlag = Arg::long_and_short_flag("use-maps", 'm')
     )
 
     -> Some(AnyType::value_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { string }, args_at, ctx| {
+    Runner::new(|_, Args { string, use_maps }, args_at, ctx| {
         let json = serde_json::from_str(&string).map_err(|err| {
             ctx.throw(
                 args_at.string,
@@ -22,7 +23,7 @@ fn run() -> Runner {
             )
         })?;
 
-        let json = serde_json_to_value(json).map_err(|err| {
+        let json = serde_json_to_value(json, use_maps).map_err(|err| {
             ctx.throw(
                 args_at.string,
                 format!("Failed to parse input string as JSON: {err}"),
@@ -33,7 +34,7 @@ fn run() -> Runner {
     })
 }
 
-fn serde_json_to_value(value: Value) -> Result<RuntimeValue, String> {
+fn serde_json_to_value(value: Value, use_maps: bool) -> Result<RuntimeValue, String> {
     match value {
         Value::Null => Ok(RuntimeValue::Null),
 
@@ -56,15 +57,25 @@ fn serde_json_to_value(value: Value) -> Result<RuntimeValue, String> {
         Value::Array(array) => Ok(RuntimeValue::List(GcCell::new(
             array
                 .into_iter()
-                .map(serde_json_to_value)
+                .map(|value| serde_json_to_value(value, use_maps))
                 .collect::<Result<_, _>>()?,
         ))),
 
-        Value::Object(object) => Ok(RuntimeValue::Map(GcCell::new(
-            object
-                .into_iter()
-                .map(|(key, value)| serde_json_to_value(value).map(|value| (key, value)))
-                .collect::<Result<_, _>>()?,
-        ))),
+        Value::Object(object) => {
+            let gc_cell = GcCell::new(
+                object
+                    .into_iter()
+                    .map(|(key, value)| {
+                        serde_json_to_value(value, use_maps).map(|value| (key, value))
+                    })
+                    .collect::<Result<_, _>>()?,
+            );
+
+            Ok(if use_maps {
+                RuntimeValue::Map(gc_cell)
+            } else {
+                RuntimeValue::Struct(gc_cell)
+            })
+        }
     }
 }
