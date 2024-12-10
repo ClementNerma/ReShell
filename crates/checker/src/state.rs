@@ -110,19 +110,19 @@ impl<'a> State<'a> {
                     .scopes
                     .iter()
                     .rev()
-                    .find_map(|scope| scope.vars.get(&item_usage.data).copied())
+                    .find_map(|scope| scope.vars.get(&item_usage.data))
                     .ok_or_else(|| CheckerError::new(item_usage.at, "variable was not found"))?;
 
-                match var.decl_at {
-                    RuntimeCodeRange::Internal(_) => Ok(()),
-
-                    RuntimeCodeRange::Parsed(item_decl_at) => self.register_single_usage(
+                if let RuntimeCodeRange::Parsed(item_decl_at) = var.decl_at {
+                    self.register_single_usage(
                         var.scope_id,
                         item_decl_at,
                         &item_usage.data,
                         dep_type,
-                    ),
+                    )?;
                 }
+
+                Ok(())
             }
 
             DependencyType::Function => {
@@ -130,23 +130,23 @@ impl<'a> State<'a> {
                     .scopes
                     .iter()
                     .rev()
-                    .find_map(|scope| scope.fns.get(&item_usage.data).copied())
+                    .find_map(|scope| scope.fns.get(&item_usage.data))
                     .ok_or_else(|| CheckerError::new(item_usage.at, "function was not found"))?;
 
-                match func.decl_at {
-                    RuntimeCodeRange::Internal(_) => Ok(()),
-
-                    RuntimeCodeRange::Parsed(item_decl_at) => self.register_single_usage(
+                if let RuntimeCodeRange::Parsed(item_decl_at) = func.decl_at {
+                    self.register_single_usage(
                         func.scope_id,
                         item_decl_at,
                         &item_usage.data,
                         dep_type,
-                    ),
+                    )?;
                 }
+
+                Ok(())
             }
 
             DependencyType::Method => {
-                let methods_scope_id = self
+                let methods = self
                     .scopes
                     .iter()
                     .rev()
@@ -155,11 +155,11 @@ impl<'a> State<'a> {
                     .copied()
                     .collect::<Vec<_>>();
 
-                if methods_scope_id.is_empty() {
+                if methods.is_empty() {
                     return Err(CheckerError::new(item_usage.at, "method was not found"));
                 }
 
-                for method in methods_scope_id {
+                for method in methods {
                     match method.decl_at {
                         RuntimeCodeRange::Internal(_) => {}
                         RuntimeCodeRange::Parsed(item_decl_at) => {
