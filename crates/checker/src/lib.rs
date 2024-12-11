@@ -351,7 +351,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             list_push: _,
             expr,
         } => {
-            state.register_usage(name, DependencyType::Variable)?;
+            state.register_var_usage(name)?;
 
             let var = state
                 .scopes()
@@ -641,7 +641,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
 fn check_range_bound(range_bound: &RangeBound, state: &mut State) -> CheckerResult {
     match range_bound {
         RangeBound::Literal(_) => Ok(()),
-        RangeBound::Variable(var) => state.register_usage(var, DependencyType::Variable),
+        RangeBound::Variable(var) => state.register_var_usage(var),
         RangeBound::Expr(expr) => check_expr(&expr.data, state),
     }
 }
@@ -736,7 +736,7 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
         }
 
         ExprInnerContent::FnAsValue(name) => {
-            state.register_usage(name, DependencyType::Function)?;
+            state.register_fn_usage(name)?;
         }
 
         ExprInnerContent::Ternary {
@@ -907,7 +907,7 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
         }
 
         Value::Variable(var) => {
-            state.register_usage(var, DependencyType::Variable)?;
+            state.register_var_usage(var)?;
             Ok(())
         }
 
@@ -921,7 +921,7 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
         }
 
         Value::FnAsValue(func_name) => {
-            state.register_usage(func_name, DependencyType::Function)?;
+            state.register_fn_usage(func_name)?;
             Ok(())
         }
 
@@ -953,7 +953,7 @@ fn check_computed_string_piece(piece: &ComputedStringPiece, state: &mut State) -
         ComputedStringPiece::Literal(_) => Ok(()),
         ComputedStringPiece::Escaped(_) => Ok(()),
         ComputedStringPiece::Variable(var) => {
-            state.register_usage(var, DependencyType::Variable)?;
+            state.register_var_usage(var)?;
             Ok(())
         }
         ComputedStringPiece::Expr(expr) => check_expr(&expr.data, state),
@@ -978,9 +978,9 @@ fn check_fn_call(fn_call: &Span<FnCall>, state: &mut State) -> CheckerResult {
     } = &fn_call.data;
 
     match nature {
-        FnCallNature::Variable => state.register_usage(name, DependencyType::Variable)?,
-        FnCallNature::Method => state.register_usage(name, DependencyType::Method)?,
-        FnCallNature::NamedFunction => state.register_usage(name, DependencyType::Function)?,
+        FnCallNature::Variable => state.register_var_usage(name)?,
+        FnCallNature::Method => state.register_method_usage(name)?,
+        FnCallNature::NamedFunction => state.register_fn_usage(name)?,
     }
 
     for arg in &call_args.data {
@@ -1083,7 +1083,7 @@ fn check_single_cmd_call(
                 ));
             }
 
-            state.register_usage(name, DependencyType::Method)?;
+            state.register_method_usage(name)?;
 
             CmdPathTargetType::Function
         }
@@ -1154,7 +1154,7 @@ fn check_if_cmd_or_fn_and_register(
                     ));
                 }
 
-                state.register_usage(name, DependencyType::CmdAlias)?;
+                state.register_cmd_alias_usage(name)?;
 
                 developed_aliases.push(DevelopedCmdAliasCall {
                     alias_called_at: name.clone(),
@@ -1174,7 +1174,7 @@ fn check_if_cmd_or_fn_and_register(
             }
 
             Target::Function => {
-                state.register_usage(name, DependencyType::Function)?;
+                state.register_fn_usage(name)?;
                 Ok(CmdPathTargetType::Function)
             }
         },
@@ -1212,7 +1212,7 @@ fn check_cmd_arg(arg: &Span<CmdArg>, state: &mut State) -> CheckerResult {
 
 fn check_cmd_spread_arg(arg: &CmdSpreadArg, state: &mut State) -> CheckerResult {
     match arg {
-        CmdSpreadArg::Variable(var) => state.register_usage(var, DependencyType::Variable),
+        CmdSpreadArg::Variable(var) => state.register_var_usage(var),
         CmdSpreadArg::Expr(expr) => check_expr(expr, state),
     }
 }
@@ -1221,7 +1221,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
     match arg {
         CmdValueMakingArg::LiteralValue(lit) => check_literal_value(lit),
 
-        CmdValueMakingArg::Variable(name) => state.register_usage(name, DependencyType::Variable),
+        CmdValueMakingArg::Variable(name) => state.register_var_usage(name),
 
         CmdValueMakingArg::ComputedString(computed_string) => {
             check_computed_string(computed_string, state)
@@ -1249,7 +1249,7 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
         match &piece.data {
             CmdRawStringPiece::Literal(_) => {}
             CmdRawStringPiece::Variable(var) => {
-                state.register_usage(var, DependencyType::Variable)?;
+                state.register_var_usage(var)?;
             }
         }
     }

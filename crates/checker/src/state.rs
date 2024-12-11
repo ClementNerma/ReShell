@@ -90,115 +90,118 @@ impl<'a> State<'a> {
         self.collected.cmd_calls.get(&at).map(SharingType::clone)
     }
 
-    /// Register usage of an item
-    /// This function is responsible to check if the item exists and is used correctly,
+    /// Register usage of a variable
+    /// This function is responsible to check if the variable exists and is used correctly,
     /// and if it must be collected.
     ///
     /// The process of 'collection' is to mark an item as requiring capture at runtime.
-    pub fn register_usage(
-        &mut self,
-        item_usage: &Span<String>,
-        dep_type: DependencyType,
-    ) -> CheckerResult {
-        // TODO: internal functions, variables and methods are NOT registered as dependencies
-        //       (as we don't have a way to tell apart methods with the same name if they don't have a different decl_at for instance)
-        // This is a problem if a non-builtin scope contains e.g. native functions
+    pub fn register_var_usage(&mut self, var_usage: &Span<String>) -> CheckerResult {
+        let var = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.vars.get(&var_usage.data))
+            .ok_or_else(|| CheckerError::new(var_usage.at, "variable was not found"))?;
 
-        match dep_type {
-            DependencyType::Variable => {
-                let var = self
-                    .scopes
-                    .iter()
-                    .rev()
-                    .find_map(|scope| scope.vars.get(&item_usage.data))
-                    .ok_or_else(|| CheckerError::new(item_usage.at, "variable was not found"))?;
+        if let RuntimeCodeRange::Parsed(item_decl_at) = var.decl_at {
+            self.register_single_usage(
+                var.scope_id,
+                item_decl_at,
+                &var_usage.data,
+                DependencyType::Variable,
+            )?;
+        }
 
-                if let RuntimeCodeRange::Parsed(item_decl_at) = var.decl_at {
+        Ok(())
+    }
+
+    /// Register usage of a function
+    /// This function is responsible to check if the function exists and is used correctly,
+    /// and if it must be collected.
+    ///
+    /// The process of 'collection' is to mark an item as requiring capture at runtime.
+    pub fn register_fn_usage(&mut self, fn_usage: &Span<String>) -> CheckerResult {
+        let func = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.fns.get(&fn_usage.data))
+            .ok_or_else(|| CheckerError::new(fn_usage.at, "function was not found"))?;
+
+        if let RuntimeCodeRange::Parsed(item_decl_at) = func.decl_at {
+            self.register_single_usage(
+                func.scope_id,
+                item_decl_at,
+                &fn_usage.data,
+                DependencyType::Function,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Register usage of a method
+    /// This function is responsible to check if the method exists and is used correctly,
+    /// and if it must be collected.
+    ///
+    /// The process of 'collection' is to mark an item as requiring capture at runtime.
+    pub fn register_method_usage(&mut self, method_usage: &Span<String>) -> CheckerResult {
+        let methods = self
+            .scopes
+            .iter()
+            .rev()
+            .flat_map(|scope| scope.methods.get(&method_usage.data))
+            .flat_map(|method| method.iter().map(|(_, method)| method))
+            .copied()
+            .collect::<Vec<_>>();
+
+        if methods.is_empty() {
+            return Err(CheckerError::new(method_usage.at, "method was not found"));
+        }
+
+        for method in methods {
+            match method.decl_at {
+                RuntimeCodeRange::Internal(_) => {}
+                RuntimeCodeRange::Parsed(item_decl_at) => {
                     self.register_single_usage(
-                        var.scope_id,
+                        method.scope_id,
                         item_decl_at,
-                        &item_usage.data,
-                        dep_type,
+                        &method_usage.data,
+                        DependencyType::Method,
                     )?;
                 }
-
-                Ok(())
-            }
-
-            DependencyType::Function => {
-                let func = self
-                    .scopes
-                    .iter()
-                    .rev()
-                    .find_map(|scope| scope.fns.get(&item_usage.data))
-                    .ok_or_else(|| CheckerError::new(item_usage.at, "function was not found"))?;
-
-                if let RuntimeCodeRange::Parsed(item_decl_at) = func.decl_at {
-                    self.register_single_usage(
-                        func.scope_id,
-                        item_decl_at,
-                        &item_usage.data,
-                        dep_type,
-                    )?;
-                }
-
-                Ok(())
-            }
-
-            DependencyType::Method => {
-                let methods = self
-                    .scopes
-                    .iter()
-                    .rev()
-                    .flat_map(|scope| scope.methods.get(&item_usage.data))
-                    .flat_map(|method| method.iter().map(|(_, method)| method))
-                    .copied()
-                    .collect::<Vec<_>>();
-
-                if methods.is_empty() {
-                    return Err(CheckerError::new(item_usage.at, "method was not found"));
-                }
-
-                for method in methods {
-                    match method.decl_at {
-                        RuntimeCodeRange::Internal(_) => {}
-                        RuntimeCodeRange::Parsed(item_decl_at) => {
-                            self.register_single_usage(
-                                method.scope_id,
-                                item_decl_at,
-                                &item_usage.data,
-                                DependencyType::Method,
-                            )?;
-                        }
-                    }
-                }
-
-                Ok(())
-            }
-
-            DependencyType::CmdAlias => {
-                let cmd_alias = self
-                    .scopes
-                    .iter()
-                    .rev()
-                    .find_map(|scope| scope.cmd_aliases.get(&item_usage.data).copied())
-                    .ok_or_else(|| CheckerError::new(item_usage.at, "variable was not found"))?;
-
-                if !cmd_alias.is_ready {
-                    return Err(CheckerError::new(
-                        item_usage.at,
-                        "cannot use a command alias before its assignment",
-                    ));
-                }
-
-                self.register_single_usage(
-                    cmd_alias.scope_id,
-                    cmd_alias.decl_at,
-                    &item_usage.data,
-                    dep_type,
-                )
             }
         }
+
+        Ok(())
+    }
+
+    /// Register usage of a command alias
+    /// This function is responsible to check if the command alias exists and is used correctly,
+    /// and if it must be collected.
+    ///
+    /// The process of 'collection' is to mark an item as requiring capture at runtime.
+    pub fn register_cmd_alias_usage(&mut self, cmd_alias_usage: &Span<String>) -> CheckerResult {
+        let cmd_alias = self
+            .scopes
+            .iter()
+            .rev()
+            .find_map(|scope| scope.cmd_aliases.get(&cmd_alias_usage.data).copied())
+            .ok_or_else(|| CheckerError::new(cmd_alias_usage.at, "variable was not found"))?;
+
+        if !cmd_alias.is_ready {
+            return Err(CheckerError::new(
+                cmd_alias_usage.at,
+                "cannot use a command alias before its assignment",
+            ));
+        }
+
+        self.register_single_usage(
+            cmd_alias.scope_id,
+            cmd_alias.decl_at,
+            &cmd_alias_usage.data,
+            DependencyType::CmdAlias,
+        )
     }
 
     fn register_single_usage(
@@ -468,3 +471,7 @@ pub struct DeclaredCmdAlias {
     /// See [`Context::mark_cmd_alias_as_ready`]
     pub is_ready: bool,
 }
+
+// TODO: internal functions, variables and methods are NOT registered as dependencies
+//       (as we don't have a way to tell apart methods with the same name if they don't have a different decl_at for instance)
+// This is a problem if a non-builtin scope contains e.g. native functions
