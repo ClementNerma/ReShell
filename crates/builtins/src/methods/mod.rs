@@ -136,6 +136,9 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         // Structs
         //
+        self::structure::fields::build_fn(),
+        self::structure::get::build_fn(),
+        self::structure::len::build_fn(),
         self::structure::to_map::build_fn(),
         self::structure::values::build_fn(),
     ]
