@@ -65,7 +65,6 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::flat_map::build_fn(),
         self::list::flattened::build_fn(),
         self::list::fold::build_fn(),
-        self::list::get::build_fn(),
         self::list::is_empty::build_fn(),
         self::list::join::build_fn(),
         self::list::last::build_fn(),
@@ -86,6 +85,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         self::map::has::build_fn(),
         self::map::is_empty::build_fn(),
+        self::map::get::build_fn(),
         self::map::keys::build_fn(),
         self::map::len::build_fn(),
         self::map::remove::build_fn(),

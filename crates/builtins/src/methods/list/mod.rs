@@ -11,7 +11,6 @@ pub mod find;
 pub mod flat_map;
 pub mod flattened;
 pub mod fold;
-pub mod get;
 pub mod is_empty;
 pub mod join;
 pub mod last;

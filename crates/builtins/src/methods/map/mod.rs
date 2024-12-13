@@ -1,3 +1,4 @@
+pub mod get;
 pub mod has;
 pub mod is_empty;
 pub mod keys;
