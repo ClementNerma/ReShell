@@ -1,6 +1,6 @@
 crate::define_internal_fn!(
     //
-    // Get the length of a string or the number of entries in a map / list
+    // Get the number of entries in a map
     //
 
     "len",
