@@ -24,7 +24,11 @@ use reshell_parser::{
     ast::{Instruction, Program},
     files::SourceFileLocation,
 };
-use reshell_runtime::{context::Context, errors::ExecErrorNature, values::RuntimeValue};
+use reshell_runtime::{
+    context::Context,
+    errors::{ExecErrorNature, ExecNotActualError},
+    values::RuntimeValue,
+};
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
@@ -80,11 +84,16 @@ pub fn start(
         let prompt_rendering = match render_prompt(&mut ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
-                if let ExecErrorNature::Exit { code } = err.nature {
-                    return Ok(Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS)));
+                let err = ReportableError::Runtime(err, None);
+
+                if let Some(code) = err.exit_code() {
+                    return Ok(Some(ExitCode::from(code)));
                 }
 
-                reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
+                if err.is_actual_error() {
+                    reports::print_error(&err, ctx.files_map());
+                }
+
                 PromptRendering::default()
             }
         };
@@ -164,8 +173,14 @@ pub fn start(
                     let program = program.as_ref().unwrap();
 
                     // Except in case of Exit request, which makes the REPL itself quit
-                    if let ExecErrorNature::Exit { code } = err.nature {
-                        return Ok(Some(code.map(ExitCode::from).unwrap_or(ExitCode::SUCCESS)));
+                    if let ExecErrorNature::FailureExit { code } = err.nature {
+                        return Ok(Some(ExitCode::from(code.get())));
+                    }
+
+                    if let ExecErrorNature::NotAnError(ExecNotActualError::SuccessfulExit) =
+                        err.nature
+                    {
+                        return Ok(Some(ExitCode::SUCCESS));
                     }
 
                     let program_content = &program.data.content.data.instructions;
@@ -194,9 +209,14 @@ pub fn start(
                             ExecErrorNature::ParsingErr(_)
                             | ExecErrorNature::CheckingErr(_)
                             | ExecErrorNature::Thrown { at: _, message: _ }
-                            | ExecErrorNature::Exit { code: _ }
                             | ExecErrorNature::CtrlC
                             | ExecErrorNature::Custom(_) => {}
+
+                            ExecErrorNature::FailureExit { code: _ } => unreachable!(),
+
+                            ExecErrorNature::NotAnError(err) => match err {
+                                ExecNotActualError::SuccessfulExit => unreachable!(),
+                            },
                         }
                     }
                 }

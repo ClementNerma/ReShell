@@ -20,7 +20,7 @@ use reshell_runtime::{
     bin_resolver::BinariesResolver,
     conf::RuntimeConf,
     context::{Context, ContextCreationParams},
-    errors::{ExecErrorNature, ExecResult},
+    errors::ExecResult,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -28,7 +28,6 @@ use self::{
     args::Args,
     exec::run_script,
     paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_CONFIG_DIR, SHELL_LOCAL_DATA_DIR},
-    reports::ReportableError,
     utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request},
 };
 
@@ -186,20 +185,26 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             return Err("Failed to read thep rovided path".to_owned());
         };
 
-        return match run_script(
+        let result = run_script(
             &content,
             SourceFileLocation::RealFile(file_path),
             &parser,
             exec_args,
             &mut ctx,
-        ) {
-            Ok(_) => Ok(ExitCode::SUCCESS),
+        );
 
-            Err(err) => {
+        if let Err(err) = result {
+            if err.is_actual_error() {
                 reports::print_error(&err, ctx.files_map());
-                Ok(loose_exit_code(err.exit_code()))
             }
-        };
+
+            return Ok(err
+                .exit_code()
+                .map(ExitCode::from)
+                .unwrap_or(ExitCode::FAILURE));
+        }
+
+        return Ok(ExitCode::SUCCESS);
     }
 
     if let Some(input) = eval {
@@ -224,8 +229,14 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             }
 
             Err(err) => {
-                reports::print_error(&err, ctx.files_map());
-                Ok(loose_exit_code(err.exit_code()))
+                if err.is_actual_error() {
+                    reports::print_error(&err, ctx.files_map());
+                }
+
+                Ok(err
+                    .exit_code()
+                    .map(ExitCode::from)
+                    .unwrap_or(ExitCode::FAILURE))
             }
         };
     }
@@ -260,13 +271,14 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                             );
 
                             if let Err(err) = init_script_result {
-                                if let ReportableError::Runtime(err, _) = &err {
-                                    if let ExecErrorNature::Exit { code } = err.nature {
-                                        return Ok(loose_exit_code(code.map(i32::from)));
-                                    }
+                                if err.is_actual_error() {
+                                    reports::print_error(&err, ctx.files_map());
                                 }
 
-                                reports::print_error(&err, ctx.files_map());
+                                return Ok(err
+                                    .exit_code()
+                                    .map(ExitCode::from)
+                                    .unwrap_or(ExitCode::FAILURE));
                             }
                         }
                     }
@@ -300,16 +312,6 @@ pub struct Timings {
     pub started: Instant,
     pub before_init_script: Instant,
     pub before_repl: Instant,
-}
-
-pub fn loose_exit_code(code: Option<i32>) -> ExitCode {
-    match code {
-        Some(code) => match u8::try_from(code) {
-            Ok(code) => ExitCode::from(code),
-            Err(_) => ExitCode::FAILURE,
-        },
-        None => ExitCode::FAILURE,
-    }
 }
 
 fn on_dir_jump(ctx: &mut Context, at: RuntimeCodeRange) -> ExecResult<()> {

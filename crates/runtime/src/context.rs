@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::OsString, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, ffi::OsString, num::NonZero, path::PathBuf, sync::Arc};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, Span};
@@ -22,7 +22,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore
 use crate::{
     bin_resolver::BinariesResolver,
     conf::RuntimeConf,
-    errors::{ExecError, ExecErrorNature, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
     typechecker::check_if_value_fits_type,
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
@@ -380,9 +380,21 @@ impl Context {
         })
     }
 
-    /// Generate an exit value
-    pub fn exit(&self, at: impl Into<RuntimeCodeRange>, code: Option<u8>) -> Box<ExecError> {
-        self.error(at, ExecErrorNature::Exit { code })
+    /// Generate a "successful exit" value
+    pub fn successful_exit(&self, at: impl Into<RuntimeCodeRange>) -> Box<ExecError> {
+        self.error(
+            at,
+            ExecErrorNature::NotAnError(ExecNotActualError::SuccessfulExit),
+        )
+    }
+
+    /// Generate a "failure exit" value
+    pub fn failure_exit(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        code: NonZero<u8>,
+    ) -> Box<ExecError> {
+        self.error(at, ExecErrorNature::FailureExit { code })
     }
 
     /// Generate a throw error

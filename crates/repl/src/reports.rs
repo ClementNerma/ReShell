@@ -19,7 +19,7 @@ use reshell_parser::{
 };
 use reshell_runtime::{
     context::CallStackEntry,
-    errors::{ExecError, ExecErrorNature, ExecInfoType},
+    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError},
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -31,11 +31,36 @@ pub enum ReportableError {
 }
 
 impl ReportableError {
-    pub fn exit_code(&self) -> Option<i32> {
+    pub fn is_actual_error(&self) -> bool {
+        match self {
+            ReportableError::Parsing(_) => true,
+            ReportableError::Checking(_) => true,
+
+            ReportableError::Runtime(err, _) => match &err.nature {
+                ExecErrorNature::ParsingErr(_)
+                | ExecErrorNature::CheckingErr(_)
+                | ExecErrorNature::CommandFailedToStart { message: _ }
+                | ExecErrorNature::CommandFailed {
+                    message: _,
+                    exit_status: _,
+                }
+                | ExecErrorNature::Thrown { at: _, message: _ }
+                | ExecErrorNature::FailureExit { code: _ }
+                | ExecErrorNature::CtrlC
+                | ExecErrorNature::Custom(_) => true,
+
+                ExecErrorNature::NotAnError(err) => match err {
+                    ExecNotActualError::SuccessfulExit => false,
+                },
+            },
+        }
+    }
+
+    pub fn exit_code(&self) -> Option<u8> {
         match self {
             ReportableError::Parsing(_) => None,
             ReportableError::Checking(_) => None,
-            ReportableError::Runtime(err, _) => match err.nature {
+            ReportableError::Runtime(err, _) => match &err.nature {
                 ExecErrorNature::Custom(_)
                 | ExecErrorNature::ParsingErr(_)
                 | ExecErrorNature::CheckingErr(_)
@@ -46,11 +71,19 @@ impl ReportableError {
                 ExecErrorNature::CommandFailed {
                     message: _,
                     exit_status,
-                } => Some(exit_status.unwrap_or(1)),
+                } => Some(
+                    exit_status
+                        .and_then(|code| u8::try_from(code).ok())
+                        .unwrap_or(1),
+                ),
 
                 ExecErrorNature::CtrlC => None,
 
-                ExecErrorNature::Exit { code } => Some(code.map(i32::from).unwrap_or(0)),
+                ExecErrorNature::FailureExit { code } => Some(code.get()),
+
+                ExecErrorNature::NotAnError(err) => match &err {
+                    ExecNotActualError::SuccessfulExit => Some(0),
+                },
             },
         }
     }
@@ -70,13 +103,10 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ),
 
         ReportableError::Runtime(err, _) => match &err.nature {
-            ExecErrorNature::Exit { code } => (
+            ExecErrorNature::FailureExit { code } => (
                 err.at,
                 "Non-zero exit code",
-                match code {
-                    Some(code) => format!("program exited with code {code}"),
-                    None => "program failed".to_owned(),
-                },
+                format!("program exited with code {code}"),
             ),
 
             ExecErrorNature::CtrlC => (
@@ -127,6 +157,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                     message.bright_red()
                 ),
             ),
+
+            ExecErrorNature::NotAnError(_) => unreachable!(),
         },
     };
 

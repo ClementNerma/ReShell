@@ -135,7 +135,7 @@ pub fn prompt_renderer_signature() -> FnSignature {
 #[derive(Debug)]
 pub struct LastCmdStatus {
     pub success: bool,
-    pub exit_code: Option<i32>,
+    pub exit_code: Option<u8>,
     pub duration_ms: u128,
 }
 

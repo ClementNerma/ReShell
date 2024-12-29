@@ -42,9 +42,10 @@ fn run() -> Runner {
                 ExecErrorNature::ParsingErr(_)
                 | ExecErrorNature::CheckingErr(_)
                 | ExecErrorNature::Thrown { message: _, at: _ }
-                | ExecErrorNature::Exit { code: _ }
                 | ExecErrorNature::CtrlC
-                | ExecErrorNature::Custom(_) => Err(err),
+                | ExecErrorNature::FailureExit { code: _ }
+                | ExecErrorNature::Custom(_)
+                | ExecErrorNature::NotAnError(_) => Err(err),
             },
         }
     })

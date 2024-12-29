@@ -2,7 +2,7 @@
 //! Errors module
 //!
 
-use std::borrow::Cow;
+use std::{borrow::Cow, num::NonZero};
 
 use parsy::ParsingError;
 use reshell_checker::CheckerError;
@@ -57,12 +57,23 @@ pub enum ExecErrorNature {
         at: RuntimeCodeRange,
         message: String,
     },
-    /// Program requested to exit
-    Exit { code: Option<u8> },
+    /// Failure exit (with error code)
+    FailureExit { code: NonZero<u8> },
     /// Interrupted by a Ctrl+C press
     CtrlC,
     /// Any other error, represented by a custom message
     Custom(Cow<'static, str>),
+    /// Not an actual error (see the enum's docs)
+    NotAnError(ExecNotActualError),
+}
+
+/// These is technically no errors so they shouldn't be here ideally,
+/// but it would be very hard to propagate them along a very long chain of
+/// nested functions up to the top one without wrapping them inside an error structure
+#[derive(Debug)]
+pub enum ExecNotActualError {
+    /// Successfull exit (no error)
+    SuccessfulExit,
 }
 
 impl From<&'static str> for ExecErrorNature {

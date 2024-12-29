@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 crate::define_internal_fn!(
     //
     // Exit the program (optionally with an error code)
@@ -13,5 +15,10 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|at, Args { code }, _, ctx| Err(ctx.exit(at, code)))
+    Runner::new(|at, Args { code }, _, ctx| {
+        Err(match code.and_then(|code| NonZero::try_from(code).ok()) {
+            Some(code) => ctx.failure_exit(at, code),
+            None => ctx.successful_exit(at),
+        })
+    })
 }
