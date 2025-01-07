@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-colored = "2.1.0"
+colored = "2.2.0"
 indexmap = "2.7.0"
 parsy = "0.9.1"
 reshell-parser = { path = "../parser" }
