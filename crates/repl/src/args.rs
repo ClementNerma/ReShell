@@ -19,8 +19,9 @@ pub struct Args {
 
     #[clap(
         long,
-        help = "Skip the initialization script file",
-        conflicts_with = "exec_file"
+        help = "Skip the initialization script file (in REPL mode)",
+        conflicts_with = "exec_file",
+        conflicts_with = "eval"
     )]
     pub skip_init_script: bool,
 
