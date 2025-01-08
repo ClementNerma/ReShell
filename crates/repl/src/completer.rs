@@ -578,12 +578,21 @@ fn complete_path(path: &[UnescapedSegment], span: Span, ctx: &Context) -> Vec<Su
                 }
             }
 
-            Some(GlobPathStartsWith::HomeDirTilde(home_dir)) => escape_str(
-                path_str
+            // If the path after the home dir portion doesn't need escaping, we can use a tilde `~`
+            // Otherwise, we need to use the home directory's full path
+            Some(GlobPathStartsWith::HomeDirTilde(home_dir)) => {
+                let stripped_path = path_str
                     .strip_prefix(&format!("{home_dir}{MAIN_SEPARATOR}"))
-                    .unwrap(),
-                Some(&format!("~{MAIN_SEPARATOR}")),
-            ),
+                    .unwrap();
+
+                if needs_escaping(stripped_path) == EscapingType::None {
+                    Cow::Owned(format!("~{MAIN_SEPARATOR}{stripped_path}"))
+                } else {
+                    Cow::Owned(
+                        escape_str(&format!("{home_dir}/{stripped_path}"), None).into_owned(),
+                    )
+                }
+            }
 
             Some(GlobPathStartsWith::CurrentDir) => {
                 escape_str(&path_str, Some(&format!(".{MAIN_SEPARATOR}")))
@@ -827,65 +836,93 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
     out
 }
 
-fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
+// [`Ord`] is derived to enable comparing two escaping types together
+// If we have e.g. a string that needs double quoting and another that needs simple quoting,
+// and we want to concatenate both, then we need the highest one => double quoting
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum EscapingType {
+    DoubleQuotes,
+    SingleQuotes,
+    None,
+}
+
+fn needs_escaping(str: &str) -> EscapingType {
     if !str
         .chars()
-        .chain(prefix.unwrap_or_default().chars())
         // TODO: in path completion for instance, if we use a variable it shouldn't be escapeded
         // but if the dir / file name contains a '$' it SHOULD be escaped
         // find a way to handle that
         .any(|c| c.is_whitespace() || (DELIMITER_CHARS.contains(&c) && c != '$'))
     {
-        match prefix {
-            Some(prefix) => Cow::Owned(format!("{prefix}{str}")),
-            None => Cow::Borrowed(str),
-        }
+        EscapingType::None
     }
     //
     // Technically, we don't need to do this if the '$' is escaped
     // But for the sake of not developing a backslash-counting algorithm,
     // we don't handle it here (for now).
-    else if str.contains('$') || prefix.is_some_and(|prefix| prefix.contains('$')) {
-        let mut escaped = String::with_capacity(str.len());
-
-        escaped.push('"');
-
-        if let Some(prefix) = prefix {
-            escaped.push_str(prefix);
-        }
-
-        for c in str.chars() {
-            if c == '"' || c == '$' || c == '\\' {
-                escaped.push('\\');
-            }
-
-            escaped.push(c);
-        }
-
-        escaped.push('"');
-
-        Cow::Owned(escaped)
+    else if str.contains('$') {
+        EscapingType::DoubleQuotes
     }
     //
     // If we don't need variables, we can use single-quote escaping
     else {
-        let mut escaped = String::with_capacity(str.len());
-        escaped.push('\'');
+        EscapingType::SingleQuotes
+    }
+}
 
-        if let Some(prefix) = prefix {
-            escaped.push_str(prefix);
-        }
+fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
+    let escaping_type = match prefix {
+        Some(prefix) => needs_escaping(str).max(needs_escaping(prefix)),
+        None => needs_escaping(str),
+    };
 
-        for c in str.chars() {
-            if c == '\'' || c == '\\' {
-                escaped.push('\\');
+    match escaping_type {
+        EscapingType::None => match prefix {
+            Some(prefix) => Cow::Owned(format!("{prefix}{str}")),
+            None => Cow::Borrowed(str),
+        },
+
+        EscapingType::DoubleQuotes => {
+            let mut escaped = String::with_capacity(str.len());
+
+            escaped.push('"');
+
+            if let Some(prefix) = prefix {
+                escaped.push_str(prefix);
             }
 
-            escaped.push(c);
+            for c in str.chars() {
+                if c == '"' || c == '$' || c == '\\' {
+                    escaped.push('\\');
+                }
+
+                escaped.push(c);
+            }
+
+            escaped.push('"');
+
+            Cow::Owned(escaped)
         }
 
-        escaped.push('\'');
+        EscapingType::SingleQuotes => {
+            let mut escaped = String::with_capacity(str.len());
+            escaped.push('\'');
 
-        Cow::Owned(escaped)
+            if let Some(prefix) = prefix {
+                escaped.push_str(prefix);
+            }
+
+            for c in str.chars() {
+                if c == '\'' || c == '\\' {
+                    escaped.push('\\');
+                }
+
+                escaped.push(c);
+            }
+
+            escaped.push('\'');
+
+            Cow::Owned(escaped)
+        }
     }
 }
