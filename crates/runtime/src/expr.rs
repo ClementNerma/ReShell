@@ -650,14 +650,14 @@ fn eval_computed_string_piece(
         ComputedStringPiece::Escaped(char) => Ok(char.original_char().to_string()),
         ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
-            "only stringifyable variables can be used inside computable strings",
             var_name.at,
+            "only stringifyable variables can be used inside computable strings",
             ctx,
         )?),
         ComputedStringPiece::Expr(expr) => Ok(value_to_str(
             &eval_expr(&expr.data, ctx)?,
-            "only stringifyable values can be used inside computable strings",
             expr.at,
+            "only stringifyable values can be used inside computable strings",
             ctx,
         )?),
         ComputedStringPiece::CmdCall(call) => Ok(run_cmd(

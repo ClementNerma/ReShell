@@ -19,9 +19,10 @@ use reshell_parser::{
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::cmd::FlagArgValueResult;
+use crate::errors::{ExecErrorNature, ExecInfoType};
 use crate::{
     context::{Context, ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar},
-    errors::{ExecInfoType, ExecResult},
+    errors::ExecResult,
     functions::ValidatedFnCallArg,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
 };
@@ -407,12 +408,11 @@ pub struct NotComparableTypesErr {
 /// Convert a value to a string, when possible
 ///
 /// `value`: the value to convert to a string
-/// `err_tip`: tip to provide with the error if the conversion is not possible
 /// `at`: where the conversion happens (to locate the error in case of conversion issue)
 pub fn value_to_str(
     value: &RuntimeValue,
-    err_tip: impl Into<String>,
     at: impl Into<RuntimeCodeRange>,
+    err_msg: impl Into<ExecErrorNature>,
     ctx: &Context,
 ) -> ExecResult<String> {
     match value {
@@ -433,16 +433,12 @@ pub fn value_to_str(
         => Err(ctx
             .error(
                 at,
-                format!(
-                    "cannot convert {} to a string",
-                    value
-                        .compute_type()
-                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                ),
-            )
-            .with_info(
-                ExecInfoType::Tip,
-                err_tip,
-            )),
+                err_msg
+            ).with_info(ExecInfoType::Note, format!(
+                "could not convert a value of type {} to a string",
+                value
+                    .compute_type()
+                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+            ),)),
     }
 }

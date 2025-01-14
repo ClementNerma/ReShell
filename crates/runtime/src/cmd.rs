@@ -444,8 +444,8 @@ fn complete_cmd_data(
             name.data.clone(),
             value_to_str(
                 &value,
-                "environment variables can have take stringifyable values",
                 from,
+                "environment variables can only have stringifyable values",
                 ctx,
             )?,
         );
@@ -646,7 +646,7 @@ fn append_cmd_arg_as_string(
     ctx: &mut Context,
 ) -> ExecResult<()> {
     let non_str_err_msg = if in_rest {
-        "(inside rest arguments list) values provided to external commands must be stringifyable"
+        "(in rest argument) values provided to external commands must be stringifyable"
     } else {
         "values provided to external commands must be stringifyable"
     };
@@ -655,8 +655,8 @@ fn append_cmd_arg_as_string(
         CmdArgResult::Single(value) => match value {
             SingleCmdArgResult::Basic(value) => args_str.push(value_to_str(
                 &value.value,
-                non_str_err_msg,
                 cmd_arg_result_at,
+                non_str_err_msg,
                 ctx,
             )?),
 
@@ -665,7 +665,7 @@ fn append_cmd_arg_as_string(
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
-                        let value = value_to_str(&value.value, non_str_err_msg, value.from, ctx)?;
+                        let value = value_to_str(&value.value, value.from, non_str_err_msg, ctx)?;
 
                         match value_sep {
                             FlagValueSeparator::Space => {
@@ -833,8 +833,8 @@ fn eval_cmd_raw_string_piece(
 
         CmdRawStringPiece::Variable(var_name) => Ok(value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
-            "only stringifyable variables can be used inside computable strings",
             var_name.at,
+            "only stringifyable variables can be used inside computable strings",
             ctx,
         )?),
     }
