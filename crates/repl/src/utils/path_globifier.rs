@@ -112,7 +112,6 @@ fn globify(input: &str) -> String {
                 globified_segments.push(String::from('*'))
             }
         } else if segment == "." && i + 1 == segments.len() {
-            // TODO: remove '.' and '..' in glob's results
             globified_segments.push(".*".to_owned());
         } else if segment == "." || segment == ".." || segment.contains(':') {
             globified_segments.push(segment.to_owned());
