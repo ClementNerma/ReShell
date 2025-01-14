@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, io::ErrorKind};
 
 use reedline::{
     Prompt as RlPrompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
@@ -24,12 +24,15 @@ impl RlPrompt for Prompt {
             return str.into();
         }
 
-        // TODO: there are times where current dir doesn't exist (e.g. was just deleted!)
-        std::env::current_dir()
-            .unwrap()
-            .to_string_lossy()
-            .to_string()
-            .into()
+        match std::env::current_dir() {
+            Ok(path) => Cow::Owned(path.to_string_lossy().to_string()),
+
+            Err(err) => Cow::Borrowed(match err.kind() {
+                ErrorKind::NotFound => "<current directory does not exist>",
+                ErrorKind::PermissionDenied => "<no permission to access current directory>",
+                _ => "<current directory unavailable>",
+            }),
+        }
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
