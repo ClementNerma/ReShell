@@ -36,7 +36,7 @@ use reshell_parser::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use self::typechecker::{check_if_single_type_fits_type, check_if_type_fits_type};
+use self::typechecker::check_if_type_fits_type;
 pub use self::{
     errors::CheckerError,
     state::{
@@ -1369,18 +1369,14 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             if let Some(typ) = typ {
                 check_value_type(&typ.data, state)?;
 
-                if !check_if_single_type_fits_type(
-                    &SingleValueType::UntypedList,
-                    &typ.data,
-                    state.type_alias_store(),
+                if !matches!(
+                    typ.data,
+                    ValueType::Single(|SingleValueType::UntypedList| SingleValueType::TypedList(_),),
                 ) {
                     return Err(CheckerError::new(
-                        match typ.at {
-                            RuntimeCodeRange::Parsed(at) => at,
-                            RuntimeCodeRange::Internal(_) => unreachable!(),
-                        },
+                        typ.at.parsed_range().unwrap(),
                         format!(
-                            "rest types must be subsets of lists, found: {}",
+                            "rest types, when provided, must be either 'list' or 'list[...]', found: {}",
                             typ.data.render_colored(
                                 state.type_alias_store(),
                                 PrettyPrintOptions::inline()

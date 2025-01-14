@@ -4,7 +4,7 @@ use parsy::{CodeRange, Span};
 use reshell_parser::ast::{
     CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
     FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeSpan,
-    ValueType,
+    SingleValueType, ValueType,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -391,34 +391,37 @@ fn parse_fn_call_args(
                 })
                 .collect::<Result<Vec<_>, _>>()?;
 
-            // Then check if the rest arguments have the correct type
-            if !check_if_value_fits_type(
-                &RuntimeValue::List(GcCell::new(
-                    rest_args
-                        .iter()
-                        .map(|rest_arg| rest_arg.value.clone())
-                        .collect(),
-                )),
-                &typ.data,
-                ctx,
-            ) {
-                // If not, build the rest arguments list one by one until a type error occurs
-                // When that happens, we found the (first) faulty argument!
-                for i in 0..rest_args.len() {
-                    let cut_list = RuntimeValue::List(GcCell::new(
-                        rest_args
-                            .iter()
-                            .take(i + 1)
-                            .map(|rest_arg| rest_arg.value.clone())
-                            .collect(),
-                    ));
+            // Type check the arguments against the expected rest type
+            match &typ.data {
+                ValueType::Union(_) => unreachable!(),
+                ValueType::Single(typ) => {
+                    match typ {
+                        SingleValueType::UntypedList => {
+                            // Always OK
+                        }
+                        SingleValueType::TypedList(expected_type) => {
+                            // Check if any of the provided arguments have an incorrect type
+                            let faulty_arg = rest_args.iter().find(|arg| {
+                                !check_if_value_fits_type(&arg.value, expected_type, ctx)
+                            });
 
-                    if !check_if_value_fits_type(&cut_list, &typ.data, ctx) {
-                        return Err(ctx.error(rest_args.get(i).unwrap().from, format!("incorrect value type provided in rest ; expected rest values list of type {}, found {}", typ.data.render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()), cut_list.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
+                            // If so, return an error
+                            if let Some(faulty_arg) = faulty_arg {
+                                return Err(
+                                    ctx.error(
+                                        faulty_arg.from,
+                                        format!(
+                                            "incorrect value provided in rest arguments ; expected values of type {}, found {}",
+                                            expected_type.render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                                            faulty_arg.value.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                                        )
+                                    )
+                                );
+                            }
+                        }
+                        _ => unreachable!(),
                     }
                 }
-
-                unreachable!()
             }
         }
     }

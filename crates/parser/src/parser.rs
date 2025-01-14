@@ -1069,11 +1069,16 @@ pub fn program(
             .ignore_then(
                 choice::<CmdSpreadArg, _>((
                     char('$')
-                        .ignore_then(ident)
+                        .ignore_then(
+                            ident.critical("expected a variable name to use as rest argument"),
+                        )
                         .spanned()
                         .map(CmdSpreadArg::Variable),
                     char('(')
-                        .ignore_then(expr.clone())
+                        .ignore_then(
+                            expr.clone()
+                                .critical("expected an expression to use as rest argument"),
+                        )
                         .then_ignore(char(')'))
                         .map(CmdSpreadArg::Expr),
                 ))
