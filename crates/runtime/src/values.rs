@@ -77,6 +77,9 @@ pub struct InternalFnCallData<'c> {
     /// Call's location (can be internal)
     pub call_at: RuntimeCodeRange,
 
+    /// Location of arguments (can be internal)
+    pub args_at: RuntimeCodeRange,
+
     /// Named arguments
     pub args: HashMap<String, ValidatedFnCallArg>,
 

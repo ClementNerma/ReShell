@@ -48,57 +48,69 @@ macro_rules! define_internal_fn {
             ),*
         }
 
-        fn _parse_args(ctx: &Context, call_at: RuntimeCodeRange, #[allow(unused_mut)] mut args: HashMap<String, ValidatedFnCallArg>)
+        fn _parse_args(
+            ctx: &Context,
+            call_at: RuntimeCodeRange,
+
+            #[allow(unused_variables)]
+            args_at: RuntimeCodeRange,
+
+            #[allow(unused_mut)]
+            mut args: HashMap<String, ValidatedFnCallArg>
+        )
             -> Result<(Args, ArgsAt), (RuntimeCodeRange, String)>
         {
-            struct PlaceholderArgsAt {
-                $( $arg_name: Option<RuntimeCodeRange> ),*
-            }
-
-            #[allow(unused_mut, unused_variables)]
-            let mut placeholder_args_at = PlaceholderArgsAt {
-                $( $arg_name: None ),*
-            };
-
-            let parsed = Args {
+            // Get the location of each argument
+            let parsed_args_at = ArgsAt {
                 $( $arg_name: {
+                    // Retrieve the handler for this argument
                     let arg_handler: $arg_handler_type = $arg_handler_gen;
 
-                    let arg = args.remove(&arg_handler.names().var_name());
+                    // Get the argument from the call map
+                    let arg = args.get(&arg_handler.names().var_name());
 
-                    if let Some(arg) = &arg {
-                        placeholder_args_at.$arg_name = Some(arg.arg_value_at);
-                    }
-
-                    let arg_at = arg.as_ref().map_or(
-                        // TODO: use arguments' location, not the whole call's
-                        call_at,
-                        |arg| arg.arg_value_at
-                    );
-
-                    arg_handler.parse(<$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.value))).map_err(|err| (arg_at, err))?
+                    // Get the argument's location
+                    <$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.arg_value_at))
                 } ),*
             };
 
-            let args_at = ArgsAt {
-                $( $arg_name: <$arg_handler_type as ArgHandler>::min_unwrap(placeholder_args_at.$arg_name) ),*
+            // Get the value of each argument
+            let parsed = Args {
+                $( $arg_name: {
+                    // Retrieve the handler for this argument
+                    let arg_handler: $arg_handler_type = $arg_handler_gen;
+
+                    // Get (and remove) the argument from the call map
+                    let arg = args.remove(&arg_handler.names().var_name());
+
+                    // Get the argument's location (for error reporting)
+                    // If no value was provided, fallback to the whole arguments' location
+                    let arg_at = arg.as_ref().map_or(args_at, |arg| arg.arg_value_at);
+
+                    // Get the argument's value
+                    let arg_value = <$arg_handler_type as ArgHandler>::min_unwrap(arg.map(|arg| arg.value));
+
+                    // Try to parse the argument's value
+                    arg_handler.parse(arg_value).map_err(|err| (arg_at, err))?
+                } ),*
             };
 
             if args.is_empty() {
-                Ok((parsed, args_at))
+                Ok((parsed, parsed_args_at))
             } else {
                 ctx.panic(call_at, format!("unknown arguments in function call: {}", args.into_keys().collect::<Vec<_>>().join(", ")))
             }
         }
 
         fn _run(call_data: InternalFnCallData) -> ExecResult<Option<LocatedValue>> {
-            let InternalFnCallData { call_at, args, ctx } = call_data;
+            let InternalFnCallData { call_at, args_at, args, ctx } = call_data;
 
-            let (args, args_at) = _parse_args(ctx, call_at, args)
+            let (args, args_at) = _parse_args(ctx, call_at, args_at, args)
                 .map_err(|(at, err)| ctx.error(at, err))?;
 
-            run().0
-                (call_at, args, args_at, ctx)
+            let Runner(runner) = run();
+
+            runner(call_at, args, args_at, ctx)
                 .map(|value| value.map(|value| LocatedValue::new(RuntimeCodeRange::Internal("native library's argument parser"), value)))
         }
 

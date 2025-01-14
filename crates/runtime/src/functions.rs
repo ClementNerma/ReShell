@@ -86,6 +86,12 @@ pub fn call_fn_value(
 ) -> ExecResult<Option<LocatedValue>> {
     ctx.ensure_no_ctrl_c_press(call_at)?;
 
+    let args_at = match &infos.args {
+        FnPossibleCallArgs::Parsed(span) => RuntimeCodeRange::Parsed(span.at),
+        FnPossibleCallArgs::ParsedCmdArgs { at, args: _ } => RuntimeCodeRange::Parsed(*at),
+        FnPossibleCallArgs::Internal { at, args: _ } => RuntimeCodeRange::Internal(at),
+    };
+
     let args = fill_fn_args(call_at, func, infos, &func.signature.inner().args.data, ctx)?;
 
     let returned = match &func.body {
@@ -133,7 +139,12 @@ pub fn call_fn_value(
             })
         }
 
-        RuntimeFnBody::Internal(run) => run(InternalFnCallData { call_at, args, ctx })?,
+        RuntimeFnBody::Internal(run) => run(InternalFnCallData {
+            call_at,
+            args_at,
+            args,
+            ctx,
+        })?,
     };
 
     if let Some(ret_type) = &func.signature.inner().ret_type {
@@ -751,7 +762,7 @@ fn flatten_fn_call_args(
             }
         }
 
-        FnPossibleCallArgs::ParsedCmdArgs(args) => {
+        FnPossibleCallArgs::ParsedCmdArgs { at: _, args } => {
             for (arg_result, _) in args {
                 match arg_result {
                     CmdArgResult::Single(single) => out.push(single),
@@ -762,7 +773,7 @@ fn flatten_fn_call_args(
             }
         }
 
-        FnPossibleCallArgs::Internal(args) => {
+        FnPossibleCallArgs::Internal { at: _, args } => {
             for arg_result in args {
                 match arg_result {
                     CmdArgResult::Single(single) => out.push(single),
@@ -955,8 +966,14 @@ pub struct FnCallInfos<'a> {
 
 pub enum FnPossibleCallArgs<'a> {
     Parsed(&'a Span<Vec<Span<FnCallArg>>>),
-    ParsedCmdArgs(Vec<(CmdArgResult, CodeRange)>),
-    Internal(Vec<CmdArgResult>),
+    ParsedCmdArgs {
+        at: CodeRange,
+        args: Vec<(CmdArgResult, CodeRange)>,
+    },
+    Internal {
+        at: &'static str,
+        args: Vec<CmdArgResult>,
+    },
 }
 
 #[derive(Debug)]

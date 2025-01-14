@@ -51,8 +51,9 @@ pub fn call_fn_checked(
     call_fn_checked_with_parsed_args(
         loc_val,
         expected_signature,
-        FnPossibleCallArgs::Internal(
-            args.into_iter()
+        FnPossibleCallArgs::Internal {
+            args: args
+                .into_iter()
                 .map(|arg| {
                     CmdArgResult::Single(SingleCmdArgResult::Basic(LocatedValue::new(
                         loc_val.from,
@@ -60,7 +61,8 @@ pub fn call_fn_checked(
                     )))
                 })
                 .collect(),
-        ),
+            at: "<internal function caller>",
+        },
         ctx,
     )
 }

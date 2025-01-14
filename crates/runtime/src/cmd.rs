@@ -98,6 +98,7 @@ pub fn run_cmd(
             target,
             args,
             call_at,
+            args_at,
         } = cmd_data;
 
         state = Some(match target {
@@ -247,7 +248,7 @@ pub fn run_cmd(
                         } else {
                             FnCallNature::NamedFunction
                         },
-                        args: FnPossibleCallArgs::ParsedCmdArgs(args),
+                        args: FnPossibleCallArgs::ParsedCmdArgs { at: args_at, args },
                         piped: piped_value,
                     },
                     ctx,
@@ -415,8 +416,9 @@ fn build_cmd_data(call: &Span<SingleCmdCall>, ctx: &mut Context) -> ExecResult<E
     }
 
     Ok(EvaluatedCmdData {
-        args,
         call_at: call.at,
+        args,
+        args_at: call.data.args.at,
         target,
     })
 }
@@ -499,6 +501,7 @@ struct EvaluatedCmdData {
     target: EvaluatedCmdTarget,
     args: EvaluatedCmdArgs,
     call_at: CodeRange,
+    args_at: CodeRange,
 }
 
 struct EvaluatedCmdArgs {
