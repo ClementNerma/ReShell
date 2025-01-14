@@ -414,7 +414,7 @@ fn parse_fn_call_args(
                     ));
 
                     if !check_if_value_fits_type(&cut_list, &typ.data, ctx) {
-                        return Err(ctx.error(rest_args.get(i).unwrap().from, format!("incorrect value type provided ; expected rest values list of type {}, found {}", typ.data.render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()), cut_list.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
+                        return Err(ctx.error(rest_args.get(i).unwrap().from, format!("incorrect value type provided in rest ; expected rest values list of type {}, found {}", typ.data.render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()), cut_list.compute_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
                     }
                 }
 
