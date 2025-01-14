@@ -14,7 +14,7 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { path }, _, _| {
-        Ok(Some(match Path::new(&path).components().last() {
+        Ok(Some(match Path::new(&path).components().next_back() {
             Some(component) => {
                 RuntimeValue::String(component.as_os_str().to_str().unwrap().to_owned())
             }
