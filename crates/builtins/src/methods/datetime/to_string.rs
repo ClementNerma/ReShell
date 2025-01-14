@@ -15,8 +15,6 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { moment, format }, _, ctx| {
-        // TODO: check if format is valid (otherwise the program currently panics)
-
         let out = match format {
             Some(format) => jiff::fmt::strtime::format(&format, &moment as &Zoned),
             None => rfc2822::to_string(&moment),
