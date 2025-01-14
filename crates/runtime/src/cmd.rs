@@ -543,7 +543,7 @@ fn exec_cmd(
     let mut args_str = vec![];
 
     for (arg, arg_at) in args {
-        append_cmd_arg_as_string(arg, arg_at, &mut args_str, ctx)?;
+        append_cmd_arg_as_string(arg, arg_at, &mut args_str, false, ctx)?;
     }
 
     // Determine the command name (or path)
@@ -642,13 +642,20 @@ fn append_cmd_arg_as_string(
     cmd_arg_result: CmdArgResult,
     cmd_arg_result_at: CodeRange,
     args_str: &mut Vec<String>,
+    in_rest: bool,
     ctx: &mut Context,
 ) -> ExecResult<()> {
+    let non_str_err_msg = if in_rest {
+        "(inside rest arguments list) values provided to external commands must be stringifyable"
+    } else {
+        "values provided to external commands must be stringifyable"
+    };
+
     match cmd_arg_result {
         CmdArgResult::Single(value) => match value {
             SingleCmdArgResult::Basic(value) => args_str.push(value_to_str(
                 &value.value,
-                "arguments to external commands must be stringifyable",
+                non_str_err_msg,
                 cmd_arg_result_at,
                 ctx,
             )?),
@@ -658,12 +665,7 @@ fn append_cmd_arg_as_string(
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
-                        let value = value_to_str(
-                            &value.value,
-                            "arguments to external commands must be stringifyable",
-                            value.from,
-                            ctx,
-                        )?;
+                        let value = value_to_str(&value.value, non_str_err_msg, value.from, ctx)?;
 
                         match value_sep {
                             FlagValueSeparator::Space => {
@@ -688,6 +690,7 @@ fn append_cmd_arg_as_string(
                     CmdArgResult::Single(item),
                     cmd_arg_result_at,
                     args_str,
+                    true,
                     ctx,
                 )?;
             }
