@@ -734,23 +734,15 @@ pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgR
                         .iter()
                         .map(|item| match item {
                             RuntimeValue::CmdArg(arg) => {
-                                Ok(SingleCmdArgResult::from(CmdArgValue::clone(arg)))
+                                SingleCmdArgResult::from(CmdArgValue::clone(arg))
                             }
 
-                            _ => value_to_str(
-                                item,
-                                "spreaded arguments to external commands must be stringifyable",
-                                spread.at,
-                                ctx,
-                            )
-                            .map(|str| {
-                                SingleCmdArgResult::Basic(LocatedValue::new(
-                                    RuntimeCodeRange::Parsed(spread.at),
-                                    RuntimeValue::String(str),
-                                ))
-                            }),
+                            _ => SingleCmdArgResult::Basic(LocatedValue::new(
+                                RuntimeCodeRange::Parsed(spread.at),
+                                item.clone(),
+                            )),
                         })
-                        .collect::<Result<Vec<_>, _>>()?;
+                        .collect::<Vec<_>>();
 
                     Ok(CmdArgResult::Spreaded(spreaded))
                 }
