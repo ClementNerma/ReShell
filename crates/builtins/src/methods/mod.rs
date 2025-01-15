@@ -32,6 +32,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         // Command calls
         //
+        self::command::capture::build_fn(),
         self::command::succeeds::build_fn(),
         self::command::run::build_fn(),
         //
