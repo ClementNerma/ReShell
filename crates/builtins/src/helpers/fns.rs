@@ -111,7 +111,7 @@ macro_rules! define_internal_fn {
             let Runner(runner) = run();
 
             runner(call_at, args, args_at, ctx)
-                .map(|value| value.map(|value| LocatedValue::new(RuntimeCodeRange::Internal("native library's argument parser"), value)))
+                .map(|value| value.map(|value| LocatedValue::new(call_at, value)))
         }
 
         struct Runner(Box<dyn Fn(RuntimeCodeRange, Args, ArgsAt, &mut Context) -> ExecResult<Option<RuntimeValue>>>);
