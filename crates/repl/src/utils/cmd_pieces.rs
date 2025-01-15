@@ -29,7 +29,7 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
         matches!(
             action.action_type,
             NestingActionType::Opening {
-                typ: NestingOpeningType::CmdOutput,
+                typ: NestingOpeningType::CmdOutput | NestingOpeningType::CmdCall,
                 matching_close: _,
             } | NestingActionType::Closing {
                 matching_opening: Some(NestingOpeningType::FnArgs),

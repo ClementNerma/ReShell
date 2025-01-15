@@ -183,10 +183,16 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
 
                 '(' => match prev_char {
                     Some(('$', prev_offset)) => {
-                        open!(prev_offset, 2, NestingOpeningType::CmdOutput)
+                        open!(prev_offset, 2, NestingOpeningType::CmdOutput);
                     }
 
-                    Some((_, _)) | None => open!(offset, 1, NestingOpeningType::ExprWithParen),
+                    Some(('@', prev_offset)) => {
+                        open!(prev_offset, 2, NestingOpeningType::CmdCall);
+                    }
+
+                    Some((_, _)) | None => {
+                        open!(offset, 1, NestingOpeningType::ExprWithParen);
+                    }
                 },
 
                 '[' => open!(offset, 1, NestingOpeningType::List),
@@ -232,7 +238,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                             (
                                 NestingOpeningType::ExprWithParen
                                     | NestingOpeningType::ComputedString
-                                    | NestingOpeningType::CmdOutput,
+                                    | NestingOpeningType::CmdOutput
+                                    | NestingOpeningType::CmdCall,
                                 ')'
                             ) | (NestingOpeningType::List, ']')
                                 | (NestingOpeningType::Block | NestingOpeningType::Lambda, '}')
@@ -329,6 +336,7 @@ pub enum NestingOpeningType {
     ComputedString,
     ExprInString,
     CmdOutput,
+    CmdCall,
     Lambda,
     FnArgs, // TODO: opening parenthesis for function declaration
 }

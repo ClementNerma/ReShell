@@ -199,7 +199,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 Rule::Simple(SimpleRule {
                     matches: Regex::new("(\\^|)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$\\^]+)").unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|\\$\\(|[\\|\\n;\\{]|\\->|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new("(^|[@\\$]\\(|[\\|\\n;\\{]|\\->|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
@@ -359,6 +359,14 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
             }),
 
             (NestingOpeningType::CmdOutput, NestedContentRules {
+                opening_style: Style::new().fg(LightYellow),
+                closing_style: Style::new().fg(LightYellow),
+                rules: vec![
+                    include_group("commands")
+                ]
+            }),
+
+            (NestingOpeningType::CmdCall, NestedContentRules {
                 opening_style: Style::new().fg(LightYellow),
                 closing_style: Style::new().fg(LightYellow),
                 rules: vec![
