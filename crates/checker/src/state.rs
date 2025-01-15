@@ -341,6 +341,7 @@ impl<'a> State<'a> {
             .collected
             .fn_signatures
             .insert(signature.at, shared(signature));
+
         assert!(dup.is_none());
     }
 
