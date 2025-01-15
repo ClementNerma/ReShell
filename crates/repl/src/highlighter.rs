@@ -179,7 +179,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 Rule::Simple(SimpleRule {
                     matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)").unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|[\\|\\n;\\{]|\\->)\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new("(^|[@\\$]\\(|[\\|\\n;\\{])\\s*$").unwrap()),
                     followed_by: Some(Regex::new("\\s|$").unwrap()),
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
@@ -199,7 +199,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 Rule::Simple(SimpleRule {
                     matches: Regex::new("(\\^|)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$\\^]+)").unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|[@\\$]\\(|[\\|\\n;\\{]|\\->|\\s+(?:if|in|=|&&|\\|\\|)\\s+)\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new("(^|[@\\$]\\(|[\\|\\n;\\{])\\s*$").unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
