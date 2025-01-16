@@ -366,13 +366,7 @@ pub fn program(
 
     let int_literal = char('-')
         .or_not()
-        .then(
-            digits(10)
-                .collect_string()
-                .validate(|str| !(str.starts_with('0') && str.len() > 1))
-                .with_custom_msg("Leading zeroes are not allowed")
-                .as_critical(),
-        )
+        .then(digits(10))
         .not_followed_by(possible_ident_char)
         .collect_string()
         .map(|num| str::parse::<i64>(&num).unwrap());
@@ -394,22 +388,9 @@ pub fn program(
         // Floats
         char('-')
             .or_not()
-            .then(
-                digits(10)
-                    .collect_string()
-                    .validate(|str| !(str.starts_with('0') && str.len() > 1))
-                    .with_custom_msg("Leading zeroes are not allowed")
-                    .as_critical(),
-            )
+            .then(digits(10).followed_by(char('.')).collect_string())
             .then(char('.'))
-            .then(
-                digits(10)
-                    .critical("expected digits after the dot separator")
-                    .collect_string()
-                    .validate(|str| !(str.ends_with('0') && str.len() > 1))
-                    .with_custom_msg("Trailing zeroes are not allowed")
-                    .as_critical(),
-            )
+            .then(digits(10).critical("expected digits after the dot separator"))
             .not_followed_by(possible_ident_char)
             .collect_string()
             .map(|num| LiteralValue::Float(str::parse::<f64>(&num).unwrap())),
