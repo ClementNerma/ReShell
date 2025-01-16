@@ -368,8 +368,7 @@ pub fn program(
         .or_not()
         .then(digits(10))
         .not_followed_by(possible_ident_char)
-        .collect_string()
-        .map(|num| str::parse::<i64>(&num).unwrap());
+        .map_str(|num| str::parse::<i64>(num).unwrap());
 
     let literal_value = choice::<LiteralValue, _>((
         // Strings
@@ -388,12 +387,11 @@ pub fn program(
         // Floats
         char('-')
             .or_not()
-            .then(digits(10).followed_by(char('.')).collect_string())
+            .then(digits(10))
             .then(char('.'))
             .then(digits(10).critical("expected digits after the dot separator"))
             .not_followed_by(possible_ident_char)
-            .collect_string()
-            .map(|num| LiteralValue::Float(str::parse::<f64>(&num).unwrap())),
+            .map_str(|num| LiteralValue::Float(str::parse::<f64>(num).unwrap())),
         // Integers
         int_literal.map(LiteralValue::Integer),
     ))
