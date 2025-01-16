@@ -15,9 +15,10 @@ use reshell_runtime::{
     },
 };
 
-use crate::helpers::fns::InternalFunction;
-
-use super::content::define_native_lib;
+use crate::{
+    functions::native_functions, helpers::fns::InternalFunction, methods::native_methods,
+    vars::native_vars,
+};
 
 /// Create a [`RuntimeSpan`] data with internal location
 pub fn internal_runtime_span<T>(data: T) -> RuntimeSpan<T> {
@@ -30,13 +31,6 @@ pub struct NativeLibParams {
     pub script_args: Vec<OsString>,
 }
 
-/// Definition of the native library
-pub struct NativeLibDefinition {
-    pub functions: Vec<InternalFunction>,
-    pub methods: Vec<InternalFunction>,
-    pub vars: Vec<BuiltinVar>,
-}
-
 /// Definition a a native variable
 pub struct BuiltinVar {
     pub name: &'static str,
@@ -47,15 +41,8 @@ pub struct BuiltinVar {
 
 /// Build the content of the native library
 pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
-    let NativeLibDefinition {
-        functions,
-        methods,
-        vars,
-    } = define_native_lib(params);
-
     ScopeContent {
-        fns: functions
-            .into_iter()
+        fns: native_functions()
             .map(|func| {
                 let InternalFunction {
                     name,
@@ -87,39 +74,41 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
             })
             .collect(),
 
-        methods: methods.into_iter().fold(HashMap::new(), |mut map, func| {
-            let InternalFunction {
-                name,
-                args,
-                method_on_type,
-                run,
-                ret_type,
-            } = func;
+        methods: native_methods()
+            .into_iter()
+            .fold(HashMap::new(), |mut map, func| {
+                let InternalFunction {
+                    name,
+                    args,
+                    method_on_type,
+                    run,
+                    ret_type,
+                } = func;
 
-            let on_type = method_on_type.unwrap();
+                let on_type = method_on_type.unwrap();
 
-            map.entry(name.to_owned()).or_default().push(ScopeMethod {
-                name_at: internal_runtime_span(()).at,
-                decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
-                on_type: GcReadOnlyCell::new(on_type),
-                value: GcReadOnlyCell::new(RuntimeFnValue {
-                    is_method: true,
+                map.entry(name.to_owned()).or_default().push(ScopeMethod {
+                    name_at: internal_runtime_span(()).at,
+                    decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
+                    on_type: GcReadOnlyCell::new(on_type),
+                    value: GcReadOnlyCell::new(RuntimeFnValue {
+                        is_method: true,
 
-                    signature: RuntimeFnSignature::Owned(FnSignature {
-                        args: internal_runtime_span(args),
-                        ret_type: ret_type
-                            .map(|ret_type| internal_runtime_span(Box::new(ret_type))),
+                        signature: RuntimeFnSignature::Owned(FnSignature {
+                            args: internal_runtime_span(args),
+                            ret_type: ret_type
+                                .map(|ret_type| internal_runtime_span(Box::new(ret_type))),
+                        }),
+                        body: RuntimeFnBody::Internal(run),
+                        parent_scopes: IndexSet::new(),
+                        captured_deps: GcOnceCell::new_init(CapturedDependencies::default()),
                     }),
-                    body: RuntimeFnBody::Internal(run),
-                    parent_scopes: IndexSet::new(),
-                    captured_deps: GcOnceCell::new_init(CapturedDependencies::default()),
-                }),
-            });
+                });
 
-            map
-        }),
+                map
+            }),
 
-        vars: vars
+        vars: native_vars(params)
             .into_iter()
             .map(|var| {
                 let BuiltinVar {

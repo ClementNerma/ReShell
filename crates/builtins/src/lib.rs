@@ -9,11 +9,11 @@
 // NOTE: nightly feature
 #![feature(trait_upcasting)]
 
-mod content;
 mod functions;
 mod helpers;
 mod methods;
 mod utils;
+mod vars;
 
 pub mod builder;
 pub mod repl;

@@ -49,8 +49,8 @@ use crate::helpers::fns::InternalFunction;
 pub(crate) use self::typemakers::types::*;
 
 /// List all native functions
-pub fn native_functions() -> Vec<InternalFunction> {
-    vec![
+pub fn native_functions() -> impl Iterator<Item = InternalFunction> {
+    [
         // Collect function from individual modules
         self::approx_int_div::build_fn(),
         self::ask::build_fn(),
@@ -96,5 +96,4 @@ pub fn native_functions() -> Vec<InternalFunction> {
         // Add typemaking functions
         self::typemakers::native_typemaking_functions(),
     )
-    .collect()
 }
