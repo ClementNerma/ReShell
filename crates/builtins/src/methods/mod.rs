@@ -3,7 +3,7 @@
 //!
 
 mod any;
-mod command;
+mod cmdcall;
 mod datetime;
 mod duration;
 mod instant;
@@ -32,9 +32,9 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         // Command calls
         //
-        self::command::capture::build_fn(),
-        self::command::succeeds::build_fn(),
-        self::command::run::build_fn(),
+        self::cmdcall::capture::build_fn(),
+        self::cmdcall::succeeds::build_fn(),
+        self::cmdcall::run::build_fn(),
         //
         // Date-times
         //
