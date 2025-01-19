@@ -1,3 +1,5 @@
+//! This module contains the declaration of all builtin variables
+
 use std::{ffi::OsStr, path::MAIN_SEPARATOR};
 
 use reshell_parser::ast::{SingleValueType, ValueType};

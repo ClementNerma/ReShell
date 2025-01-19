@@ -1,3 +1,5 @@
+//! This module builds the native library's content
+
 use std::{collections::HashMap, ffi::OsString, path::PathBuf};
 
 use indexmap::IndexSet;
