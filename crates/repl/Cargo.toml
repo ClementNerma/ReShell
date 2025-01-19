@@ -26,3 +26,4 @@ indexmap = "2.7.0"
 dunce = "1.0.5"
 reshell-shared = { version = "0.1.0", path = "../shared" }
 reedline = "0.38.0"
+pomsky-macro = "0.11.0"

@@ -9,6 +9,7 @@ use std::{
 };
 
 use nu_ansi_term::{Color, Style};
+use pomsky_macro::pomsky;
 use reedline::{Highlighter as RlHighlighter, StyledText};
 use regex::Regex;
 
@@ -97,7 +98,9 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
     // Match method calls
     let method_call = || {
         Rule::Simple(SimpleRule {
-            matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
+            matches: Regex::new(pomsky!(
+                :('.') :([Letter '_'] [Letter d '_']*) $
+            )).unwrap(),
             inside: None,
             preceded_by: None,
             followed_by: None,
@@ -123,64 +126,87 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
         groups: [
             ("instructions", vec![
                 // Comments
-                simple("(#.*)$", [DarkGray]),
+                simple(pomsky!( :('#' .* $) ), [DarkGray]),
                 
                 // Mutable variable declaration
-                simple("\\b(let)\\s+(mut)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)", [Magenta, Magenta, Red, LightYellow]),
-                simple("\\b(let)\\s+(mut)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Magenta, Red]),
-                simple("\\b(let)\\s+(mut)\\b", [Magenta, Magenta]),
+                simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Magenta, Magenta, Red, LightYellow]),
+                simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Magenta, Magenta, Red]),
+                simple(pomsky!( % :("let") [s]+ :("mut") % ), [Magenta, Magenta]),
                 
                 // Immutable variable declaration
-                simple("\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)", [Magenta, Red, LightYellow]),
-                simple("\\b(let)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Red]),
-                simple("\\b(let)\\b", [Magenta]),
+                simple(pomsky!( % :("let") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Magenta, Red, LightYellow]),
+                simple(pomsky!( % :("let") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Magenta, Red]),
+                simple(pomsky!( % :("let") % ), [Magenta]),
 
                 // For loop
-                simple("\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(in)\\b", [Magenta, Red, Magenta]),
-                simple("\\b(for)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Red]),
+                simple(pomsky!( % :("for") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :("in") % ), [Magenta, Red, Magenta]),
+                simple(pomsky!( % :("for") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Magenta, Red]),
                 
                 // Function declaration
-                simple("\\b(fn)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta, Blue]),
+                simple(pomsky!( % :("fn") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Magenta, Blue]),
 
                 // Command aliases
-                simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\s*(=)", [Magenta, Blue, LightYellow]),
-                simple("\\b(alias)\\s+([a-zA-Z_][a-zA-Z0-9_-]*)\\b", [Magenta, Blue]),
+                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :('=') ), [Magenta, Blue, LightYellow]),
+                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Magenta, Blue]),
 
                 // Commands
                 include_group("commands"),
             ]),
             ("commands", vec![
                 // Pipes
-                simple("(\\->|\\!?\\|)", [LightYellow]),
+                simple(pomsky!( :("->" | '!'? '|') ), [LightYellow]),
 
                 // Markers
-                simple("^\\s*(include)(?:\\s|$)", [Magenta]),
+                simple(pomsky!( ^ [s]* :("include") ([s] | $) ), [Magenta]),
 
                 // Normalized flags
-                simple_followed_by("\\s(\\-\\-?(?:\\p{Letter}|[_\\-\\+])*)", [LightYellow], "[\\s=\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
+                simple_followed_by(
+                    pomsky!( [s] :('-'{1,2} ([Letter] | ['_' '-' '+'])*) ),
+                    [LightYellow],
+                    pomsky!( [s '=' ')' ']' '}' '<' '>' ';' '?' '|' '\\' "'" '$'] | $ )
+                ),
 
                 // Keywords
-                simple("\\b(alias|fn|for|while|if|else|continue|typematch|match|break|throw|try|catch|return)(?:\\s|$)", [Magenta]),
+                simple(pomsky!( % :("alias" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return") ([s] | $) ), [Magenta]),
 
                 // 'self' keyword
-                simple("\\b(self)(?:\\.|$)", [Magenta]),
+                simple(pomsky!( % :("self") ('.' | $)), [Magenta]),
 
                 // Numbers
-                simple("[\\s\\(\\[\\{<>=;\\|](\\d+(?:\\.\\d+)?)(?:[\\s\\(\\)\\[\\]\\{\\}<>=;\\&\\|]|$)", [LightYellow]),
+                simple(pomsky!(
+                    [s '(' '[' '{' '<' '>' '=' ';' '|']
+                    :([d]+ ('.' [d]+)?)
+                    ([s '(' ')' '[' ']' '{' '}' '<' '>' '=' ';' '&' '|'] | $)
+                ), [LightYellow]),
 
                 // Symbols and operators
-                simple("\\s(\\!=|&&|\\|\\||[&\\|,;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]])(?:\\s|$)", [LightYellow]),
-                simple("\\s(!)", [LightYellow]),
+                simple(pomsky!( [s] :("!=" | "&&" | "||" | ['&' '|' ',' ';' '=' '!' '<' '>' '?' '+' '-' '*' '/' ':' '(' ')' '[' ']' '{' '}']) ([s] | $) ), [LightYellow]),
+                simple(pomsky!( [s] :('!') ), [LightYellow]),
 
                 // Escaped arguments
-                simple_preceded_by("(\\\\\\n)\\s+$", "([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$]+)", [Green]),
+                simple_preceded_by(
+                    pomsky!( ("\\\\" [n]) [s]+ $ ),
+                    pomsky!( :(['^' s '(' ')' '[' ']' '{' '}' '<' '>' ';' '?' '|' "'" '"' '$']+) ),
+                    [Green]
+                ),
 
                 // Method names
                 Rule::Simple(SimpleRule {
-                    matches: Regex::new("(\\.)([a-zA-Z_][a-zA-Z0-9_]*)").unwrap(),
+                    matches: Regex::new(pomsky!(
+                        :('.') :([Letter '_'] ([Letter d '_']*))
+                    )).unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|[@\\$]\\(|[\\|\\n;\\{])\\s*$").unwrap()),
-                    followed_by: Some(Regex::new("\\s|$").unwrap()),
+                    preceded_by: Some(Regex::new(pomsky!(
+                        (
+                            | ^             // Beginning of the statement
+                            | ['@' '$'] '(' // Command output or command call
+                            | ['|'          // After a command pipe
+                               n            // After a newline
+                               ';'          // After a ';' command separator
+                               '{'          // Beginning of a block
+                              ]
+                        ) [s]* $)).unwrap()),
+                    followed_by: Some(Regex::new(pomsky!( [s] | $ )).unwrap()),
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
                         let method_exists = ctx.visible_scopes().any(|scope| scope.content.methods.keys().any(|method_name| method_name == &matched[2]));
@@ -197,9 +223,15 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
 
                 // Command names
                 Rule::Simple(SimpleRule {
-                    matches: Regex::new("(\\^|)([^\\s\\(\\)\\[\\]\\{}<>\\;\\?\\|\\'\\\"\\$\\^]+)").unwrap(),
+                    matches: Regex::new(pomsky!(
+                        :(^ | "")
+                        :(![s '(' ')' '[' ']' '{' '}' '<' '>' ';' '?' "'" '"' '$' '^']+)
+                    )).unwrap(),
                     inside: None,
-                    preceded_by: Some(Regex::new("(^|[@\\$]\\(|[\\|\\n;\\{])\\s*$").unwrap()),
+                    preceded_by: Some(Regex::new(pomsky!(
+                        :(^ | ['@' '$'] '(' | ['|' n ';' '{'])
+                        [s]* $
+                    )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
@@ -223,36 +255,36 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 }),
 
                 // Variables
-                simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)\\b", [Red]),
+                simple(pomsky!( :('$' ([Letter '_'] [Letter d '_']*)?) % ), [Red]),
 
                 // Booleans
-                simple("\\b(true|false)\\b", [LightYellow]),
+                simple(pomsky!( % :("true" | "false") % ), [LightYellow]),
 
                 // Expansions
-                simple("[\\s,](\\.\\.\\.)(?:$|[\\$\\(])", [Red]),
+                simple(pomsky!( [s ','] :("...") ($ | ['$' '(']) ), [Red]),
                 
                 // Method calls
                 method_call(),
 
                 // Any other character
-                simple("(.)", [Green]),
+                simple(pomsky!( :(.) ), [Green]),
             ]),
             ("literal-strings", vec![
                 // Escaped characters
-                simple("(\\\\.)", [Cyan]),
+                simple(pomsky!( :("\\.") ), [Cyan]),
 
                 // Any other character
-                simple("(.)", [Green]),
+                simple(pomsky!( :(.) ), [Green]),
             ]),
             ("computed-strings", vec![
                 // Escaped characters
-                simple("(\\\\.)", [Cyan]),
+                simple(pomsky!( :('\\' .) ), [Cyan]),
 
                 // Variables
-                simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
+                simple(pomsky!( :( '$' ([Letter '_'] [Letter d '_']*)? ) ), [Red]),
 
                 // Any other character
-                simple("(.)", [Green]),
+                simple(pomsky!( :(.) ), [Green]),
             ]),
             ("expressions", vec![
                 // Method calls
@@ -260,7 +292,9 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
 
                 // Function calls
                 Rule::Simple(SimpleRule {
-                    matches: Regex::new("(?:^\\s*|\\b)([a-zA-Z_][a-zA-Z0-9_]*)$").unwrap(),
+                    matches: Regex::new(pomsky!(
+                        (^ [s]* | %) :([Letter '_'] [Letter d '_']*) $
+                    )).unwrap(),
                     inside: None,
                     followed_by: None,
                     followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
@@ -277,34 +311,34 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 }),
 
                 // Types
-                simple("\\b(any|bool|int|float|string|list|map|error|struct|fn|cmdcall)\\b", [Magenta]),
+                simple(pomsky!(% :("any" | "bool" | "int" | "float" | "string" | "list" | "map" | "error" | "struct" | "fn" | "cmdcall") %), [Magenta]),
 
                 // Booleans
-                simple("\\b(true|false)\\b", [LightYellow]),
+                simple(pomsky!(% :("true" | "false") %), [LightYellow]),
 
                 // The null value
-                simple("\\b(null)\\b", [LightYellow]),
+                simple(pomsky!(% :("null") %), [LightYellow]),
 
                 // Variables
-                simple("(\\$(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Red]),
+                simple(pomsky!( :('$' ([Letter '_'] [Letter d '_']*)?) ), [Red]),
 
                 // Struct member access
-                simple("([\\?]?\\.[a-zA-Z_][a-zA-Z0-9_]*)", [Red]),
+                simple(pomsky!( :('?'? '.' [Letter '_'] [Letter d '_']*) ), [Red]),
 
                 // Functions as values
-                simple("(\\@(?:[a-zA-Z_][a-zA-Z0-9_]*)?)", [Magenta]),
+                simple(pomsky!( :('@' ([Letter '_'] [Letter d '_']*)?) ), [Magenta]),
 
                 // Numbers
-                simple("\\b(\\d+(?:\\.\\d+)?)\\b", [LightYellow]),
+                simple(pomsky!( % :([d]+ ('.' [d]+)?) % ), [LightYellow]),
 
                 // Symbols and operators
-                simple("(,|\\s[&\\|;=!<>\\?\\+\\-\\*\\/:\\(\\)\\{\\}\\[\\]\\!]\\s|&&|\\|\\|)", [LightYellow]),
+                simple(pomsky!( :(',' | [s] ['&' '|' ';' '=' '!' '<' '>' '?' '+' '-' '*' '/' ':' '(' ')' '[' ']' '{' '}' '!'] [s] | "&&" | "||") ), [LightYellow]),
 
                 // 'typeis' operator
-                simple("\\b(typeis)\\b", [Magenta]),
+                simple(pomsky!( % :("typeis") % ), [Magenta]),
 
                 // Other characters
-                simple("(.)", [Green])
+                simple(pomsky!( :(.) ), [Green])
             ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
@@ -387,13 +421,17 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 closing_style: Style::new().fg(LightYellow),
                 rules: vec![
                     // Normalized flags
-                    simple_followed_by("((?:\\-\\-[a-zA-Z0-9_-]+|\\-[a-zA-Z0-9_])[=]?|\\-?\\-)", [LightYellow], "[\\s\\)\\]}<>\\;\\?\\|\\'\\\"\\$]|$"),
+                    simple_followed_by(
+                        pomsky!( :( ('-'{1,2} [Letter d '_']*) '='? | '-'{1,2} ) ),
+                        [LightYellow],
+                        pomsky!( [s ')' ']' '}' '<' '>' ';' '?' '|' "'" '"' '$'] | $ )
+                    ),
 
                     // Types
-                    simple("\\:\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Magenta]),
+                    simple(pomsky!( ':' [s]+ :([Letter '_'] [Letter d '_']*) % ), [Magenta]),
 
                     // Variables
-                    simple("([a-zA-Z_][a-zA-Z0-9_]*)\\b", [Red]),
+                    simple(pomsky!(:([Letter '_'] [Letter d '_']*) %), [Red]),
                 ]
             })
         ]),
@@ -428,4 +466,9 @@ fn highlight(input: &str) -> StyledText {
             })
             .collect(),
     }
+}
+
+#[test]
+fn test() {
+    println!("{:#?}", compute_highlight_pieces("echo ", &RULE_SET));
 }
