@@ -30,6 +30,7 @@ mod mkdir;
 mod mtime;
 mod parent_dir;
 mod path_exists;
+mod pomsky;
 mod rand_int;
 mod read_dir;
 mod read_file;
@@ -78,6 +79,7 @@ pub fn native_functions() -> impl Iterator<Item = InternalFunction> {
         self::mtime::build_fn(),
         self::parent_dir::build_fn(),
         self::path_exists::build_fn(),
+        self::pomsky::build_fn(),
         self::rand_int::build_fn(),
         self::read_dir::build_fn(),
         self::read_file::build_fn(),

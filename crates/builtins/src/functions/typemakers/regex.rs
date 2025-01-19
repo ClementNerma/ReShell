@@ -1,12 +1,11 @@
 use std::{ops::Deref, sync::Arc};
 
-use colored::{Color, Colorize};
-use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
+use colored::Color;
 use regex::Regex;
 use reshell_runtime::{
     gc::GcReadOnlyCell, pretty_impl::pretty_printable_string, values::CustomValueType,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece};
+use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
 use crate::define_internal_fn;
 
@@ -14,45 +13,21 @@ define_internal_fn!(
     "regex",
 
     (
-        pattern: RequiredArg<StringType> = Arg::positional("pattern"),
-        pomsky: PresenceFlag = Arg::long_and_short_flag("pomsky", 'p')
+        pattern: RequiredArg<StringType> = Arg::positional("pattern")
     )
 
     -> Some(CustomType::<RegexValue>::value_type())
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { pattern, pomsky }, args_at, ctx| {
-        let regex = if !pomsky {
-            Regex::new(&pattern).map_err(|err| ctx.throw(args_at.pattern, format!("{err}")))?
-        } else {
-            let (parsed, diag, _) = Expr::parse_and_compile(&pattern, CompileOptions::default());
+    Runner::new(|_, Args { pattern }, args_at, ctx| {
+        let regex =
+            Regex::new(&pattern).map_err(|err| ctx.throw(args_at.pattern, format!("{err}")))?;
 
-            for diag in diag {
-                println!(
-                    "{} for regex at {}: {}",
-                    match diag.severity {
-                        Severity::Warning => "WARNING".bright_yellow(),
-                        Severity::Error => "ERROR".bright_red(),
-                    },
-                    args_at
-                        .pattern
-                        .render_colored(ctx.files_map(), PrettyPrintOptions::inline()),
-                    diag.msg
-                );
-            }
+        let regex =
+            RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(RegexValue(Arc::new(regex)))));
 
-            match parsed {
-                Some(parsed) => Regex::new(&parsed).unwrap(),
-                None => {
-                    return Err(ctx.throw(args_at.pattern, "failed to parse Pomsky regex"));
-                }
-            }
-        };
-
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            RegexValue(Arc::new(regex)),
-        )))))
+        Ok(Some(regex))
     })
 }
 
@@ -60,7 +35,7 @@ fn run() -> Runner {
 ///
 /// Backed with a thread-shared [`Regex`]
 #[derive(Debug, Clone)]
-pub struct RegexValue(Arc<Regex>);
+pub struct RegexValue(pub Arc<Regex>);
 
 // impl RegexValue {
 //     pub fn new(dur: Arc<Regex>) -> Self {
