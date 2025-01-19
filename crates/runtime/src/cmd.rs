@@ -577,7 +577,7 @@ fn exec_cmd(
                 // Unfortunately, it's not possible to provide a direct string as an input to a command
                 // We actually need to provide an actual file descriptor (as is a usual stdin "pipe")
                 // So we create a new pair of pipes here...
-                let (reader, mut writer) = std::pipe::pipe().unwrap();
+                let (reader, mut writer) = std::io::pipe().unwrap();
 
                 // ...write the string to one end...
                 writer.write_all(string.as_bytes()).unwrap();
