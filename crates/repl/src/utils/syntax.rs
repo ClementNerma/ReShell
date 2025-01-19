@@ -246,6 +246,11 @@ fn find_matching_rule<'h, 'str>(
 }
 
 fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<HighlightPiece>) {
+    // Ensure the highlighted piece is not empty,
+    // as this could cause an infinite highlighting
+    // (the rule matches an empty piece, then re-matches it, etc.)
+    assert!(matched.end > matched.start);
+
     covering.mark_as_covered(matched.start, matched.end - matched.start);
 
     let style = match &matched.rule.style {
