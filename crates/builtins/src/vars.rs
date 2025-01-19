@@ -10,12 +10,13 @@ use reshell_runtime::{
 };
 
 use crate::{
-    builder::{internal_runtime_span, BuiltinVar, NativeLibParams},
+    builder::{BuiltinVar, NativeLibParams},
     repl::{
         completer::{completer_signature, GEN_COMPLETIONS_VAR_NAME},
         on_dir_jump::{dir_jump_handler_signature, ON_DIR_JUMP_VAR_NAME},
         prompt::{prompt_renderer_signature, GEN_PROMPT_VAR_NAME},
     },
+    utils::internal_runtime_span,
 };
 
 pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {

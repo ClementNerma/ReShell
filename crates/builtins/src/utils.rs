@@ -2,7 +2,7 @@
 
 use reshell_checker::typechecker::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
-    FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, ValueType,
+    FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeSpan, ValueType,
 };
 use reshell_runtime::{
     cmd::{CmdArgResult, SingleCmdArgResult},
@@ -13,7 +13,12 @@ use reshell_runtime::{
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{builder::internal_runtime_span, helpers::args::TypedValueParser};
+use crate::helpers::args::TypedValueParser;
+
+/// Create a [`RuntimeSpan`] data with internal location
+pub fn internal_runtime_span<T>(data: T) -> RuntimeSpan<T> {
+    RuntimeSpan::internal("native library's builder", data)
+}
 
 /// Forge a basic function signature (only positional arguments, no optionality, no flags, no rest)
 pub fn forge_basic_fn_signature(

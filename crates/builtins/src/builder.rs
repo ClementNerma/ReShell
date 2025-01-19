@@ -4,7 +4,7 @@ use std::{collections::HashMap, ffi::OsString, path::PathBuf};
 
 use indexmap::IndexSet;
 use reshell_parser::{
-    ast::{FnSignature, RuntimeSpan, SingleValueType, ValueType},
+    ast::{FnSignature, SingleValueType, ValueType},
     scope::NATIVE_LIB_AST_SCOPE_ID,
 };
 
@@ -19,13 +19,8 @@ use reshell_runtime::{
 
 use crate::{
     functions::native_functions, helpers::fns::InternalFunction, methods::native_methods,
-    vars::native_vars,
+    utils::internal_runtime_span, vars::native_vars,
 };
-
-/// Create a [`RuntimeSpan`] data with internal location
-pub fn internal_runtime_span<T>(data: T) -> RuntimeSpan<T> {
-    RuntimeSpan::internal("native library's builder", data)
-}
 
 /// Parameters of the native library
 pub struct NativeLibParams {

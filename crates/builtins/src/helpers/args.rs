@@ -7,7 +7,7 @@ use reshell_parser::ast::{
 
 use reshell_runtime::values::RuntimeValue;
 
-use crate::builder::internal_runtime_span;
+use crate::utils::internal_runtime_span;
 
 use super::types::{BoolType, DetachedListType};
 
