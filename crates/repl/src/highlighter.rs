@@ -224,7 +224,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Command names
                 Rule::Simple(SimpleRule {
                     matches: Regex::new(pomsky!(
-                        :(^ | "")
+                        :('^' | "")
                         :(![s '(' ')' '[' ']' '{' '}' '<' '>' ';' '?' "'" '"' '$' '^']+)
                     )).unwrap(),
                     inside: None,
