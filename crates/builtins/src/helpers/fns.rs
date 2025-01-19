@@ -1,3 +1,7 @@
+//! This module contains utilities to create builtin functions
+//!
+//! Mainly the [`define_internal_fn`] macro
+
 use reshell_parser::ast::{FnArg, ValueType};
 use reshell_runtime::values::InternalFnBody;
 

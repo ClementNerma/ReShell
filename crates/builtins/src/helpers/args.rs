@@ -1,3 +1,5 @@
+//! This module contains utilities for arguments handling, typechecking and type-safe values extraction
+
 use std::marker::PhantomData;
 
 use reshell_parser::ast::{
