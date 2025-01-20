@@ -4,12 +4,16 @@
 
 use std::path::Path;
 
-use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, values::RuntimeValue};
 
 use crate::{
-    helpers::{args::TypedValueParser, types::StringType},
-    utils::{call_fn_checked, forge_basic_fn_signature},
+    declare_typed_fn_handler,
+    helpers::{
+        args::TypedValueParser,
+        types::{StringType, VoidType},
+    },
+    utils::call_fn_checked,
 };
 
 pub static ON_DIR_JUMP_VAR_NAME: &str = "onDirectoryJump";
@@ -38,7 +42,7 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
 
     call_fn_checked(
         &on_dir_jump_fn,
-        &dir_jump_handler_signature(),
+        &DirectoryJumpHandlerFn::signature(),
         vec![RuntimeValue::String(new_current_dir.to_owned())],
         ctx,
     )?;
@@ -46,7 +50,7 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
     Ok(())
 }
 
-/// Generate prompt rendering function's signature
-pub fn dir_jump_handler_signature() -> FnSignature {
-    forge_basic_fn_signature(vec![("new_current_dir", StringType::value_type())], None)
-}
+declare_typed_fn_handler!(
+    // Generate prompt rendering function's signature
+    pub DirectoryJumpHandlerFn(new_current_dir: StringType) -> VoidType
+);

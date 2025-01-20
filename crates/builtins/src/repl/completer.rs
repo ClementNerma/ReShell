@@ -2,16 +2,16 @@
 //! Function to call to generate completions
 //!
 
-use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
-    declare_typed_struct_handler,
+    declare_typed_fn_handler, declare_typed_struct_handler,
     helpers::{
         args::TypedValueParser,
         types::{DetachedListType, NullType, StringType, Union2Type},
     },
-    utils::{call_fn_checked, forge_basic_fn_signature},
+    utils::call_fn_checked,
 };
 
 pub static GEN_COMPLETIONS_VAR_NAME: &str = "generateCompletions";
@@ -81,7 +81,7 @@ pub fn generate_completions(
 
     let ret_val = call_fn_checked(
         &completer_var_value,
-        &completer_signature(),
+        &CompleterFn::signature(),
         completion_args,
         ctx,
     )?;
@@ -113,13 +113,7 @@ pub fn generate_completions(
     ))
 }
 
-/// Generate completer function's signature
-pub fn completer_signature() -> FnSignature {
-    forge_basic_fn_signature(
-        vec![(
-            "line",
-            DetachedListType::<Union2Type<StringType, NullType>>::value_type(),
-        )],
-        Some(CompleterReturnType::value_type()),
-    )
-}
+declare_typed_fn_handler!(
+    // Completer function's signature
+    pub CompleterFn(line: DetachedListType<Union2Type<StringType, NullType>>) -> CompleterReturnType
+);

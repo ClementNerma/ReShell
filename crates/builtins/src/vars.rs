@@ -12,8 +12,8 @@ use reshell_runtime::{
 use crate::{
     builder::{BuiltinVar, NativeLibParams},
     repl::{
-        completer::{completer_signature, GEN_COMPLETIONS_VAR_NAME},
-        on_dir_jump::{dir_jump_handler_signature, ON_DIR_JUMP_VAR_NAME},
+        completer::{CompleterFn, GEN_COMPLETIONS_VAR_NAME},
+        on_dir_jump::{DirectoryJumpHandlerFn, ON_DIR_JUMP_VAR_NAME},
         prompt::{prompt_renderer_signature, GEN_PROMPT_VAR_NAME},
     },
     utils::internal_runtime_span,
@@ -42,7 +42,7 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
             is_mut: true,
             init_value: RuntimeValue::Null,
             enforced_type: vec![
-                SingleValueType::Function(internal_runtime_span(completer_signature())),
+                SingleValueType::Function(internal_runtime_span(CompleterFn::signature())),
                 SingleValueType::Null,
             ],
         },
@@ -52,7 +52,9 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
             is_mut: true,
             init_value: RuntimeValue::Null,
             enforced_type: vec![
-                SingleValueType::Function(internal_runtime_span(dir_jump_handler_signature())),
+                SingleValueType::Function(internal_runtime_span(
+                    DirectoryJumpHandlerFn::signature(),
+                )),
                 SingleValueType::Null,
             ],
         },

@@ -428,9 +428,9 @@ macro_rules! declare_typed_struct_handler {
 /// Macro to create a function type handler
 #[macro_export]
 macro_rules! declare_typed_fn_handler {
-    ($( $typename: ident ($($argname:ident : $argtype:ty),*) ),+ -> $rettype:ty ) => {
+    ($( $pub: vis $typename: ident ($($argname:ident : $argtype:ty),*) ),+ -> $rettype:ty ) => {
         $(
-            struct $typename;
+            $pub struct $typename;
 
             impl $typename {
                 pub fn signature() -> ::reshell_parser::ast::FnSignature {
