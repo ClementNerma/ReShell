@@ -65,17 +65,6 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
         Rule::Simple(simple_rule(regex, colors))
     }
 
-    /// Create a simple rule that must be preceded by a given pattern
-    fn simple_preceded_by<S: Into<Style> + Copy>(
-        preceded_by: &'static str,
-        regex: &'static str,
-        colors: impl AsRef<[S]>,
-    ) -> Rule {
-        let mut rule = simple_rule(regex, colors);
-        rule.preceded_by = Some(Regex::new(preceded_by).unwrap());
-        Rule::Simple(rule)
-    }
-
     /// Create a simple rule that must be followed by a given pattern
     fn simple_followed_by<S: Into<Style> + Copy>(
         regex: &'static str,
@@ -163,7 +152,11 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 simple_followed_by(
                     pomsky!( [s] :('-'{1,2} ([Letter] | ['_' '-' '+'])*) ),
                     [LightYellow],
-                    pomsky!( [s '=' ')' ']' '}' '<' '>' ';' '?' '|' '\\' "'" '$'] | $ )
+                    pomsky!(
+                        let delimiter = ['(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
+
+                        [s] | delimiter | $
+                    )
                 ),
 
                 // Keywords
@@ -173,22 +166,17 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 simple(pomsky!( % :("self") ('.' | $)), [Magenta]),
 
                 // Numbers
-                simple(pomsky!(
+                simple(pomsky! {
+                    let delimiter = ['(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
+
                     [s '(' '[' '{' '<' '>' '=' ';' '|']
                     :([d]+ ('.' [d]+)?)
-                    ([s '(' ')' '[' ']' '{' '}' '<' '>' '=' ';' '&' '|'] | $)
-                ), [LightYellow]),
+                    ([s] | delimiter | $)
+                }, [LightYellow]),
 
                 // Symbols and operators
                 simple(pomsky!( [s] :("!=" | "&&" | "||" | ['&' '|' ',' ';' '=' '!' '<' '>' '?' '+' '-' '*' '/' ':' '(' ')' '[' ']' '{' '}']) ([s] | $) ), [LightYellow]),
                 simple(pomsky!( [s] :('!') ), [LightYellow]),
-
-                // Escaped arguments
-                simple_preceded_by(
-                    pomsky!( ("\\\\" [n]) [s]+ $ ),
-                    pomsky!( :(['^' s '(' ')' '[' ']' '{' '}' '<' '>' ';' '?' '|' "'" '"' '$']+) ),
-                    [Green]
-                ),
 
                 // Method names
                 Rule::Simple(SimpleRule {
@@ -224,8 +212,10 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Command names
                 Rule::Simple(SimpleRule {
                     matches: Regex::new(pomsky!(
+                        let delimiter = [s '(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
+
                         :('^' | "")
-                        :(![s '(' ')' '[' ']' '{' '}' '<' '>' ';' '?' "'" '"' '$' '^']+)
+                        :(!delimiter+)
                     )).unwrap(),
                     inside: None,
                     preceded_by: Some(Regex::new(pomsky!(
