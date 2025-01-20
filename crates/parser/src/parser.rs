@@ -168,7 +168,7 @@ pub fn program(
                 .spanned()
                 .critical("expected a flag name (identifier)"),
         )
-        .followed_by(not(possible_ident_char).critical("unexpected symbol"));
+        .followed_by(not(possible_ident_char).critical("unexpected symbol after long flag name"));
 
     let fn_arg_short_flag = char('-')
         .ignore_then(
@@ -394,11 +394,7 @@ pub fn program(
             .map_str(|num| LiteralValue::Float(str::parse::<f64>(num).unwrap())),
         // Integers
         int_literal.map(LiteralValue::Integer),
-    ))
-    .followed_by(silent_choice((
-        filter(|c| c.is_whitespace() || c == ',' || DELIMITER_CHARS.contains(&c)),
-        end(),
-    )));
+    ));
 
     let computed_string = char('"')
             .ignore_then(
@@ -867,7 +863,7 @@ pub fn program(
             expr_inner
                 .clone()
                 .spanned()
-                .critical("expected an expression after operator")
+                .critical("expected an expression after the operator")
                 .map(Box::new),
         )
         .map(|(op, with)| ExprOp { op, with });
@@ -1103,7 +1099,17 @@ pub fn program(
         //
         // Expressions
         //
-        expr.clone().map(Box::new).spanned().map(CmdCallBase::Expr),
+        expr.clone()
+            // Disambiguation: expressions, after optional spaces, should be followed by either
+            // newlines, delimiter characters or the end of the program
+            // Otherwise this means we're in a command
+            .followed_by(ms.then(silent_choice((
+                end(),
+                filter(|c| c == '\n' || c == '\r' || DELIMITER_CHARS.contains(&c)),
+            ))))
+            .map(Box::new)
+            .spanned()
+            .map(CmdCallBase::Expr),
         //
         // Normal command call
         //
