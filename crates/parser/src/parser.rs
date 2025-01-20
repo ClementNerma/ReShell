@@ -902,7 +902,7 @@ pub fn program(
         .map(|pieces| CmdRawString { pieces }),
     );
 
-    let raw_cmd_name = filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
+    let raw_cmd_path = filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
         .repeated()
         .at_least(1)
         .collect_string()
@@ -922,14 +922,9 @@ pub fn program(
         .as_critical();
 
     let cmd_path = choice::<CmdPath, _>((
-        // Method
-        char('.')
-            .ignore_then(ident.spanned())
-            .map(CmdPath::Method)
-            .not_followed_by(filter(|c| {
-                !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
-            })),
+        //
         // External commands
+        //
         char('^')
             .ignore_then(
                 choice::<CmdExternalPath, _>((
@@ -946,8 +941,19 @@ pub fn program(
                 .critical("expected a valid command name after the external marker '^'"),
             )
             .map(CmdPath::External),
-        // Command name
-        raw_cmd_name.spanned().map(CmdPath::Raw),
+        //
+        // Methods
+        //
+        char('.')
+            .ignore_then(ident.spanned())
+            .map(CmdPath::Method)
+            .not_followed_by(filter(|c| {
+                !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
+            })),
+        //
+        // Raw command paths
+        //
+        raw_cmd_path.spanned().map(CmdPath::Raw),
     ));
 
     let cmd_value_making_arg = choice::<CmdValueMakingArg, _>((
