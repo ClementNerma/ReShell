@@ -17,4 +17,4 @@ mod utils;
 mod vars;
 
 pub mod builder;
-pub mod repl;
+pub use crate::vars::repl;
