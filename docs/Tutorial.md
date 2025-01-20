@@ -164,14 +164,14 @@ Sometimes we may want to run a command that exists both as an internal and as an
 
 To run an external command, we simply prefix the command's name with a caret `^`:
 
-```shell
+```reshell
 # Print a message without a newline using Linux' native 'echo' command
 ^echo -n "Hello!"
 ```
 
 This is especially useful when defining aliases or using external paths that start with a variable:
 
-```shell
+```reshell
 let a = 2
 $a / 2 # Evaluates to 1
 $a/2   # Same here
@@ -191,7 +191,7 @@ $dir/cmd
 
 Aliases are a way to re-use easily a command that we run often:
 
-```shell
+```reshell
 # Let's say we always do commits with Git using the following syntax:
 git commit -m ...message...
 
@@ -615,7 +615,7 @@ sayHello({
 
 To debug a value of any type, we can use the `dbg` function:
 
-```shell
+```reshell
 dbg ({
   name: 'John',
   age: 20
