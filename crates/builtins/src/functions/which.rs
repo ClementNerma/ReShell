@@ -10,15 +10,15 @@ define_internal_fn!(
 
     (
         command: RequiredArg<StringType> = Arg::positional("command"),
-        direct: PresenceFlag = Arg::long_and_short_flag("direct", 'd')
+        external: PresenceFlag = Arg::long_and_short_flag("external", 'e')
     )
 
     -> VoidType
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { command, direct }, _, ctx| {
-        if !direct {
+    Runner::new(|_, Args { command, external }, _, ctx| {
+        if !external {
             for scope in ctx.visible_scopes_content() {
                 let ScopeContent {
                     vars: _,
