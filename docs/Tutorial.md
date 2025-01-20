@@ -174,11 +174,11 @@ This is especially useful when defining aliases or using external paths that sta
 ```shell
 let a = 2
 $a / 2 # Evaluates to 1
-$a/1   # Same here
+$a/2   # Same here
 
 let dir = '/some/directory'
 
-# This will fail because the shell cannot know if we're trying
+# This will fail to parse because the shell cannot know if we're trying
 # to call the "$dir/cmd" command ('/some/directory/cmd')
 # or if we're trying to accidentally divide a string
 $dir/cmd
