@@ -273,12 +273,9 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                             if let Err(err) = init_script_result {
                                 if err.is_actual_error() {
                                     reports::print_error(&err, ctx.files_map());
+                                } else if let Some(code) = err.exit_code() {
+                                    return Ok(ExitCode::from(code));
                                 }
-
-                                return Ok(err
-                                    .exit_code()
-                                    .map(ExitCode::from)
-                                    .unwrap_or(ExitCode::FAILURE));
                             }
                         }
                     }
