@@ -1,9 +1,8 @@
 use reshell_runtime::gc::GcCell;
 
-use crate::define_internal_fn;
-use crate::functions::RegexValue;
+use crate::types::RegexValue;
 
-define_internal_fn!(
+crate::define_internal_fn!(
     "captures",
 
     (
@@ -16,11 +15,11 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { regex, subject }, _, _| {
-        let ret = match regex.inner().captures(&subject) {
+        let ret = match regex.captures(&subject) {
             None => RuntimeValue::Null,
             Some(captured) => {
                 let mut counter = 0;
-                let mut names = regex.inner().capture_names();
+                let mut names = regex.capture_names();
 
                 let map = captured
                     .iter()

@@ -3,7 +3,7 @@ use std::path::Path;
 use jiff::{tz::TimeZone, Timestamp, Zoned};
 use reshell_runtime::gc::GcReadOnlyCell;
 
-use super::DateTimeValue;
+use crate::types::DateTimeValue;
 
 crate::define_internal_fn!(
     "mtime",
@@ -46,7 +46,7 @@ fn run() -> Runner {
         let mtime = Zoned::new(mtime, TimeZone::system());
 
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue::new(mtime),
+            DateTimeValue(mtime),
         )))))
     })
 }

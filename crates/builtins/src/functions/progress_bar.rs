@@ -1,9 +1,9 @@
-use std::{ops::Deref, time::Duration};
+use std::time::Duration;
 
-use colored::Color;
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
-use reshell_runtime::{gc::GcReadOnlyCell, values::CustomValueType};
-use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
+use reshell_runtime::gc::GcReadOnlyCell;
+
+use crate::types::ProgressBarValue;
 
 crate::define_internal_fn!(
     "progressBar",
@@ -71,47 +71,4 @@ fn run() -> Runner {
             )))))
         },
     )
-}
-
-/// Progress bar displayer
-#[derive(Debug, Clone)]
-pub struct ProgressBarValue(ProgressBar);
-
-// impl ProgressBarValue {
-//     pub fn new(pb: ProgressBar) -> Self {
-//         Self(pb)
-//     }
-// }
-
-impl Deref for ProgressBarValue {
-    type Target = ProgressBar;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl CustomValueType for ProgressBarValue {
-    fn typename(&self) -> &'static str {
-        "progressbar"
-    }
-
-    fn typename_static() -> &'static str
-    where
-        Self: Sized,
-    {
-        "progressbar"
-    }
-}
-
-impl PrettyPrintable for ProgressBarValue {
-    type Context = ();
-
-    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
-        PrettyPrintablePiece::Join(vec![
-            PrettyPrintablePiece::colored_atomic("progressBar(", Color::Magenta),
-            PrettyPrintablePiece::colored_atomic("<internal>", Color::BrightBlack),
-            PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
-        ])
-    }
 }

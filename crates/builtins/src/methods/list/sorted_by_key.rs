@@ -4,7 +4,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     declare_typed_fn_handler,
-    functions::{DateTimeValue, DurationValue},
+    types::{DateTimeValue, DurationValue},
     utils::{call_fn_checked, expect_returned_value},
 };
 

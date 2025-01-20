@@ -1,4 +1,4 @@
-use crate::functions::RegexValue;
+use crate::types::RegexValue;
 
 crate::define_internal_fn!(
     //
@@ -28,7 +28,7 @@ fn run() -> Runner {
          _| {
             let replaced = match replacer {
                 Union2Result::A(string) => source.replace(&string, &replacement),
-                Union2Result::B(regex) => regex.inner().replace(&source, &replacement).into_owned(),
+                Union2Result::B(regex) => regex.replace(&source, &replacement).into_owned(),
             };
 
             Ok(Some(RuntimeValue::String(replaced)))

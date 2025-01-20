@@ -1,4 +1,4 @@
-use crate::functions::DurationValue;
+use crate::types::DurationValue;
 
 crate::define_internal_fn!(
     "subsecMillis",

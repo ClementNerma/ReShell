@@ -13,6 +13,7 @@ mod cmd_arg;
 mod cmd_flag;
 mod current_dir;
 mod current_script_path;
+mod datetime;
 mod dbg;
 mod dbg_type;
 mod dir_exists;
@@ -26,20 +27,22 @@ mod file_size;
 mod glob;
 mod human_size;
 mod in_dir;
+mod instant;
 mod mkdir;
 mod mtime;
 mod parent_dir;
 mod path_exists;
 mod pomsky;
+mod progress_bar;
 mod rand_int;
 mod read_dir;
 mod read_file;
+mod regex;
 mod rm;
 mod runtime;
 mod set_env;
 mod term_cols;
 mod term_rows;
-mod typemakers;
 mod whereis;
 mod which;
 mod write_file;
@@ -47,11 +50,9 @@ mod write_to_file;
 
 use crate::helpers::fns::InternalFunction;
 
-pub(crate) use self::typemakers::types::*;
-
 /// List all native functions
-pub fn native_functions() -> impl Iterator<Item = InternalFunction> {
-    [
+pub fn native_functions() -> Vec<InternalFunction> {
+    vec![
         // Collect function from individual modules
         self::approx_int_div::build_fn(),
         self::ask::build_fn(),
@@ -62,6 +63,7 @@ pub fn native_functions() -> impl Iterator<Item = InternalFunction> {
         self::cmd_flag::build_fn(),
         self::current_dir::build_fn(),
         self::current_script_path::build_fn(),
+        self::datetime::build_fn(),
         self::dbg::build_fn(),
         self::dbg_type::build_fn(),
         self::dir_exists::build_fn(),
@@ -75,14 +77,17 @@ pub fn native_functions() -> impl Iterator<Item = InternalFunction> {
         self::glob::build_fn(),
         self::human_size::build_fn(),
         self::in_dir::build_fn(),
+        self::instant::build_fn(),
         self::mkdir::build_fn(),
         self::mtime::build_fn(),
         self::parent_dir::build_fn(),
         self::path_exists::build_fn(),
         self::pomsky::build_fn(),
+        self::progress_bar::build_fn(),
         self::rand_int::build_fn(),
         self::read_dir::build_fn(),
         self::read_file::build_fn(),
+        self::regex::build_fn(),
         self::rm::build_fn(),
         self::set_env::build_fn(),
         self::runtime::build_fn(),
@@ -93,9 +98,4 @@ pub fn native_functions() -> impl Iterator<Item = InternalFunction> {
         self::write_file::build_fn(),
         self::write_to_file::build_fn(),
     ]
-    .into_iter()
-    .chain(
-        // Add typemaking functions
-        self::typemakers::native_typemaking_functions(),
-    )
 }

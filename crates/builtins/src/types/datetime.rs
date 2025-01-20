@@ -2,40 +2,14 @@ use std::ops::Deref;
 
 use colored::Color;
 use jiff::{fmt::rfc2822, Zoned};
-use reshell_runtime::{
-    gc::GcReadOnlyCell, pretty_impl::pretty_printable_string, values::CustomValueType,
-};
+use reshell_runtime::{pretty_impl::pretty_printable_string, values::CustomValueType};
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
-
-use crate::define_internal_fn;
-
-define_internal_fn!(
-    "datetime",
-
-    ()
-
-    -> CustomType<DateTimeValue>
-);
-
-fn run() -> Runner {
-    Runner::new(|_, Args {}, _, _| {
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue(Zoned::now()),
-        )))))
-    })
-}
 
 /// Date and time value
 ///
 /// Backed by an [`OffsetDateTime`]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DateTimeValue(Zoned);
-
-impl DateTimeValue {
-    pub fn new(datetime: Zoned) -> Self {
-        Self(datetime)
-    }
-}
+pub struct DateTimeValue(pub Zoned);
 
 impl Deref for DateTimeValue {
     type Target = Zoned;

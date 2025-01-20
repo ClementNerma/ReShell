@@ -40,6 +40,7 @@ pub struct BuiltinVar {
 pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
     ScopeContent {
         fns: native_functions()
+            .into_iter()
             .map(|func| {
                 let InternalFunction {
                     name,

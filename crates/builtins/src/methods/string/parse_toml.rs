@@ -8,9 +8,9 @@ use toml::{
     Table, Value,
 };
 
-use crate::{define_internal_fn, functions::DateTimeValue};
+use crate::types::DateTimeValue;
 
-define_internal_fn!(
+crate::define_internal_fn!(
     "parseToml",
 
     (
@@ -92,7 +92,7 @@ fn toml_to_value(value: Value, use_maps: bool) -> Result<RuntimeValue, String> {
                 .map_err(|err| format!("Invalid date time {datetime}: {err}"))?;
 
             Ok(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                DateTimeValue::new(date_time),
+                DateTimeValue(date_time),
             ))))
         }
 

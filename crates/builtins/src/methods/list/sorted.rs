@@ -1,6 +1,6 @@
 use reshell_runtime::gc::{GcCell, GcReadOnlyCell};
 
-use crate::functions::{DateTimeValue, DurationValue};
+use crate::types::{DateTimeValue, DurationValue};
 
 crate::define_internal_fn!(
     //

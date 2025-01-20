@@ -1,38 +1,14 @@
 use std::{ops::Deref, time::Instant};
 
 use colored::Color;
-use reshell_runtime::{gc::GcReadOnlyCell, values::CustomValueType};
+use reshell_runtime::values::CustomValueType;
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
-
-crate::define_internal_fn!(
-    "instant",
-
-    ()
-
-    -> CustomType<InstantValue>
-);
-
-fn run() -> Runner {
-    Runner::new(|_, Args {}, _, _| {
-        let value = InstantValue(Instant::now());
-
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            value,
-        )))))
-    })
-}
 
 /// Time instant
 ///
 /// Backed by an STD [`Instant`]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct InstantValue(Instant);
-
-// impl InstantValue {
-//     pub fn new(instant: Instant) -> Self {
-//         Self(instant)
-//     }
-// }
+pub struct InstantValue(pub Instant);
 
 impl Deref for InstantValue {
     type Target = Instant;

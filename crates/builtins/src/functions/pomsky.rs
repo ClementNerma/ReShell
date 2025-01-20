@@ -6,9 +6,7 @@ use regex::Regex;
 use reshell_runtime::gc::GcReadOnlyCell;
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::define_internal_fn;
-
-use super::RegexValue;
+use crate::{define_internal_fn, types::RegexValue};
 
 define_internal_fn!(
     "pomsky",

@@ -12,6 +12,7 @@
 mod functions;
 mod helpers;
 mod methods;
+mod types;
 mod utils;
 mod vars;
 

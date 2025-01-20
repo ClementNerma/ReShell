@@ -1,6 +1,6 @@
 use reshell_runtime::gc::GcReadOnlyCell;
 
-use crate::functions::{DurationValue, InstantValue};
+use crate::types::{DurationValue, InstantValue};
 
 crate::define_internal_fn!(
     "elapsed",
@@ -15,7 +15,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { instant }, _, _| {
         Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DurationValue::new(instant.elapsed()),
+            DurationValue(instant.elapsed()),
         )))))
     })
 }

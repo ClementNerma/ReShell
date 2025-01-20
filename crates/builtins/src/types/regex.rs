@@ -1,49 +1,44 @@
-use std::{ops::Deref, time::Duration};
+use std::{ops::Deref, sync::Arc};
 
 use colored::Color;
+use regex::Regex;
 use reshell_runtime::{pretty_impl::pretty_printable_string, values::CustomValueType};
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
-/// Time duration
+/// Regular expression
 ///
-/// Backed by an STD [`Duration`]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DurationValue(Duration);
+/// Backed with a thread-shared [`Regex`]
+#[derive(Debug, Clone)]
+pub struct RegexValue(pub Arc<Regex>);
 
-impl DurationValue {
-    pub fn new(dur: Duration) -> Self {
-        Self(dur)
-    }
-}
-
-impl Deref for DurationValue {
-    type Target = Duration;
+impl Deref for RegexValue {
+    type Target = Regex;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl CustomValueType for DurationValue {
+impl CustomValueType for RegexValue {
     fn typename(&self) -> &'static str {
-        "duration"
+        "regex"
     }
 
     fn typename_static() -> &'static str
     where
         Self: Sized,
     {
-        "duration"
+        "regex"
     }
 }
 
-impl PrettyPrintable for DurationValue {
+impl PrettyPrintable for RegexValue {
     type Context = ();
 
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
-            PrettyPrintablePiece::colored_atomic("duration(", Color::Magenta),
-            pretty_printable_string(&format!("{:?}", self.0)),
+            PrettyPrintablePiece::colored_atomic("regex(", Color::Magenta),
+            pretty_printable_string(self.0.as_str()),
             PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
         ])
     }

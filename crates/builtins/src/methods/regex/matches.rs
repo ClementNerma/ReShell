@@ -1,7 +1,6 @@
-use crate::define_internal_fn;
-use crate::functions::RegexValue;
+use crate::types::RegexValue;
 
-define_internal_fn!(
+crate::define_internal_fn!(
     "matches",
 
     (
@@ -14,6 +13,6 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { regex, subject }, _, _| {
-        Ok(Some(RuntimeValue::Bool(regex.inner().is_match(&subject))))
+        Ok(Some(RuntimeValue::Bool(regex.is_match(&subject))))
     })
 }

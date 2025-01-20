@@ -1,6 +1,6 @@
 use jiff::{fmt::rfc2822, Zoned};
 
-use crate::functions::DateTimeValue;
+use crate::types::DateTimeValue;
 
 crate::define_internal_fn!(
     "toString",

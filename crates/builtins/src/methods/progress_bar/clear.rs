@@ -1,4 +1,4 @@
-use crate::functions::ProgressBarValue;
+use crate::types::ProgressBarValue;
 
 crate::define_internal_fn!(
     "clear",
