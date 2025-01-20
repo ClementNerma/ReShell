@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{ops::Deref, time::Duration};
 
 use colored::Color;
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
@@ -13,7 +13,7 @@ crate::define_internal_fn!(
         template: OptionalArg<StringType> = Arg::long_and_short_flag("template", 's'),
         message: OptionalArg<StringType> = Arg::long_and_short_flag("message", 'm'),
         prefix: OptionalArg<StringType> = Arg::long_and_short_flag("prefix", 'p'),
-        keep_on_finish: PresenceFlag = Arg::long_and_short_flag("keep-on-finish", 'k')
+        clear_on_finish: PresenceFlag = Arg::long_and_short_flag("clear-on-finish", 'c')
     )
 
     -> CustomType<ProgressBarValue>
@@ -27,7 +27,7 @@ fn run() -> Runner {
              template,
              message,
              prefix,
-             keep_on_finish,
+             clear_on_finish,
          },
          args_at,
          ctx| {
@@ -60,9 +60,11 @@ fn run() -> Runner {
                 pb = pb.with_prefix(prefix);
             }
 
-            if keep_on_finish {
+            if !clear_on_finish {
                 pb = pb.with_finish(ProgressFinish::AndLeave);
             }
+
+            pb.enable_steady_tick(Duration::from_millis(10));
 
             Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
                 ProgressBarValue(pb),

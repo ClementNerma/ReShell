@@ -4,20 +4,16 @@ crate::define_internal_fn!(
     "finish",
 
     (
-        pb: RequiredArg<CustomType<ProgressBarValue>> = Arg::method_self(),
-        clear: PresenceFlag = Arg::long_flag("clear")
+        pb: RequiredArg<CustomType<ProgressBarValue>> = Arg::method_self()
     )
 
     -> VoidType
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { pb, clear }, _, _| {
-        if clear {
-            pb.finish_and_clear();
-        } else {
-            pb.abandon();
-        }
+    Runner::new(|_, Args { pb }, _, _| {
+        pb.finish();
+        pb.disable_steady_tick();
 
         Ok(None)
     })
