@@ -915,8 +915,6 @@ pub fn program(
             .not_followed_by(filter(|c| {
                 !c.is_whitespace() && !DELIMITER_CHARS.contains(&c)
             })),
-        // Command name
-        raw_cmd_name.spanned().map(CmdPath::Raw),
         // External commands
         char('^')
             .ignore_then(
@@ -934,6 +932,8 @@ pub fn program(
                 .critical("expected a valid command name after the external marker '^'"),
             )
             .map(CmdPath::External),
+        // Command name
+        raw_cmd_name.spanned().map(CmdPath::Raw),
     ));
 
     let cmd_value_making_arg = choice::<CmdValueMakingArg, _>((
