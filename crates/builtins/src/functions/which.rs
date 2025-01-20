@@ -46,7 +46,7 @@ fn run() -> Runner {
             {
                 for method in methods {
                     println!(
-                        "* Method declared at: {}\n\n  {}\n",
+                        "* Method declared at: {}\n  {}\n",
                         match method.name_at {
                             RuntimeCodeRange::Parsed(at) => {
                                 at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
