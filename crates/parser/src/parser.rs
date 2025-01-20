@@ -905,7 +905,21 @@ pub fn program(
     let raw_cmd_name = filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
         .repeated()
         .at_least(1)
-        .collect_string();
+        .collect_string()
+        .validate(|cmd_name| {
+            // Command name (no slashes)
+            !cmd_name.contains(['/', '\\'])
+                || (
+                    // Absolute command path
+                    cmd_name.starts_with(['/', '\\']) ||
+                    // Relative command paths
+                    cmd_name.starts_with("./") || cmd_name.starts_with(".\\")
+                )
+        })
+        .with_custom_msg(
+            "Relative command paths must start with a dot and a slash (e.g. './path/to/cmd')",
+        )
+        .as_critical();
 
     let cmd_path = choice::<CmdPath, _>((
         // Method
