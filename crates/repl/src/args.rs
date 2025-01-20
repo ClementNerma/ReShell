@@ -30,6 +30,9 @@ pub struct Args {
 
     #[clap(flatten)]
     pub exec_args: ExecArgs,
+
+    #[clap(flatten)]
+    pub runtime_conf_args: RuntimeConfArgs,
 }
 
 #[derive(clap::Args, Clone, Copy)]
@@ -39,4 +42,20 @@ pub struct ExecArgs {
 
     #[clap(long, help = "Don't actually execute the program")]
     pub only_check: bool,
+}
+
+#[derive(clap::Args, Clone)]
+pub struct RuntimeConfArgs {
+    #[clap(long, help = "Maximum call stack size")]
+    pub call_stack_limit: Option<usize>,
+
+    #[clap(long, help = "Disable history")]
+    pub disable_history: bool,
+
+    #[clap(
+        long,
+        help = "Use a custom history file path",
+        conflicts_with = "disable_history"
+    )]
+    pub custom_history_path: Option<PathBuf>,
 }

@@ -18,14 +18,14 @@ use reshell_parser::{
 };
 use reshell_runtime::{
     bin_resolver::BinariesResolver,
-    conf::RuntimeConf,
+    conf::{HistoryConf, RuntimeConf},
     context::{Context, ContextCreationParams},
     errors::ExecResult,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use self::{
-    args::Args,
+    args::{Args, RuntimeConfArgs},
     exec::run_script,
     paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_CONFIG_DIR, SHELL_LOCAL_DATA_DIR},
     utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request},
@@ -71,6 +71,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         skip_init_script,
         timings,
         exec_args,
+        runtime_conf_args,
     } = Args::parse_from(base_args);
 
     // Set up Ctrl+C handler
@@ -155,8 +156,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
 
     let mut ctx = Context::new(
         ContextCreationParams {
-            // TODO: allow to configure through CLI
-            runtime_conf: RuntimeConf::default(),
+            runtime_conf: convert_runtime_conf(runtime_conf_args),
             files_map: files_map.clone(),
             take_ctrl_c_indicator: take_pending_ctrl_c_request,
             home_dir: HOME_DIR.clone(),
@@ -295,6 +295,36 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     repl::start(ctx, parser, exec_args, timings, show_timings)
         .map(|code| code.unwrap_or(ExitCode::SUCCESS))
         .map_err(|err| format!("REPL crashed: {err:?}"))
+}
+
+// It would be nice to use a builder pattern akin to the `bon` crate
+// But it would be pretty heavy, so for now we're using this pretty ugly code
+fn convert_runtime_conf(args: RuntimeConfArgs) -> RuntimeConf {
+    let RuntimeConfArgs {
+        call_stack_limit,
+        disable_history,
+        custom_history_path,
+    } = args;
+
+    let mut runtime_conf = RuntimeConf::default();
+
+    if let Some(call_stack_limit) = call_stack_limit {
+        runtime_conf.call_stack_limit = call_stack_limit;
+    }
+
+    if disable_history {
+        runtime_conf.history = HistoryConf {
+            enabled: false,
+            custom_location: None,
+        };
+    } else if let Some(custom_history_path) = custom_history_path {
+        runtime_conf.history = HistoryConf {
+            enabled: true,
+            custom_location: Some(custom_history_path),
+        };
+    }
+
+    runtime_conf
 }
 
 fn print_warn(msg: impl AsRef<str>) {
