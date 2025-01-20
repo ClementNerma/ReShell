@@ -14,7 +14,7 @@ crate::define_internal_fn!(
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
-    -> Some(DetachedListType::<StringType>::value_type())
+    -> DetachedListType<StringType>
 );
 
 fn run() -> Runner {

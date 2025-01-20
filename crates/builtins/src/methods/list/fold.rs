@@ -16,7 +16,7 @@ crate::define_internal_fn!(
         folder: RequiredArg<FolderFn> = Arg::positional("folder")
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 declare_typed_fn_handler!(

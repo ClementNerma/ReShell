@@ -15,7 +15,7 @@ define_internal_fn!(
         capture_stderr: PresenceFlag = Arg::long_flag("capture-stderr")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

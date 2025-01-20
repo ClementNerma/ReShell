@@ -14,7 +14,7 @@ crate::define_internal_fn!(
         color: OptionalArg<StringType> = Arg::long_and_short_flag("color", 'c')
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

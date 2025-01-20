@@ -7,7 +7,7 @@ crate::define_internal_fn!(
         char: RequiredArg<StringType> = RequiredArg::positional("char")
     )
 
-    -> Some(StringType::value_type())
+    -> StringType
 );
 
 fn run() -> Runner {

@@ -7,7 +7,7 @@ crate::define_internal_fn!(
         path: RequiredArg<StringType> = Arg::positional("path")
     )
 
-    -> Some(ExactIntType::<usize>::value_type())
+    -> ExactIntType<usize>
 );
 
 fn run() -> Runner {

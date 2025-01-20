@@ -7,7 +7,7 @@ crate::define_internal_fn!(
         value: RequiredArg<AnyType> = Arg::positional("value")
     )
 
-    -> Some(CmdArgType::value_type())
+    -> CmdArgType
 );
 
 fn run() -> Runner {

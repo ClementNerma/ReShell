@@ -13,7 +13,7 @@ define_internal_fn!(
         clear_bin_path_cache: PresenceFlag = Arg::long_flag("clear-binaries-path-cache")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

@@ -8,7 +8,7 @@ crate::define_internal_fn!(
         clear: PresenceFlag = Arg::long_flag("clear")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

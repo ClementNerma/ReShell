@@ -11,7 +11,7 @@ define_internal_fn!(
         use_maps: PresenceFlag = Arg::long_and_short_flag("use-maps", 'm')
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 fn run() -> Runner {

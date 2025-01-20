@@ -10,7 +10,7 @@ crate::define_internal_fn!(
         value: RequiredArg<AnyType> = Arg::positional("value")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

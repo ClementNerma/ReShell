@@ -15,7 +15,7 @@ crate::define_internal_fn!(
         full_path: PresenceFlag = Arg::long_and_short_flag("full-path", 'f')
     )
 
-    -> Some(DetachedListType::<StringType>::value_type())
+    -> DetachedListType<StringType>
 );
 
 fn run() -> Runner {

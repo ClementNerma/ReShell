@@ -5,7 +5,7 @@ crate::define_internal_fn!(
         value: RequiredArg<StringType> = Arg::method_self()
     )
 
-    -> Some(BoolType::value_type())
+    -> BoolType
 );
 
 fn run() -> Runner {

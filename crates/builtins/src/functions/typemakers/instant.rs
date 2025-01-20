@@ -9,7 +9,7 @@ crate::define_internal_fn!(
 
     ()
 
-    -> Some(CustomType::<InstantValue>::value_type())
+    -> CustomType<InstantValue>
 );
 
 fn run() -> Runner {

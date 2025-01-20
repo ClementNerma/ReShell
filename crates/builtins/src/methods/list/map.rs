@@ -17,7 +17,7 @@ crate::define_internal_fn!(
         mapper: RequiredArg<MapperFn> = Arg::positional("mapper")
     )
 
-    -> Some(UntypedListType::value_type())
+    -> UntypedListType
 );
 
 declare_typed_fn_handler!(MapperFn(value: AnyType) -> AnyType);

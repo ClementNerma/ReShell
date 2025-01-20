@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         inspect_fn: RequiredArg<InspectFn> = Arg::positional("inspect_fn")
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 declare_typed_fn_handler!(InspectFn(value: AnyType) -> VoidType);

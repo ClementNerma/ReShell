@@ -15,7 +15,7 @@ crate::define_internal_fn!(
         max_line_size: OptionalArg<ExactIntType<usize>> = Arg::long_flag("max-line-size")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         for_each_fn: RequiredArg<ForEachFn> = Arg::positional("for_each_fn")
     )
 
-    -> None
+    -> VoidType
 );
 
 declare_typed_fn_handler!(ForEachFn(value: AnyType) -> AnyType);

@@ -9,7 +9,7 @@ crate::define_internal_fn!(
         list: RequiredArg<UntypedListType> = Arg::method_self()
     )
 
-    -> Some(ExactIntType::<usize>::value_type())
+    -> ExactIntType<usize>
 );
 
 fn run() -> Runner {

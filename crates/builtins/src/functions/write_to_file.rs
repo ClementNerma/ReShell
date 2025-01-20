@@ -13,7 +13,7 @@ crate::define_internal_fn!(
         append: PresenceFlag = Arg::long_and_short_flag("append", 'a')
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

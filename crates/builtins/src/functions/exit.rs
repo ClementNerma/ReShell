@@ -11,7 +11,7 @@ crate::define_internal_fn!(
         code: OptionalArg<ExactIntType<u8>> = Arg::positional("code")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

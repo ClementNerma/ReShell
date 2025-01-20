@@ -9,7 +9,7 @@ define_internal_fn!(
         subject: RequiredArg<StringType> = Arg::positional("subject")
     )
 
-    -> Some(BoolType::value_type())
+    -> BoolType
 );
 
 fn run() -> Runner {

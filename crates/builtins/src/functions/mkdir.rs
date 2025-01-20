@@ -13,7 +13,7 @@ crate::define_internal_fn!(
         ignore_if_exists: PresenceFlag = Arg::long_and_short_flag("ignore-if-exists", 'i')
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

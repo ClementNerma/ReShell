@@ -5,7 +5,7 @@ crate::define_internal_fn!(
         string: RequiredArg<StringType> = Arg::method_self()
     )
 
-    -> Some(NullableType::<StringType>::value_type())
+    -> NullableType<StringType>
 );
 
 fn run() -> Runner {

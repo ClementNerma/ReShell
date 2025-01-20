@@ -9,7 +9,7 @@ crate::define_internal_fn!(
         value: RequiredArg<AnyType> = Arg::method_self()
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 fn run() -> Runner {

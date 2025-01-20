@@ -7,7 +7,7 @@ crate::define_internal_fn!(
         to: OptionalArg<ExactIntType<usize>> = Arg::positional("to")
     )
 
-    -> Some(StringType::value_type())
+    -> StringType
 );
 
 fn run() -> Runner {

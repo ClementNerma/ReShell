@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         list: RequiredArg<ComparableListType> = Arg::method_self()
     )
 
-     -> Some(UntypedListType::value_type())
+     -> UntypedListType
 );
 
 pub type ComparableValueType =

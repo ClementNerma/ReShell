@@ -11,7 +11,7 @@ crate::define_internal_fn!(
         obj: RequiredArg<UntypedStructType> = Arg::method_self()
     )
 
-    -> Some(DetachedListType::<StringType>::value_type())
+    -> DetachedListType<StringType>
 );
 
 fn run() -> Runner {

@@ -15,7 +15,7 @@ crate::define_internal_fn!(
         reducer: RequiredArg<ReducerFn> = Arg::positional("reducer")
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 declare_typed_fn_handler!(

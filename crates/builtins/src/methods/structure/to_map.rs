@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         linked: PresenceFlag = Arg::long_flag("linked")
     )
 
-    -> Some(UntypedMapType::value_type())
+    -> UntypedMapType
 );
 
 fn run() -> Runner {

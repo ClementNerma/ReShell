@@ -9,7 +9,7 @@ define_internal_fn!(
         or_else: OptionalArg<AnyType> = Arg::long_flag("or-else")
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 fn run() -> Runner {

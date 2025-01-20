@@ -59,8 +59,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
 
                             signature: RuntimeFnSignature::Owned(FnSignature {
                                 args: internal_runtime_span(args),
-                                ret_type: ret_type
-                                    .map(|ret_type| internal_runtime_span(Box::new(ret_type))),
+                                ret_type: Some(internal_runtime_span(Box::new(ret_type))),
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
@@ -93,8 +92,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
 
                         signature: RuntimeFnSignature::Owned(FnSignature {
                             args: internal_runtime_span(args),
-                            ret_type: ret_type
-                                .map(|ret_type| internal_runtime_span(Box::new(ret_type))),
+                            ret_type: Some(internal_runtime_span(Box::new(ret_type))),
                         }),
                         body: RuntimeFnBody::Internal(run),
                         parent_scopes: IndexSet::new(),

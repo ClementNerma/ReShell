@@ -14,7 +14,7 @@ crate::define_internal_fn!(
         func: RequiredArg<RunFn> = Arg::positional("func")
     )
 
-    -> None
+    -> VoidType
 );
 
 declare_typed_fn_handler!(RunFn() -> VoidType);

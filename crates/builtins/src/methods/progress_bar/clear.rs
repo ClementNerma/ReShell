@@ -7,7 +7,7 @@ crate::define_internal_fn!(
         pb: RequiredArg<CustomType<ProgressBarValue>> = Arg::method_self()
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

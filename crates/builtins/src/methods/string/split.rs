@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         separator: RequiredArg<StringType> = Arg::positional("separator")
     )
 
-    -> Some(DetachedListType::<StringType>::value_type())
+    -> DetachedListType<StringType>
 );
 
 fn run() -> Runner {

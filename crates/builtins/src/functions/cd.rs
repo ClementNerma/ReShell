@@ -14,7 +14,7 @@ crate::define_internal_fn!(
         path: RequiredArg<StringType> = Arg::positional("path")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

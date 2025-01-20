@@ -21,7 +21,7 @@ crate::define_internal_fn!(
         keyer: RequiredArg<KeyerFn> = Arg::positional("keyer")
     )
 
-     -> Some(UntypedListType::value_type())
+     -> UntypedListType
 );
 
 declare_typed_fn_handler!(KeyerFn(value: ComparableValueType) -> ComparableValueType);

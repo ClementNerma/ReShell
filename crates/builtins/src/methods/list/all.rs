@@ -15,7 +15,7 @@ crate::define_internal_fn!(
         predicate: RequiredArg<PredicateFn> = Arg::positional("predicate")
     )
 
-    -> Some(BoolType::value_type())
+    -> BoolType
 );
 
 declare_typed_fn_handler!(PredicateFn(value: AnyType) -> BoolType);

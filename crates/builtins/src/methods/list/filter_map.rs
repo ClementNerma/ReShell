@@ -17,7 +17,7 @@ crate::define_internal_fn!(
         filter_map: RequiredArg<FilterMapFn> = Arg::positional("filter_map")
     )
 
-    -> Some(UntypedListType::value_type())
+    -> UntypedListType
 );
 
 declare_typed_fn_handler!(

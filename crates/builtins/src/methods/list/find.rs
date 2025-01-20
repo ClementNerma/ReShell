@@ -15,7 +15,7 @@ crate::define_internal_fn!(
         predicate: RequiredArg<PredicateFn> = Arg::positional("predicate")
     )
 
-    -> Some(Union2Type::<AnyType, NullType>::value_type())
+    -> Union2Type<AnyType, NullType>
 );
 
 declare_typed_fn_handler!(PredicateFn(value: Union2Type<AnyType, NullType>) -> BoolType);

@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         recursive: PresenceFlag = Arg::long_and_short_flag("recursive", 'r')
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

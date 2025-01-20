@@ -13,7 +13,7 @@ define_internal_fn!(
         direct: PresenceFlag = Arg::long_and_short_flag("direct", 'd')
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

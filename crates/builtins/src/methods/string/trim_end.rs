@@ -8,7 +8,7 @@ define_internal_fn!(
         pattern: OptionalArg<StringType> = Arg::positional("pattern")
     )
 
-    -> Some(StringType::value_type())
+    -> StringType
 );
 
 fn run() -> Runner {

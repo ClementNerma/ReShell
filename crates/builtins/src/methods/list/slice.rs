@@ -13,7 +13,7 @@ crate::define_internal_fn!(
         length: OptionalArg<ExactIntType<usize>> = Arg::positional("length")
     )
 
-    -> Some(UntypedListType::value_type())
+    -> UntypedListType
 );
 
 fn run() -> Runner {

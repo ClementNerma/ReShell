@@ -8,7 +8,7 @@ crate::define_internal_fn!(
         amount: OptionalArg<ExactIntType<u64>> = Arg::positional("amount")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

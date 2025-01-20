@@ -15,7 +15,7 @@ crate::define_internal_fn!(
         transform_fn: RequiredArg<TransformFn> = Arg::positional("transformFn")
     )
 
-    -> Some(AnyType::value_type())
+    -> AnyType
 );
 
 declare_typed_fn_handler!(TransformFn(value: AnyType) -> AnyType);

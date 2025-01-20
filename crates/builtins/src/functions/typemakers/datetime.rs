@@ -14,7 +14,7 @@ define_internal_fn!(
 
     ()
 
-    -> Some(CustomType::<DateTimeValue>::value_type())
+    -> CustomType<DateTimeValue>
 );
 
 fn run() -> Runner {

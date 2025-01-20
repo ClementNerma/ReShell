@@ -8,7 +8,7 @@ crate::define_internal_fn!(
         high_bound: OptionalArg<IntType> = Arg::positional("highBound")
     )
 
-    -> Some(IntType::value_type())
+    -> IntType
 );
 
 fn run() -> Runner {

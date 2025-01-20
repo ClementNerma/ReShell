@@ -6,7 +6,7 @@ crate::define_internal_fn!(
         count: RequiredArg<ExactIntType<usize>> = Arg::positional("count")
     )
 
-    -> Some(StringType::value_type())
+    -> StringType
 );
 
 fn run() -> Runner {

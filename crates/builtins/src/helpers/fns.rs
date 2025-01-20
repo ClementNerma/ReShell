@@ -20,13 +20,13 @@ pub struct InternalFunction {
     pub run: InternalFnBody,
 
     /// Return type of the function
-    pub ret_type: Option<ValueType>,
+    pub ret_type: ValueType,
 }
 
 /// Define an internal function
 #[macro_export]
 macro_rules! define_internal_fn {
-    ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: expr) => {
+    ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: ty) => {
         use std::collections::HashMap;
 
         use reshell_parser::ast::{FnArg, FnPositionalArg, RuntimeCodeRange, RuntimeSpan};
@@ -153,7 +153,7 @@ macro_rules! define_internal_fn {
 
             InternalFunction {
                 name: $name,
-                ret_type: $ret_type,
+                ret_type: <$ret_type>::value_type(),
                 args,
                 method_on_type,
                 run: _run,

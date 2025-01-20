@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         value: OptionalArg<AnyType> = Arg::positional("value")
     )
 
-    -> Some(CmdArgType::value_type())
+    -> CmdArgType
 );
 
 fn run() -> Runner {

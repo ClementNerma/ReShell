@@ -11,7 +11,7 @@ crate::define_internal_fn!(
         string: RequiredArg<StringType> = Arg::method_self()
     )
 
-    -> Some(DetachedListType::<StringType>::value_type())
+    -> DetachedListType<StringType>
 );
 
 fn run() -> Runner {

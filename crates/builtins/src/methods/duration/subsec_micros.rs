@@ -7,7 +7,7 @@ crate::define_internal_fn!(
         duration: RequiredArg<CustomType<DurationValue>> = Arg::method_self()
     )
 
-    -> Some(ExactIntType::<u64>::value_type())
+    -> ExactIntType<u64>
 );
 
 fn run() -> Runner {

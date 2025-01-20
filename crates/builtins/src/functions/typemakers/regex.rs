@@ -16,7 +16,7 @@ define_internal_fn!(
         pattern: RequiredArg<StringType> = Arg::positional("pattern")
     )
 
-    -> Some(CustomType::<RegexValue>::value_type())
+    -> CustomType<RegexValue>
 );
 
 fn run() -> Runner {

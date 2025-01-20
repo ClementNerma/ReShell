@@ -8,7 +8,7 @@ define_internal_fn!(
         prepend: RestArg<AnyType> = RestArg::new("prepend")
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {

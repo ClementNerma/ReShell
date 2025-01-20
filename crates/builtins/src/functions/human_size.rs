@@ -12,7 +12,7 @@ crate::define_internal_fn!(
         precision: OptionalArg<ExactIntType<u8>> = Arg::long_and_short_flag("precision", 'p')
     )
 
-    -> None
+    -> VoidType
 );
 
 fn run() -> Runner {
