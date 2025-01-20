@@ -147,35 +147,56 @@ pub fn call_fn_value(
         })?,
     };
 
+    // If the function's signature contains a return type...
     if let Some(ret_type) = &func.signature.inner().ret_type {
-        let Some(ret_val) = &returned else {
-            return Err(ctx.error(
-                call_at,
-                format!(
-                    "function call did not return any value, was expected to return a {}",
+        // If the return type is 'void'...
+        if matches!(*ret_type.data, ValueType::Single(SingleValueType::Void)) {
+            // Ensure no value was returned from the function (as void = no return value)
+            if returned.is_some() {
+                return Err(ctx.error(
+                    call_at,
+                    format!(
+                        "function call returned a value but has a return type of {}",
+                        ret_type
+                            .data
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    ),
+                ));
+            }
+        }
+        // If the return type isn't 'void'...
+        else {
+            // Ensure the function returned a value
+            let Some(ret_val) = &returned else {
+                return Err(ctx.error(
+                    call_at,
+                    format!(
+                        "function call did not return any value, was expected to return a {}",
+                        ret_type
+                            .data
+                            .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    ),
+                ));
+            };
+
+            // Check if the returned value's type matches the signature return type
+            if !check_if_value_fits_type(&ret_val.value, &ret_type.data, ctx) {
+                let nature = format!(
+                    "{}function call returned a {}, was expected to return a {}",
+                    match func.body {
+                        RuntimeFnBody::Block(_) => "",
+                        RuntimeFnBody::Internal(_) => "native ",
+                    },
+                    ret_val
+                        .value
+                        .compute_type()
+                        .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                     ret_type
                         .data
                         .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                ),
-            ));
-        };
-
-        if !check_if_value_fits_type(&ret_val.value, &ret_type.data, ctx) {
-            let nature = format!(
-                "{}function call returned a {}, was expected to return a {}",
-                match func.body {
-                    RuntimeFnBody::Block(_) => "",
-                    RuntimeFnBody::Internal(_) => "native ",
-                },
-                ret_val
-                    .value
-                    .compute_type()
-                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                ret_type
-                    .data
-                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
-            );
-            return Err(ctx.error(call_at, nature));
+                );
+                return Err(ctx.error(call_at, nature));
+            }
         }
     }
 
