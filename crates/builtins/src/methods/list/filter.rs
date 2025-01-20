@@ -21,7 +21,7 @@ crate::define_internal_fn!(
 );
 
 declare_typed_fn_handler!(PredicateFn => forge_basic_fn_signature(
-    vec![("value", Union2Type::<AnyType, NullType>::value_type())],
+    vec![("value", AnyType::value_type())],
     Some(BoolType::value_type()),
 ));
 
