@@ -18,24 +18,36 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { command, external }, _, ctx| {
-        if !external {
-            for scope in ctx.visible_scopes_content() {
-                let ScopeContent {
-                    vars: _,
-                    fns,
-                    methods: _,
-                    cmd_aliases,
-                } = scope;
+        if external {
+            match ctx.binaries_resolver().resolve_binary_path(&command) {
+                Ok(path) => {
+                    println!("External binary at: {}", path.to_string_lossy().underline());
+                }
 
-                if let Some(func) = fns.get(&command) {
-                    // println!(
-                    //     "Function declared at: {}\n",
-                    //     dbg_loc(func, ctx.files_map()).underline()
-                    // );
+                Err(err) => {
+                    eprintln!("{}", err.bright_red());
+                }
+            }
 
+            return Ok(None);
+        }
+
+        for scope in ctx.visible_scopes_content() {
+            let ScopeContent {
+                vars: _,
+                fns,
+                methods,
+                cmd_aliases,
+            } = scope;
+
+            if let Some(methods) = command
+                .strip_prefix('.')
+                .and_then(|method_name| methods.get(method_name))
+            {
+                for method in methods {
                     println!(
-                        "Function declared at: {}\n\n{}",
-                        match func.name_at {
+                        "* Method declared at: {}\n\n  {}\n",
+                        match method.name_at {
                             RuntimeCodeRange::Parsed(at) => {
                                 at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
                                     .underline()
@@ -45,44 +57,51 @@ fn run() -> Runner {
                                 format!("internal location: {str}").italic()
                             }
                         },
-                        func.value.render_colored(ctx, PrettyPrintOptions::inline())
-                    );
-
-                    return Ok(None);
-                }
-
-                if let Some(cmd_alias) = cmd_aliases.get(&command) {
-                    let at = cmd_alias.value.content.at;
-
-                    println!(
-                        "Alias declared at: {}\n\n{}",
-                        cmd_alias
+                        method
                             .value
-                            .name_declared_at
-                            .render_colored(ctx.files_map(), PrettyPrintOptions::inline())
-                            .underline(),
-                        match at.start.file_id {
-                            FileId::SourceFile(id) => {
-                                let source = ctx.files_map().get_file(id).unwrap().content;
-                                source[at.start.offset..at.start.offset + at.len].italic()
-                            }
-
-                            _ => "<no source available>".italic(),
-                        }
+                            .render_colored(ctx, PrettyPrintOptions::inline())
                     );
-
-                    return Ok(None);
                 }
-            }
-        }
 
-        match ctx.binaries_resolver().resolve_binary_path(&command) {
-            Ok(path) => {
-                println!("External binary at: {}", path.to_string_lossy().underline());
-            }
+                break;
+            } else if let Some(func) = fns.get(&command) {
+                println!(
+                    "Function declared at: {}\n\n{}",
+                    match func.name_at {
+                        RuntimeCodeRange::Parsed(at) => {
+                            at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                                .underline()
+                        }
 
-            Err(err) => {
-                eprintln!("{}", err.bright_red());
+                        RuntimeCodeRange::Internal(str) => {
+                            format!("internal location: {str}").italic()
+                        }
+                    },
+                    func.value.render_colored(ctx, PrettyPrintOptions::inline())
+                );
+
+                break;
+            } else if let Some(cmd_alias) = cmd_aliases.get(&command) {
+                let at = cmd_alias.value.content.at;
+
+                println!(
+                    "Alias declared at: {}\n\n{}",
+                    cmd_alias
+                        .value
+                        .name_declared_at
+                        .render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                        .underline(),
+                    match at.start.file_id {
+                        FileId::SourceFile(id) => {
+                            let source = ctx.files_map().get_file(id).unwrap().content;
+                            source[at.start.offset..at.start.offset + at.len].italic()
+                        }
+
+                        _ => "<no source available>".italic(),
+                    }
+                );
+
+                break;
             }
         }
 
