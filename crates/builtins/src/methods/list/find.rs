@@ -1,6 +1,6 @@
 use crate::{
     declare_typed_fn_handler,
-    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value},
 };
 
 crate::define_internal_fn!(
@@ -18,10 +18,7 @@ crate::define_internal_fn!(
     -> Some(Union2Type::<AnyType, NullType>::value_type())
 );
 
-declare_typed_fn_handler!(PredicateFn => forge_basic_fn_signature(
-    vec![("value", Union2Type::<AnyType, NullType>::value_type())],
-    Some(BoolType::value_type()),
-));
+declare_typed_fn_handler!(PredicateFn(value: Union2Type<AnyType, NullType>) -> BoolType);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, predicate }, args_at, ctx| {

@@ -103,6 +103,23 @@ declare_basic_type_handlers!(
     }
 );
 
+/// Type handler for the 'void' type
+///
+/// Only used to *expose* that type
+pub struct VoidType;
+
+impl TypedValueParser for VoidType {
+    fn value_type() -> ValueType {
+        ValueType::Single(SingleValueType::Void)
+    }
+
+    type Parsed = ();
+
+    fn parse(_: RuntimeValue) -> Result<Self::Parsed, String> {
+        Err("Can't parse a void value".to_owned())
+    }
+}
+
 /// Type handler for a specific integer type
 pub struct ExactIntType<From: RustIntType> {
     _f: PhantomData<From>,
@@ -411,13 +428,18 @@ macro_rules! declare_typed_struct_handler {
 /// Macro to create a function type handler
 #[macro_export]
 macro_rules! declare_typed_fn_handler {
-    ($( $typename: ident => $signature: expr ),+ ) => {
+    ($( $typename: ident ($($argname:ident : $argtype:ty),*) ),+ -> $rettype:ty ) => {
         $(
             struct $typename;
 
             impl $typename {
                 pub fn signature() -> ::reshell_parser::ast::FnSignature {
-                    $signature
+                    $crate::utils::forge_basic_fn_signature(
+                        vec![
+                            $( (stringify!($argname), <$argtype>::value_type()) ),*
+                        ],
+                        Some(<$rettype>::value_type())
+                    )
                 }
             }
 

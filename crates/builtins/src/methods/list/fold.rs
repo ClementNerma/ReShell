@@ -1,6 +1,6 @@
 use crate::{
     declare_typed_fn_handler,
-    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value},
 };
 
 crate::define_internal_fn!(
@@ -19,13 +19,9 @@ crate::define_internal_fn!(
     -> Some(AnyType::value_type())
 );
 
-declare_typed_fn_handler!(FolderFn => forge_basic_fn_signature(
-    vec![
-        ("acc", AnyType::value_type()),
-        ("value", ExactIntType::<usize>::value_type()),
-    ],
-    Some(NullableType::<AnyType>::value_type()),
-));
+declare_typed_fn_handler!(
+    FolderFn(acc: AnyType, value: ExactIntType<usize>) -> NullableType<AnyType>
+);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, init, folder }, args_at, ctx| {

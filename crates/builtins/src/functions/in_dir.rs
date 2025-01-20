@@ -1,7 +1,4 @@
-use crate::{
-    declare_typed_fn_handler,
-    utils::{call_fn_checked, forge_basic_fn_signature},
-};
+use crate::{declare_typed_fn_handler, utils::call_fn_checked};
 
 use super::cd::change_current_dir;
 
@@ -20,7 +17,7 @@ crate::define_internal_fn!(
     -> None
 );
 
-declare_typed_fn_handler!(RunFn => forge_basic_fn_signature(vec![], None));
+declare_typed_fn_handler!(RunFn() -> VoidType);
 
 fn run() -> Runner {
     Runner::new(|at, Args { path, func }, args_at, ctx| {

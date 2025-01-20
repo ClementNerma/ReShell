@@ -5,7 +5,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     declare_typed_fn_handler,
     functions::{DateTimeValue, DurationValue},
-    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value},
 };
 
 use super::sorted::ComparableValueType;
@@ -24,10 +24,7 @@ crate::define_internal_fn!(
      -> Some(UntypedListType::value_type())
 );
 
-declare_typed_fn_handler!(KeyerFn => forge_basic_fn_signature(
-    vec![("value", ComparableValueType::value_type())],
-    Some(ComparableValueType::value_type()),
-));
+declare_typed_fn_handler!(KeyerFn(value: ComparableValueType) -> ComparableValueType);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, keyer }, args_at, ctx| {

@@ -1,6 +1,6 @@
 use crate::{
     declare_typed_fn_handler,
-    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value},
 };
 
 crate::define_internal_fn!(
@@ -18,10 +18,7 @@ crate::define_internal_fn!(
     -> Some(AnyType::value_type())
 );
 
-declare_typed_fn_handler!(TransformFn => forge_basic_fn_signature(
-    vec![("value", AnyType::value_type())],
-    Some(AnyType::value_type()),
-));
+declare_typed_fn_handler!(TransformFn(value: AnyType) -> AnyType);
 
 fn run() -> Runner {
     Runner::new(

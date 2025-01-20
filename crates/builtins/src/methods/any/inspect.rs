@@ -1,7 +1,4 @@
-use crate::{
-    declare_typed_fn_handler,
-    utils::{call_fn_checked, forge_basic_fn_signature},
-};
+use crate::{declare_typed_fn_handler, utils::call_fn_checked};
 
 crate::define_internal_fn!(
     //
@@ -18,10 +15,7 @@ crate::define_internal_fn!(
     -> Some(AnyType::value_type())
 );
 
-declare_typed_fn_handler!(InspectFn => forge_basic_fn_signature(
-    vec![("value", AnyType::value_type())],
-    None,
-));
+declare_typed_fn_handler!(InspectFn(value: AnyType) -> VoidType);
 
 fn run() -> Runner {
     Runner::new(|_, Args { value, inspect_fn }, args_at, ctx| {

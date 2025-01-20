@@ -2,7 +2,7 @@ use reshell_runtime::gc::GcCell;
 
 use crate::{
     declare_typed_fn_handler,
-    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value},
 };
 
 crate::define_internal_fn!(
@@ -20,10 +20,7 @@ crate::define_internal_fn!(
     -> Some(UntypedListType::value_type())
 );
 
-declare_typed_fn_handler!(PredicateFn => forge_basic_fn_signature(
-    vec![("value", AnyType::value_type())],
-    Some(BoolType::value_type()),
-));
+declare_typed_fn_handler!(PredicateFn(value: AnyType) -> BoolType);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, predicate }, args_at, ctx| {

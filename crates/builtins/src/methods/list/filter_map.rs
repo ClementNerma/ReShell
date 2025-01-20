@@ -2,7 +2,7 @@ use reshell_runtime::gc::GcCell;
 
 use crate::{
     declare_typed_fn_handler,
-    utils::{call_fn_checked, expect_returned_value, forge_basic_fn_signature},
+    utils::{call_fn_checked, expect_returned_value},
 };
 
 crate::define_internal_fn!(
@@ -20,10 +20,9 @@ crate::define_internal_fn!(
     -> Some(UntypedListType::value_type())
 );
 
-declare_typed_fn_handler!(FilterMapFn => forge_basic_fn_signature(
-    vec![("value", Union2Type::<AnyType, NullType>::value_type())],
-    Some(NullableType::<AnyType>::value_type()),
-));
+declare_typed_fn_handler!(
+    FilterMapFn(value: Union2Type<AnyType, NullType>) -> NullableType<AnyType>
+);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, filter_map }, args_at, ctx| {
