@@ -9,7 +9,7 @@ crate::define_internal_fn!(
         value: RequiredArg<StringifyableType> = Arg::method_self()
     )
 
-    -> VoidType
+    -> StringType
 );
 
 fn run() -> Runner {
