@@ -160,7 +160,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 ),
 
                 // Keywords
-                simple(pomsky!( % :("alias" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return") ([s] | $) ), [Magenta]),
+                simple(pomsky!( % :("alias" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") ([s] | $) ), [Magenta]),
 
                 // 'self' keyword
                 simple(pomsky!( % :("self") ('.' | $)), [Magenta]),
