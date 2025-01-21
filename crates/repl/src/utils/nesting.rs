@@ -221,10 +221,10 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                             .chars()
                             .all(char::is_whitespace) =>
                     {
-                        open!(offset, 1, NestingOpeningType::FnArgs);
+                        open!(offset, 1, NestingOpeningType::LambdaArgs);
                     }
 
-                    Some((NestingOpeningType::FnArgs, args_start)) => {
+                    Some((NestingOpeningType::LambdaArgs, args_start)) => {
                         close!(offset, 1, args_start);
                     }
 
@@ -338,5 +338,6 @@ pub enum NestingOpeningType {
     CmdOutput,
     CmdCall,
     Lambda,
-    FnArgs, // TODO: opening parenthesis for function declaration
+    LambdaArgs,
+    // TODO: FnArgs, opening parenthesis for function declaration
 }

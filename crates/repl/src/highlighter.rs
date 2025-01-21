@@ -406,7 +406,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 ]
             }),
 
-            (NestingOpeningType::FnArgs, NestedContentRules {
+            (NestingOpeningType::LambdaArgs, NestedContentRules {
                 opening_style: Style::new().fg(LightYellow),
                 closing_style: Style::new().fg(LightYellow),
                 rules: vec![
