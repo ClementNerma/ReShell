@@ -958,7 +958,16 @@ pub fn program(
 
     let cmd_value_making_arg = choice::<CmdValueMakingArg, _>((
         // Literal values
-        literal_value.map(CmdValueMakingArg::LiteralValue),
+        literal_value
+            // Disambiguation: literal values should be followed by either
+            // a space, a newline, a delimiter character or the end of the program
+            // Otherwise this means we're in a raw argument with remaining symbols
+            .followed_by(silent_choice((
+                whitespaces().at_least_one(), /* includes newlines */
+                filter(|c| DELIMITER_CHARS.contains(&c)),
+                end(),
+            )))
+            .map(CmdValueMakingArg::LiteralValue),
         // Variable
         char('$')
             .ignore_then(ident)
