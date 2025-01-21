@@ -20,7 +20,7 @@ pub fn run_script(
     let file_id = ctx.files_map().register_file(file_loc, input.to_string());
 
     let parsed = parser
-        .parse_str_as_file(input, FileId::SourceFile(file_id))
+        .parse_str_with_file_id(input, FileId::SourceFile(file_id))
         .map_err(ReportableError::Parsing)?;
 
     if print_ast {

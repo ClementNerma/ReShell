@@ -52,11 +52,11 @@ pub fn program(
     let s = whitespaces().no_newline().at_least_one();
 
     let block = char('{')
-        .critical_with_no_message()
+        .critical_auto_msg()
         .ignore_then(msnl)
         .ignore_then(raw_block.clone())
         .then_ignore(msnl)
-        .then_ignore(char('}').critical_with_no_message());
+        .then_ignore(char('}').critical_auto_msg());
 
     let possible_ident_char = choice((char('_'), alphanumeric()));
 
@@ -109,14 +109,14 @@ pub fn program(
                 .map(SingleValueType::Function),
             just("list[")
                 .ignore_then(value_type.clone().map(Box::new))
-                .then_ignore(char(']').critical_with_no_message())
+                .then_ignore(char(']').critical_auto_msg())
                 .map(SingleValueType::TypedList),
             just("list")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::UntypedList),
             just("map[")
                 .ignore_then(value_type.clone().map(Box::new))
-                .then_ignore(char(']').critical_with_no_message())
+                .then_ignore(char(']').critical_auto_msg())
                 .map(SingleValueType::TypedMap),
             just("map")
                 .not_followed_by(possible_ident_char)
@@ -128,14 +128,14 @@ pub fn program(
                         .spanned()
                         .map(RuntimeSpan::from)
                         .then_ignore(ms)
-                        .then_ignore(char(':').critical_with_no_message())
+                        .then_ignore(char(':').critical_auto_msg())
                         .then_ignore(msnl)
                         .then(value_type.clone().critical("expected a value type"))
                         .map(|(name, typ)| StructTypeMember { name, typ })
-                        .separated_by(char(',').padded_by(msnl)),
+                        .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .map(SingleValueType::TypedStruct),
             just("struct")
                 .not_followed_by(possible_ident_char)
@@ -149,11 +149,11 @@ pub fn program(
                 .ignore_then(
                     single_value_type
                         .clone()
-                        .separated_by(char('|').padded_by(msnl))
+                        .separated_by_into_vec(char('|').padded_by(msnl))
                         .at_least(1)
                         .critical("expected a type union"),
                 )
-                .then_ignore(char(')').critical_with_no_message())
+                .then_ignore(char(')').critical_auto_msg())
                 .map(ValueType::Union),
             // Single type
             single_value_type.map(ValueType::Single),
@@ -185,7 +185,7 @@ pub fn program(
             .then_ignore(ms)
             .then_ignore(char('('))
             .then(fn_arg_short_flag.map(RuntimeSpan::from))
-            .then_ignore(char(')').critical_with_no_message())
+            .then_ignore(char(')').critical_auto_msg())
             .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
         // Long flag only
         fn_arg_long_flag
@@ -271,12 +271,12 @@ pub fn program(
             .ignore_then(
                 fn_arg
                     .clone()
-                    .separated_by(char(',').padded_by(msnl))
+                    .separated_by_into_vec(char(',').padded_by(msnl))
                     .spanned()
                     .map(RuntimeSpan::from),
             )
             .then_ignore(msnl)
-            .then_ignore(char(')').critical_with_no_message())
+            .then_ignore(char(')').critical_auto_msg())
             .then(
                 msnl.ignore_then(just("->"))
                     .ignore_then(ms)
@@ -329,10 +329,10 @@ pub fn program(
         fn_call_arg
             .spanned()
             .padded_by(msnl)
-            .separated_by(char(','))
+            .separated_by_into_vec(char(','))
             .spanned(),
     )
-    .then_ignore(char(')').critical_with_no_message())
+    .then_ignore(char(')').critical_auto_msg())
     .map(|((nature, name), call_args)| FnCall {
         nature,
         name,
@@ -360,7 +360,7 @@ pub fn program(
                 escaped_char.map(EscapableChar::original_char),
                 filter(|c| c != '\''),
             ))
-            .repeated_custom::<String>(),
+            .repeated_into_container::<String>(),
         )
         .then_ignore(char('\''));
 
@@ -410,7 +410,7 @@ pub fn program(
                                 .padded_by(msnl)
                                 .critical("expected a command call"),
                         )
-                        .then_ignore(char(')').critical_with_no_message())
+                        .then_ignore(char(')').critical_auto_msg())
                         .map(ComputedStringPiece::CmdCall),
                     // Variables
                     char('$')
@@ -425,7 +425,7 @@ pub fn program(
                                 .padded_by(msnl)
                                 .critical("expected an expression"),
                         )
-                        .then_ignore(char('`').critical_with_no_message())
+                        .then_ignore(char('`').critical_auto_msg())
                         .map(ComputedStringPiece::Expr),
                     // Literal character suites
                     filter(|c| c != '"' && c != '$' && c != '`' && c != '\\')
@@ -434,9 +434,9 @@ pub fn program(
                         .collect_string()
                         .map(ComputedStringPiece::Literal),
                 ))
-                .repeated_vec(),
+                .repeated_into_vec(),
             )
-            .then_ignore(char('"').critical_with_no_message())
+            .then_ignore(char('"').critical_auto_msg())
             .map(|pieces| ComputedString { pieces });
 
     let lambda = char('{')
@@ -446,7 +446,7 @@ pub fn program(
                 .ignore_then(msnl)
                 .ignore_then(
                     fn_arg
-                        .separated_by(char(',').padded_by(msnl))
+                        .separated_by_into_vec(char(',').padded_by(msnl))
                         .spanned()
                         .map(RuntimeSpan::from)
                         .map(|args| FnSignature {
@@ -455,7 +455,7 @@ pub fn program(
                         }),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('|').critical_with_no_message())
+                .then_ignore(char('|').critical_auto_msg())
                 .spanned()
                 .then_ignore(msnl),
         )
@@ -466,7 +466,7 @@ pub fn program(
                 .spanned(),
         )
         .then_ignore(ms)
-        .then_ignore(char('}').critical_with_no_message())
+        .then_ignore(char('}').critical_auto_msg())
         .map(|(signature, body)| Function { signature, body });
 
     let inline_cmd = just("@(")
@@ -478,7 +478,7 @@ pub fn program(
                 .critical("expected a command call"),
         )
         .then_ignore(msnl)
-        .then_ignore(char(')').critical_with_no_message());
+        .then_ignore(char(')').critical_auto_msg());
 
     let map_key = choice::<MapKey, _>((
         ident.map(MapKey::Raw),
@@ -504,7 +504,7 @@ pub fn program(
             .ignore_then(
                 expr.clone()
                     .spanned()
-                    .separated_by(char(',').padded_by(msnl)),
+                    .separated_by_into_vec(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
             .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
@@ -521,10 +521,10 @@ pub fn program(
                     .then_ignore(char(':'))
                     .then_ignore(msnl)
                     .then(expr.clone().critical("expected an expression"))
-                    .separated_by(char(',').padded_by(msnl)),
+                    .separated_by_into_vec(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
-            .then_ignore(char('}').critical_with_no_message())
+            .then_ignore(char('}').critical_auto_msg())
             .map(Value::Map),
         // Lambdas
         lambda.clone().map(Value::Lambda),
@@ -538,17 +538,17 @@ pub fn program(
                     .then_ignore(char(':'))
                     .then_ignore(msnl)
                     .then(expr.clone().critical("expected an expression"))
-                    .separated_by(char(',').padded_by(msnl)),
+                    .separated_by_into_vec(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
-            .then_ignore(char('}').critical_with_no_message())
+            .then_ignore(char('}').critical_auto_msg())
             .map(Value::Struct),
         // Function calls
         fn_call.clone().spanned().map(Value::FnCall),
         // Command calls
         just("$(")
             .ignore_then(cmd_call.clone().spanned())
-            .then_ignore(char(')').critical_with_no_message())
+            .then_ignore(char(')').critical_auto_msg())
             .map(Value::CmdOutput),
         // Variables
         var_name.spanned().map(Value::Variable),
@@ -581,11 +581,11 @@ pub fn program(
     )));
 
     let braces_expr_body = char('{')
-        .critical_with_no_message()
+        .critical_auto_msg()
         .ignore_then(msnl)
         .ignore_then(expr.clone().map(Box::new))
         .then_ignore(msnl)
-        .then_ignore(char('}').critical_with_no_message());
+        .then_ignore(char('}').critical_auto_msg());
 
     let expr_inner_chaining = late::<ExprInnerChaining>();
 
@@ -599,7 +599,7 @@ pub fn program(
             single_op
                 .then_ignore(ms)
                 .then(expr_inner_content.map(Box::new).spanned())
-                .then(expr_inner_chaining.clone().spanned().repeated_vec())
+                .then(expr_inner_chaining.clone().spanned().repeated_into_vec())
                 .map(
                     |((op, right), right_chainings)| ExprInnerContent::SingleOp {
                         op,
@@ -651,7 +651,7 @@ pub fn program(
                         .then_ignore(ms)
                         .then(braces_expr_body.clone())
                         .map(|(cond, body)| ElsIfExpr { cond, body })
-                        .repeated_vec()
+                        .repeated_into_vec()
                         .then(
                             msnl.ignore_then(just("else").critical("expected an 'else' block"))
                                 .ignore_then(ms)
@@ -679,7 +679,7 @@ pub fn program(
                         .critical("expected an expression to match on"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical_with_no_message())
+                .then_ignore(char('{').critical_auto_msg())
                 .then(
                     msnl.ignore_then(just("case"))
                         .ignore_then(ms)
@@ -689,21 +689,21 @@ pub fn program(
                                 .critical("expected an expression to match"),
                         )
                         .then_ignore(msnl)
-                        .then_ignore(char('{').critical_with_no_message())
+                        .then_ignore(char('{').critical_auto_msg())
                         .then_ignore(msnl)
                         .then(
                             expr.clone()
                                 .critical("expected an expression to evaluate to"),
                         )
                         .then_ignore(msnl)
-                        .then_ignore(char('}').critical_with_no_message())
+                        .then_ignore(char('}').critical_auto_msg())
                         .map(|(matches, then)| MatchExprCase { matches, then })
-                        .repeated_vec(),
+                        .repeated_into_vec(),
                 )
                 .then_ignore(msnl)
-                .then_ignore(just("else").critical_with_no_message())
+                .then_ignore(just("else").critical_auto_msg())
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical_with_no_message())
+                .then_ignore(char('{').critical_auto_msg())
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
@@ -711,9 +711,9 @@ pub fn program(
                         .critical("expected an expression to evaluate to"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .map(|((expr, cases), els)| ExprInnerContent::Match { expr, cases, els }),
             //
             // Type matching
@@ -726,27 +726,27 @@ pub fn program(
                         .critical("expected an expression to match on"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical_with_no_message())
+                .then_ignore(char('{').critical_auto_msg())
                 .then(
                     msnl.ignore_then(just("case"))
                         .ignore_then(ms)
                         .ignore_then(value_type.clone().critical("expected a type to match"))
                         .then_ignore(msnl)
-                        .then_ignore(char('{').critical_with_no_message())
+                        .then_ignore(char('{').critical_auto_msg())
                         .then_ignore(msnl)
                         .then(
                             expr.clone()
                                 .critical("expected an expression to evaluate to"),
                         )
                         .then_ignore(msnl)
-                        .then_ignore(char('}').critical_with_no_message())
+                        .then_ignore(char('}').critical_auto_msg())
                         .map(|(matches, then)| TypeMatchExprCase { matches, then })
-                        .repeated_vec(),
+                        .repeated_into_vec(),
                 )
                 .then_ignore(msnl)
-                .then_ignore(just("else").critical_with_no_message())
+                .then_ignore(just("else").critical_auto_msg())
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical_with_no_message())
+                .then_ignore(char('{').critical_auto_msg())
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
@@ -754,9 +754,9 @@ pub fn program(
                         .critical("expected an expression to evaluate to"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .map(|((expr, cases), els)| ExprInnerContent::TypeMatch { expr, cases, els }),
             //
             // Try / catch
@@ -771,13 +771,13 @@ pub fn program(
                         .critical("expected an expression"),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .then_ignore(msnl)
-                .then_ignore(just("catch").critical_with_no_message())
-                .then_ignore(s.critical_with_no_message())
+                .then_ignore(just("catch").critical_auto_msg())
+                .then_ignore(s.critical_auto_msg())
                 .then(ident.spanned().critical("expected a catch variable"))
                 .then_ignore(msnl)
-                .then_ignore(char('{').critical_with_no_message())
+                .then_ignore(char('{').critical_auto_msg())
                 .then_ignore(msnl)
                 .then(
                     expr.clone()
@@ -827,7 +827,7 @@ pub fn program(
                     .critical("expected an expression"),
             )
             .map(Box::new)
-            .then_ignore(char(']').critical_with_no_message())
+            .then_ignore(char(']').critical_auto_msg())
             .map(PropAccessNature::Key),
     ));
 
@@ -853,7 +853,7 @@ pub fn program(
 
     let expr_inner = expr_inner_content
         .spanned()
-        .then(expr_inner_chaining.repeated_vec())
+        .then(expr_inner_chaining.repeated_into_vec())
         .map(|(content, chainings)| ExprInner { content, chainings });
 
     let expr_op = double_op
@@ -871,10 +871,10 @@ pub fn program(
     expr.finish(
         expr_inner
             .spanned()
-            .then(ms.ignore_then(expr_op).repeated_vec())
+            .then(ms.ignore_then(expr_op).repeated_into_vec())
             .then(
                 s.ignore_then(just("typeis"))
-                    .ignore_then(s.critical_with_no_message())
+                    .ignore_then(s.critical_auto_msg())
                     .ignore_then(value_type.clone().critical("expected a type"))
                     .or_not(),
             )
@@ -897,7 +897,7 @@ pub fn program(
                 .map(CmdRawStringPiece::Literal),
         ))
         .spanned()
-        .repeated_vec()
+        .repeated_into_vec()
         .at_least(1)
         .map(|pieces| CmdRawString { pieces }),
     );
@@ -990,7 +990,7 @@ pub fn program(
                     .padded_by(msnl)
                     .critical("expected a command call"),
             )
-            .then_ignore(char(')').critical_with_no_message())
+            .then_ignore(char(')').critical_auto_msg())
             .map(CmdValueMakingArg::CmdOutput),
         // Parenthesis-wrapped expressions
         char('(')
@@ -1000,7 +1000,7 @@ pub fn program(
                     .padded_by(msnl)
                     .critical("expected an expression"),
             )
-            .then_ignore(char(')').critical_with_no_message())
+            .then_ignore(char(')').critical_auto_msg())
             .map(CmdValueMakingArg::ParenExpr),
         // Inline command call
         inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
@@ -1096,7 +1096,7 @@ pub fn program(
 
     let single_cmd_call = cmd_env_var
         .spanned()
-        .separated_by(s)
+        .separated_by_into_vec(s)
         .spanned()
         .then(cmd_path.spanned().followed_by(silent_choice((
             end(),
@@ -1115,7 +1115,7 @@ pub fn program(
                     .or_not(),
             )
             .ignore_then(cmd_arg.spanned())
-            .repeated_vec()
+            .repeated_into_vec()
             .spanned(),
         )
         .map(|((env_vars, path), args)| SingleCmdCall {
@@ -1166,7 +1166,7 @@ pub fn program(
                         .critical("expected a command call after the pipe"),
                 )
                 .map(|(pipe_type, cmd)| CmdPipe { cmd, pipe_type })
-                .repeated_vec(),
+                .repeated_into_vec(),
             )
             .map(|(base, pipes)| CmdCall { base, pipes }),
     );
@@ -1176,7 +1176,7 @@ pub fn program(
     let single_var_decl = just("mut")
         .to(())
         .not_followed_by(possible_ident_char)
-        .then_ignore(s.critical_with_no_message())
+        .then_ignore(s.critical_auto_msg())
         .spanned()
         .or_not()
         .then(ident.spanned())
@@ -1200,7 +1200,7 @@ pub fn program(
                     var_decl_type
                         .clone()
                         .spanned()
-                        .separated_by(char(',').padded_by(msnl)),
+                        .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char(']'))
@@ -1227,10 +1227,10 @@ pub fn program(
                                 )
                                 .or_not(),
                         )
-                        .separated_by(char(',').padded_by(msnl)),
+                        .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
-                .then_ignore(char('}').critical_with_no_message())
+                .then_ignore(char('}').critical_auto_msg())
                 .map(VarDeconstruction::MapOrStruct),
             single_var_decl.map(VarDeconstruction::Single),
         ))
@@ -1241,7 +1241,7 @@ pub fn program(
         var_name.spanned().map(RangeBound::Variable),
         char('(')
             .ignore_then(expr.clone().critical("expected an expression"))
-            .then_ignore(char(')').critical_with_no_message())
+            .then_ignore(char(')').critical_auto_msg())
             .spanned()
             .map(RangeBound::Expr),
     ));
@@ -1258,7 +1258,7 @@ pub fn program(
                     .critical("expected a valid variable declaration"),
             )
             .then(
-                ms.ignore_then(char('=').critical_with_no_message())
+                ms.ignore_then(char('=').critical_auto_msg())
                     .ignore_then(msnl)
                     .ignore_then(
                         expr.clone()
@@ -1272,7 +1272,7 @@ pub fn program(
         //
         var_name
             .spanned()
-            .then(prop_access_nature.clone().spanned().repeated_vec())
+            .then(prop_access_nature.clone().spanned().repeated_into_vec())
             .then(just("[]").to(()).spanned().or_not())
             .then_ignore(ms)
             .then_ignore(char('='))
@@ -1319,7 +1319,7 @@ pub fn program(
                     .then(block.clone().spanned())
                     .map(|(cond, body)| ElsIf { cond, body })
                     .spanned()
-                    .repeated_vec()
+                    .repeated_into_vec()
                     .then(
                         msnl.ignore_then(just("else"))
                             .ignore_then(ms)
@@ -1469,7 +1469,7 @@ pub fn program(
                     .critical("expected an expression to match on"),
             )
             .then_ignore(msnl)
-            .then_ignore(char('{').critical_with_no_message())
+            .then_ignore(char('{').critical_auto_msg())
             .then(
                 msnl.ignore_then(just("case"))
                     .ignore_then(ms)
@@ -1481,7 +1481,7 @@ pub fn program(
                     .then_ignore(ms)
                     .then(block.clone().spanned().critical("expected a block"))
                     .map(|(matches, body)| MatchCase { matches, body })
-                    .repeated_vec(),
+                    .repeated_into_vec(),
             )
             .then(
                 msnl.ignore_then(just("else"))
@@ -1490,7 +1490,7 @@ pub fn program(
                     .or_not(),
             )
             .then_ignore(msnl)
-            .then_ignore(char('}').critical_with_no_message())
+            .then_ignore(char('}').critical_auto_msg())
             .map(|((expr, cases), els)| Instruction::Match { expr, cases, els }),
         //
         // Type matching
@@ -1503,7 +1503,7 @@ pub fn program(
                     .critical("expected an expression to match on"),
             )
             .then_ignore(msnl)
-            .then_ignore(char('{').critical_with_no_message())
+            .then_ignore(char('{').critical_auto_msg())
             .then(
                 msnl.ignore_then(just("case"))
                     .ignore_then(ms)
@@ -1511,7 +1511,7 @@ pub fn program(
                     .then_ignore(ms)
                     .then(block.clone().spanned().critical("expected a block"))
                     .map(|(matches, body)| TypeMatchCase { matches, body })
-                    .repeated_vec(),
+                    .repeated_into_vec(),
             )
             .then(
                 msnl.ignore_then(just("else"))
@@ -1520,7 +1520,7 @@ pub fn program(
                     .or_not(),
             )
             .then_ignore(msnl)
-            .then_ignore(char('}').critical_with_no_message())
+            .then_ignore(char('}').critical_auto_msg())
             .map(|((expr, cases), els)| Instruction::TypeMatch { expr, cases, els }),
         //
         // Function declaration
@@ -1616,14 +1616,14 @@ pub fn program(
             .ignore_then(char('{').padded_by(msnl))
             .ignore_then(expr.clone().spanned().critical("expected an expression"))
             .then_ignore(char('}').padded_by(msnl))
-            .then_ignore(just("catch").critical_with_no_message())
-            .then_ignore(s.critical_with_no_message())
+            .then_ignore(just("catch").critical_auto_msg())
+            .then_ignore(s.critical_auto_msg())
             .then(
                 ident
                     .spanned()
                     .critical("expected a variable to catch the throw value in"),
             )
-            .then_ignore(s.critical_with_no_message())
+            .then_ignore(s.critical_auto_msg())
             .then(block.clone().spanned().critical("expected a block"))
             .map(
                 move |((try_expr, catch_var), catch_body)| Instruction::Try {
@@ -1643,7 +1643,7 @@ pub fn program(
                     .critical("expected an alias name (identifier)"),
             )
             .then_ignore(ms)
-            .then_ignore(char('=').critical_with_no_message())
+            .then_ignore(char('=').critical_auto_msg())
             .then_ignore(ms)
             .then(
                 single_cmd_call
@@ -1667,7 +1667,7 @@ pub fn program(
                     .critical("expected a type name (identifier)"),
             )
             .then_ignore(ms)
-            .then_ignore(char('=').critical_with_no_message())
+            .then_ignore(char('=').critical_auto_msg())
             .then_ignore(ms)
             .then(value_type.spanned().critical("expected a type to alias"))
             .map(|(name, content)| Instruction::TypeAliasDecl { name, content }),
@@ -1687,9 +1687,10 @@ pub fn program(
                 literal_string
                     .spanned()
                     .critical("expected a file path")
-                    .and_then_or_str_err(move |path| load_file(path.data, path.at.start.file_id))
+                    .and_then_or_str(move |path| load_file(path.data, path.at.start.file_id))
                     .and_then(move |file| {
-                        program_bis.parse_str_as_file(&file.content, FileId::SourceFile(file.id))
+                        program_bis
+                            .parse_str_with_file_id(&file.content, FileId::SourceFile(file.id))
                     })
                     .map(|program| program.data),
             )
@@ -1715,7 +1716,7 @@ pub fn program(
     raw_block.finish(
         instr
             .padded_by(msnl)
-            .repeated_vec()
+            .repeated_into_vec()
             .map(move |instructions| Block {
                 scope_id: scope_id_gen.gen(),
                 instructions,

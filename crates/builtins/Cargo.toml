@@ -8,17 +8,17 @@ colored = "3.0.0"
 dunce = "1.0.5"
 dyn-clone = "1.0.17"
 glob = "0.3.2"
-indexmap = "2.7.0"
+indexmap = "2.7.1"
 indicatif = "0.17.9"
-parsy = "0.9.2"
+parsy = "0.10.0"
 pomsky = "0.11.0"
 regex = "1.11.1"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
 reshell-checker = { path = "../checker" }
-serde_json = "1.0.135"
+serde_json = "1.0.137"
 terminal_size = "0.4.1"
 toml = "0.8.19"
 reshell-shared = { version = "0.1.0", path = "../shared" }
 rand = { version = "0.8.5" }
-jiff = "0.1.23"
+jiff = "0.1.24"
