@@ -10,11 +10,11 @@ crate::define_internal_fn!(
     // map over a list
     //
 
-    "filter_mapMap",
+    "filterMap",
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        filter_map: RequiredArg<FilterMapFn> = Arg::positional("filter_map")
+        filter_map: RequiredArg<FilterMapFn> = Arg::positional("filterMap")
     )
 
     -> UntypedListType
