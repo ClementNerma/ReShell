@@ -115,14 +115,12 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 "program was interrupted by a Ctrl+C press".to_owned(),
             ),
 
-            ExecErrorNature::Custom(message) => (
-                err.at,
-                "Runtime error",
+            ExecErrorNature::Custom(message) => (err.at, "Runtime error", {
                 match message {
                     Cow::Borrowed(str) => (*str).to_owned(),
                     Cow::Owned(string) => string.clone(),
-                },
-            ),
+                }
+            }),
 
             ExecErrorNature::ParsingErr(err) => {
                 let (at, err) = parsing_error(err);
@@ -275,6 +273,11 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     } else {
         source[offset..offset + len.max(1)].len()
     };
+
+    // Add manual bold + coloring to the error message,
+    // as the `annotate-snippets` crate uses a different coloration crate
+    // which doesn't support color nesting like `colored`
+    let msg = msg.bright_red().bold().to_string();
 
     let snippet = Level::Error.title(&nature).snippet(
         Snippet::source(&extract)
