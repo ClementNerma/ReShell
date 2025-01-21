@@ -1153,6 +1153,7 @@ pub fn program(
             .then(
                 msnl.ignore_then(
                     choice::<CmdPipeType, _>((
+                        // TODO: use a delimiter character ('!' isn't a delimiter)
                         just("!|").to(CmdPipeType::Stderr),
                         char('|').to(CmdPipeType::ValueOrStdout),
                     ))
