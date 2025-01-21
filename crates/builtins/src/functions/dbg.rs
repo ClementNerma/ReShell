@@ -31,13 +31,13 @@ fn run() -> Runner {
          ctx| {
             let at = format!(
                 "dbg [{}]:",
-                at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                at.display(ctx.files_map(), PrettyPrintOptions::inline())
             );
 
             println!(
                 "{} {}",
                 at.bright_magenta(),
-                value.render_colored(
+                value.display(
                     ctx,
                     PrettyPrintOptions {
                         pretty: true,

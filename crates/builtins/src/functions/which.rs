@@ -49,7 +49,8 @@ fn run() -> Runner {
                         "* Method declared at: {}\n  {}\n",
                         match method.name_at {
                             RuntimeCodeRange::Parsed(at) => {
-                                at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                                at.display(ctx.files_map(), PrettyPrintOptions::inline())
+                                    .to_string()
                                     .underline()
                             }
 
@@ -57,9 +58,7 @@ fn run() -> Runner {
                                 format!("internal location: {str}").italic()
                             }
                         },
-                        method
-                            .value
-                            .render_colored(ctx, PrettyPrintOptions::inline())
+                        method.value.display(ctx, PrettyPrintOptions::inline())
                     );
                 }
 
@@ -69,7 +68,8 @@ fn run() -> Runner {
                     "Function declared at: {}\n\n{}",
                     match func.name_at {
                         RuntimeCodeRange::Parsed(at) => {
-                            at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                            at.display(ctx.files_map(), PrettyPrintOptions::inline())
+                                .to_string()
                                 .underline()
                         }
 
@@ -77,7 +77,7 @@ fn run() -> Runner {
                             format!("internal location: {str}").italic()
                         }
                     },
-                    func.value.render_colored(ctx, PrettyPrintOptions::inline())
+                    func.value.display(ctx, PrettyPrintOptions::inline())
                 );
 
                 break;
@@ -89,7 +89,8 @@ fn run() -> Runner {
                     cmd_alias
                         .value
                         .name_declared_at
-                        .render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                        .display(ctx.files_map(), PrettyPrintOptions::inline())
+                        .to_string()
                         .underline(),
                     match at.start.file_id {
                         FileId::SourceFile(id) => {

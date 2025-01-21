@@ -161,7 +161,7 @@ pub fn start(
                             "{}",
                             loc_val
                                 .value
-                                .render_colored(&ctx, PrettyPrintOptions::multiline())
+                                .display(&ctx, PrettyPrintOptions::multiline())
                         );
                     }
                 }

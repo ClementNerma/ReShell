@@ -417,7 +417,7 @@ impl Context {
         panic!(
             "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
-            at.into().render_uncolored(self.files_map(), PrettyPrintOptions::inline())
+            at.into().display(self.files_map(), PrettyPrintOptions::inline()).no_colors()
         );
     }
 

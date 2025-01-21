@@ -178,9 +178,9 @@ fn block_first_pass(
                                 name.at,
                                 "this method clashes with another same-name method applying on a compatible type",
                             ).with_detail(
-                                format!("trying to declare a method for type     : {}", on_type.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
+                                format!("trying to declare a method for type     : {}", on_type.display(state.type_alias_store(), PrettyPrintOptions::inline()))
                             ).with_detail(
-                                format!("...but a method exists for clashing type: {}", other_type.render_colored(state.type_alias_store(), PrettyPrintOptions::inline()))
+                                format!("...but a method exists for clashing type: {}", other_type.display(state.type_alias_store(), PrettyPrintOptions::inline()))
                             ));
                         }
                     }
@@ -1377,7 +1377,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                         typ.at.parsed_range().unwrap(),
                         format!(
                             "rest types, when provided, must be either 'list' or 'list[...]', found: {}",
-                            typ.data.render_colored(
+                            typ.data.display(
                                 state.type_alias_store(),
                                 PrettyPrintOptions::inline()
                             )

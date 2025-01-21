@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use colored::{Color, ColoredString, Colorize};
 
 /// Trait enabling pretty-printing for custom types
@@ -10,28 +12,52 @@ pub trait PrettyPrintable {
     /// Generate pretty-printing data for later processing
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece;
 
-    /// Render as an uncolored string
-    fn render_uncolored(&self, ctx: &Self::Context, opts: PrettyPrintOptions) -> String {
-        let mut out = String::new();
-
-        self.generate_pretty_data(ctx)
-            .render(opts, |Styled(ref string)| {
-                out.push_str(string);
-            });
-
-        out
+    /// Obtain a [`Display`] type from this value
+    fn display<'p, 'c>(
+        &'p self,
+        ctx: &'c Self::Context,
+        opts: PrettyPrintOptions,
+    ) -> PrettyPrintableDisplay<'p, 'c, Self>
+    where
+        Self: Sized,
+    {
+        PrettyPrintableDisplay {
+            source: self,
+            ctx,
+            opts,
+            no_colors: false,
+        }
     }
+}
 
-    /// Render as a colored string (useful for terminal output)
-    fn render_colored(&self, ctx: &Self::Context, opts: PrettyPrintOptions) -> String {
-        let mut out = String::new();
+/// Pretty-printable with options
+pub struct PrettyPrintableDisplay<'p, 'c, P: PrettyPrintable> {
+    pub source: &'p P,
+    pub ctx: &'c P::Context,
+    pub opts: PrettyPrintOptions,
+    pub no_colors: bool,
+}
 
-        self.generate_pretty_data(ctx)
-            .render(opts, |Styled(ref string)| {
-                out.push_str(&format!("{string}"));
+impl<P: PrettyPrintable> PrettyPrintableDisplay<'_, '_, P> {
+    pub fn no_colors(mut self) -> Self {
+        self.no_colors = true;
+        self
+    }
+}
+
+impl<P: PrettyPrintable> Display for PrettyPrintableDisplay<'_, '_, P> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.source
+            .generate_pretty_data(self.ctx)
+            .render(self.opts, |styled| {
+                if self.no_colors {
+                    write!(f, "{}", styled.inner().input).unwrap()
+                } else {
+                    write!(f, "{}", styled.inner()).unwrap()
+                }
             });
 
-        out
+        Ok(())
     }
 }
 

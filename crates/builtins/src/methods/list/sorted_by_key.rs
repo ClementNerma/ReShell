@@ -73,8 +73,8 @@ fn run() -> Runner {
                     args_at.keyer,
                     format!(
                         "first call to this function returned a {}, but {i} call(s) later it returned a {}",
-                        first_item_type.render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                        key.from_value_type().render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                        first_item_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                        key.from_value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                     )
                 )
             };

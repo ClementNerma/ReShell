@@ -31,7 +31,7 @@ fn run() -> Runner {
                 },
                 args_at
                     .pattern
-                    .render_colored(ctx.files_map(), PrettyPrintOptions::inline()),
+                    .display(ctx.files_map(), PrettyPrintOptions::inline()),
                 diag.msg
             );
         }

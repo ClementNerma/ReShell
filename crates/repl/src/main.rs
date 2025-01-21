@@ -198,10 +198,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                 reports::print_error(&err, ctx.files_map());
             }
 
-            return Ok(err
-                .exit_code()
-                .map(ExitCode::from)
-                .unwrap_or(ExitCode::FAILURE));
+            return Ok(err.exit_code().map_or(ExitCode::FAILURE, ExitCode::from));
         }
 
         return Ok(ExitCode::SUCCESS);
@@ -219,9 +216,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                 if let Some(loc_val) = wandering_value {
                     println!(
                         "{}",
-                        loc_val
-                            .value
-                            .render_colored(&ctx, PrettyPrintOptions::multiline())
+                        loc_val.value.display(&ctx, PrettyPrintOptions::multiline())
                     )
                 }
 

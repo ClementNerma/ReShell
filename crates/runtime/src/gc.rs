@@ -51,7 +51,7 @@ impl<T> GcCell<T> {
                 at,
                 format!(
                     "Failed to write as parent value is currently borrowed from {}",
-                    borrowed_at.render_colored(ctx.files_map(), PrettyPrintOptions::inline())
+                    borrowed_at.display(ctx.files_map(), PrettyPrintOptions::inline())
                 ),
             )
         })

@@ -333,7 +333,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             eprintln!(
                 "  = {} function called at: {}",
                 "note:".cyan(),
-                fn_called_at.render_colored(files, PrettyPrintOptions::inline())
+                fn_called_at.display(files, PrettyPrintOptions::inline())
             );
         }
     }

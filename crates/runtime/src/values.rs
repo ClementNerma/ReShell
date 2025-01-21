@@ -438,7 +438,7 @@ pub fn value_to_str(
                 "could not convert a value of type {} to a string",
                 value
                     .compute_type()
-                    .render_colored(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
             ),)),
     }
 }
