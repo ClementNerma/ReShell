@@ -457,8 +457,3 @@ fn highlight(input: &str) -> StyledText {
             .collect(),
     }
 }
-
-#[test]
-fn test() {
-    println!("{:#?}", compute_highlight_pieces("echo ", &RULE_SET));
-}
