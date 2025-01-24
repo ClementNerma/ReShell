@@ -101,7 +101,10 @@ pub fn start(
         let prompt = Prompt::new(prompt_rendering);
 
         if show_timings {
-            println!("* Time to interaction: {:?}", line_start.elapsed());
+            println!(
+                "* REPL rendering took       : {:>3} ms",
+                line_start.elapsed().as_millis()
+            );
         }
 
         // Prepare line reading
@@ -149,7 +152,10 @@ pub fn start(
         });
 
         if show_timings {
-            println!("* Command duration: {} ms", start.elapsed().as_millis());
+            println!(
+                "\n*** Timings ***\n* Command duration took     : {:>3} ms",
+                start.elapsed().as_millis()
+            );
         }
 
         match &ret {
@@ -159,9 +165,7 @@ pub fn start(
                     if !matches!(loc_val.value, RuntimeValue::Void) {
                         println!(
                             "{}",
-                            loc_val
-                                .value
-                                .display(&ctx, PrettyPrintOptions::multiline())
+                            loc_val.value.display(&ctx, PrettyPrintOptions::multiline())
                         );
                     }
                 }
@@ -239,21 +243,18 @@ fn display_timings(timings: Timings, now: Instant) {
     println!("*** Timings ***");
 
     println!(
-        "* Time to init script: {:.1?} ({:.1?})",
-        before_init_script - started,
-        before_init_script - started,
+        "* Initialization took       : {:>3} ms",
+        (before_init_script - started).as_millis(),
     );
 
     println!(
-        "* Time to REPL       : {:.1?} ({:.1?})",
-        before_repl - before_init_script,
-        before_repl - started,
+        "* Shell init script took    : {:>3} ms",
+        (before_repl - before_init_script).as_millis(),
     );
 
     println!(
-        "* Time to REPL ready : {:.1?} ({:.1?})",
-        now - before_repl,
-        now - started,
+        "* REPL initialization took  : {:>3} ms",
+        (now - before_repl).as_millis(),
     );
 }
 
