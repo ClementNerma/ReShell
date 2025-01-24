@@ -3,8 +3,8 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::ast::{
-    Block, ElsIf, Instruction, MapDestructBinding, MatchCase, Program, RuntimeCodeRange,
-    SingleVarDecl, TypeMatchCase, VarDeconstruction,
+    Block, ElsIf, Instruction, MatchCase, ObjDestructuringItem, ObjDestructuringItemBinding,
+    Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType, VarDeconstruction,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -848,7 +848,22 @@ fn declare_vars(
 ) -> ExecResult<()> {
     match &names.data {
         VarDeconstruction::Single(single) => {
-            declare_var(single, value, value_at, ctx)?;
+            let SingleVarDecl {
+                name,
+                is_mut,
+                enforced_type,
+            } = single;
+
+            declare_var(
+                name,
+                DeclareVarData {
+                    is_mut: *is_mut,
+                    value,
+                    value_at,
+                    enforced_type: enforced_type.clone(),
+                },
+                ctx,
+            )?;
         }
 
         VarDeconstruction::Tuple(members) => {
@@ -907,45 +922,57 @@ fn declare_vars(
 
             let map = map.read_promise_no_write();
 
-            for (decl, binding) in members {
+            for var in members {
+                let ObjDestructuringItem {
+                    name,
+                    is_mut,
+                    binding,
+                    default_value,
+                } = var;
+
+                let value = match map.get(&name.data) {
+                    Some(value) => value.clone(),
+
+                    None => match default_value {
+                        Some(default_value) => eval_expr(default_value, ctx)?,
+
+                        None => {
+                            return Err(
+                                ctx.error(name.at, "this property was not found in provided value")
+                            )
+                        }
+                    },
+                };
+
                 match binding {
                     None => {
-                        let value = map.get(&decl.data.name.data).ok_or_else(|| {
-                            ctx.error(
-                                decl.data.name.at,
-                                "this property was not found in provided value",
-                            )
-                        })?;
-
-                        declare_var(&decl.data, value.clone(), value_at, ctx)?;
-                    }
-
-                    Some(MapDestructBinding::BindTo(alias)) => {
-                        let value = map.get(&decl.data.name.data).ok_or_else(|| {
-                            ctx.error(alias.at, "this property was not found in provided value")
-                        })?;
-
                         declare_var(
-                            &SingleVarDecl {
-                                name: alias.clone(),
-                                is_mut: decl.data.is_mut,
+                            name,
+                            DeclareVarData {
+                                is_mut: *is_mut,
+                                value,
+                                value_at,
                                 enforced_type: None,
                             },
-                            value.clone(),
-                            value_at,
                             ctx,
                         )?;
                     }
 
-                    Some(MapDestructBinding::Destruct(destruct)) => {
-                        let value = map.get(&decl.data.name.data).ok_or_else(|| {
-                            ctx.error(
-                                decl.data.name.at,
-                                "this property was not found in provided value",
-                            )
-                        })?;
+                    Some(ObjDestructuringItemBinding::BindTo(alias)) => {
+                        declare_var(
+                            alias,
+                            DeclareVarData {
+                                is_mut: *is_mut,
+                                value,
+                                value_at,
+                                enforced_type: None,
+                            },
+                            ctx,
+                        )?;
+                    }
 
-                        declare_vars(destruct, value.clone(), value_at, ctx)?;
+                    Some(ObjDestructuringItemBinding::Destruct(destruct)) => {
+                        declare_vars(destruct, value, value_at, ctx)?;
                     }
                 }
             }
@@ -955,19 +982,22 @@ fn declare_vars(
     Ok(())
 }
 
-fn declare_var(
-    single: &SingleVarDecl,
+struct DeclareVarData {
+    is_mut: bool,
     value: RuntimeValue,
     value_at: CodeRange,
-    ctx: &mut Context,
-) -> ExecResult<()> {
-    let SingleVarDecl {
-        name,
-        is_mut,
-        enforced_type,
-    } = single;
+    enforced_type: Option<ValueType>,
+}
 
-    if let Some(enforced_type) = enforced_type {
+fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> ExecResult<()> {
+    let DeclareVarData {
+        is_mut,
+        value,
+        value_at,
+        enforced_type,
+    } = data;
+
+    if let Some(enforced_type) = &enforced_type {
         if !check_if_value_fits_type(&value, enforced_type, ctx) {
             return Err(ctx.error(
                 value_at,
@@ -989,8 +1019,8 @@ fn declare_var(
         ScopeVar {
             name_at: RuntimeCodeRange::Parsed(name.at),
             decl_scope_id,
-            enforced_type: enforced_type.clone(),
-            is_mut: is_mut.is_some(),
+            enforced_type,
+            is_mut,
             value: GcCell::new(LocatedValue::new(RuntimeCodeRange::Parsed(value_at), value)),
         },
     );

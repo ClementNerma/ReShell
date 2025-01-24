@@ -139,11 +139,26 @@ pub enum Instruction {
 pub enum VarDeconstruction {
     Single(SingleVarDecl),
     Tuple(Vec<Span<VarDeconstruction>>),
-    MapOrStruct(Vec<(Span<SingleVarDecl>, Option<MapDestructBinding>)>),
+    MapOrStruct(Vec<ObjDestructuringItem>),
 }
 
 #[derive(Debug, Clone)]
-pub enum MapDestructBinding {
+pub struct ObjDestructuringItem {
+    /// Key in the map / Field in the struct
+    pub name: Span<String>,
+
+    /// Is the destruct item mutable?
+    pub is_mut: bool,
+
+    /// How to deconstruct this item
+    pub binding: Option<ObjDestructuringItemBinding>,
+
+    /// Optional default value if this key/field does not exist
+    pub default_value: Option<Expr>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ObjDestructuringItemBinding {
     BindTo(Span<String>),
     Destruct(Box<Span<VarDeconstruction>>),
 }
@@ -151,11 +166,9 @@ pub enum MapDestructBinding {
 #[derive(Debug, Clone)]
 pub struct SingleVarDecl {
     pub name: Span<String>,
+    pub is_mut: bool,
 
-    /// Location of this item points to the "mut" keyword
-    pub is_mut: Option<Span<()>>,
-
-    /// Enforced type
+    /// Type specified by the user
     pub enforced_type: Option<ValueType>,
 }
 

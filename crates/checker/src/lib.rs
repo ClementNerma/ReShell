@@ -26,10 +26,11 @@ use reshell_parser::{
         CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, ElsIf, ElsIfExpr,
         Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg,
         FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
-        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MapKey,
-        MatchCase, MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound,
-        RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey, MatchCase,
+        MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program, PropAccess,
+        PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -288,7 +289,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                     DeclaredVar {
                         decl_at: RuntimeCodeRange::Parsed(name.at),
                         scope_id,
-                        is_mut: is_mut.is_some(),
+                        is_mut: *is_mut,
                     },
                 );
 
@@ -312,13 +313,20 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                     }
 
                     VarDeconstruction::MapOrStruct(vars) => {
-                        for (name, from) in vars {
-                            match from {
-                                Some(MapDestructBinding::BindTo(alias)) => {
+                        for var in vars {
+                            let ObjDestructuringItem {
+                                name,
+                                is_mut,
+                                binding,
+                                default_value,
+                            } = var;
+
+                            match binding {
+                                Some(ObjDestructuringItemBinding::BindTo(alias)) => {
                                     insert_var(
                                         &SingleVarDecl {
                                             name: alias.clone(),
-                                            is_mut: name.data.is_mut,
+                                            is_mut: *is_mut,
                                             enforced_type: None,
                                         },
                                         idents,
@@ -326,13 +334,25 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                                     )?;
                                 }
 
-                                Some(MapDestructBinding::Destruct(destruct)) => {
+                                Some(ObjDestructuringItemBinding::Destruct(destruct)) => {
                                     insert_vars(&destruct.data, idents, state)?;
                                 }
 
                                 None => {
-                                    insert_var(&name.data, idents, state)?;
+                                    insert_var(
+                                        &SingleVarDecl {
+                                            name: name.clone(),
+                                            is_mut: *is_mut,
+                                            enforced_type: None,
+                                        },
+                                        idents,
+                                        state,
+                                    )?;
                                 }
+                            }
+
+                            if let Some(default_value) = default_value {
+                                check_expr(default_value, state)?;
                             }
                         }
                     }

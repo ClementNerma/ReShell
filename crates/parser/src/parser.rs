@@ -14,10 +14,10 @@ use crate::{
         DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining,
         ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature,
         FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MapKey, MatchCase,
-        MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
-        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        FnSignature, Function, Instruction, LiteralValue, MapKey, MatchCase, MatchExprCase,
+        ObjDestructuringItem, ObjDestructuringItemBinding, Program, PropAccess, PropAccessNature,
+        RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1196,12 +1196,15 @@ pub fn program(
         )
         .map(|((is_mut, name), enforced_type)| SingleVarDecl {
             name,
-            is_mut,
+            is_mut: is_mut.is_some(),
             enforced_type,
         });
 
     let var_decl_type = recursive(|var_decl_type| {
         choice::<VarDeconstruction, _>((
+            //
+            // Lists
+            //
             char('[')
                 .ignore_then(msnl)
                 .ignore_then(
@@ -1213,33 +1216,61 @@ pub fn program(
                 .then_ignore(msnl)
                 .then_ignore(char(']'))
                 .map(VarDeconstruction::Tuple),
+            //
+            // Maps and structs
+            //
             char('{')
                 .ignore_then(msnl)
                 .ignore_then(
-                    single_var_decl
-                        .clone()
+                    just("mut")
+                        .to(())
+                        .not_followed_by(possible_ident_char)
+                        .then_ignore(s.critical_auto_msg())
                         .spanned()
+                        .or_not()
+                        .then(ident.spanned())
                         .then(
-                            char(':')
-                                .ignore_then(msnl)
+                            ms.ignore_then(char(':'))
+                                .ignore_then(ms)
                                 .ignore_then(
-                                    choice::<MapDestructBinding, _>((
-                                        ident.spanned().map(MapDestructBinding::BindTo),
+                                    choice::<ObjDestructuringItemBinding, _>((
+                                        ident.spanned().map(ObjDestructuringItemBinding::BindTo),
                                         var_decl_type
                                             .clone()
                                             .spanned()
                                             .map(Box::new)
-                                            .map(MapDestructBinding::Destruct),
+                                            .map(ObjDestructuringItemBinding::Destruct),
                                     ))
                                     .critical("expected a sub-declaration"),
                                 )
                                 .or_not(),
+                        )
+                        .then(
+                            ms.ignore_then(char('='))
+                                .ignore_then(msnl)
+                                .ignore_then(
+                                    expr.clone().critical(
+                                        "expected an expression to define the default value",
+                                    ),
+                                )
+                                .or_not(),
+                        )
+                        .map(
+                            |(((is_mut, name), binding), default_value)| ObjDestructuringItem {
+                                name,
+                                is_mut: is_mut.is_some(),
+                                binding,
+                                default_value,
+                            },
                         )
                         .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_auto_msg())
                 .map(VarDeconstruction::MapOrStruct),
+            //
+            // Single variables
+            //
             single_var_decl.map(VarDeconstruction::Single),
         ))
     });
