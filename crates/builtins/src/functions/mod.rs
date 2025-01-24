@@ -39,7 +39,6 @@ mod read_dir;
 mod read_file;
 mod regex;
 mod rm;
-mod runtime;
 mod set_env;
 mod term_cols;
 mod term_rows;
@@ -90,7 +89,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::regex::build_fn(),
         self::rm::build_fn(),
         self::set_env::build_fn(),
-        self::runtime::build_fn(),
         self::term_cols::build_fn(),
         self::term_rows::build_fn(),
         self::whereis::build_fn(),
