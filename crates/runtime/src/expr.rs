@@ -3,7 +3,7 @@ use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
     ExprInnerContent, ExprOp, Function, LiteralValue, MapKey, MatchExprCase, PropAccess,
-    RangeBound, RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value, ValueType,
+    RangeBound, RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -23,26 +23,21 @@ use crate::{
 };
 
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
-    let Expr {
-        inner,
-        right_ops,
-        check_if_type_is,
-    } = &expr;
+    let Expr { inner, right_ops } = &expr;
 
-    eval_expr_ref(inner, right_ops, check_if_type_is.as_ref(), ctx)
+    eval_expr_ref(inner, right_ops, ctx)
 }
 
 fn eval_expr_ref(
     inner: &Span<ExprInner>,
     right_ops: &[ExprOp],
-    check_if_type_is: Option<&ValueType>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
-    for precedence in (0..=4).rev() {
+    for precedence in (0..=5).rev() {
         let Some((pos, expr_op)) = right_ops
             .iter()
             .enumerate()
-            .rfind(|(_, c)| operator_precedence(c.op.data) == precedence)
+            .rfind(|(_, c)| operator_precedence(c) == precedence)
         else {
             continue;
         };
@@ -51,20 +46,35 @@ fn eval_expr_ref(
             if let Some((p, _)) = right_ops
                 .iter()
                 .enumerate()
-                .find(|(_, c)| operator_precedence(c.op.data) == 0)
+                .find(|(_, c)| operator_precedence(c) == 0)
             {
                 if p != pos {
-                    return Err(ctx.error(expr_op.op.at, "to avoid confusions, mixing operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
+                    let op_at = match expr_op {
+                        ExprOp::DoubleOp { op, right_op: _ } => op.at,
+
+                        // Precedence 0 and 1 is only for arithmetic (double) operators
+                        ExprOp::TypeIs { right_op: _ } => unreachable!(),
+                    };
+
+                    return Err(ctx.error(op_at, "to avoid confusions, mixing some operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
                 }
             }
         }
 
-        let left = eval_expr_ref(inner, &right_ops[..pos], None, ctx)?;
+        let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
 
-        let right =
-            |ctx: &'_ mut Context| eval_expr_ref(&expr_op.with, &right_ops[pos + 1..], None, ctx);
+        let result = match expr_op {
+            ExprOp::DoubleOp { op, right_op } => {
+                let right =
+                    |ctx: &'_ mut Context| eval_expr_ref(right_op, &right_ops[pos + 1..], ctx);
 
-        let result = apply_double_op(left, right, &expr_op.op, ctx)?;
+                apply_double_op(left, right, op, ctx)?
+            }
+
+            ExprOp::TypeIs { right_op } => {
+                RuntimeValue::Bool(check_if_value_fits_type(&left, &right_op.data, ctx))
+            }
+        };
 
         return Ok(result);
     }
@@ -72,14 +82,7 @@ fn eval_expr_ref(
     // We reach here only if there was no operator in the expression, so we just have to evaluate the inner
     assert!(right_ops.is_empty());
 
-    let inner = eval_expr_inner(inner, ctx)?;
-
-    Ok(match check_if_type_is {
-        Some(check_if_type_is) => {
-            RuntimeValue::Bool(check_if_value_fits_type(&inner, check_if_type_is, ctx))
-        }
-        None => inner,
-    })
+    eval_expr_inner(inner, ctx)
 }
 
 /// Apply a double operator (which is an operator taking two operands)
@@ -160,14 +163,11 @@ fn apply_double_op(
                         op.at,
                         format!(
                             "cannot apply this operator on a pair of {} and {}",
-                            left.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            ),
-                            right.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            left.compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                            right
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ))
                 }
@@ -249,14 +249,11 @@ fn apply_double_op(
                         op.at,
                         format!(
                             "cannot compare {} and {}: {reason}",
-                            left.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            ),
-                            right.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            left.compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                            right
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     )
                 })?;
@@ -357,10 +354,9 @@ fn eval_expr_inner_content(
                         right.at,
                         format!(
                             "expected a boolean due to operator, found a: {}",
-                            right_val.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            right_val
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     )),
                 },
@@ -382,10 +378,9 @@ fn eval_expr_inner_content(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            value
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ))
                 }
@@ -405,10 +400,9 @@ fn eval_expr_inner_content(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            cond_val.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            cond_val
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ));
                 };
@@ -433,14 +427,12 @@ fn eval_expr_inner_content(
                             matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
-                                match_on.compute_type().display(
-                                    ctx.type_alias_store(),
-                                    PrettyPrintOptions::inline()
-                                ),
-                                case_value.compute_type().display(
-                                    ctx.type_alias_store(),
-                                    PrettyPrintOptions::inline()
-                                )
+                                match_on
+                                    .compute_type()
+                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                                case_value
+                                    .compute_type()
+                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                             ),
                         )
                     },
@@ -510,10 +502,9 @@ fn eval_expr_inner_content(
                         expr.at,
                         format!(
                             "expected a string, found a {}",
-                            value.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            value
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ))
                 }
@@ -731,17 +722,21 @@ pub fn eval_range_bound(range_bound: &Span<RangeBound>, ctx: &mut Context) -> Ex
     }
 }
 
-fn operator_precedence(op: DoubleOp) -> u8 {
+fn operator_precedence(op: &ExprOp) -> u8 {
     match op {
-        DoubleOp::Add | DoubleOp::Sub => 0,
-        DoubleOp::Mul | DoubleOp::Div | DoubleOp::Mod => 1,
-        DoubleOp::NullFallback => 2,
-        DoubleOp::Eq
-        | DoubleOp::Neq
-        | DoubleOp::Lt
-        | DoubleOp::Lte
-        | DoubleOp::Gt
-        | DoubleOp::Gte => 3,
-        DoubleOp::And | DoubleOp::Or => 4,
+        ExprOp::DoubleOp { op, right_op: _ } => match op.data {
+            DoubleOp::Add | DoubleOp::Sub => 0,
+            DoubleOp::Mul | DoubleOp::Div | DoubleOp::Mod => 1,
+            DoubleOp::NullFallback => 2,
+            DoubleOp::Eq
+            | DoubleOp::Neq
+            | DoubleOp::Lt
+            | DoubleOp::Lte
+            | DoubleOp::Gt
+            | DoubleOp::Gte => 4,
+            DoubleOp::And | DoubleOp::Or => 5,
+        },
+
+        ExprOp::TypeIs { right_op: _ } => 3,
     }
 }

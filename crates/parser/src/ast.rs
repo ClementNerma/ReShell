@@ -194,7 +194,6 @@ pub enum RangeBound {
 pub struct Expr {
     pub inner: Span<ExprInner>,
     pub right_ops: Vec<ExprOp>,
-    pub check_if_type_is: Option<ValueType>,
 }
 
 #[derive(Debug, Clone)]
@@ -275,9 +274,14 @@ pub enum PropAccessNature {
 }
 
 #[derive(Debug, Clone)]
-pub struct ExprOp {
-    pub op: Span<DoubleOp>,
-    pub with: Box<Span<ExprInner>>,
+pub enum ExprOp {
+    DoubleOp {
+        op: Span<DoubleOp>,
+        right_op: Box<Span<ExprInner>>,
+    },
+    TypeIs {
+        right_op: Span<ValueType>,
+    },
 }
 
 #[derive(Debug, Clone)]

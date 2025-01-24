@@ -856,33 +856,34 @@ pub fn program(
         .then(expr_inner_chaining.repeated_into_vec())
         .map(|(content, chainings)| ExprInner { content, chainings });
 
-    let expr_op = double_op
-        .spanned()
-        .then_ignore(msnl)
-        .then(
-            expr_inner
-                .clone()
-                .spanned()
-                .critical("expected an expression after the operator")
-                .map(Box::new),
-        )
-        .map(|(op, with)| ExprOp { op, with });
+    let expr_op = choice::<ExprOp, _>((
+        //
+        // Double operators
+        //
+        ms.ignore_then(double_op.spanned())
+            .then_ignore(msnl)
+            .then(
+                expr_inner
+                    .clone()
+                    .spanned()
+                    .critical("expected an expression after the operator")
+                    .map(Box::new),
+            )
+            .map(|(op, right_op)| ExprOp::DoubleOp { op, right_op }),
+        //
+        // Typechecker operator
+        //
+        s.ignore_then(just("typeis"))
+            .ignore_then(s)
+            .ignore_then(value_type.clone().spanned())
+            .map(|right_op| ExprOp::TypeIs { right_op }),
+    ));
 
     expr.finish(
         expr_inner
             .spanned()
-            .then(ms.ignore_then(expr_op).repeated_into_vec())
-            .then(
-                s.ignore_then(just("typeis"))
-                    .ignore_then(s.critical_auto_msg())
-                    .ignore_then(value_type.clone().critical("expected a type"))
-                    .or_not(),
-            )
-            .map(|((inner, right_ops), check_if_type_is)| Expr {
-                inner,
-                right_ops,
-                check_if_type_is,
-            }),
+            .then(expr_op.repeated_into_vec())
+            .map(|(inner, right_ops)| Expr { inner, right_ops }),
     );
 
     let cmd_raw_string = not(just("->")).ignore_then(

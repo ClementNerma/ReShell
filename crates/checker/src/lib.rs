@@ -23,14 +23,13 @@ use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
-        CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf,
-        ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall,
-        FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
-        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue,
-        MapDestructBinding, MapKey, MatchCase, MatchExprCase, Program, PropAccess,
-        PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
-        VarDeconstruction,
+        CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, ElsIf, ElsIfExpr,
+        Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg,
+        FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
+        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapDestructBinding, MapKey,
+        MatchCase, MatchExprCase, Program, PropAccess, PropAccessNature, RangeBound,
+        RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -674,20 +673,12 @@ fn check_expr_with(
 }
 
 fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
-    let Expr {
-        inner,
-        right_ops,
-        check_if_type_is,
-    } = expr;
+    let Expr { inner, right_ops } = expr;
 
     check_expr_inner(inner, state)?;
 
     for op in right_ops {
         check_expr_op(op, state)?;
-    }
-
-    if let Some(check_if_type_is) = check_if_type_is {
-        check_value_type(check_if_type_is, state)?;
     }
 
     Ok(())
@@ -815,36 +806,15 @@ fn check_elsif_expr(elsif_expr: &ElsIfExpr, state: &mut State) -> CheckerResult 
 }
 
 fn check_expr_op(expr_op: &ExprOp, state: &mut State) -> CheckerResult {
-    let ExprOp { op, with } = expr_op;
-
-    check_double_op(op, state)?;
-    check_expr_inner(with, state)?;
-
-    Ok(())
+    match expr_op {
+        ExprOp::DoubleOp { op: _, right_op } => check_expr_inner(right_op, state),
+        ExprOp::TypeIs { right_op } => check_value_type(&right_op.data, state),
+    }
 }
 
 fn check_single_op(single_op: &SingleOp, _: &mut State) -> CheckerResult {
     match single_op {
         SingleOp::Neg => Ok(()),
-    }
-}
-
-fn check_double_op(double_op: &Span<DoubleOp>, _: &mut State) -> CheckerResult {
-    match &double_op.data {
-        DoubleOp::Add
-        | DoubleOp::Sub
-        | DoubleOp::Mul
-        | DoubleOp::Div
-        | DoubleOp::Mod
-        | DoubleOp::And
-        | DoubleOp::Or
-        | DoubleOp::Eq
-        | DoubleOp::Neq
-        | DoubleOp::Lt
-        | DoubleOp::Lte
-        | DoubleOp::Gt
-        | DoubleOp::Gte
-        | DoubleOp::NullFallback => Ok(()),
     }
 }
 
