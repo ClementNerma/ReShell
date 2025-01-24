@@ -207,6 +207,7 @@ impl RuntimeValue {
                     .map(|(name, value)| StructTypeMember {
                         name: RuntimeSpan::internal("type deducer", name.clone()),
                         typ: ValueType::Single(value.compute_type()),
+                        optional: false,
                     })
                     .collect(),
             ),

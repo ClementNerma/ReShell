@@ -392,7 +392,8 @@ macro_rules! declare_typed_struct_handler {
                         $(
                             ::reshell_parser::ast::StructTypeMember {
                                 name: ::reshell_parser::ast::RuntimeSpan::internal("native library's type generator", stringify!($name).to_owned()),
-                                typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type()
+                                typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type(),
+                                optional: false
                             }
                         ),+
                     ]))

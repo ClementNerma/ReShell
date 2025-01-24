@@ -1448,7 +1448,11 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
             let mut names = HashSet::new();
 
             for member in members {
-                let StructTypeMember { name, typ } = member;
+                let StructTypeMember {
+                    name,
+                    optional: _,
+                    typ,
+                } = member;
 
                 if !names.insert(&name.data) {
                     return Err(CheckerError::new(

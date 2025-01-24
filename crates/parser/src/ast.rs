@@ -341,6 +341,7 @@ pub enum SingleValueType {
 #[derive(Debug, Clone, Hash)]
 pub struct StructTypeMember {
     pub name: RuntimeSpan<String>,
+    pub optional: bool,
     pub typ: ValueType,
 }
 

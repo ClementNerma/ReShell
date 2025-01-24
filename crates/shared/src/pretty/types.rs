@@ -114,6 +114,9 @@ pub enum PrettyPrintablePiece {
 
     /// Join: a chain of pretty-printable pieces
     Join(Vec<PrettyPrintablePiece>),
+
+    /// Empty: an empty piece
+    Empty,
 }
 
 impl PrettyPrintablePiece {
@@ -205,6 +208,8 @@ impl PrettyPrintablePiece {
                 .iter()
                 .map(PrettyPrintablePiece::display_chars_count)
                 .sum(),
+
+            PrettyPrintablePiece::Empty => 0,
         }
     }
 
@@ -309,6 +314,8 @@ impl PrettyPrintablePiece {
                     piece.render_inner(opts, w, current_ident);
                 }
             }
+
+            PrettyPrintablePiece::Empty => {}
         }
     }
 }

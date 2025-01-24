@@ -128,10 +128,16 @@ pub fn program(
                         .spanned()
                         .map(RuntimeSpan::from)
                         .then_ignore(ms)
+                        .then(char('?').or_not())
+                        .then_ignore(ms)
                         .then_ignore(char(':').critical_auto_msg())
                         .then_ignore(msnl)
                         .then(value_type.clone().critical("expected a value type"))
-                        .map(|(name, typ)| StructTypeMember { name, typ })
+                        .map(|((name, optional), typ)| StructTypeMember {
+                            name,
+                            optional: optional.is_some(),
+                            typ,
+                        })
                         .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
