@@ -68,7 +68,7 @@ impl PrettyPrintable for SingleValueType {
             ]),
             Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
             Self::TypedStruct(members) => PrettyPrintablePiece::List {
-                begin: vec![Styled::colored("struct { ", Color::Magenta)],
+                begin: vec![Styled::colored("{ ", Color::Magenta)],
                 items: members
                     .iter()
                     .map(|member| {
