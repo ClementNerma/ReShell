@@ -920,11 +920,11 @@ pub fn program(
                     // Absolute command path
                     cmd_name.starts_with(['/', '\\']) ||
                     // Relative command paths
-                    cmd_name.starts_with("./") || cmd_name.starts_with(".\\")
+                    cmd_name.starts_with("./") || cmd_name.starts_with("../") || cmd_name.starts_with(".\\") || cmd_name.starts_with("..\\")
                 )
         })
         .with_custom_msg(
-            "Relative command paths must start with a dot and a slash (e.g. './path/to/cmd')",
+            "Relative command paths must start with a dot and a slash (e.g. './path/to/cmd' or '../path/to/cmd')",
         )
         .as_critical();
 
