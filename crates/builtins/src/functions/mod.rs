@@ -11,6 +11,7 @@ mod canonicalize;
 mod cd;
 mod cmd_arg;
 mod cmd_flag;
+mod ctime;
 mod current_dir;
 mod current_script_path;
 mod datetime;
@@ -62,6 +63,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::cmd_flag::build_fn(),
         self::current_dir::build_fn(),
         self::current_script_path::build_fn(),
+        self::ctime::build_fn(),
         self::datetime::build_fn(),
         self::dbg::build_fn(),
         self::dbg_type::build_fn(),
