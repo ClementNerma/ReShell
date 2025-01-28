@@ -30,15 +30,9 @@ fn run() -> Runner {
             )
         })?;
 
-        let mtime = stat.modified().map_err(|_| {
-            ctx.throw(
-                args_at.path,
-                format!(
-                    "File size is too big to fit into an integer ({} bytes)",
-                    stat.len()
-                ),
-            )
-        })?;
+        let mtime = stat
+            .modified()
+            .map_err(|_| ctx.throw(args_at.path, "Failed to get modification time"))?;
 
         let mtime = Timestamp::try_from(mtime)
             .map_err(|err| ctx.throw(args_at.path, format!("Failed to decode timestamp: {err}")))?;
