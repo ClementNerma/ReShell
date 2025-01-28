@@ -49,7 +49,7 @@ fn run() -> Runner {
                         );
                     }
 
-                    break;
+                    return Ok(None);
                 } else if let Some(func) = fns.get(&command) {
                     println!(
                         "Function declared at: {}\n\n{}",
@@ -67,7 +67,7 @@ fn run() -> Runner {
                         func.value.display(ctx, PrettyPrintOptions::inline())
                     );
 
-                    break;
+                    return Ok(None);
                 } else if let Some(cmd_alias) = cmd_aliases.get(&command) {
                     let at = cmd_alias.value.content.at;
 
@@ -89,7 +89,7 @@ fn run() -> Runner {
                         }
                     );
 
-                    break;
+                    return Ok(None);
                 }
             }
         }
