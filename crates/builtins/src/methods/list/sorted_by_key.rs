@@ -24,7 +24,7 @@ crate::define_internal_fn!(
      -> UntypedListType
 );
 
-declare_typed_fn_handler!(KeyerFn(value: ComparableValueType) -> ComparableValueType);
+declare_typed_fn_handler!(KeyerFn(value: AnyType) -> ComparableValueType);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, keyer }, args_at, ctx| {
