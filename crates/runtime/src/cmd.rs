@@ -279,10 +279,10 @@ pub fn run_cmd(
                             loc_val.from,
                             format!(
                                 "expected a string to capture, found a: {}",
-                                loc_val.value.compute_type().display(
-                                    ctx.type_alias_store(),
-                                    PrettyPrintOptions::inline()
-                                )
+                                loc_val
+                                    .value
+                                    .compute_type()
+                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                             ),
                         ));
                     }
