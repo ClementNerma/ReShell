@@ -37,10 +37,19 @@ pub fn eval_fn_call(
 
         FnCallNature::Method => {
             let Some(piped) = piped.as_ref() else {
-                return Err(ctx.error(
-                    call.data.call_args.at,
-                    "please provide at least one argument to run the method on",
-                ));
+                return Err(ctx
+                    .error(
+                        call.data.call_args.at,
+                        "please only call methods as postfix",
+                    )
+                    .with_info(
+                        ExecInfoType::Tip,
+                        "  valid usage: value.method('arg1', 'arg2')",
+                    )
+                    .with_info(
+                        ExecInfoType::Tip,
+                        "invalid usage: .method(value, 'arg1', 'arg2')",
+                    ));
             };
 
             let method = find_applicable_method(&call.data.name, &piped.value, ctx)?;
