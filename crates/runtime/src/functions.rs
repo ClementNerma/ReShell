@@ -36,7 +36,13 @@ pub fn eval_fn_call(
         }
 
         FnCallNature::Method => {
-            let piped = piped.as_ref().unwrap();
+            let Some(piped) = piped.as_ref() else {
+                return Err(ctx.error(
+                    call.data.call_args.at,
+                    "please provide at least one argument to run the method on",
+                ));
+            };
+
             let method = find_applicable_method(&call.data.name, &piped.value, ctx)?;
             method.value.clone()
         }
