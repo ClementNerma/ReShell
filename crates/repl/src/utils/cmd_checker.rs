@@ -51,12 +51,9 @@ impl CommandsChecker {
             .cloned()
             .collect();
 
-        self.external_cmds_exist = ctx
-            .binaries_resolver()
-            .entries()
-            .keys()
-            .map(|key| (key.clone(), true))
-            .collect();
+        ctx.binaries_resolver().clear();
+
+        self.external_cmds_exist.clear();
     }
 
     pub fn check(&mut self, ctx: &mut Context, name: &str, typ: CheckCmdType) -> bool {
