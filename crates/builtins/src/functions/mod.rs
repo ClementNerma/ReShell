@@ -25,6 +25,7 @@ mod exit;
 mod extname;
 mod file_exists;
 mod file_size;
+mod get_env;
 mod glob;
 mod human_size;
 mod in_dir;
@@ -75,6 +76,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::extname::build_fn(),
         self::file_exists::build_fn(),
         self::file_size::build_fn(),
+        self::get_env::build_fn(),
         self::glob::build_fn(),
         self::human_size::build_fn(),
         self::in_dir::build_fn(),
