@@ -96,10 +96,9 @@ impl PrettyPrintable for SingleValueType {
             },
             Self::Function(signature) => signature.data.generate_pretty_data(ctx),
             Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
-                PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Magenta),
-                PrettyPrintablePiece::colored_atomic(" ( ", Color::BrightGreen),
+                PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Yellow),
+                PrettyPrintablePiece::colored_atomic(" = ", Color::BrightMagenta),
                 ctx.get(name).unwrap().data.generate_pretty_data(ctx),
-                PrettyPrintablePiece::colored_atomic(" )", Color::BrightGreen),
             ]),
             Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta),
         }
