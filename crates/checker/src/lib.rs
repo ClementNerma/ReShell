@@ -989,37 +989,67 @@ fn check_fn_call_arg(arg: &Span<FnCallArg>, state: &mut State) -> CheckerResult 
 }
 
 fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult {
+    enum PrevCallType {
+        Expr,
+        ActualCall(CmdPathTargetType),
+    }
+
     let CmdCall { base, pipes } = &cmd_call.data;
 
-    let mut has_prev_stderr = match base {
+    let mut prev_call_type = match base {
         CmdCallBase::Expr(expr) => {
             check_expr(&expr.data, state)?;
-            false
+            PrevCallType::Expr
         }
 
         CmdCallBase::SingleCmdCall(call) => {
-            check_single_cmd_call(call, state)?;
-            true
+            PrevCallType::ActualCall(check_single_cmd_call(call, state)?)
         }
     };
 
     for CmdPipe { pipe_type, cmd } in pipes.iter() {
-        match pipe_type.data {
-            CmdPipeType::ValueOrStdout => {}
-            CmdPipeType::Stderr => {
-                if !has_prev_stderr {
-                    return Err(CheckerError::new(
-                        pipe_type.at,
-                        "expressions do not have an stderr pipe",
-                    ));
-                }
+        let cmd_target_type = check_single_cmd_call(cmd, state)?;
+
+        // Ensure we're not piping into a function
+        match cmd_target_type {
+            CmdPathTargetType::Function => {
+                return Err(CheckerError::new(
+                    pipe_type.at,
+                    "cannot pipe into a function",
+                ));
+            }
+
+            CmdPathTargetType::ExternalCommand => {
+                // OK
             }
         }
 
-        has_prev_stderr = match check_single_cmd_call(cmd, state)? {
-            CmdPathTargetType::Function => false,
-            CmdPathTargetType::ExternalCommand => true,
-        };
+        match pipe_type.data {
+            CmdPipeType::ValueOrStdout => {}
+
+            // Ensure the piped call has an error output (STDERR)
+            CmdPipeType::Stderr => match prev_call_type {
+                PrevCallType::Expr => {
+                    return Err(CheckerError::new(
+                        pipe_type.at,
+                        "expressions don't have an error output",
+                    ))
+                }
+
+                PrevCallType::ActualCall(CmdPathTargetType::Function) => {
+                    return Err(CheckerError::new(
+                        pipe_type.at,
+                        "functions don't have an error output",
+                    ))
+                }
+
+                PrevCallType::ActualCall(CmdPathTargetType::ExternalCommand) => {
+                    // OK
+                }
+            },
+        }
+
+        prev_call_type = PrevCallType::ActualCall(cmd_target_type);
     }
 
     Ok(())
@@ -1593,7 +1623,7 @@ fn check_fn_signature(
     Ok(checked_args)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum CmdPathTargetType {
     Function,
     ExternalCommand,
