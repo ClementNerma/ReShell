@@ -22,15 +22,15 @@ use parsy::{CodeRange, Span};
 use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
-        CmdFlagValueArg, CmdOutput, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
-        CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece, ElsIf, ElsIfExpr,
-        Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg,
-        FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
-        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey, MatchCase,
-        MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program, PropAccess,
-        PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
-        VarDeconstruction,
+        CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
+        CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece,
+        ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
+        FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
+        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
+        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program,
+        PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp,
+        SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
+        ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -1217,7 +1217,7 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
             check_computed_string(computed_string, state)
         }
 
-        CmdValueMakingArg::CmdOutput(cmd_call) => check_cmd_capture(cmd_call, state),
+        CmdValueMakingArg::CmdCapturedOutput(cmd_call) => check_cmd_capture(cmd_call, state),
 
         CmdValueMakingArg::InlineCmdCall(cmd_call) => {
             state.register_cmd_call_value(cmd_call);
@@ -1247,8 +1247,8 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
     Ok(())
 }
 
-fn check_cmd_capture(capture: &CmdOutput, state: &mut State) -> CheckerResult {
-    let CmdOutput {
+fn check_cmd_capture(capture: &CmdOutputCapture, state: &mut State) -> CheckerResult {
+    let CmdOutputCapture {
         capture: _,
         cmd_call,
     } = capture;

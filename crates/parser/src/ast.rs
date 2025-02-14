@@ -307,7 +307,7 @@ pub enum Value {
     Struct(Vec<(Span<String>, Expr)>),
     Variable(Span<String>),
     FnCall(Span<FnCall>),
-    CmdOutput(CmdOutput),
+    CmdOutput(CmdOutputCapture),
     CmdCall(Span<CmdCall>),
     FnAsValue(Span<String>),
     Lambda(Function),
@@ -322,7 +322,7 @@ pub enum MapKey {
 }
 
 #[derive(Debug, Clone)]
-pub struct CmdOutput {
+pub struct CmdOutputCapture {
     pub capture: CmdCaptureType,
     pub cmd_call: Span<CmdCall>,
 }
@@ -418,7 +418,7 @@ pub enum ComputedStringPiece {
     Escaped(EscapableChar),
     Variable(Span<String>),
     Expr(Span<Expr>),
-    CmdOutput(CmdOutput),
+    CmdOutput(CmdOutputCapture),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -505,7 +505,7 @@ pub enum CmdValueMakingArg {
     LiteralValue(LiteralValue),
     ComputedString(ComputedString),
     InlineCmdCall(Span<CmdCall>),
-    CmdOutput(CmdOutput),
+    CmdCapturedOutput(CmdOutputCapture),
     ParenExpr(Span<Expr>),
     CmdRawString(Span<CmdRawString>),
     Variable(Span<String>),

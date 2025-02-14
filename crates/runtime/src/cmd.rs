@@ -9,9 +9,9 @@ use parsy::{CodeRange, Span};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg,
-    CmdFlagValueArg, CmdOutput, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
-    CmdSpreadArg, CmdValueMakingArg, FlagValueSeparator, FnCallNature, RuntimeCodeRange,
-    RuntimeSpan, SingleCmdCall,
+    CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
+    CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, FlagValueSeparator, FnCallNature,
+    RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -783,7 +783,7 @@ fn eval_cmd_value_making_arg(
             content_at: call.at,
         },
 
-        CmdValueMakingArg::CmdOutput(capture) => {
+        CmdValueMakingArg::CmdCapturedOutput(capture) => {
             RuntimeValue::String(capture_cmd_output(capture, ctx)?)
         }
     };
@@ -907,8 +907,8 @@ fn wait_for_commands_ending(
     }))
 }
 
-pub fn capture_cmd_output(capture: &CmdOutput, ctx: &mut Context) -> ExecResult<String> {
-    let CmdOutput { capture, cmd_call } = capture;
+pub fn capture_cmd_output(capture: &CmdOutputCapture, ctx: &mut Context) -> ExecResult<String> {
+    let CmdOutputCapture { capture, cmd_call } = capture;
 
     let cmd_result = run_cmd(
         cmd_call,

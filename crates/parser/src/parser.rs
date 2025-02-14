@@ -9,7 +9,7 @@ use parsy::{
 use crate::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
-        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutput, CmdPath, CmdPipe, CmdPipeType,
+        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType,
         CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
         ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
@@ -359,7 +359,7 @@ pub fn program(
     )
     .then_ignore(msnl)
     .then_ignore(char(')').critical_auto_msg())
-    .map(|(capture, cmd_call)| CmdOutput { capture, cmd_call });
+    .map(|(capture, cmd_call)| CmdOutputCapture { capture, cmd_call });
 
     let escaped_char = char('\\').ignore_then(
         choice((
@@ -993,7 +993,7 @@ pub fn program(
             .clone()
             .map(CmdValueMakingArg::ComputedString),
         // Command output captures
-        cmd_capture.map(CmdValueMakingArg::CmdOutput),
+        cmd_capture.map(CmdValueMakingArg::CmdCapturedOutput),
         // Parenthesis-wrapped expressions
         char('(')
             .ignore_then(
