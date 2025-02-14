@@ -187,7 +187,10 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                     preceded_by: Some(Regex::new(pomsky!(
                         (
                             | ^             // Beginning of the statement
-                            | ['@' '$'] '(' // Command output or command call
+                            | (
+                                | '$' '^'?  // Command output...
+                                | '@'       // ...or command call
+                            ) '('
                             | ['|'          // After a command pipe
                                n            // After a newline
                                ';'          // After a ';' command separator
@@ -219,7 +222,7 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                     )).unwrap(),
                     inside: None,
                     preceded_by: Some(Regex::new(pomsky!(
-                        :(^ | ['@' '$'] '(' | ['|' n ';' '{'])
+                        :(^ | ('$' '^'? | '@') '(' | ['|' n ';' '{'])
                         [s]* $
                     )).unwrap()),
                     followed_by: None,

@@ -25,8 +25,18 @@
 							]
 						},
 						{
-							"begin": "\\$\\(",
+							"begin": "\\$\\^?\\(",
+							"beginCaptures": {
+								"0": {
+									"name": "keyword"
+								}
+							},
 							"end": "\\)",
+							"endCaptures": {
+								"0": {
+									"name": "keyword"
+								}
+							},
 							"name": "string.quoted.single",
 							"patterns": [
 								{
@@ -89,7 +99,7 @@
 					"name": "entity.name.function"
 				},
 				{
-					"match": "[\\$@]\\(",
+					"match": "(\\$\\^?|@)\\(",
 					"name": "keyword"
 				},
 				{

@@ -136,13 +136,15 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 }
             }
 
-            // We are in a double-quoted string
+            // We are in a double-quoted (= computed) string
             Some((NestingOpeningType::ComputedString, opening_offset)) => match char {
                 '\\' => escaping = true,
 
                 '(' => {
                     if let Some(('$', prev_offset)) = prev_char {
                         open!(prev_offset, 2, NestingOpeningType::CmdOutput)
+                    } else if input[..offset].ends_with("$^") {
+                        open!(offset - 2, 3, NestingOpeningType::CmdOutput);
                     }
                 }
 
@@ -190,8 +192,12 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                         open!(prev_offset, 2, NestingOpeningType::CmdCall);
                     }
 
-                    Some((_, _)) | None => {
-                        open!(offset, 1, NestingOpeningType::ExprWithParen);
+                    _ => {
+                        if input[..offset].ends_with("$^") {
+                            open!(offset - 2, 3, NestingOpeningType::CmdOutput);
+                        } else {
+                            open!(offset, 1, NestingOpeningType::ExprWithParen);
+                        }
                     }
                 },
 
