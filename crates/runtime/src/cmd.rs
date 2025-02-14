@@ -815,12 +815,12 @@ fn eval_cmd_raw_string_piece(
             }
         }
 
-        CmdRawStringPiece::Variable(var_name) => Ok(value_to_str(
+        CmdRawStringPiece::Variable(var_name) => value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             var_name.at,
             "only stringifyable variables can be used inside computable strings",
             ctx,
-        )?),
+        ),
     }
 }
 

@@ -628,19 +628,19 @@ fn eval_computed_string_piece(
     match piece {
         ComputedStringPiece::Literal(str) => Ok(str.clone()),
         ComputedStringPiece::Escaped(char) => Ok(char.original_char().to_string()),
-        ComputedStringPiece::Variable(var_name) => Ok(value_to_str(
+        ComputedStringPiece::Variable(var_name) => value_to_str(
             &ctx.get_visible_var(var_name).value.read(var_name.at).value,
             var_name.at,
             "only stringifyable variables can be used inside computable strings",
             ctx,
-        )?),
-        ComputedStringPiece::Expr(expr) => Ok(value_to_str(
+        ),
+        ComputedStringPiece::Expr(expr) => value_to_str(
             &eval_expr(&expr.data, ctx)?,
             expr.at,
             "only stringifyable values can be used inside computable strings",
             ctx,
-        )?),
-        ComputedStringPiece::CmdOutput(capture) => Ok(capture_cmd_output(capture, ctx)?),
+        ),
+        ComputedStringPiece::CmdOutput(capture) => capture_cmd_output(capture, ctx),
     }
 }
 
