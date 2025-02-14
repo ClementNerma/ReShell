@@ -8,16 +8,17 @@ use parsy::{
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
-        CmdFlagNameArg, CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
-        CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece,
-        DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining,
-        ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature,
-        FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-        FnSignature, Function, Instruction, LiteralValue, MapKey, MatchCase, MatchExprCase,
-        ObjDestructuringItem, ObjDestructuringItemBinding, Program, PropAccess, PropAccessNature,
-        RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
+        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutput, CmdPath, CmdPipe, CmdPipeType,
+        CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
+        ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
+        FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
+        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey, MatchCase,
+        MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program, PropAccess,
+        PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType,
+        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
+        VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -345,6 +346,21 @@ pub fn program(
         call_args,
     });
 
+    let cmd_capture = choice::<CmdCaptureType, _>((
+        just("$(").to(CmdCaptureType::Stdout),
+        just("$^(").to(CmdCaptureType::Stderr),
+    ))
+    .then_ignore(msnl)
+    .then(
+        cmd_call
+            .clone()
+            .spanned()
+            .critical("expected a command call to capture"),
+    )
+    .then_ignore(msnl)
+    .then_ignore(char(')').critical_auto_msg())
+    .map(|(capture, cmd_call)| CmdOutput { capture, cmd_call });
+
     let escaped_char = char('\\').ignore_then(
         choice((
             char('n').to(EscapableChar::Newline),
@@ -408,16 +424,7 @@ pub fn program(
                     // Escaped
                     escaped_char.map(ComputedStringPiece::Escaped),
                     // Command calls
-                    just("$(")
-                        .ignore_then(
-                            cmd_call
-                                .clone()
-                                .spanned()
-                                .padded_by(msnl)
-                                .critical("expected a command call"),
-                        )
-                        .then_ignore(char(')').critical_auto_msg())
-                        .map(ComputedStringPiece::CmdCall),
+                    cmd_capture.clone().map(ComputedStringPiece::CmdOutput),
                     // Variables
                     char('$')
                         .ignore_then(ident.critical("expected an identifier after '$' symbol (did you want to escape it with a backslash?)"))
@@ -551,11 +558,8 @@ pub fn program(
             .map(Value::Struct),
         // Function calls
         fn_call.clone().spanned().map(Value::FnCall),
-        // Command calls
-        just("$(")
-            .ignore_then(cmd_call.clone().spanned())
-            .then_ignore(char(')').critical_auto_msg())
-            .map(Value::CmdOutput),
+        // Command output captures
+        cmd_capture.clone().map(Value::CmdOutput),
         // Variables
         var_name.spanned().map(Value::Variable),
         // Commands
@@ -988,17 +992,8 @@ pub fn program(
         computed_string
             .clone()
             .map(CmdValueMakingArg::ComputedString),
-        // Command call
-        just("$(")
-            .ignore_then(
-                cmd_call
-                    .clone()
-                    .spanned()
-                    .padded_by(msnl)
-                    .critical("expected a command call"),
-            )
-            .then_ignore(char(')').critical_auto_msg())
-            .map(CmdValueMakingArg::CmdOutput),
+        // Command output captures
+        cmd_capture.map(CmdValueMakingArg::CmdOutput),
         // Parenthesis-wrapped expressions
         char('(')
             .ignore_then(

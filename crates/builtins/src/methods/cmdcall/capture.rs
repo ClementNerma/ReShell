@@ -1,5 +1,6 @@
+use reshell_parser::ast::CmdCaptureType;
 use reshell_runtime::{
-    cmd::{run_cmd, CmdExecParams, CmdExecResult, CmdPipeCapture},
+    cmd::{run_cmd, CmdExecParams, CmdExecResult},
     errors::ExecErrorNature,
 };
 
@@ -32,9 +33,9 @@ fn run() -> Runner {
                 ctx,
                 CmdExecParams {
                     capture: Some(if capture_stderr {
-                        CmdPipeCapture::Stderr
+                        CmdCaptureType::Stderr
                     } else {
-                        CmdPipeCapture::Stdout
+                        CmdCaptureType::Stdout
                     }),
 
                     silent: false,

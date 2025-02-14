@@ -8,9 +8,10 @@ use std::{
 use parsy::{CodeRange, Span};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
-    CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagValueArg, CmdPath,
-    CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
-    FlagValueSeparator, FnCallNature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
+    CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg,
+    CmdFlagValueArg, CmdOutput, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
+    CmdSpreadArg, CmdValueMakingArg, FlagValueSeparator, FnCallNature, RuntimeCodeRange,
+    RuntimeSpan, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -29,18 +30,10 @@ use crate::{
 #[derive(Clone, Copy)]
 pub struct CmdExecParams {
     /// How the command's output should be captured
-    pub capture: Option<CmdPipeCapture>,
+    pub capture: Option<CmdCaptureType>,
 
     /// Hide output from non-captured pipes
     pub silent: bool,
-}
-
-/// What pipes to capture from a command's output
-#[derive(Clone, Copy)]
-pub enum CmdPipeCapture {
-    Stdout,
-    Stderr,
-    // Both,
 }
 
 pub fn run_cmd(
@@ -188,8 +181,8 @@ pub fn run_cmd(
                         let captured = wait_for_commands_ending(
                             children,
                             Some(match pipe_type.unwrap().data {
-                                CmdPipeType::Stderr => CmdPipeCapture::Stderr,
-                                CmdPipeType::ValueOrStdout => CmdPipeCapture::Stdout,
+                                CmdPipeType::Stderr => CmdCaptureType::Stderr,
+                                CmdPipeType::ValueOrStdout => CmdCaptureType::Stdout,
                             }),
                             ctx,
                         )?
@@ -290,8 +283,8 @@ pub fn run_cmd(
 
                 // Just a little assertion
                 match capture {
-                    CmdPipeCapture::Stdout => {}
-                    CmdPipeCapture::Stderr /*| CmdPipeCapture::Both*/ => unreachable!(),
+                    CmdCaptureType::Stdout => {}
+                    CmdCaptureType::Stderr /*| CmdCaptureType::Both*/ => unreachable!(),
                 }
 
                 CmdExecResult::Captured(captured)
@@ -598,7 +591,7 @@ fn exec_cmd(
             if next_pipe_type == Some(CmdPipeType::ValueOrStdout)
                 || matches!(
                     capture,
-                    Some(CmdPipeCapture::Stdout /*| CmdPipeCapture::Both*/)
+                    Some(CmdCaptureType::Stdout /*| CmdCaptureType::Both*/)
                 )
                 || silent
             {
@@ -611,7 +604,7 @@ fn exec_cmd(
             if next_pipe_type == Some(CmdPipeType::Stderr)
                 || matches!(
                     capture,
-                    Some(CmdPipeCapture::Stderr /*| CmdPipeCapture::Both*/)
+                    Some(CmdCaptureType::Stderr /*| CmdCaptureType::Both*/)
                 )
                 || silent
             {
@@ -790,17 +783,8 @@ fn eval_cmd_value_making_arg(
             content_at: call.at,
         },
 
-        CmdValueMakingArg::CmdOutput(call) => {
-            let cmd_result = run_cmd(
-                call,
-                ctx,
-                CmdExecParams {
-                    capture: Some(CmdPipeCapture::Stdout),
-                    silent: false,
-                },
-            )?;
-
-            RuntimeValue::String(cmd_result.as_captured().unwrap())
+        CmdValueMakingArg::CmdOutput(capture) => {
+            RuntimeValue::String(capture_cmd_output(capture, ctx)?)
         }
     };
 
@@ -861,7 +845,7 @@ pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'
 
 fn wait_for_commands_ending(
     children: Vec<(Child, CodeRange)>,
-    capture: Option<CmdPipeCapture>,
+    capture: Option<CmdCaptureType>,
     ctx: &Context,
 ) -> ExecResult<Option<String>> {
     assert!(!children.is_empty());
@@ -902,9 +886,9 @@ fn wait_for_commands_ending(
 
         if i == 0 {
             final_output = capture.map(|capture| match capture {
-                CmdPipeCapture::Stdout => output.stdout,
-                CmdPipeCapture::Stderr => output.stderr,
-                // CmdPipeCapture::Both => {
+                CmdCaptureType::Stdout => output.stdout,
+                CmdCaptureType::Stderr => output.stderr,
+                // CmdCaptureType::Both => {
                 //     todo!()
                 // }
             });
@@ -921,6 +905,21 @@ fn wait_for_commands_ending(
 
         out
     }))
+}
+
+pub fn capture_cmd_output(capture: &CmdOutput, ctx: &mut Context) -> ExecResult<String> {
+    let CmdOutput { capture, cmd_call } = capture;
+
+    let cmd_result = run_cmd(
+        cmd_call,
+        ctx,
+        CmdExecParams {
+            capture: Some(*capture),
+            silent: false,
+        },
+    )?;
+
+    Ok(cmd_result.as_captured().unwrap())
 }
 
 #[derive(Debug, Clone)]

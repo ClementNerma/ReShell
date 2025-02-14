@@ -8,7 +8,7 @@ use reshell_parser::ast::{
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    cmd::{run_cmd, CmdExecParams, CmdPipeCapture},
+    cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
     errors::{ExecError, ExecErrorNature, ExecResult},
     functions::eval_fn_call,
@@ -589,18 +589,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
             )
         }
 
-        Value::CmdOutput(call) => RuntimeValue::String(
-            run_cmd(
-                call,
-                ctx,
-                CmdExecParams {
-                    capture: Some(CmdPipeCapture::Stdout),
-                    silent: false,
-                },
-            )?
-            .as_captured()
-            .unwrap(),
-        ),
+        Value::CmdOutput(capture) => RuntimeValue::String(capture_cmd_output(capture, ctx)?),
 
         Value::CmdCall(call) => RuntimeValue::CmdCall {
             content_at: call.at,
@@ -651,16 +640,7 @@ fn eval_computed_string_piece(
             "only stringifyable values can be used inside computable strings",
             ctx,
         )?),
-        ComputedStringPiece::CmdCall(call) => Ok(run_cmd(
-            call,
-            ctx,
-            CmdExecParams {
-                capture: Some(CmdPipeCapture::Stdout),
-                silent: false,
-            },
-        )?
-        .as_captured()
-        .unwrap()),
+        ComputedStringPiece::CmdOutput(capture) => Ok(capture_cmd_output(capture, ctx)?),
     }
 }
 
