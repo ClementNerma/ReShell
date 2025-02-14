@@ -9,16 +9,16 @@ use parsy::{
 use crate::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
-        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType,
-        CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString,
-        ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner,
-        ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallArg,
-        FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
-        FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey, MatchCase,
-        MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program, PropAccess,
-        PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType,
-        SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType,
-        VarDeconstruction,
+        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe,
+        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
+        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
+        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
+        FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
+        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
+        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program,
+        PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp,
+        SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
+        ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1155,8 +1155,7 @@ pub fn program(
             .then(
                 msnl.ignore_then(
                     choice::<CmdPipeType, _>((
-                        // TODO: use a delimiter character ('!' isn't a delimiter)
-                        just("!|").to(CmdPipeType::Stderr),
+                        just("^|").to(CmdPipeType::Stderr),
                         char('|').to(CmdPipeType::ValueOrStdout),
                     ))
                     .spanned(),
