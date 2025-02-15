@@ -413,7 +413,7 @@ pub struct NotComparableTypesErr {
 pub fn value_to_str(
     value: &RuntimeValue,
     at: impl Into<RuntimeCodeRange>,
-    err_msg: impl Into<ExecErrorNature>,
+    type_error_tip: impl Into<String>,
     ctx: &Context,
 ) -> ExecResult<String> {
     match value {
@@ -434,12 +434,12 @@ pub fn value_to_str(
         => Err(ctx
             .error(
                 at,
-                err_msg
-            ).with_info(ExecInfoType::Note, format!(
-                "could not convert a value of type {} to a string",
-                value
-                    .compute_type()
-                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-            ),)),
+                format!(
+                    "could not convert a value of type {} to a string",
+                    value
+                        .compute_type()
+                        .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                )
+            ).with_info(ExecInfoType::Note, type_error_tip)),
     }
 }

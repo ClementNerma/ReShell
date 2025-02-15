@@ -638,7 +638,7 @@ fn append_cmd_arg_as_string(
     in_rest: bool,
     ctx: &mut Context,
 ) -> ExecResult<()> {
-    let non_str_err_msg = if in_rest {
+    let type_error_tip = if in_rest {
         "(in rest argument) values provided to external commands must be stringifyable"
     } else {
         "values provided to external commands must be stringifyable"
@@ -649,7 +649,7 @@ fn append_cmd_arg_as_string(
             SingleCmdArgResult::Basic(value) => args_str.push(value_to_str(
                 &value.value,
                 cmd_arg_result_at,
-                non_str_err_msg,
+                type_error_tip,
                 ctx,
             )?),
 
@@ -658,7 +658,7 @@ fn append_cmd_arg_as_string(
 
                 match value {
                     Some(FlagArgValueResult { value, value_sep }) => {
-                        let value = value_to_str(&value.value, value.from, non_str_err_msg, ctx)?;
+                        let value = value_to_str(&value.value, value.from, type_error_tip, ctx)?;
 
                         match value_sep {
                             FlagValueSeparator::Space => {
