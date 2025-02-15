@@ -12,9 +12,8 @@
 //! This module is used to extract informations for command completions.
 //!
 
-use crate::utils::nesting::NestingOpeningType;
-
 use super::nesting::{detect_nesting_actions, NestingActionType};
+use crate::utils::nesting::NestingOpeningType;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CmdPiece<'a> {

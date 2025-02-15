@@ -89,7 +89,8 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
         Rule::Simple(SimpleRule {
             matches: Regex::new(pomsky!(
                 :('.') :([Letter '_'] [Letter d '_']*) $
-            )).unwrap(),
+            ))
+            .unwrap(),
             inside: None,
             preceded_by: None,
             followed_by: None,

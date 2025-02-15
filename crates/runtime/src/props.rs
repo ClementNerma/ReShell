@@ -186,10 +186,8 @@ pub fn eval_props_access<'ast, 'c, T>(
                         acc.at,
                         format!(
                             "left operand is not a map nor a list, but a {}",
-                            left.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            left.compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ));
                 }
@@ -241,10 +239,8 @@ pub fn eval_props_access<'ast, 'c, T>(
                         acc.at,
                         format!(
                             "left operand is not a struct, but a {}",
-                            left.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            left.compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ));
                 }

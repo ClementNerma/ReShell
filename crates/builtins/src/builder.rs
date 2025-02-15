@@ -7,7 +7,6 @@ use reshell_parser::{
     ast::{FnSignature, SingleValueType, ValueType},
     scope::NATIVE_LIB_AST_SCOPE_ID,
 };
-
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeMethod, ScopeVar},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},

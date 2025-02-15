@@ -1,28 +1,28 @@
-use std::any::Any;
-use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
-use std::hash::{DefaultHasher, Hash, Hasher};
-use std::sync::Arc;
+use std::{
+    any::Any,
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::Arc,
+};
 
 use dyn_clone::DynClone;
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Span};
 use reshell_checker::output::Dependency;
-use reshell_parser::ast::CmdFlagNameArg;
 use reshell_parser::{
     ast::{
-        Block, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall, SingleValueType,
-        StructTypeMember, ValueType,
+        Block, CmdFlagNameArg, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
+        SingleValueType, StructTypeMember, ValueType,
     },
     scope::AstScopeId,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::cmd::FlagArgValueResult;
-use crate::errors::{ExecErrorNature, ExecInfoType};
 use crate::{
+    cmd::FlagArgValueResult,
     context::{Context, ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar},
-    errors::ExecResult,
+    errors::{ExecInfoType, ExecResult},
     functions::ValidatedFnCallArg,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
 };

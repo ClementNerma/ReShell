@@ -2,13 +2,12 @@ use reshell_parser::ast::SingleValueType;
 use reshell_runtime::{gc::GcCell, values::CustomValueType};
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
+use super::sorted::ComparableValueType;
 use crate::{
     declare_typed_fn_handler,
     types::{DateTimeValue, DurationValue},
     utils::{call_fn_checked, expect_returned_value},
 };
-
-use super::sorted::ComparableValueType;
 
 crate::define_internal_fn!(
     //

@@ -16,14 +16,13 @@ use nu_ansi_term::Style;
 use regex::{Captures, Regex};
 use reshell_runtime::context::Context;
 
-use crate::{
-    repl::SHARED_CONTEXT,
-    utils::nesting::{NestingAction, NestingActionType},
-};
-
 use super::{
     covering::{InputCovering, InputRange},
     nesting::{detect_nesting_actions, NestingOpeningType},
+};
+use crate::{
+    repl::SHARED_CONTEXT,
+    utils::nesting::{NestingAction, NestingActionType},
 };
 
 #[derive(Debug)]

@@ -8,7 +8,6 @@ use std::{any::Any, collections::HashMap, fmt::Display, marker::PhantomData};
 use indexmap::IndexMap;
 use parsy::CodeRange;
 use reshell_parser::ast::{SingleValueType, ValueType};
-
 use reshell_runtime::{
     gc::GcCell,
     values::{CmdArgValue, CustomValueType, ErrorValueContent, RuntimeValue},

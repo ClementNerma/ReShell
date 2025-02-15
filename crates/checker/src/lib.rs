@@ -43,7 +43,6 @@ pub use self::{
         CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar, SpecialScopeType,
     },
 };
-
 use crate::{errors::CheckerResult, output::*, state::State};
 
 pub fn check(

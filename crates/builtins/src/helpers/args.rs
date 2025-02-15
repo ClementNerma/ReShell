@@ -6,12 +6,10 @@ use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     SingleValueType, ValueType,
 };
-
 use reshell_runtime::values::RuntimeValue;
 
-use crate::utils::internal_runtime_span;
-
 use super::types::{BoolType, DetachedListType};
+use crate::utils::internal_runtime_span;
 
 // #[derive(Clone)]
 pub enum ArgNames {
