@@ -1010,13 +1010,21 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
     for CmdPipe { pipe_type, cmd } in pipes.iter() {
         let cmd_target_type = check_single_cmd_call(cmd, state)?;
 
-        // Ensure we're not piping into a function
         match cmd_target_type {
+            // Ensure we're not piping STDERR into a function
             CmdPathTargetType::Function => {
-                return Err(CheckerError::new(
-                    pipe_type.at,
-                    "cannot pipe into a function",
-                ));
+                match pipe_type.data {
+                    CmdPipeType::Stderr => {
+                        return Err(CheckerError::new(
+                            pipe_type.at,
+                            "cannot pipe into a function",
+                        ));
+                    }
+
+                    CmdPipeType::ValueOrStdout => {
+                        // Technically STDOUT isn't OK, but we can't differentiate it
+                    }
+                }
             }
 
             CmdPathTargetType::ExternalCommand => {
