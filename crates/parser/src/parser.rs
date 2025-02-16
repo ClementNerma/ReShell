@@ -10,15 +10,15 @@ use crate::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
         CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe,
-        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg,
-        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
-        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
-        FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
-        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
-        MatchCase, MatchExprCase, ObjPropSpreadingBinding, ObjPropSpreadingType,
-        ObjPropSpreading, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
-        TypeMatchExprCase, Value, ValueType, VarSpreading,
+        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdSpreadArg,
+        CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
+        EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
+        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
+        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
+        Instruction, LiteralValue, MapKey, MatchCase, MatchExprCase, ObjPropSpreading,
+        ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature,
+        RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1013,6 +1013,8 @@ pub fn program(
         // Raw argument (but not flags, which aren't value making arguments)
         cmd_raw_string
             .spanned()
+            // Avoid parsing e.g. 'err>' as 'err' and then making the parser fail because of the unexpected '>'
+            .not_followed_by(silent_choice((char('<'), char('>'))))
             .map(CmdValueMakingArg::CmdRawString),
     ));
 
@@ -1122,10 +1124,65 @@ pub fn program(
             .repeated_into_vec()
             .spanned(),
         )
-        .map(|((env_vars, path), args)| SingleCmdCall {
+        .then(
+            s.ignore_then(
+                choice::<CmdRedirects, _>((
+                    // Redirect both STDOUT and STDERR to a file
+                    silent_choice((just("out+err>"), just("err+out>")))
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .map(CmdRedirects::StdoutAndStderrToFile),
+                    // Redirect STDOUT to a file and STDERR to another
+                    just(">")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .then_ignore(s)
+                        .then_ignore(just("err>"))
+                        .then_ignore(s)
+                        .then(cmd_raw_string.spanned())
+                        .map(|(path_for_stdout, path_for_stderr)| {
+                            CmdRedirects::StdoutToFileAndStderrToFile {
+                                path_for_stdout,
+                                path_for_stderr,
+                            }
+                        }),
+                    just("err>")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .then_ignore(s)
+                        .then_ignore(just(">"))
+                        .then_ignore(s)
+                        .then(cmd_raw_string.spanned())
+                        .map(|(path_for_stderr, path_for_stdout)| {
+                            CmdRedirects::StdoutToFileAndStderrToFile {
+                                path_for_stdout,
+                                path_for_stderr,
+                            }
+                        }),
+                    // Redirect STDERR to a file
+                    just("err>")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .map(CmdRedirects::StdoutToFile),
+                    // Redirect STDERR to STDOUT
+                    just("err>").map(|_| CmdRedirects::StderrToStdout),
+                    // Redirect STDOUT to SDTERR
+                    just(">err").map(|_| CmdRedirects::StdoutToStderr),
+                    // Redirect STDOUT to a file
+                    just(">")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .map(CmdRedirects::StdoutToFile),
+                ))
+                .spanned(),
+            )
+            .or_not(),
+        )
+        .map(|(((env_vars, path), args), redirects)| SingleCmdCall {
             env_vars,
             path,
             args,
+            redirects,
         });
 
     let cmd_call_base = choice::<CmdCallBase, _>((

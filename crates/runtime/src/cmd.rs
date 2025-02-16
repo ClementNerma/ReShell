@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
-    io::Write,
-    path::MAIN_SEPARATOR,
+    fs::File,
+    io::{PipeReader, PipeWriter, Write},
+    path::{Path, MAIN_SEPARATOR},
     process::{Child, Command, Stdio},
 };
 
@@ -10,8 +11,8 @@ use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg,
     CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
-    CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, FlagValueSeparator, FnCallNature,
-    RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
+    CmdRawStringPiece, CmdRedirects, CmdSpreadArg, CmdValueMakingArg, FlagValueSeparator,
+    FnCallNature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -92,6 +93,7 @@ pub fn run_cmd(
             args,
             call_at,
             args_at,
+            redirects,
         } = cmd_data;
 
         state = Some(match target {
@@ -145,6 +147,7 @@ pub fn run_cmd(
                         pipe_type,
                         next_pipe_type,
                         params,
+                        redirects,
                     },
                     piped_string
                         .map(CmdInput::String)
@@ -284,7 +287,7 @@ pub fn run_cmd(
                 // Just a little assertion
                 match capture {
                     CmdCaptureType::Stdout => {}
-                    CmdCaptureType::Stderr /*| CmdCaptureType::Both*/ => unreachable!(),
+                    CmdCaptureType::Stderr => unreachable!(),
                 }
 
                 CmdExecResult::Captured(captured)
@@ -312,7 +315,7 @@ pub fn run_cmd(
 enum CmdChainState {
     NoValue(CodeRange),
     Value(LocatedValue),
-    Commands(Vec<(Child, CodeRange)>),
+    Commands(Vec<(SpawnedCmd, CodeRange)>),
 }
 
 /// Result of a command execution
@@ -341,7 +344,10 @@ impl CmdExecResult {
 }
 
 /// Build command execution data
-fn build_cmd_data(call: &Span<SingleCmdCall>, ctx: &mut Context) -> ExecResult<EvaluatedCmdData> {
+fn build_cmd_data<'a>(
+    call: &'a Span<SingleCmdCall>,
+    ctx: &mut Context,
+) -> ExecResult<EvaluatedCmdData<'a>> {
     let mut args = EvaluatedCmdArgs {
         env_vars: HashMap::new(),
         args: vec![],
@@ -413,6 +419,7 @@ fn build_cmd_data(call: &Span<SingleCmdCall>, ctx: &mut Context) -> ExecResult<E
         args,
         args_at: call.data.args.at,
         target,
+        redirects: call.data.redirects.as_ref(),
     })
 }
 
@@ -426,6 +433,7 @@ fn complete_cmd_data(
         path: _,
         env_vars,
         args,
+        redirects: _,
     } = &call.data;
 
     for env_var in &env_vars.data {
@@ -490,11 +498,12 @@ fn evaluate_cmd_target(
     }))
 }
 
-struct EvaluatedCmdData {
+struct EvaluatedCmdData<'a> {
     target: EvaluatedCmdTarget,
     args: EvaluatedCmdArgs,
     call_at: CodeRange,
     args_at: CodeRange,
+    redirects: Option<&'a Span<CmdRedirects>>,
 }
 
 struct EvaluatedCmdArgs {
@@ -508,25 +517,27 @@ enum EvaluatedCmdTarget {
     Method(Span<String>),
 }
 
-struct ExecCmdArgs<'a> {
+struct ExecCmdArgs<'a, 'b> {
     name: &'a Span<String>,
     args: EvaluatedCmdArgs,
     pipe_type: Option<Span<CmdPipeType>>,
     next_pipe_type: Option<CmdPipeType>,
     params: CmdExecParams,
+    redirects: Option<&'b Span<CmdRedirects>>,
 }
 
 fn exec_cmd(
     args: ExecCmdArgs,
     input: Option<CmdInput<'_>>,
     ctx: &mut Context,
-) -> ExecResult<Child> {
+) -> ExecResult<SpawnedCmd> {
     let ExecCmdArgs {
         name,
         args,
         pipe_type,
         next_pipe_type,
         params,
+        redirects,
     } = args;
 
     let CmdExecParams { capture, silent } = params;
@@ -556,14 +567,38 @@ fn exec_cmd(
             )
         })?;
 
+    // Compute the pipes to provide to the child process
+    let StdioPipesForChild {
+        stdout,
+        stdout_reader,
+        stderr,
+        stderr_reader,
+    } = compute_pipes_for_child(
+        capture,
+        silent,
+        next_pipe_type,
+        redirects.as_ref().map(|span| &span.data),
+        ctx,
+    )?;
+
     // Actually run the command
     let child = Command::new(cmd_path)
         .envs(env_vars)
         .args(args_str)
         .stdin(match input {
-            Some(CmdInput::Child(child)) => match pipe_type.unwrap().data {
-                CmdPipeType::ValueOrStdout => Stdio::from(child.stdout.take().unwrap()),
-                CmdPipeType::Stderr => Stdio::from(child.stderr.take().unwrap()),
+            Some(CmdInput::Child(SpawnedCmd {
+                child,
+                stdout,
+                stderr,
+            })) => match pipe_type.unwrap().data {
+                CmdPipeType::ValueOrStdout => match stdout.take() {
+                    Some(stdout) => Stdio::from(stdout),
+                    None => Stdio::from(child.stdout.take().unwrap()),
+                },
+                CmdPipeType::Stderr => match stderr.take() {
+                    Some(stderr) => Stdio::from(stderr),
+                    None => Stdio::from(child.stderr.take().unwrap()),
+                },
             },
 
             Some(CmdInput::String(string)) => {
@@ -587,32 +622,8 @@ fn exec_cmd(
                 }
             }
         })
-        .stdout(
-            if next_pipe_type == Some(CmdPipeType::ValueOrStdout)
-                || matches!(
-                    capture,
-                    Some(CmdCaptureType::Stdout /*| CmdCaptureType::Both*/)
-                )
-                || silent
-            {
-                Stdio::piped()
-            } else {
-                Stdio::inherit()
-            },
-        )
-        .stderr(
-            if next_pipe_type == Some(CmdPipeType::Stderr)
-                || matches!(
-                    capture,
-                    Some(CmdCaptureType::Stderr /*| CmdCaptureType::Both*/)
-                )
-                || silent
-            {
-                Stdio::piped()
-            } else {
-                Stdio::inherit()
-            },
-        )
+        .stdout(stdout)
+        .stderr(stderr)
         .spawn()
         .map_err(|err| {
             ctx.error(
@@ -623,12 +634,194 @@ fn exec_cmd(
             )
         })?;
 
-    Ok(child)
+    Ok(SpawnedCmd {
+        child,
+        stdout: stdout_reader,
+        stderr: stderr_reader,
+    })
 }
 
 enum CmdInput<'a> {
-    Child(&'a mut Child),
+    Child(&'a mut SpawnedCmd),
     String(String),
+}
+
+struct SpawnedCmd {
+    child: Child,
+    stdout: Option<PipeReader>,
+    stderr: Option<PipeReader>,
+}
+
+fn compute_pipes_for_child(
+    capture: Option<CmdCaptureType>,
+    silent: bool,
+    next_pipe_type: Option<CmdPipeType>,
+    redirects: Option<&CmdRedirects>,
+    ctx: &mut Context,
+) -> ExecResult<StdioPipesForChild> {
+    let capturing_stdout = next_pipe_type == Some(CmdPipeType::ValueOrStdout)
+        || matches!(capture, Some(CmdCaptureType::Stdout))
+        || silent;
+
+    let capturing_stderr = next_pipe_type == Some(CmdPipeType::Stderr)
+        || matches!(capture, Some(CmdCaptureType::Stderr))
+        || silent;
+
+    enum PipeType {
+        Custom {
+            reader: PipeReader,
+            writer: PipeWriter,
+        },
+        Stdout,
+        Stderr,
+        File(File),
+        Piped,
+    }
+
+    let (stdout, stderr) = match redirects {
+        Some(redirects) => match redirects {
+            CmdRedirects::StdoutToFile(path) => {
+                assert!(!capturing_stdout);
+
+                (
+                    PipeType::File(open_redirect_file(path, ctx)?),
+                    PipeType::Stderr,
+                )
+            }
+
+            CmdRedirects::StderrToFile(path) => {
+                assert!(!capturing_stderr);
+
+                (
+                    PipeType::Stdout,
+                    PipeType::File(open_redirect_file(path, ctx)?),
+                )
+            }
+
+            CmdRedirects::StderrToStdout => {
+                assert!(!capturing_stderr);
+
+                if capturing_stdout {
+                    let (reader, writer) = std::io::pipe().unwrap();
+
+                    (
+                        PipeType::Custom {
+                            reader: reader.try_clone().unwrap(),
+                            writer: writer.try_clone().unwrap(),
+                        },
+                        PipeType::Custom { reader, writer },
+                    )
+                } else {
+                    (PipeType::Stdout, PipeType::Stdout)
+                }
+            }
+
+            CmdRedirects::StdoutToStderr => {
+                assert!(!capturing_stdout);
+
+                if capturing_stderr {
+                    let (reader, writer) = std::io::pipe().unwrap();
+
+                    (
+                        PipeType::Custom {
+                            reader: reader.try_clone().unwrap(),
+                            writer: writer.try_clone().unwrap(),
+                        },
+                        PipeType::Custom { reader, writer },
+                    )
+                } else {
+                    (PipeType::Stderr, PipeType::Stderr)
+                }
+            }
+
+            CmdRedirects::StdoutAndStderrToFile(path) => {
+                assert!(!capturing_stdout);
+                assert!(!capturing_stderr);
+
+                let file = open_redirect_file(path, ctx)?;
+
+                let file_bis = file.try_clone().map_err(|err| {
+                    ctx.error(path.at, format!("failed to duplicate file handler: {err}"))
+                })?;
+
+                (PipeType::File(file), PipeType::File(file_bis))
+            }
+
+            CmdRedirects::StdoutToFileAndStderrToFile {
+                path_for_stdout,
+                path_for_stderr,
+            } => {
+                assert!(!capturing_stdout);
+                assert!(!capturing_stderr);
+
+                (
+                    PipeType::File(open_redirect_file(path_for_stdout, ctx)?),
+                    PipeType::File(open_redirect_file(path_for_stderr, ctx)?),
+                )
+            }
+        },
+
+        None => (
+            if capturing_stdout {
+                PipeType::Piped
+            } else {
+                PipeType::Stdout
+            },
+            if capturing_stderr {
+                PipeType::Piped
+            } else {
+                PipeType::Stderr
+            },
+        ),
+    };
+
+    let (stdout, stdout_reader) = match stdout {
+        PipeType::Custom { reader, writer } => (Stdio::from(writer), Some(reader)),
+        PipeType::Stdout => (Stdio::inherit(), None),
+        PipeType::Stderr => (std::io::stderr().into(), None),
+        PipeType::Piped => (Stdio::piped(), None),
+        PipeType::File(file) => (Stdio::from(file), None),
+    };
+
+    let (stderr, stderr_reader) = match stderr {
+        PipeType::Custom { reader, writer } => (Stdio::from(writer), Some(reader)),
+        PipeType::Stdout => (std::io::stdout().into(), None),
+        PipeType::Stderr => (Stdio::inherit(), None),
+        PipeType::Piped => (Stdio::piped(), None),
+        PipeType::File(file) => (Stdio::from(file), None),
+    };
+
+    Ok(StdioPipesForChild {
+        stdout,
+        stdout_reader,
+        stderr,
+        stderr_reader,
+    })
+}
+
+fn open_redirect_file(path: &Span<CmdRawString>, ctx: &mut Context) -> ExecResult<File> {
+    let path_str = eval_cmd_raw_string(path, ctx)?;
+
+    if !Path::new(&path_str).parent().is_some_and(Path::exists) {
+        return Err(ctx.error(
+            path.at,
+            "the parent directory of this file does not exist".to_string(),
+        ));
+    }
+
+    File::create(&path_str).map_err(|err| {
+        ctx.error(
+            path.at,
+            format!("failed to open file at path '{path_str}': {err}"),
+        )
+    })
+}
+
+struct StdioPipesForChild {
+    stdout: Stdio,
+    stdout_reader: Option<PipeReader>,
+    stderr: Stdio,
+    stderr_reader: Option<PipeReader>,
 }
 
 fn append_cmd_arg_as_string(
@@ -844,7 +1037,7 @@ pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'
 }
 
 fn wait_for_commands_ending(
-    children: Vec<(Child, CodeRange)>,
+    children: Vec<(SpawnedCmd, CodeRange)>,
     capture: Option<CmdCaptureType>,
     ctx: &Context,
 ) -> ExecResult<Option<String>> {
@@ -853,8 +1046,8 @@ fn wait_for_commands_ending(
     let mut final_output = None;
 
     // Evaluate each subcommand
-    for (i, (child, at)) in children.into_iter().rev().enumerate() {
-        let output = child.wait_with_output();
+    for (i, (spawned, at)) in children.into_iter().rev().enumerate() {
+        let output = spawned.child.wait_with_output();
 
         ctx.reset_ctrl_c_press_indicator();
 
@@ -888,9 +1081,6 @@ fn wait_for_commands_ending(
             final_output = capture.map(|capture| match capture {
                 CmdCaptureType::Stdout => output.stdout,
                 CmdCaptureType::Stderr => output.stderr,
-                // CmdCaptureType::Both => {
-                //     todo!()
-                // }
             });
         }
     }

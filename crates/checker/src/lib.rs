@@ -23,14 +23,14 @@ use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
         CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
-        CmdRawStringPiece, CmdSpreadArg, CmdValueMakingArg, ComputedString, ComputedStringPiece,
-        ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
-        FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
-        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
-        MatchCase, MatchExprCase, ObjPropSpreadingBinding, ObjPropSpreadingType,
-        ObjPropSpreading, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
-        TypeMatchExprCase, Value, ValueType, VarSpreading,
+        CmdRawStringPiece, CmdRedirects, CmdSpreadArg, CmdValueMakingArg, ComputedString,
+        ComputedStringPiece, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
+        ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
+        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
+        Instruction, LiteralValue, MapKey, MatchCase, MatchExprCase, ObjPropSpreading,
+        ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature,
+        RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     scope::AstScopeId,
 };
@@ -1098,6 +1098,7 @@ fn check_single_cmd_call(
         env_vars,
         path,
         args,
+        redirects,
     } = &single_cmd_call.data;
 
     for env_var in &env_vars.data {
@@ -1159,6 +1160,23 @@ fn check_single_cmd_call(
                 env_var.at,
                 "environment variables are not supported for function calls",
             ));
+        }
+    }
+
+    if let Some(redirects) = redirects {
+        match &redirects.data {
+            CmdRedirects::StdoutToFile(span) => check_cmd_raw_string(&span.data, state)?,
+            CmdRedirects::StderrToFile(span) => check_cmd_raw_string(&span.data, state)?,
+            CmdRedirects::StderrToStdout => {}
+            CmdRedirects::StdoutToStderr => {}
+            CmdRedirects::StdoutAndStderrToFile(span) => check_cmd_raw_string(&span.data, state)?,
+            CmdRedirects::StdoutToFileAndStderrToFile {
+                path_for_stdout,
+                path_for_stderr,
+            } => {
+                check_cmd_raw_string(&path_for_stdout.data, state)?;
+                check_cmd_raw_string(&path_for_stderr.data, state)?;
+            }
         }
     }
 

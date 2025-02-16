@@ -459,12 +459,26 @@ pub struct SingleCmdCall {
     pub env_vars: Span<Vec<Span<CmdEnvVar>>>,
     pub path: Span<CmdPath>,
     pub args: Span<Vec<Span<CmdArg>>>,
+    pub redirects: Option<Span<CmdRedirects>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CmdEnvVar {
     pub name: Span<String>,
     pub value: Span<CmdValueMakingArg>,
+}
+
+#[derive(Debug, Clone)]
+pub enum CmdRedirects {
+    StdoutToFile(Span<CmdRawString>),
+    StderrToFile(Span<CmdRawString>),
+    StderrToStdout,
+    StdoutToStderr,
+    StdoutAndStderrToFile(Span<CmdRawString>),
+    StdoutToFileAndStderrToFile {
+        path_for_stdout: Span<CmdRawString>,
+        path_for_stderr: Span<CmdRawString>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -482,7 +496,6 @@ pub enum CmdExternalPath {
 }
 
 #[derive(Debug, Clone)]
-
 pub struct CmdRawString {
     pub pieces: Vec<Span<CmdRawStringPiece>>,
 }
