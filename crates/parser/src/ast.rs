@@ -331,7 +331,7 @@ pub enum MapKey {
 
 #[derive(Debug, Clone)]
 pub struct CmdOutputCapture {
-    pub capture: CmdCaptureType,
+    pub capture: Span<CmdCaptureType>,
     pub cmd_call: Span<CmdCall>,
 }
 

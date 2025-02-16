@@ -350,6 +350,7 @@ pub fn program(
         just("$(").to(CmdCaptureType::Stdout),
         just("$^(").to(CmdCaptureType::Stderr),
     ))
+    .spanned()
     .then_ignore(msnl)
     .then(
         cmd_call

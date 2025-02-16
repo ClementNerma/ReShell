@@ -1131,7 +1131,7 @@ pub fn capture_cmd_output(capture: &CmdOutputCapture, ctx: &mut Context) -> Exec
         cmd_call,
         ctx,
         CmdExecParams {
-            capture: Some(*capture),
+            capture: Some(capture.data),
             silent: false,
         },
     )?;

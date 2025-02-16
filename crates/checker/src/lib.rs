@@ -21,8 +21,8 @@ use std::collections::{HashMap, HashSet};
 use parsy::{CodeRange, Span};
 use reshell_parser::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg,
-        CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
+        CmdFlagArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
         CmdRawStringPiece, CmdRedirects, CmdSpreadArg, CmdValueMakingArg, ComputedString,
         ComputedStringPiece, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
         ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
@@ -1410,12 +1410,55 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
 }
 
 fn check_cmd_capture(capture: &CmdOutputCapture, state: &mut State) -> CheckerResult {
-    let CmdOutputCapture {
-        capture: _,
-        cmd_call,
-    } = capture;
+    let CmdOutputCapture { capture, cmd_call } = capture;
 
-    check_cmd_call(cmd_call, state)
+    check_cmd_call(cmd_call, state)?;
+
+    let final_redirects = match cmd_call.data.pipes.last() {
+        Some(last_pipe) => last_pipe.cmd.data.redirects.as_ref(),
+        None => match &cmd_call.data.base {
+            CmdCallBase::Expr(_) => None,
+            CmdCallBase::SingleCmdCall(cmd) => cmd.data.redirects.as_ref(),
+        },
+    };
+
+    if let Some(redirects) = final_redirects {
+        match &capture.data {
+            CmdCaptureType::Stdout => match &redirects.data {
+                CmdRedirects::StderrToFile(_) | CmdRedirects::StderrToStdout => {}
+                CmdRedirects::StdoutToFile(_)
+                | CmdRedirects::StdoutToStderr
+                | CmdRedirects::StdoutAndStderrToFile(_)
+                | CmdRedirects::StdoutToFileAndStderrToFile {
+                    path_for_stdout: _,
+                    path_for_stderr: _,
+                } => {
+                    return Err(CheckerError::new(
+                        capture.at,
+                        "cannot capture STDOUT as it's being redirected elsewhere",
+                    ))
+                }
+            },
+
+            CmdCaptureType::Stderr => match &redirects.data {
+                CmdRedirects::StdoutToFile(_) | CmdRedirects::StdoutToStderr => {}
+                CmdRedirects::StderrToFile(_)
+                | CmdRedirects::StderrToStdout
+                | CmdRedirects::StdoutAndStderrToFile(_)
+                | CmdRedirects::StdoutToFileAndStderrToFile {
+                    path_for_stdout: _,
+                    path_for_stderr: _,
+                } => {
+                    return Err(CheckerError::new(
+                        capture.at,
+                        "cannot capture STDERR as it's being redirected elsewhere",
+                    ))
+                }
+            },
+        }
+    }
+
+    Ok(())
 }
 
 fn check_function(func: &Function, state: &mut State) -> CheckerResult {
