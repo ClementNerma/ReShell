@@ -15,10 +15,10 @@ use crate::{
         ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
         FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
-        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding,
-        ObjDestructuringItemType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
+        MatchCase, MatchExprCase, ObjPropSpreadingBinding, ObjPropSpreadingType,
+        ObjPropSpreading, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
         SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
-        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1195,12 +1195,12 @@ pub fn program(
         });
 
     let var_decl_type = recursive(|var_decl_type| {
-        let obj_destructuring_item_binding = choice::<ObjDestructuringItemBinding, _>((
+        let obj_destructuring_item_binding = choice::<ObjPropSpreadingBinding, _>((
             just("mut")
                 .then(s)
                 .or_not()
                 .then(ident.spanned())
-                .map(|(is_mut, alias)| ObjDestructuringItemBinding::BindTo {
+                .map(|(is_mut, alias)| ObjPropSpreadingBinding::BindTo {
                     is_mut: is_mut.is_some(),
                     alias,
                 }),
@@ -1208,21 +1208,22 @@ pub fn program(
                 .clone()
                 .spanned()
                 .map(Box::new)
-                .map(ObjDestructuringItemBinding::Deconstruct),
+                .map(ObjPropSpreadingBinding::Deconstruct),
         ))
         .critical("expected a sub-declaration");
 
-        let obj_destructuring_item_type = choice::<ObjDestructuringItemType, _>((
+        let obj_destructuring_item_type = choice::<ObjPropSpreadingType, _>((
             // mut ident
             just("mut")
                 .ignore_then(ms)
                 .ignore_then(ident.spanned())
-                .map(|name| ObjDestructuringItemType::RawKeyToMut { name }),
+                .map(|name| ObjPropSpreadingType::RawKeyToMut { name }),
             // ident: <...>
             ident
                 .spanned()
                 .then(
                     ms.ignore_then(char(':'))
+                        .ignore_then(msnl)
                         .ignore_then(
                             obj_destructuring_item_binding
                                 .clone()
@@ -1230,23 +1231,23 @@ pub fn program(
                         )
                         .or_not(),
                 )
-                .map(|(name, binding)| ObjDestructuringItemType::RawKeyToConst { name, binding }),
+                .map(|(name, binding)| ObjPropSpreadingType::RawKeyToConst { name, binding }),
             // 'ident': <...>
             literal_string
                 .spanned()
                 .then_ignore(ms)
                 .then_ignore(char(':'))
-                .then_ignore(ms)
+                .then_ignore(msnl)
                 .then(obj_destructuring_item_binding)
                 .map(
-                    |(literal_name, binding)| ObjDestructuringItemType::LiteralKeyToConst {
+                    |(literal_name, binding)| ObjPropSpreadingType::LiteralKeyToConst {
                         literal_name,
                         binding,
                     },
                 ),
         ));
 
-        choice::<VarDeconstruction, _>((
+        choice::<VarSpreading, _>((
             //
             // Lists
             //
@@ -1260,7 +1261,7 @@ pub fn program(
                 )
                 .then_ignore(msnl)
                 .then_ignore(char(']'))
-                .map(VarDeconstruction::Tuple),
+                .map(VarSpreading::Tuple),
             //
             // Maps and structs
             //
@@ -1274,16 +1275,16 @@ pub fn program(
                                 .ignore_then(expr.clone().critical("expected an expression"))
                                 .or_not(),
                         )
-                        .map(|(typ, default_value)| ObjDestructuringItem { typ, default_value })
+                        .map(|(typ, default_value)| ObjPropSpreading { typ, default_value })
                         .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_auto_msg())
-                .map(VarDeconstruction::MapOrStruct),
+                .map(VarSpreading::MapOrStruct),
             //
             // Single variables
             //
-            single_var_decl.map(VarDeconstruction::Single),
+            single_var_decl.map(VarSpreading::Single),
         ))
     });
 

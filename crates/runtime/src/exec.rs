@@ -3,9 +3,9 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::ast::{
-    Block, ElsIf, Instruction, MatchCase, ObjDestructuringItem, ObjDestructuringItemBinding,
-    ObjDestructuringItemType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType,
-    VarDeconstruction,
+    Block, ElsIf, Instruction, MatchCase, ObjPropSpreading, ObjPropSpreadingBinding,
+    ObjPropSpreadingType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType,
+    VarSpreading,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -842,13 +842,13 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 }
 
 fn declare_vars(
-    names: &Span<VarDeconstruction>,
+    names: &Span<VarSpreading>,
     value: RuntimeValue,
     value_at: CodeRange,
     ctx: &mut Context,
 ) -> ExecResult<()> {
     match &names.data {
-        VarDeconstruction::Single(single) => {
+        VarSpreading::Single(single) => {
             let SingleVarDecl {
                 name,
                 is_mut,
@@ -867,7 +867,7 @@ fn declare_vars(
             )?;
         }
 
-        VarDeconstruction::Tuple(members) => {
+        VarSpreading::Tuple(members) => {
             let list = match value {
                 RuntimeValue::List(list) => list,
 
@@ -902,7 +902,7 @@ fn declare_vars(
             }
         }
 
-        VarDeconstruction::MapOrStruct(members) => {
+        VarSpreading::MapOrStruct(members) => {
             let map = match value {
                 RuntimeValue::Map(map) => map,
 
@@ -924,16 +924,16 @@ fn declare_vars(
             let map = map.read_promise_no_write();
 
             for var in members {
-                let ObjDestructuringItem { typ, default_value } = var;
+                let ObjPropSpreading { typ, default_value } = var;
 
                 let (name, binding, is_mut) = match typ {
-                    ObjDestructuringItemType::RawKeyToConst { name, binding } => {
+                    ObjPropSpreadingType::RawKeyToConst { name, binding } => {
                         (name, binding.as_ref(), false)
                     }
 
-                    ObjDestructuringItemType::RawKeyToMut { name } => (name, None, true),
+                    ObjPropSpreadingType::RawKeyToMut { name } => (name, None, true),
 
-                    ObjDestructuringItemType::LiteralKeyToConst {
+                    ObjPropSpreadingType::LiteralKeyToConst {
                         literal_name,
                         binding,
                     } => (literal_name, Some(binding), false),
@@ -954,7 +954,7 @@ fn declare_vars(
                 };
 
                 match binding {
-                    Some(ObjDestructuringItemBinding::BindTo { alias, is_mut }) => declare_var(
+                    Some(ObjPropSpreadingBinding::BindTo { alias, is_mut }) => declare_var(
                         alias,
                         DeclareVarData {
                             is_mut: *is_mut,
@@ -965,7 +965,7 @@ fn declare_vars(
                         ctx,
                     )?,
 
-                    Some(ObjDestructuringItemBinding::Deconstruct(deconstruct)) => {
+                    Some(ObjPropSpreadingBinding::Deconstruct(deconstruct)) => {
                         declare_vars(deconstruct, value, value_at, ctx)?;
                     }
 

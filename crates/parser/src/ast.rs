@@ -19,7 +19,7 @@ pub struct Block {
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
-        names: Span<VarDeconstruction>,
+        names: Span<VarSpreading>,
         init_expr: Span<Expr>,
     },
 
@@ -136,37 +136,37 @@ pub enum Instruction {
 }
 
 #[derive(Debug, Clone)]
-pub enum VarDeconstruction {
+pub enum VarSpreading {
     Single(SingleVarDecl),
-    Tuple(Vec<Span<VarDeconstruction>>),
-    MapOrStruct(Vec<ObjDestructuringItem>),
+    Tuple(Vec<Span<VarSpreading>>),
+    MapOrStruct(Vec<ObjPropSpreading>),
 }
 
 #[derive(Debug, Clone)]
-pub struct ObjDestructuringItem {
-    pub typ: ObjDestructuringItemType,
+pub struct ObjPropSpreading {
+    pub typ: ObjPropSpreadingType,
     pub default_value: Option<Expr>,
 }
 
 #[derive(Debug, Clone)]
-pub enum ObjDestructuringItemType {
+pub enum ObjPropSpreadingType {
     RawKeyToConst {
         name: Span<String>,
-        binding: Option<ObjDestructuringItemBinding>,
+        binding: Option<ObjPropSpreadingBinding>,
     },
     RawKeyToMut {
         name: Span<String>,
     },
     LiteralKeyToConst {
         literal_name: Span<String>,
-        binding: ObjDestructuringItemBinding,
+        binding: ObjPropSpreadingBinding,
     },
 }
 
 #[derive(Debug, Clone)]
-pub enum ObjDestructuringItemBinding {
+pub enum ObjPropSpreadingBinding {
     BindTo { alias: Span<String>, is_mut: bool },
-    Deconstruct(Box<Span<VarDeconstruction>>),
+    Deconstruct(Box<Span<VarSpreading>>),
 }
 
 #[derive(Debug, Clone)]

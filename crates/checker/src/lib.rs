@@ -27,10 +27,10 @@ use reshell_parser::{
         ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
         FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
-        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding,
-        ObjDestructuringItemType, Program, PropAccess, PropAccessNature, RangeBound,
-        RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
+        MatchCase, MatchExprCase, ObjPropSpreadingBinding, ObjPropSpreadingType,
+        ObjPropSpreading, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
+        TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     scope::AstScopeId,
 };
@@ -296,27 +296,27 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             }
 
             fn insert_vars(
-                names: &VarDeconstruction,
+                names: &VarSpreading,
                 idents: &mut HashSet<String>,
                 state: &mut State,
             ) -> CheckerResult {
                 match names {
-                    VarDeconstruction::Single(single) => {
+                    VarSpreading::Single(single) => {
                         insert_var(single, idents, state)?;
                     }
 
-                    VarDeconstruction::Tuple(vars) => {
+                    VarSpreading::Tuple(vars) => {
                         for vars in vars {
                             insert_vars(&vars.data, idents, state)?;
                         }
                     }
 
-                    VarDeconstruction::MapOrStruct(vars) => {
+                    VarSpreading::MapOrStruct(vars) => {
                         for var in vars {
-                            let ObjDestructuringItem { typ, default_value } = var;
+                            let ObjPropSpreading { typ, default_value } = var;
 
                             match typ {
-                                ObjDestructuringItemType::RawKeyToConst { name, binding } => {
+                                ObjPropSpreadingType::RawKeyToConst { name, binding } => {
                                     match binding {
                                         Some(binding) => {
                                             insert_binding(binding, idents, state)?;
@@ -336,7 +336,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                                     }
                                 }
 
-                                ObjDestructuringItemType::RawKeyToMut { name } => {
+                                ObjPropSpreadingType::RawKeyToMut { name } => {
                                     insert_var(
                                         &SingleVarDecl {
                                             name: name.clone(),
@@ -348,7 +348,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                                     )?;
                                 }
 
-                                ObjDestructuringItemType::LiteralKeyToConst {
+                                ObjPropSpreadingType::LiteralKeyToConst {
                                     literal_name: _,
                                     binding,
                                 } => {
@@ -367,12 +367,12 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             }
 
             fn insert_binding(
-                binding: &ObjDestructuringItemBinding,
+                binding: &ObjPropSpreadingBinding,
                 idents: &mut HashSet<String>,
                 state: &mut State,
             ) -> CheckerResult {
                 match binding {
-                    ObjDestructuringItemBinding::BindTo { alias, is_mut } => insert_var(
+                    ObjPropSpreadingBinding::BindTo { alias, is_mut } => insert_var(
                         &SingleVarDecl {
                             name: alias.clone(),
                             is_mut: *is_mut,
@@ -382,7 +382,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                         state,
                     ),
 
-                    ObjDestructuringItemBinding::Deconstruct(span) => {
+                    ObjPropSpreadingBinding::Deconstruct(span) => {
                         insert_vars(&span.data, idents, state)
                     }
                 }
