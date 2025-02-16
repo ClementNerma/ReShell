@@ -1042,9 +1042,10 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
             CmdPathTargetType::Function => {
                 match pipe_type.data {
                     CmdPipeType::Stderr => {
+                        // TODO: allow it!
                         return Err(CheckerError::new(
                             pipe_type.at,
-                            "cannot pipe into a function",
+                            "cannot pipe stderr into a function",
                         ));
                     }
 
