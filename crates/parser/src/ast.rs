@@ -16,6 +16,8 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone)]
+// Disable large enum variants lint as Clippy's detection isn't working properly
+#[allow(clippy::large_enum_variant)]
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
