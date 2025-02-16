@@ -1016,12 +1016,12 @@ fn check_fn_call_arg(arg: &Span<FnCallArg>, state: &mut State) -> CheckerResult 
 }
 
 fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult {
+    let CmdCall { base, pipes } = &cmd_call.data;
+
     enum PrevCallType {
         Expr,
         ActualCall(CmdPathTargetType),
     }
-
-    let CmdCall { base, pipes } = &cmd_call.data;
 
     let mut prev_call_type = match base {
         CmdCallBase::Expr(expr) => {
@@ -1030,11 +1030,23 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
         }
 
         CmdCallBase::SingleCmdCall(call) => {
-            PrevCallType::ActualCall(check_single_cmd_call(call, state)?)
+            let cmd_target_type = check_single_cmd_call(call, state)?;
+
+            if let Some(redirects) = &call.data.redirects {
+                check_cmd_redirect(
+                    cmd_target_type,
+                    redirects,
+                    pipes.first().map(|pipe| pipe.pipe_type),
+                )?;
+            }
+
+            PrevCallType::ActualCall(cmd_target_type)
         }
     };
 
-    for CmdPipe { pipe_type, cmd } in pipes.iter() {
+    let mut pipes = pipes.iter().peekable();
+
+    while let Some(CmdPipe { pipe_type, cmd }) = pipes.next() {
         let cmd_target_type = check_single_cmd_call(cmd, state)?;
 
         match cmd_target_type {
@@ -1058,6 +1070,14 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
             CmdPathTargetType::ExternalCommand => {
                 // OK
             }
+        }
+
+        if let Some(redirects) = &cmd.data.redirects {
+            check_cmd_redirect(
+                cmd_target_type,
+                redirects,
+                pipes.peek().map(|pipe| pipe.pipe_type),
+            )?;
         }
 
         match pipe_type.data {
@@ -1086,6 +1106,64 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
         }
 
         prev_call_type = PrevCallType::ActualCall(cmd_target_type);
+    }
+
+    Ok(())
+}
+
+fn check_cmd_redirect(
+    cmd_target_type: CmdPathTargetType,
+    redirects: &Span<CmdRedirects>,
+    next_pipe: Option<Span<CmdPipeType>>,
+) -> CheckerResult {
+    match cmd_target_type {
+        CmdPathTargetType::Function => {
+            // TODO: allow stdout redirection (write string to file)
+            return Err(CheckerError::new(
+                redirects.at,
+                "cannot redirect a function's output to a file",
+            ));
+        }
+
+        CmdPathTargetType::ExternalCommand => {
+            // Ensure that we're not redirecting a pipe that's going to be empty
+            // (because it's being captured / ...)
+            if let Some(next_pipe) = next_pipe {
+                match next_pipe.data {
+                    CmdPipeType::Stderr => match &redirects.data {
+                        CmdRedirects::StdoutToFile(_) | CmdRedirects::StdoutToStderr => {}
+                        CmdRedirects::StderrToFile(_)
+                        | CmdRedirects::StderrToStdout
+                        | CmdRedirects::StdoutAndStderrToFile(_)
+                        | CmdRedirects::StdoutToFileAndStderrToFile {
+                            path_for_stdout: _,
+                            path_for_stderr: _,
+                        } => {
+                            return Err(CheckerError::new(
+                                next_pipe.at,
+                                "cannot pipe STDERR as it's being redirected elsewhere",
+                            ))
+                        }
+                    },
+
+                    CmdPipeType::ValueOrStdout => match &redirects.data {
+                        CmdRedirects::StderrToFile(_) | CmdRedirects::StderrToStdout => {}
+                        CmdRedirects::StdoutToFile(_)
+                        | CmdRedirects::StdoutToStderr
+                        | CmdRedirects::StdoutAndStderrToFile(_)
+                        | CmdRedirects::StdoutToFileAndStderrToFile {
+                            path_for_stdout: _,
+                            path_for_stderr: _,
+                        } => {
+                            return Err(CheckerError::new(
+                                next_pipe.at,
+                                "cannot pipe STDOUT as it's being redirected elsewhere",
+                            ))
+                        }
+                    },
+                }
+            }
+        }
     }
 
     Ok(())
