@@ -248,6 +248,26 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                     }))
                 }),
 
+                // Function calls
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        (^ [s]* | %) :([Letter '_'] [Letter d '_']*) $
+                    )).unwrap(),
+                    inside: None,
+                    followed_by: None,
+                    followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+                    preceded_by: None,
+                    style: RuleStylization::Dynamic(Box::new(|ctx, matched| {
+                        let color = if COMMANDS_CHECKER.lock().unwrap().check(ctx, &matched[1], CheckCmdType::Function) {
+                            Color::Blue
+                        } else {
+                            Color::Red
+                        };
+
+                        vec![Style::new().fg(color)]
+                    }))
+                }),
+
                 // Variables
                 simple(pomsky!( :('$' ([Letter '_'] [Letter d '_']*)?) % ), [Red]),
 
