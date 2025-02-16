@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::{PipeReader, PipeWriter, Write},
+    io::{PipeReader, PipeWriter, Read, Write},
     path::{Path, MAIN_SEPARATOR},
     process::{Child, Command, Stdio},
 };
@@ -1046,7 +1046,7 @@ fn wait_for_commands_ending(
     let mut final_output = None;
 
     // Evaluate each subcommand
-    for (i, (spawned, at)) in children.into_iter().rev().enumerate() {
+    for (i, (mut spawned, at)) in children.into_iter().rev().enumerate() {
         let output = spawned.child.wait_with_output();
 
         ctx.reset_ctrl_c_press_indicator();
@@ -1078,10 +1078,37 @@ fn wait_for_commands_ending(
         }
 
         if i == 0 {
-            final_output = capture.map(|capture| match capture {
-                CmdCaptureType::Stdout => output.stdout,
-                CmdCaptureType::Stderr => output.stderr,
-            });
+            if let Some(capture) = capture {
+                final_output = Some(match capture {
+                    CmdCaptureType::Stdout => match spawned.stdout.take() {
+                        Some(mut stdout) => {
+                            let mut buf = vec![];
+
+                            stdout.read_to_end(&mut buf).map_err(|err| {
+                                ctx.error(at, format!("failed to read command's STDOUT: {err}"))
+                            })?;
+
+                            buf
+                        }
+
+                        None => output.stdout,
+                    },
+
+                    CmdCaptureType::Stderr => match spawned.stderr.take() {
+                        Some(mut stderr) => {
+                            let mut buf = vec![];
+
+                            stderr.read_to_end(&mut buf).map_err(|err| {
+                                ctx.error(at, format!("failed to read command's STDERR: {err}"))
+                            })?;
+
+                            buf
+                        }
+
+                        None => output.stderr,
+                    },
+                });
+            }
         }
     }
 
