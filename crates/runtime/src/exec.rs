@@ -4,7 +4,8 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::ast::{
     Block, ElsIf, Instruction, MatchCase, ObjDestructuringItem, ObjDestructuringItemBinding,
-    Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType, VarDeconstruction,
+    ObjDestructuringItemType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType,
+    VarDeconstruction,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -923,12 +924,20 @@ fn declare_vars(
             let map = map.read_promise_no_write();
 
             for var in members {
-                let ObjDestructuringItem {
-                    name,
-                    is_mut,
-                    binding,
-                    default_value,
-                } = var;
+                let ObjDestructuringItem { typ, default_value } = var;
+
+                let (name, binding, is_mut) = match typ {
+                    ObjDestructuringItemType::RawKeyToConst { name, binding } => {
+                        (name, binding.as_ref(), false)
+                    }
+
+                    ObjDestructuringItemType::RawKeyToMut { name } => (name, None, true),
+
+                    ObjDestructuringItemType::LiteralKeyToConst {
+                        literal_name,
+                        binding,
+                    } => (literal_name, Some(binding), false),
+                };
 
                 let value = match map.get(&name.data) {
                     Some(value) => value.clone(),
@@ -939,40 +948,38 @@ fn declare_vars(
                         None => {
                             return Err(
                                 ctx.error(name.at, "this property was not found in provided value")
-                            )
+                            );
                         }
                     },
                 };
 
                 match binding {
+                    Some(ObjDestructuringItemBinding::BindTo { alias, is_mut }) => declare_var(
+                        alias,
+                        DeclareVarData {
+                            is_mut: *is_mut,
+                            value,
+                            value_at,
+                            enforced_type: None,
+                        },
+                        ctx,
+                    )?,
+
+                    Some(ObjDestructuringItemBinding::Deconstruct(deconstruct)) => {
+                        declare_vars(deconstruct, value, value_at, ctx)?;
+                    }
+
                     None => {
                         declare_var(
                             name,
                             DeclareVarData {
-                                is_mut: *is_mut,
+                                is_mut,
                                 value,
                                 value_at,
                                 enforced_type: None,
                             },
                             ctx,
                         )?;
-                    }
-
-                    Some(ObjDestructuringItemBinding::BindTo(alias)) => {
-                        declare_var(
-                            alias,
-                            DeclareVarData {
-                                is_mut: *is_mut,
-                                value,
-                                value_at,
-                                enforced_type: None,
-                            },
-                            ctx,
-                        )?;
-                    }
-
-                    Some(ObjDestructuringItemBinding::Destruct(destruct)) => {
-                        declare_vars(destruct, value, value_at, ctx)?;
                     }
                 }
             }

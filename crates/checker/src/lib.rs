@@ -27,10 +27,10 @@ use reshell_parser::{
         ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
         FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
-        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program,
-        PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp,
-        SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
-        ValueType, VarDeconstruction,
+        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding,
+        ObjDestructuringItemType, Program, PropAccess, PropAccessNature, RangeBound,
+        RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     scope::AstScopeId,
 };
@@ -313,40 +313,46 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
 
                     VarDeconstruction::MapOrStruct(vars) => {
                         for var in vars {
-                            let ObjDestructuringItem {
-                                name,
-                                is_mut,
-                                binding,
-                                default_value,
-                            } = var;
+                            let ObjDestructuringItem { typ, default_value } = var;
 
-                            match binding {
-                                Some(ObjDestructuringItemBinding::BindTo(alias)) => {
-                                    insert_var(
-                                        &SingleVarDecl {
-                                            name: alias.clone(),
-                                            is_mut: *is_mut,
-                                            enforced_type: None,
-                                        },
-                                        idents,
-                                        state,
-                                    )?;
+                            match typ {
+                                ObjDestructuringItemType::RawKeyToConst { name, binding } => {
+                                    match binding {
+                                        Some(binding) => {
+                                            insert_binding(binding, idents, state)?;
+                                        }
+
+                                        None => {
+                                            insert_var(
+                                                &SingleVarDecl {
+                                                    name: name.clone(),
+                                                    is_mut: false,
+                                                    enforced_type: None,
+                                                },
+                                                idents,
+                                                state,
+                                            )?;
+                                        }
+                                    }
                                 }
 
-                                Some(ObjDestructuringItemBinding::Destruct(destruct)) => {
-                                    insert_vars(&destruct.data, idents, state)?;
-                                }
-
-                                None => {
+                                ObjDestructuringItemType::RawKeyToMut { name } => {
                                     insert_var(
                                         &SingleVarDecl {
                                             name: name.clone(),
-                                            is_mut: *is_mut,
+                                            is_mut: true,
                                             enforced_type: None,
                                         },
                                         idents,
                                         state,
                                     )?;
+                                }
+
+                                ObjDestructuringItemType::LiteralKeyToConst {
+                                    literal_name: _,
+                                    binding,
+                                } => {
+                                    insert_binding(binding, idents, state)?;
                                 }
                             }
 
@@ -358,6 +364,28 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                 }
 
                 Ok(())
+            }
+
+            fn insert_binding(
+                binding: &ObjDestructuringItemBinding,
+                idents: &mut HashSet<String>,
+                state: &mut State,
+            ) -> CheckerResult {
+                match binding {
+                    ObjDestructuringItemBinding::BindTo { alias, is_mut } => insert_var(
+                        &SingleVarDecl {
+                            name: alias.clone(),
+                            is_mut: *is_mut,
+                            enforced_type: None,
+                        },
+                        idents,
+                        state,
+                    ),
+
+                    ObjDestructuringItemBinding::Deconstruct(span) => {
+                        insert_vars(&span.data, idents, state)
+                    }
+                }
             }
 
             insert_vars(&names.data, &mut HashSet::new(), state)?;

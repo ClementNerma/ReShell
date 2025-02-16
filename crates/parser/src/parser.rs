@@ -15,10 +15,10 @@ use crate::{
         ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
         FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, LiteralValue, MapKey,
-        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding, Program,
-        PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp,
-        SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value,
-        ValueType, VarDeconstruction,
+        MatchCase, MatchExprCase, ObjDestructuringItem, ObjDestructuringItemBinding,
+        ObjDestructuringItemType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, StructTypeMember, TypeMatchCase,
+        TypeMatchExprCase, Value, ValueType, VarDeconstruction,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1195,6 +1195,57 @@ pub fn program(
         });
 
     let var_decl_type = recursive(|var_decl_type| {
+        let obj_destructuring_item_binding = choice::<ObjDestructuringItemBinding, _>((
+            just("mut")
+                .then(s)
+                .or_not()
+                .then(ident.spanned())
+                .map(|(is_mut, alias)| ObjDestructuringItemBinding::BindTo {
+                    is_mut: is_mut.is_some(),
+                    alias,
+                }),
+            var_decl_type
+                .clone()
+                .spanned()
+                .map(Box::new)
+                .map(ObjDestructuringItemBinding::Deconstruct),
+        ))
+        .critical("expected a sub-declaration");
+
+        let obj_destructuring_item_type = choice::<ObjDestructuringItemType, _>((
+            // mut ident
+            just("mut")
+                .ignore_then(ms)
+                .ignore_then(ident.spanned())
+                .map(|name| ObjDestructuringItemType::RawKeyToMut { name }),
+            // ident: <...>
+            ident
+                .spanned()
+                .then(
+                    ms.ignore_then(char(':'))
+                        .ignore_then(
+                            obj_destructuring_item_binding
+                                .clone()
+                                .critical("expected a binding after ':'"),
+                        )
+                        .or_not(),
+                )
+                .map(|(name, binding)| ObjDestructuringItemType::RawKeyToConst { name, binding }),
+            // 'ident': <...>
+            literal_string
+                .spanned()
+                .then_ignore(ms)
+                .then_ignore(char(':'))
+                .then_ignore(ms)
+                .then(obj_destructuring_item_binding)
+                .map(
+                    |(literal_name, binding)| ObjDestructuringItemType::LiteralKeyToConst {
+                        literal_name,
+                        binding,
+                    },
+                ),
+        ));
+
         choice::<VarDeconstruction, _>((
             //
             // Lists
@@ -1216,47 +1267,14 @@ pub fn program(
             char('{')
                 .ignore_then(msnl)
                 .ignore_then(
-                    just("mut")
-                        .to(())
-                        .not_followed_by(possible_ident_char)
-                        .then_ignore(s.critical_auto_msg())
-                        .spanned()
-                        .or_not()
-                        .then(ident.spanned())
+                    obj_destructuring_item_type
                         .then(
-                            ms.ignore_then(char(':'))
-                                .ignore_then(ms)
-                                .ignore_then(
-                                    choice::<ObjDestructuringItemBinding, _>((
-                                        ident.spanned().map(ObjDestructuringItemBinding::BindTo),
-                                        var_decl_type
-                                            .clone()
-                                            .spanned()
-                                            .map(Box::new)
-                                            .map(ObjDestructuringItemBinding::Destruct),
-                                    ))
-                                    .critical("expected a sub-declaration"),
-                                )
-                                .or_not(),
-                        )
-                        .then(
-                            ms.ignore_then(char('='))
+                            msnl.ignore_then(char('='))
                                 .ignore_then(msnl)
-                                .ignore_then(
-                                    expr.clone().critical(
-                                        "expected an expression to define the default value",
-                                    ),
-                                )
+                                .ignore_then(expr.clone().critical("expected an expression"))
                                 .or_not(),
                         )
-                        .map(
-                            |(((is_mut, name), binding), default_value)| ObjDestructuringItem {
-                                name,
-                                is_mut: is_mut.is_some(),
-                                binding,
-                                default_value,
-                            },
-                        )
+                        .map(|(typ, default_value)| ObjDestructuringItem { typ, default_value })
                         .separated_by_into_vec(char(',').padded_by(msnl)),
                 )
                 .then_ignore(msnl)

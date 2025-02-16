@@ -144,23 +144,29 @@ pub enum VarDeconstruction {
 
 #[derive(Debug, Clone)]
 pub struct ObjDestructuringItem {
-    /// Key in the map / Field in the struct
-    pub name: Span<String>,
-
-    /// Is the destruct item mutable?
-    pub is_mut: bool,
-
-    /// How to deconstruct this item
-    pub binding: Option<ObjDestructuringItemBinding>,
-
-    /// Optional default value if this key/field does not exist
+    pub typ: ObjDestructuringItemType,
     pub default_value: Option<Expr>,
 }
 
 #[derive(Debug, Clone)]
+pub enum ObjDestructuringItemType {
+    RawKeyToConst {
+        name: Span<String>,
+        binding: Option<ObjDestructuringItemBinding>,
+    },
+    RawKeyToMut {
+        name: Span<String>,
+    },
+    LiteralKeyToConst {
+        literal_name: Span<String>,
+        binding: ObjDestructuringItemBinding,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub enum ObjDestructuringItemBinding {
-    BindTo(Span<String>),
-    Destruct(Box<Span<VarDeconstruction>>),
+    BindTo { alias: Span<String>, is_mut: bool },
+    Deconstruct(Box<Span<VarDeconstruction>>),
 }
 
 #[derive(Debug, Clone)]
