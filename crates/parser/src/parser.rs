@@ -923,6 +923,8 @@ pub fn program(
                 || (
                     // Absolute command path
                     cmd_name.starts_with(['/', '\\']) ||
+                    // Home-dir relative command path
+                    cmd_name.starts_with("~/") || cmd_name.starts_with("~\\") ||
                     // Relative command paths
                     cmd_name.starts_with("./") || cmd_name.starts_with("../") || cmd_name.starts_with(".\\") || cmd_name.starts_with("..\\")
                 )
