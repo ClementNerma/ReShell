@@ -1049,29 +1049,6 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
     while let Some(CmdPipe { pipe_type, cmd }) = pipes.next() {
         let cmd_target_type = check_single_cmd_call(cmd, state)?;
 
-        match cmd_target_type {
-            // Ensure we're not piping STDERR into a function
-            CmdPathTargetType::Function => {
-                match pipe_type.data {
-                    CmdPipeType::Stderr => {
-                        // TODO: allow it!
-                        return Err(CheckerError::new(
-                            pipe_type.at,
-                            "cannot pipe stderr into a function",
-                        ));
-                    }
-
-                    CmdPipeType::ValueOrStdout => {
-                        // Technically STDOUT isn't OK, but we can't differentiate it
-                    }
-                }
-            }
-
-            CmdPathTargetType::ExternalCommand => {
-                // OK
-            }
-        }
-
         if let Some(redirects) = &cmd.data.redirects {
             check_cmd_redirect(
                 cmd_target_type,

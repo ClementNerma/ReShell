@@ -161,10 +161,6 @@ pub fn run_cmd(
             }
 
             EvaluatedCmdTarget::Function(_) | EvaluatedCmdTarget::Method(_) => {
-                if let Some(pipe_type) = pipe_type {
-                    assert_eq!(pipe_type.data, CmdPipeType::ValueOrStdout);
-                }
-
                 let EvaluatedCmdArgs { env_vars, args } = args;
 
                 assert!(env_vars.is_empty());
