@@ -14,6 +14,8 @@ Everything you need to master it is written in this document, so take your time 
 - [Differences with Unix-like shells (Bash, ...)](#differences-with-unix-like-shells-bash-)
 - [The basics](#the-basics)
   - [Writing commands](#writing-commands)
+  - [Redirecting outputs](#redirecting-outputs)
+  - [Piping](#piping)
   - [Chaining commands](#chaining-commands)
   - [Variables](#variables)
   - [User input](#user-input)
@@ -86,6 +88,54 @@ This will print the same message, but in yellow this time. We have three argumen
 There are lots of available commands, to see them all, start from an empty prompt and using the `<TAB>` key to list all of them (warning: there may be thousands of them).
 
 If you try to write a command that doesn't exist, like `echoo Hello!`, the command's name will be highlighted in red instead of blue. This is to show you're trying to use an unknown command.
+
+### Redirecting outputs
+
+You can use _redirection_ to write a command's output to a file:
+
+```reshell
+ls > list.txt
+```
+
+This will run the `ls` command and write its content to a file named `list.txt`. If the file doesn't exist, it will be created ; if it exists, its content will be overwritten.
+
+You can also redirect only the error output:
+
+```reshell
+ls err> list.txt
+```
+
+Or redirect both outputs:
+
+```reshell
+# Redirect both to the same file
+ls out+err> list.txt
+
+# Redirect each one to a different file
+ls > out.txt err> errors.txt
+```
+
+It is also possible to redirect the error output to the standard output, or the opposite:
+
+```reshell
+# Redirect error output to standard output
+ls err>
+
+# Redirect standard output to error output
+ls >err
+```
+
+### Piping
+
+You can _pipe_ a command's output into another's input:
+
+```reshell
+# Show the number of lines returned by the 'ls' command
+ls -1A | wc -l
+
+# Redirect the error output instead
+ls -1A ^| wc -l
+```
 
 ### Chaining commands
 
