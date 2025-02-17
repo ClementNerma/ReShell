@@ -158,6 +158,27 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 _ => {}
             },
 
+            Some((NestingOpeningType::VarSpreading, opening_offset)) => match char {
+                '\'' => {
+                    open!(offset, 1, NestingOpeningType::LiteralString);
+                    opened_strings.push((char_as_str, offset));
+                }
+
+                '[' | '{' => {
+                    open!(offset, 1, NestingOpeningType::VarSpreading);
+                }
+
+                ']' if input[..=opening_offset].ends_with('[') => {
+                    close!(offset, 1, opening_offset);
+                }
+
+                '}' if input[..=opening_offset].ends_with('{') => {
+                    close!(offset, 1, opening_offset);
+                }
+
+                _ => {}
+            },
+
             // We are not in a single- or double-quoted string
             // But we may be in a back-quoted string
             _ => match char {
@@ -200,6 +221,13 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                         }
                     }
                 },
+
+                '{' | '['
+                    if input[..offset].ends_with(' ')
+                        && input[..offset].trim_end().ends_with("let") =>
+                {
+                    open!(offset, 1, NestingOpeningType::VarSpreading);
+                }
 
                 '[' => open!(offset, 1, NestingOpeningType::List),
 
@@ -341,6 +369,7 @@ pub enum NestingOpeningType {
     LiteralString,
     ComputedString,
     ExprInString,
+    VarSpreading,
     CmdOutput,
     CmdCall,
     Lambda,

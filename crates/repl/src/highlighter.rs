@@ -353,6 +353,13 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
 
                 // Other characters
                 simple(pomsky!( :(.) ), [Green])
+            ]),
+            ("var-spreading", vec![
+                // Identifiers
+                simple(pomsky!( :([Letter '_']) ), [Red]),
+
+                // Binding
+                simple(pomsky!( :(':') ), [DarkGray])
             ])
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
@@ -363,6 +370,14 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 closing_style: Style::new().fg(DarkGray),
                 rules: vec![
                     include_group("instructions")
+                ]
+            }),
+
+            (NestingOpeningType::VarSpreading, NestedContentRules {
+                opening_style: Style::new().fg(DarkGray),
+                closing_style: Style::new().fg(DarkGray),
+                rules: vec![
+                    include_group("var-spreading")
                 ]
             }),
 
