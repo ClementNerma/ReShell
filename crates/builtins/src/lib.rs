@@ -6,8 +6,6 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
-// NOTE: nightly feature
-#![feature(trait_upcasting)]
 
 mod functions;
 mod helpers;
