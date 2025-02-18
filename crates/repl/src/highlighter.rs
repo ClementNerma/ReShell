@@ -351,6 +351,9 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // 'typeis' operator
                 simple(pomsky!( % :("typeis") % ), [Magenta]),
 
+                // Function arguments (TODO: hacky, should not be in "expressions" but in "fn args" or something)
+                simple(pomsky!( (% | ',') :([Letter '_'] [Letter d '_']*) :('?'? ':') ), [Red, DarkGray]),
+
                 // Other characters
                 simple(pomsky!( :(.) ), [Green])
             ]),
