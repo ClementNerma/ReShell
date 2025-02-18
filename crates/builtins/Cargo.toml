@@ -16,7 +16,7 @@ regex = "1.11.1"
 reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
 reshell-checker = { path = "../checker" }
-serde_json = "1.0.137"
+serde_json = { version = "1.0.137", features = ["preserve_order"] }
 terminal_size = "0.4.1"
 toml = "0.8.19"
 reshell-shared = { version = "0.1.0", path = "../shared" }
