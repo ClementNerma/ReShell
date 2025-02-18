@@ -3,7 +3,7 @@ use reshell_runtime::gc::GcCell;
 use crate::types::RegexValue;
 
 crate::define_internal_fn!(
-    "captures",
+    "capture",
 
     (
         regex: RequiredArg<CustomType<RegexValue>> = Arg::method_self(),

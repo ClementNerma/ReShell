@@ -1,2 +1,2 @@
-pub mod captures;
-pub mod matches;
+pub mod capture;
+pub mod r#match;
