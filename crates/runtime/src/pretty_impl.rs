@@ -2,8 +2,6 @@
 //! This module implements pretty-printing for several types.
 //!
 
-use std::collections::BTreeSet;
-
 use colored::{Color, Colorize};
 use reshell_parser::ast::FlagValueSeparator;
 use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
@@ -80,18 +78,14 @@ impl PrettyPrintable for RuntimeValue {
             RuntimeValue::Map(map) => PrettyPrintablePiece::List {
                 begin: vec![Styled::colored("map({", Color::Magenta)],
                 items: {
-                    let map = map.read_promise_no_write();
-
-                    // Sort keys
-                    let keys = map.keys().collect::<BTreeSet<_>>();
-
-                    keys.iter()
-                        .map(|key| {
+                    map.read_promise_no_write()
+                        .iter()
+                        .map(|(key, value)| {
                             PrettyPrintablePiece::Join(vec![
                                 pretty_printable_string(key),
                                 PrettyPrintablePiece::colored_atomic(":", Color::Blue),
                                 PrettyPrintablePiece::Atomic(Styled::colorless(" ")),
-                                map.get(*key).unwrap().generate_pretty_data(ctx),
+                                value.generate_pretty_data(ctx),
                             ])
                         })
                         .collect()
@@ -104,18 +98,14 @@ impl PrettyPrintable for RuntimeValue {
             RuntimeValue::Struct(obj) => PrettyPrintablePiece::List {
                 begin: vec![Styled::colored("{", Color::Blue)],
                 items: {
-                    let obj = obj.read_promise_no_write();
-
-                    // Sort keys
-                    let keys = obj.keys().collect::<BTreeSet<_>>();
-
-                    keys.iter()
-                        .map(|field| {
+                    obj.read_promise_no_write()
+                        .iter()
+                        .map(|(field, value)| {
                             PrettyPrintablePiece::Join(vec![
                                 PrettyPrintablePiece::colored_atomic(field, Color::Red),
                                 PrettyPrintablePiece::colored_atomic(":", Color::Blue),
                                 PrettyPrintablePiece::Atomic(Styled::colorless(" ")),
-                                obj.get(*field).unwrap().generate_pretty_data(ctx),
+                                value.generate_pretty_data(ctx),
                             ])
                         })
                         .collect()
