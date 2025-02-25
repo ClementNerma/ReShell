@@ -18,6 +18,11 @@ use crate::{
 
 pub static ON_DIR_JUMP_VAR_NAME: &str = "onDirectoryJump";
 
+declare_typed_fn_handler!(
+    /// Generate prompt rendering function's signature
+    pub DirectoryJumpHandlerFn(new_current_dir: StringType) -> VoidType
+);
+
 /// Render the prompt (used for the REPL)
 pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -> ExecResult<()> {
     // Don't trigger for non-UTF-8 paths
@@ -49,8 +54,3 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
 
     Ok(())
 }
-
-declare_typed_fn_handler!(
-    // Generate prompt rendering function's signature
-    pub DirectoryJumpHandlerFn(new_current_dir: StringType) -> VoidType
-);

@@ -34,6 +34,11 @@ pub struct GeneratedCompletion {
     pub value: String,
 }
 
+declare_typed_fn_handler!(
+    /// Completer function's signature
+    pub CompleterFn(line: DetachedListType<Union2Type<StringType, NullType>>) -> CompleterReturnType
+);
+
 /// Generate completions (used for the REPL)
 pub fn generate_completions(
     cmd_pieces: &[Vec<CompletionStringSegment>],
@@ -112,8 +117,3 @@ pub fn generate_completions(
             .collect(),
     ))
 }
-
-declare_typed_fn_handler!(
-    // Completer function's signature
-    pub CompleterFn(line: DetachedListType<Union2Type<StringType, NullType>>) -> CompleterReturnType
-);

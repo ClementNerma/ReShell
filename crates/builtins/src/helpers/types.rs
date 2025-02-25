@@ -428,8 +428,9 @@ macro_rules! declare_typed_struct_handler {
 /// Macro to create a function type handler
 #[macro_export]
 macro_rules! declare_typed_fn_handler {
-    ($( $pub: vis $typename: ident ($($argname:ident : $argtype:ty),*) ),+ -> $rettype:ty ) => {
+    ($( $(#[$proc_macro: meta])? $pub: vis $typename: ident ($($argname:ident : $argtype:ty),*) ),+ -> $rettype:ty ) => {
         $(
+            $(#[$proc_macro])?
             $pub struct $typename;
 
             impl $typename {
