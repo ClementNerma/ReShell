@@ -59,7 +59,7 @@ pub fn generate_completions(
         return Ok(None);
     }
 
-    let vec = vec![RuntimeValue::List(GcCell::new(
+    let completion_args = vec![RuntimeValue::List(GcCell::new(
         cmd_pieces
             .iter()
             .map(|segments| {
@@ -81,8 +81,6 @@ pub fn generate_completions(
             })
             .collect(),
     ))];
-
-    let completion_args = vec;
 
     let ret_val = call_fn_checked(
         &completer_var_value,

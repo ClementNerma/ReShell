@@ -2,14 +2,13 @@
 //! Function to call to generate the REPL's prompt
 //!
 
-use indexmap::IndexMap;
 use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
     declare_typed_fn_handler, declare_typed_struct_handler,
     helpers::{
-        args::TypedValueParser,
+        args::{TypedValueEncoder, TypedValueParser},
         types::{BoolType, ExactIntType, NullableType, StringType},
     },
     utils::call_fn_checked,
@@ -31,7 +30,7 @@ declare_typed_struct_handler!(
 
 declare_typed_struct_handler!(
     pub PromptData {
-        #[allow(dead_code)] last_cmd_status: LastCmdStatus
+        #[allow(dead_code)] last_cmd_status: NullableType<LastCmdStatus>
     }
 );
 
@@ -65,38 +64,10 @@ pub fn render_prompt(
         return Ok(None);
     }
 
-    let last_cmd_status = match last_cmd_status {
-        None => RuntimeValue::Null,
-        Some(status) => {
-            let LastCmdStatus {
-                success,
-                exit_code,
-                duration_ms,
-            } = status;
-
-            RuntimeValue::Struct(GcCell::new(IndexMap::from([
-                ("success".to_string(), RuntimeValue::Bool(success)),
-                (
-                    "exitCode".to_string(),
-                    match exit_code {
-                        Some(code) => RuntimeValue::Int(code.into()),
-                        None => RuntimeValue::Null,
-                    },
-                ),
-                ("durationMs".to_string(), RuntimeValue::Int(duration_ms)),
-            ])))
-        }
-    };
-
-    let prompt_data = RuntimeValue::Struct(GcCell::new(IndexMap::from([(
-        "lastCmdStatus".to_string(),
-        last_cmd_status,
-    )])));
-
     let ret_val = call_fn_checked(
         &prompt_var_value,
         &PromptRenderer::signature(),
-        vec![prompt_data],
+        vec![PromptData::encode(PromptData { last_cmd_status })],
         ctx,
     )?;
 

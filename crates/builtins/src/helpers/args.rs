@@ -60,6 +60,11 @@ pub trait TypedValueParser {
     fn parse(value: RuntimeValue) -> Result<Self::Parsed, String>;
 }
 
+pub trait TypedValueEncoder {
+    type Encodable;
+    fn encode(value: Self::Encodable) -> RuntimeValue;
+}
+
 pub trait ArgHandler {
     fn is_optional(&self) -> bool;
     fn is_rest(&self) -> bool;

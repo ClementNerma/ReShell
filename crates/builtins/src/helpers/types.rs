@@ -13,12 +13,17 @@ use reshell_runtime::{
     values::{CmdArgValue, CustomValueType, ErrorValueContent, RuntimeValue},
 };
 
-use super::args::TypedValueParser;
+use super::args::{TypedValueEncoder, TypedValueParser};
 
 /// This macro helps create a type handler for any variant of the [`SingleValueType`] enum,
 /// associated to a variant of the [`RuntimeValue`]
 macro_rules! declare_basic_type_handlers {
-    ($($name: ident ($variant: ident) = $type: ty => $value_ident: ident: $parser: expr),+) => {
+    ($(
+        $name: ident ($variant: ident) = $type: ty {
+            fn parse($value_ident: ident) $parser: block
+            $(fn encode($encodable_ident: ident: $encodable_type: ty) $encoder: block)?
+        }
+    ),+) => {
         $(
             pub struct $name;
 
@@ -33,72 +38,142 @@ macro_rules! declare_basic_type_handlers {
                     $parser
                 }
             }
+
+            $(impl TypedValueEncoder for $name {
+                type Encodable = $encodable_type;
+
+                fn encode($encodable_ident: $encodable_type) -> RuntimeValue {
+                    $encoder
+                }
+            })?
         )+
     };
 }
 
 // Implement type handlers for the most basic types
 declare_basic_type_handlers!(
-    AnyType (Any) = RuntimeValue => value: Ok(value),
-
-    NullType (Null) = () => value: match value {
-        RuntimeValue::Null => Ok(()),
-        _ => Err("expected the null value".to_owned())
+    AnyType (Any) = RuntimeValue {
+       fn parse(value) { Ok(value) }
+       fn encode(value: RuntimeValue) { value }
     },
 
-    BoolType (Bool) = bool => value: match value {
-        RuntimeValue::Bool(inner) => Ok(inner),
-        _ => Err("expected a boolean".to_owned())
+    NullType (Null) = () {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Null => Ok(()),
+                _ => Err("expected the null value".to_owned())
+            }
+        }
+
+        fn encode(__: ()) { RuntimeValue::Null }
     },
 
-    IntType (Int) = i64 => value: match value {
-        RuntimeValue::Int(inner) => Ok(inner),
-        _ => Err("expected an integer".to_owned())
+    BoolType (Bool) = bool {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Bool(inner) => Ok(inner),
+                _ => Err("expected a boolean".to_owned())
+            }
+        }
+
+        fn encode(value: bool) { RuntimeValue::Bool(value) }
     },
 
-    FloatType (Float) = f64 => value: match value {
-        RuntimeValue::Float(inner) => Ok(inner),
-        _ => Err("expected a float".to_owned())
+    IntType (Int) = i64 {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Int(inner) => Ok(inner),
+                _ => Err("expected an integer".to_owned())
+            }
+        }
+
+        fn encode(value: i64) { RuntimeValue::Int(value) }
     },
 
-    StringType (String) = String => value: match value {
-        RuntimeValue::String(inner) => Ok(inner),
-        _ => Err("expected a string".to_owned())
+    FloatType (Float) = f64 {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Float(inner) => Ok(inner),
+                _ => Err("expected a float".to_owned())
+            }
+        }
+
+        fn encode(value: f64) { RuntimeValue::Float(value) }
     },
 
-    ErrorType (Error) = (CodeRange, RuntimeValue) => value: match value {
-        RuntimeValue::Error(err) => {
-            let ErrorValueContent { at, data } = *err;
-            Ok((at, data.clone()))
-        },
+    StringType (String) = String {
+        fn parse(value) {
+            match value {
+                RuntimeValue::String(inner) => Ok(inner),
+                _ => Err("expected a string".to_owned())
+            }
+        }
 
-        _ => Err("expected an error".to_owned())
+        fn encode(value: String) { RuntimeValue::String(value) }
     },
 
-    CmdCallType (CmdCall) = CodeRange => value: match value {
-        RuntimeValue::CmdCall { content_at } => Ok(content_at),
+    ErrorType (Error) = (CodeRange, RuntimeValue) {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Error(err) => {
+                    let ErrorValueContent { at, data } = *err;
+                    Ok((at, data.clone()))
+                },
 
-        _ => Err("expected a command call".to_owned())
+                _ => Err("expected an error".to_owned())
+            }
+        }
     },
 
-    UntypedListType (UntypedList) = GcCell<Vec<RuntimeValue>> => value: match value {
-        RuntimeValue::List(items) => Ok(items),
-        _ => Err("expected a list".to_owned())
+    CmdCallType (CmdCall) = CodeRange {
+        fn parse(value) {
+            match value {
+                RuntimeValue::CmdCall { content_at } => Ok(content_at),
+                _ => Err("expected a command call".to_owned())
+            }
+        }
     },
 
-    UntypedMapType (UntypedMap) = GcCell<IndexMap<String, RuntimeValue>> => value: match value {
-        RuntimeValue::Map(items) => Ok(items),
-        _ => Err("expected a map".to_owned())
+    UntypedListType (UntypedList) = GcCell<Vec<RuntimeValue>> {
+        fn parse(value) {
+            match value {
+                RuntimeValue::List(items) => Ok(items),
+                _ => Err("expected a list".to_owned())
+            }
+        }
+
+        fn encode(items: Vec<RuntimeValue>) { RuntimeValue::List(GcCell::new(items)) }
     },
 
-    UntypedStructType (UntypedStruct) = GcCell<IndexMap<String, RuntimeValue>> => value: match value {
-        RuntimeValue::Struct(members) => Ok(members),
-        _ => Err("expected a struct".to_owned())
+    UntypedMapType (UntypedMap) = GcCell<IndexMap<String, RuntimeValue>> {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Map(items) => Ok(items),
+                _ => Err("expected a map".to_owned())
+            }
+        }
+
+        fn encode(items: IndexMap<String, RuntimeValue>) { RuntimeValue::Map(GcCell::new(items)) }
     },
 
-    CmdArgType (CmdArg) = Box<CmdArgValue> => value: match value {
-        RuntimeValue::CmdArg(arg) => Ok(arg),
-        _ => Err("expected a command argument value".to_owned())
+    UntypedStructType (UntypedStruct) = GcCell<IndexMap<String, RuntimeValue>> {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Struct(members) => Ok(members),
+                _ => Err("expected a struct".to_owned())
+            }
+        }
+
+        fn encode(members: IndexMap<String, RuntimeValue>) { RuntimeValue::Struct(GcCell::new(members)) }
+    },
+
+    CmdArgType (CmdArg) = Box<CmdArgValue> {
+        fn parse(value) {
+            match value {
+                RuntimeValue::CmdArg(arg) => Ok(arg),
+                _ => Err("expected a command argument value".to_owned())
+            }
+        }
     }
 );
 
@@ -145,8 +220,20 @@ impl<From: RustIntType> TypedValueParser for ExactIntType<From> {
     }
 }
 
+impl<From: RustIntType> TypedValueEncoder for ExactIntType<From> {
+    type Encodable = From;
+
+    fn encode(value: Self::Encodable) -> RuntimeValue {
+        RuntimeValue::Int(
+            value
+                .try_into()
+                .unwrap_or_else(|_| panic!("value is out of bounds for the integer type: {value}")),
+        )
+    }
+}
+
 /// Trait representing a specific Rust integer type
-pub trait RustIntType: TryFrom<i64> + Display + std::fmt::Debug {
+pub trait RustIntType: TryFrom<i64> + TryInto<i64> + Display + Copy + std::fmt::Debug {
     const MIN: Self;
     const MAX: Self;
 }
@@ -194,6 +281,14 @@ impl<Inner: TypedValueParser> TypedValueParser for DetachedListType<Inner> {
     }
 }
 
+impl<Inner: TypedValueParser + TypedValueEncoder> TypedValueEncoder for DetachedListType<Inner> {
+    type Encodable = Vec<Inner::Encodable>;
+
+    fn encode(value: Self::Encodable) -> RuntimeValue {
+        RuntimeValue::List(GcCell::new(value.into_iter().map(Inner::encode).collect()))
+    }
+}
+
 /// Type handler that clones a map before accessing it
 pub struct DetachedMapType<Inner: TypedValueParser> {
     _i: PhantomData<Inner>,
@@ -222,6 +317,19 @@ impl<Inner: TypedValueParser> TypedValueParser for DetachedMapType<Inner> {
     }
 }
 
+impl<Inner: TypedValueParser + TypedValueEncoder> TypedValueEncoder for DetachedMapType<Inner> {
+    type Encodable = HashMap<String, Inner::Encodable>;
+
+    fn encode(value: Self::Encodable) -> RuntimeValue {
+        RuntimeValue::Map(GcCell::new(
+            value
+                .into_iter()
+                .map(|(key, value)| (key, Inner::encode(value)))
+                .collect(),
+        ))
+    }
+}
+
 /// Type handler that accepts either the provided generic type or the `null` value
 pub struct NullableType<Inner: TypedValueParser> {
     _i: PhantomData<Inner>,
@@ -245,6 +353,17 @@ impl<Inner: TypedValueParser> TypedValueParser for NullableType<Inner> {
         match value {
             RuntimeValue::Null => Ok(None),
             _ => Ok(Some(Inner::parse(value)?)),
+        }
+    }
+}
+
+impl<Inner: TypedValueParser + TypedValueEncoder> TypedValueEncoder for NullableType<Inner> {
+    type Encodable = Option<Inner::Encodable>;
+
+    fn encode(value: Self::Encodable) -> RuntimeValue {
+        match value {
+            Some(value) => Inner::encode(value),
+            None => RuntimeValue::Null,
         }
     }
 }
@@ -311,6 +430,16 @@ impl<A: TypedValueParser, B: TypedValueParser> TypedValueParser for Tuple2Type<A
             .map_err(|err| format!("error in tuple's second element: {err}"))?;
 
         Ok((a, b))
+    }
+}
+
+impl<A: TypedValueParser + TypedValueEncoder, B: TypedValueParser + TypedValueEncoder>
+    TypedValueEncoder for Tuple2Type<A, B>
+{
+    type Encodable = (A::Encodable, B::Encodable);
+
+    fn encode((a, b): Self::Encodable) -> RuntimeValue {
+        RuntimeValue::List(GcCell::new(vec![A::encode(a), B::encode(b)]))
     }
 }
 
@@ -428,6 +557,21 @@ macro_rules! declare_typed_struct_handler {
                     })
                 }
             }
+
+            impl $crate::helpers::args::TypedValueEncoder for $struct {
+                type Encodable = Self;
+
+                fn encode(value: Self) -> RuntimeValue {
+                    let mut members = ::indexmap::IndexMap::new();
+
+                    $(
+                        members.insert(::identconv::camel_strify!($name).to_owned(), <$parser as $crate::helpers::args::TypedValueEncoder>::encode(value.$name));
+                    )+
+
+                    RuntimeValue::Struct(GcCell::new(members))
+                }
+            }
+
         )+
     }
 }
