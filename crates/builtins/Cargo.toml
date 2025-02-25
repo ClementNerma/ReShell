@@ -22,3 +22,4 @@ toml = "0.8.19"
 reshell-shared = { version = "0.1.0", path = "../shared" }
 rand = { version = "0.8.5" }
 jiff = "0.1.24"
+identconv = "0.2.0"

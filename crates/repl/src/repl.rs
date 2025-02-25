@@ -147,7 +147,7 @@ pub fn start(
         // Keep the last command status (used for prompt generation)
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
-            duration_ms: start.elapsed().as_millis(),
+            duration_ms: i64::try_from(start.elapsed().as_millis()).unwrap_or(i64::MAX),
             exit_code: ret.as_ref().err().and_then(|err| err.exit_code()),
         });
 

@@ -11,12 +11,13 @@ use reshell_runtime::{
     values::RuntimeValue,
 };
 
+use self::repl::prompt::PromptRenderer;
 use crate::{
     builder::{BuiltinVar, NativeLibParams},
     repl::{
         completer::{CompleterFn, GEN_COMPLETIONS_VAR_NAME},
         on_dir_jump::{DirectoryJumpHandlerFn, ON_DIR_JUMP_VAR_NAME},
-        prompt::{prompt_renderer_signature, GEN_PROMPT_VAR_NAME},
+        prompt::GEN_PROMPT_VAR_NAME,
     },
     utils::internal_runtime_span,
 };
@@ -34,7 +35,7 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
             is_mut: true,
             init_value: RuntimeValue::Null,
             enforced_type: vec![
-                SingleValueType::Function(internal_runtime_span(prompt_renderer_signature())),
+                SingleValueType::Function(internal_runtime_span(PromptRenderer::signature())),
                 SingleValueType::Null,
             ],
         },

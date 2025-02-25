@@ -376,12 +376,14 @@ declare_typed_union_handler!(Union4Type (A, B, C, D) => Union4Result);
 /// Macro to create a struct type handler
 #[macro_export]
 macro_rules! declare_typed_struct_handler {
-    ($( $struct: ident { $( $(#[$member_meta: meta])* $name: ident: $parser: ty ),+ } ),+ ) => {
+    ($( $(#[$proc_macro: meta])? $pub: vis $struct: ident {
+        $( $(#[$member_meta: meta])* $field_pub: vis $name: ident: $parser: ty ),+
+    } ),+ ) => {
         $(
-            #[allow(non_snake_case)] // TODO: auto snake case on idents instead of this
-            struct $struct {
+            $(#[$proc_macro])?
+            $pub struct $struct {
                 $(
-                    $(#[$member_meta])* $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed
+                    $(#[$member_meta])* $field_pub $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed
                 ),+
             }
 
@@ -390,7 +392,10 @@ macro_rules! declare_typed_struct_handler {
                     ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::TypedStruct(vec![
                         $(
                             ::reshell_parser::ast::StructTypeMember {
-                                name: ::reshell_parser::ast::RuntimeSpan::internal("native library's type generator", stringify!($name).to_owned()),
+                                name: ::reshell_parser::ast::RuntimeSpan::internal(
+                                    "native library's type generator",
+                                    ::identconv::camel_strify!($name).to_owned()
+                                ),
                                 typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type(),
                                 optional: false
                             }
@@ -411,12 +416,14 @@ macro_rules! declare_typed_struct_handler {
 
                     Ok(Self {
                         $($name: {
+                            let name = ::identconv::camel_strify!($name);
+
                             let value = members
-                                .get(stringify!($name))
-                                .ok_or_else(|| format!("property '{}' is missing", stringify!($name)))?;
+                                .get(name)
+                                .ok_or_else(|| format!("property '{name}' is missing"))?;
 
                             <$parser>::parse(value.clone())
-                                .map_err(|err| format!("type mismatch in struct member '{}': {err}", stringify!($name)))?
+                                .map_err(|err| format!("type mismatch in struct member name {err}"))?
                         }),+
                     })
                 }

@@ -3,26 +3,45 @@
 //!
 
 use indexmap::IndexMap;
-use reshell_parser::ast::{FnSignature, RuntimeCodeRange};
+use reshell_parser::ast::RuntimeCodeRange;
 use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
 
 use crate::{
-    declare_typed_struct_handler,
+    declare_typed_fn_handler, declare_typed_struct_handler,
     helpers::{
         args::TypedValueParser,
-        types::{BoolType, ExactIntType, IntType, NullableType, StringType},
+        types::{BoolType, ExactIntType, NullableType, StringType},
     },
-    utils::{call_fn_checked, forge_basic_fn_signature},
+    utils::call_fn_checked,
 };
 
 pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
 
+declare_typed_fn_handler!(
+    pub PromptRenderer(prompt_data: PromptData) -> PromptRendering
+);
+
 declare_typed_struct_handler!(
-    PromptReturnType {
-        promptLeft: NullableType<StringType>,
-        promptRight: NullableType<StringType>,
-        promptIndicator: NullableType<StringType>,
-        promptMultilineIndicator: NullableType<StringType>
+    pub LastCmdStatus {
+        pub success: BoolType,
+        pub exit_code: NullableType<ExactIntType<u8>>,
+        pub duration_ms: ExactIntType<i64>
+    }
+);
+
+declare_typed_struct_handler!(
+    pub PromptData {
+        #[allow(dead_code)] last_cmd_status: LastCmdStatus
+    }
+);
+
+declare_typed_struct_handler!(
+    #[derive(Default)]
+    pub PromptRendering {
+        #[allow(dead_code)] pub prompt_left: NullableType<StringType>,
+        #[allow(dead_code)] pub prompt_right: NullableType<StringType>,
+        #[allow(dead_code)] pub prompt_indicator: NullableType<StringType>,
+        #[allow(dead_code)] pub prompt_multiline_indicator: NullableType<StringType>
     }
 );
 
@@ -64,10 +83,7 @@ pub fn render_prompt(
                         None => RuntimeValue::Null,
                     },
                 ),
-                (
-                    "durationMs".to_string(),
-                    RuntimeValue::Int(i64::try_from(duration_ms).unwrap_or(i64::MAX)),
-                ),
+                ("durationMs".to_string(), RuntimeValue::Int(duration_ms)),
             ])))
         }
     };
@@ -79,7 +95,7 @@ pub fn render_prompt(
 
     let ret_val = call_fn_checked(
         &prompt_var_value,
-        &prompt_renderer_signature(),
+        &PromptRenderer::signature(),
         vec![prompt_data],
         ctx,
     )?;
@@ -91,58 +107,12 @@ pub fn render_prompt(
         )
     })?;
 
-    let PromptReturnType {
-        promptLeft: prompt_left,
-        promptRight: prompt_right,
-        promptIndicator: prompt_indicator,
-        promptMultilineIndicator: prompt_multiline_indicator,
-    } = PromptReturnType::parse(ret_val.value).map_err(|err| {
-        ctx.error(
-            ret_val.from,
-            format!("type error in prompt function's return value: {err}"),
-        )
-    })?;
-
-    Ok(Some(PromptRendering {
-        prompt_left,
-        prompt_right,
-        prompt_indicator,
-        prompt_multiline_indicator,
-    }))
-}
-
-/// Generate prompt rendering function's signature
-pub fn prompt_renderer_signature() -> FnSignature {
-    declare_typed_struct_handler!(
-        LastCmdStatus {
-            #[allow(dead_code)] success: BoolType,
-            #[allow(dead_code)] exitCode: NullableType<IntType>,
-            #[allow(dead_code)] durationMs: ExactIntType<i64>
-        }
-    );
-
-    declare_typed_struct_handler!(PromptData {
-        #[allow(dead_code)]
-        lastCmdStatus: LastCmdStatus
-    });
-
-    forge_basic_fn_signature(
-        vec![("promptData", PromptData::value_type())],
-        Some(PromptReturnType::value_type()),
-    )
-}
-
-#[derive(Debug)]
-pub struct LastCmdStatus {
-    pub success: bool,
-    pub exit_code: Option<u8>,
-    pub duration_ms: u128,
-}
-
-#[derive(Default)]
-pub struct PromptRendering {
-    pub prompt_left: Option<String>,
-    pub prompt_right: Option<String>,
-    pub prompt_indicator: Option<String>,
-    pub prompt_multiline_indicator: Option<String>,
+    PromptRendering::parse(ret_val.value)
+        .map(Some)
+        .map_err(|err| {
+            ctx.error(
+                ret_val.from,
+                format!("type error in prompt function's return value: {err}"),
+            )
+        })
 }
