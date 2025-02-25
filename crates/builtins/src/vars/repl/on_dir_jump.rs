@@ -4,19 +4,21 @@
 
 use std::path::Path;
 
-use reshell_parser::ast::RuntimeCodeRange;
-use reshell_runtime::{context::Context, errors::ExecResult, values::RuntimeValue};
+use reshell_runtime::{
+    context::Context,
+    errors::ExecResult,
+    values::{LocatedValue, RuntimeValue},
+};
 
+use super::get_repl_config;
 use crate::{
     declare_typed_fn_handler,
     helpers::{
         args::TypedValueParser,
         types::{StringType, VoidType},
     },
-    utils::call_fn_checked,
+    utils::{call_fn_checked, INTERNAL_CODE_RANGE},
 };
-
-pub static ON_DIR_JUMP_VAR_NAME: &str = "onDirectoryJump";
 
 declare_typed_fn_handler!(
     /// Generate prompt rendering function's signature
@@ -30,23 +32,12 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
         return Ok(());
     };
 
-    let on_dir_jump = ctx
-        .native_lib_scope_content()
-        .vars
-        .get(ON_DIR_JUMP_VAR_NAME)
-        .unwrap()
-        .clone();
-
-    let on_dir_jump_fn = on_dir_jump.value.read(RuntimeCodeRange::Internal(
-        "calling directory jump function",
-    ));
-
-    if matches!(on_dir_jump_fn.value, RuntimeValue::Null) {
+    let Some(on_dir_jump) = get_repl_config(ctx).on_dir_jump else {
         return Ok(());
     };
 
     call_fn_checked(
-        &on_dir_jump_fn,
+        &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(on_dir_jump)),
         &DirectoryJumpHandlerFn::signature(),
         vec![RuntimeValue::String(new_current_dir.to_owned())],
         ctx,

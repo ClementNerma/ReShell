@@ -11,15 +11,10 @@ use reshell_runtime::{
     values::RuntimeValue,
 };
 
-use self::repl::prompt::PromptRenderer;
+use self::repl::{ReplConfig, REPL_CONFIG_VAR_NAME};
 use crate::{
     builder::{BuiltinVar, NativeLibParams},
-    repl::{
-        completer::{CompleterFn, GEN_COMPLETIONS_VAR_NAME},
-        on_dir_jump::{DirectoryJumpHandlerFn, ON_DIR_JUMP_VAR_NAME},
-        prompt::GEN_PROMPT_VAR_NAME,
-    },
-    utils::internal_runtime_span,
+    helpers::args::{TypedValueEncoder, TypedValueParser},
 };
 
 pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
@@ -29,51 +24,30 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
     } = params;
 
     vec![
-        // Prompt generation function
+        // REPL configuration
         BuiltinVar {
-            name: GEN_PROMPT_VAR_NAME,
+            name: REPL_CONFIG_VAR_NAME,
             is_mut: true,
-            init_value: RuntimeValue::Null,
-            enforced_type: vec![
-                SingleValueType::Function(internal_runtime_span(PromptRenderer::signature())),
-                SingleValueType::Null,
-            ],
-        },
-        // Completion generation function
-        BuiltinVar {
-            name: GEN_COMPLETIONS_VAR_NAME,
-            is_mut: true,
-            init_value: RuntimeValue::Null,
-            enforced_type: vec![
-                SingleValueType::Function(internal_runtime_span(CompleterFn::signature())),
-                SingleValueType::Null,
-            ],
-        },
-        // Directory jump listener
-        BuiltinVar {
-            name: ON_DIR_JUMP_VAR_NAME,
-            is_mut: true,
-            init_value: RuntimeValue::Null,
-            enforced_type: vec![
-                SingleValueType::Function(internal_runtime_span(
-                    DirectoryJumpHandlerFn::signature(),
-                )),
-                SingleValueType::Null,
-            ],
+            init_value: ReplConfig::encode(ReplConfig {
+                on_dir_jump: None,
+                generate_prompt: None,
+                generate_completions: None,
+            }),
+            enforced_type: ReplConfig::value_type(),
         },
         // Platform-specific PATH variable separator
         BuiltinVar {
             name: "PATH_VAR_SEP",
             is_mut: false,
             init_value: RuntimeValue::String(PATH_VAR_SEP.to_string()),
-            enforced_type: vec![SingleValueType::String],
+            enforced_type: ValueType::Single(SingleValueType::String),
         },
         // Platform-specific path separator
         BuiltinVar {
             name: "PATH_SEP",
             is_mut: false,
             init_value: RuntimeValue::String(MAIN_SEPARATOR.to_string()),
-            enforced_type: vec![SingleValueType::String],
+            enforced_type: ValueType::Single(SingleValueType::String),
         },
         // Path to the current user's home directory
         BuiltinVar {
@@ -83,28 +57,28 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
                 Some(dir) => RuntimeValue::String(dir),
                 None => RuntimeValue::Null,
             },
-            enforced_type: vec![SingleValueType::String, SingleValueType::Null],
+            enforced_type: ValueType::Union(vec![SingleValueType::String, SingleValueType::Null]),
         },
         // Name of the current OS
         BuiltinVar {
             name: "OS_NAME",
             is_mut: false,
             init_value: RuntimeValue::String(std::env::consts::OS.to_owned()),
-            enforced_type: vec![SingleValueType::String],
+            enforced_type: ValueType::Single(SingleValueType::String),
         },
         // Name of the current OS family
         BuiltinVar {
             name: "OS_FAMILY_NAME",
             is_mut: false,
             init_value: RuntimeValue::String(std::env::consts::FAMILY.to_owned()),
-            enforced_type: vec![SingleValueType::String],
+            enforced_type: ValueType::Single(SingleValueType::String),
         },
         // Name of the machine's architecture
         BuiltinVar {
             name: "ARCH_NAME",
             is_mut: false,
             init_value: RuntimeValue::String(std::env::consts::ARCH.to_owned()),
-            enforced_type: vec![SingleValueType::String],
+            enforced_type: ValueType::Single(SingleValueType::String),
         },
         // OS family
         BuiltinVar {
@@ -114,7 +88,7 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
                 TargetFamily::Windows => true,
                 TargetFamily::Unix => false,
             }),
-            enforced_type: vec![SingleValueType::Bool],
+            enforced_type: ValueType::Single(SingleValueType::Bool),
         },
         BuiltinVar {
             name: "IS_PLATFORM_UNIX",
@@ -123,35 +97,35 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
                 TargetFamily::Windows => false,
                 TargetFamily::Unix => true,
             }),
-            enforced_type: vec![SingleValueType::Bool],
+            enforced_type: ValueType::Single(SingleValueType::Bool),
         },
         // Minimum valid integer
         BuiltinVar {
             name: "INT_MIN",
             is_mut: false,
             init_value: RuntimeValue::Int(i64::MIN),
-            enforced_type: vec![SingleValueType::Int],
+            enforced_type: ValueType::Single(SingleValueType::Int),
         },
         // Maximum valid integer
         BuiltinVar {
             name: "INT_MAX",
             is_mut: false,
             init_value: RuntimeValue::Int(i64::MAX),
-            enforced_type: vec![SingleValueType::Int],
+            enforced_type: ValueType::Single(SingleValueType::Int),
         },
         // Minimum valid floating-point number
         BuiltinVar {
             name: "FLOAT_MIN",
             is_mut: false,
             init_value: RuntimeValue::Float(f64::MIN),
-            enforced_type: vec![SingleValueType::Float],
+            enforced_type: ValueType::Single(SingleValueType::Float),
         },
         // Maximum valid floating-point number
         BuiltinVar {
             name: "FLOAT_MAX",
             is_mut: false,
             init_value: RuntimeValue::Float(f64::MAX),
-            enforced_type: vec![SingleValueType::Float],
+            enforced_type: ValueType::Single(SingleValueType::Float),
         },
         // Shell arguments
         BuiltinVar {
@@ -163,9 +137,9 @@ pub fn native_vars(params: NativeLibParams) -> Vec<BuiltinVar> {
                     .map(|str| RuntimeValue::String(OsStr::to_string_lossy(&str).into_owned()))
                     .collect(),
             )),
-            enforced_type: vec![SingleValueType::TypedList(Box::new(ValueType::Single(
-                SingleValueType::String,
-            )))],
+            enforced_type: ValueType::Union(vec![SingleValueType::TypedList(Box::new(
+                ValueType::Single(SingleValueType::String),
+            ))]),
         },
     ]
 }

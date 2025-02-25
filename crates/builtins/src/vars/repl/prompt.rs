@@ -3,21 +3,24 @@
 //!
 
 use reshell_parser::ast::RuntimeCodeRange;
-use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
+use reshell_runtime::{
+    context::Context,
+    errors::ExecResult,
+    values::{LocatedValue, RuntimeValue},
+};
 
+use super::get_repl_config;
 use crate::{
     declare_typed_fn_handler, declare_typed_struct_handler,
     helpers::{
         args::{TypedValueEncoder, TypedValueParser},
         types::{BoolType, ExactIntType, NullableType, StringType},
     },
-    utils::call_fn_checked,
+    utils::{call_fn_checked, INTERNAL_CODE_RANGE},
 };
 
-pub static GEN_PROMPT_VAR_NAME: &str = "generatePrompt";
-
 declare_typed_fn_handler!(
-    pub PromptRenderer(prompt_data: PromptData) -> PromptRendering
+    pub PromptRendererFn(prompt_data: PromptData) -> PromptRendering
 );
 
 declare_typed_struct_handler!(
@@ -49,24 +52,13 @@ pub fn render_prompt(
     ctx: &mut Context,
     last_cmd_status: Option<LastCmdStatus>,
 ) -> ExecResult<Option<PromptRendering>> {
-    let prompt_var = ctx
-        .native_lib_scope_content()
-        .vars
-        .get(GEN_PROMPT_VAR_NAME)
-        .unwrap()
-        .clone();
-
-    let prompt_var_value = prompt_var.value.read(RuntimeCodeRange::Internal(
-        "calling prompt generation function",
-    ));
-
-    if matches!(prompt_var_value.value, RuntimeValue::Null) {
+    let Some(prompt_renderer) = get_repl_config(ctx).generate_prompt else {
         return Ok(None);
-    }
+    };
 
     let ret_val = call_fn_checked(
-        &prompt_var_value,
-        &PromptRenderer::signature(),
+        &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(prompt_renderer)),
+        &PromptRendererFn::signature(),
         vec![PromptData::encode(PromptData { last_cmd_status })],
         ctx,
     )?;

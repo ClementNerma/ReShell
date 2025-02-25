@@ -15,6 +15,10 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::helpers::args::TypedValueParser;
 
+/// A [`RuntimeCodeRange`] with an internal location
+pub static INTERNAL_CODE_RANGE: RuntimeCodeRange =
+    RuntimeCodeRange::Internal("native library's builder");
+
 /// Create a [`RuntimeSpan`] data with internal location
 pub fn internal_runtime_span<T>(data: T) -> RuntimeSpan<T> {
     RuntimeSpan::internal("native library's builder", data)

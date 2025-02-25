@@ -3,18 +3,22 @@
 //!
 
 use reshell_parser::ast::RuntimeCodeRange;
-use reshell_runtime::{context::Context, errors::ExecResult, gc::GcCell, values::RuntimeValue};
+use reshell_runtime::{
+    context::Context,
+    errors::ExecResult,
+    gc::GcCell,
+    values::{LocatedValue, RuntimeValue},
+};
 
+use super::get_repl_config;
 use crate::{
     declare_typed_fn_handler, declare_typed_struct_handler,
     helpers::{
         args::TypedValueParser,
         types::{DetachedListType, NullType, StringType, Union2Type},
     },
-    utils::call_fn_checked,
+    utils::{call_fn_checked, INTERNAL_CODE_RANGE},
 };
-
-pub static GEN_COMPLETIONS_VAR_NAME: &str = "generateCompletions";
 
 pub enum CompletionStringSegment {
     VariableName(String),
@@ -44,20 +48,9 @@ pub fn generate_completions(
     cmd_pieces: &[Vec<CompletionStringSegment>],
     ctx: &mut Context,
 ) -> ExecResult<Option<Vec<GeneratedCompletion>>> {
-    let completer_var = ctx
-        .native_lib_scope_content()
-        .vars
-        .get(GEN_COMPLETIONS_VAR_NAME)
-        .unwrap()
-        .clone();
-
-    let completer_var_value = completer_var.value.read(RuntimeCodeRange::Internal(
-        "calling completions generation function",
-    ));
-
-    if matches!(completer_var_value.value, RuntimeValue::Null) {
+    let Some(completer_fn) = get_repl_config(ctx).generate_completions else {
         return Ok(None);
-    }
+    };
 
     let completion_args = vec![RuntimeValue::List(GcCell::new(
         cmd_pieces
@@ -83,7 +76,7 @@ pub fn generate_completions(
     ))];
 
     let ret_val = call_fn_checked(
-        &completer_var_value,
+        &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(completer_fn)),
         &CompleterFn::signature(),
         completion_args,
         ctx,

@@ -502,77 +502,74 @@ declare_typed_union_handler!(Union2Type (A, B) => Union2Result);
 declare_typed_union_handler!(Union3Type (A, B, C) => Union3Result);
 declare_typed_union_handler!(Union4Type (A, B, C, D) => Union4Result);
 
-/// Macro to create a struct type handler
+/// Macro to create a struct type handler (without encoding support)
 #[macro_export]
 macro_rules! declare_typed_struct_handler {
-    ($( $(#[$proc_macro: meta])? $pub: vis $struct: ident {
+    ($(#[$proc_macro: meta])? $pub: vis $struct: ident {
         $( $(#[$member_meta: meta])* $field_pub: vis $name: ident: $parser: ty ),+
-    } ),+ ) => {
-        $(
-            $(#[$proc_macro])?
-            $pub struct $struct {
-                $(
-                    $(#[$member_meta])* $field_pub $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed
-                ),+
-            }
+    }) => {
+        $(#[$proc_macro])?
+        $pub struct $struct {
+            $(
+                $(#[$member_meta])* $field_pub $name: <$parser as $crate::helpers::args::TypedValueParser>::Parsed
+            ),+
+        }
 
-            impl $crate::helpers::args::TypedValueParser for $struct {
-                fn value_type() -> ::reshell_parser::ast::ValueType {
-                    ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::TypedStruct(vec![
-                        $(
-                            ::reshell_parser::ast::StructTypeMember {
-                                name: ::reshell_parser::ast::RuntimeSpan::internal(
-                                    "native library's type generator",
-                                    ::identconv::camel_strify!($name).to_owned()
-                                ),
-                                typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type(),
-                                optional: false
-                            }
-                        ),+
-                    ]))
-                }
-
-                #[allow(unused_parens)]
-                type Parsed = Self;
-
-                fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
-                    let members = match value {
-                        RuntimeValue::Struct(members) => members,
-                        _ => return Err("expected a struct".to_owned()),
-                    };
-
-                    let members = members.read_promise_no_write();
-
-                    Ok(Self {
-                        $($name: {
-                            let name = ::identconv::camel_strify!($name);
-
-                            let value = members
-                                .get(name)
-                                .ok_or_else(|| format!("property '{name}' is missing"))?;
-
-                            <$parser>::parse(value.clone())
-                                .map_err(|err| format!("type mismatch in struct member name {err}"))?
-                        }),+
-                    })
-                }
-            }
-
-            impl $crate::helpers::args::TypedValueEncoder for $struct {
-                type Encodable = Self;
-
-                fn encode(value: Self) -> RuntimeValue {
-                    let mut members = ::indexmap::IndexMap::new();
-
+        impl $crate::helpers::args::TypedValueParser for $struct {
+            fn value_type() -> ::reshell_parser::ast::ValueType {
+                ::reshell_parser::ast::ValueType::Single(::reshell_parser::ast::SingleValueType::TypedStruct(vec![
                     $(
-                        members.insert(::identconv::camel_strify!($name).to_owned(), <$parser as $crate::helpers::args::TypedValueEncoder>::encode(value.$name));
-                    )+
-
-                    RuntimeValue::Struct(GcCell::new(members))
-                }
+                        ::reshell_parser::ast::StructTypeMember {
+                            name: ::reshell_parser::ast::RuntimeSpan::internal(
+                                "native library's type generator",
+                                ::identconv::camel_strify!($name).to_owned()
+                            ),
+                            typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type(),
+                            optional: false
+                        }
+                    ),+
+                ]))
             }
 
-        )+
+            #[allow(unused_parens)]
+            type Parsed = Self;
+
+            fn parse(value: ::reshell_runtime::values::RuntimeValue) -> Result<Self::Parsed, String> {
+                let members = match value {
+                    ::reshell_runtime::values::RuntimeValue::Struct(members) => members,
+                    _ => return Err("expected a struct".to_owned()),
+                };
+
+                let members = members.read_promise_no_write();
+
+                Ok(Self {
+                    $($name: {
+                        let name = ::identconv::camel_strify!($name);
+
+                        let value = members
+                            .get(name)
+                            .ok_or_else(|| format!("property '{name}' is missing"))?;
+
+                        <$parser>::parse(value.clone())
+                            .map_err(|err| format!("type mismatch in struct member name {err}"))?
+                    }),+
+                })
+            }
+        }
+
+        impl $crate::helpers::args::TypedValueEncoder for $struct {
+            type Encodable = Self;
+
+            fn encode(value: Self) -> ::reshell_runtime::values::RuntimeValue {
+                let mut members = ::indexmap::IndexMap::new();
+
+                $(
+                    members.insert(::identconv::camel_strify!($name).to_owned(), <$parser as $crate::helpers::args::TypedValueEncoder>::encode(value.$name));
+                )+
+
+                ::reshell_runtime::values::RuntimeValue::Struct(::reshell_runtime::gc::GcCell::new(members))
+            }
+        }
     }
 }
 
@@ -617,5 +614,37 @@ macro_rules! declare_typed_fn_handler {
                 }
             }
         )+
+    }
+}
+
+/// Utility type enabling a type to be used in a context where a [`TypedValueEncoder`] is required,
+/// but where the type only supports encoding in *some* contexts
+// e.g. `NullableType<NonEncodableType>` => can be encoded if `None`
+///
+/// * When used as a parser, passes through to the underlying type
+/// * When used as an encoder, panics
+///
+/// Usage example: `NullableType<FakeEncodableWrapper<NonEncodableType>>`
+pub struct NonEncodableWrapper<T: TypedValueParser> {
+    _t: PhantomData<T>,
+}
+
+impl<T: TypedValueParser> TypedValueParser for NonEncodableWrapper<T> {
+    fn value_type() -> ValueType {
+        T::value_type()
+    }
+
+    type Parsed = T::Parsed;
+
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
+        T::parse(value)
+    }
+}
+
+impl<T: TypedValueParser> TypedValueEncoder for NonEncodableWrapper<T> {
+    type Encodable = T::Parsed;
+
+    fn encode(_: Self::Encodable) -> RuntimeValue {
+        unreachable!("Cannot encode the currently wrapped type")
     }
 }
