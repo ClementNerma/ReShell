@@ -1131,6 +1131,15 @@ fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> 
     Ok(())
 }
 
+/// Represents the return content of an instruction
+///
+/// Ideally this should have been put in [`ExecErrorNature::InternalPropagation`],
+/// but given [`ExecError`] values are always put inside a [`Box`], this would
+/// have resulted in every function return and wandering value requiring a heap allocation.
+/// Also
+//
+// Plus [`ExecError`] contains lot of irrelevant fields for these data, which would have
+// wasted memory.
 #[derive(Debug, Clone)]
 pub enum InstrRet {
     FnReturn(Option<LocatedValue>),
