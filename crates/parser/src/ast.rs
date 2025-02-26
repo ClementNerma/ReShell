@@ -227,7 +227,7 @@ pub struct ExprInner {
 pub enum ExprInnerContent {
     SingleOp {
         op: SingleOp,
-        right: Span<Box<ExprInnerContent>>,
+        right: Box<Span<ExprInnerContent>>,
         right_chainings: Vec<Span<ExprInnerChaining>>,
     },
     ParenExpr(Box<Expr>),
@@ -256,6 +256,8 @@ pub enum ExprInnerContent {
         catch_expr_scope_id: AstScopeId,
     },
     Throw(Span<Box<Expr>>),
+    LoopContinue,
+    LoopBreak,
 }
 
 #[derive(Debug, Clone)]

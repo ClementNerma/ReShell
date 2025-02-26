@@ -148,7 +148,6 @@ pub fn call_fn_value(
             )?;
 
             instr_ret.and_then(|instr_ret| match instr_ret {
-                InstrRet::ContinueLoop | InstrRet::BreakLoop => unreachable!(),
                 InstrRet::FnReturn(value) => value,
                 InstrRet::WanderingValue(value) => Some(value),
             })

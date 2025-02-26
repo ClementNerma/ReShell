@@ -734,7 +734,7 @@ fn check_expr(expr: &Expr, state: &mut State) -> CheckerResult {
 fn check_expr_inner(inner: &Span<ExprInner>, state: &mut State) -> CheckerResult {
     let ExprInner { content, chainings } = &inner.data;
 
-    check_expr_inner_content(&content.data, state)?;
+    check_expr_inner_content(content, state)?;
 
     for chaining in chainings {
         check_expr_inner_chaining(chaining, state)?;
@@ -750,15 +750,15 @@ fn check_expr_inner_chaining(chaining: &ExprInnerChaining, state: &mut State) ->
     }
 }
 
-fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> CheckerResult {
-    match content {
+fn check_expr_inner_content(content: &Span<ExprInnerContent>, state: &mut State) -> CheckerResult {
+    match &content.data {
         ExprInnerContent::SingleOp {
             op,
             right,
             right_chainings,
         } => {
             check_single_op(op, state)?;
-            check_expr_inner_content(&right.data, state)?;
+            check_expr_inner_content(right, state)?;
 
             for chaining in right_chainings {
                 check_expr_inner_chaining(&chaining.data, state)?;
@@ -837,6 +837,30 @@ fn check_expr_inner_content(content: &ExprInnerContent, state: &mut State) -> Ch
 
         ExprInnerContent::Throw(expr) => {
             check_expr(&expr.data, state)?;
+        }
+
+        ExprInnerContent::LoopContinue => {
+            if !matches!(
+                state.nearest_special_scope_type(),
+                Some(SpecialScopeType::Loop)
+            ) {
+                return Err(CheckerError::new(
+                    content.at,
+                    "'continue' keyword can only be used inside a loop",
+                ));
+            }
+        }
+
+        ExprInnerContent::LoopBreak => {
+            if !matches!(
+                state.nearest_special_scope_type(),
+                Some(SpecialScopeType::Loop)
+            ) {
+                return Err(CheckerError::new(
+                    content.at,
+                    "'break' keyword can only be used inside a loop",
+                ));
+            }
         }
     }
 

@@ -609,7 +609,7 @@ pub fn program(
             //
             single_op
                 .then_ignore(ms)
-                .then(expr_inner_content.map(Box::new).spanned())
+                .then(expr_inner_content.spanned().map(Box::new))
                 .then(expr_inner_chaining.clone().spanned().repeated_into_vec())
                 .map(
                     |((op, right), right_chainings)| ExprInnerContent::SingleOp {
@@ -817,6 +817,24 @@ pub fn program(
                         .critical("expected an expression to throw"),
                 )
                 .map(ExprInnerContent::Throw),
+            //
+            // Loop continuation keyword
+            //
+            just("continue")
+                .followed_by(silent_choice((
+                    filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
+                    end(),
+                )))
+                .map(|_| ExprInnerContent::LoopContinue),
+            //
+            // Loop breakage
+            //
+            just("break")
+                .followed_by(silent_choice((
+                    filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),
+                    end(),
+                )))
+                .map(|_| ExprInnerContent::LoopBreak),
             //
             // Simple values
             //

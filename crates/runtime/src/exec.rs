@@ -15,7 +15,7 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeMethod, ScopeVar,
     },
-    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError, ExecResult},
     expr::{eval_expr, eval_range_bound},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
@@ -412,15 +412,35 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             },
                         );
 
-                        if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
-                            match ret {
-                                InstrRet::ContinueLoop => {}
-                                InstrRet::BreakLoop => break,
-                                InstrRet::FnReturn(value) => {
-                                    return Ok(Some(InstrRet::FnReturn(value)))
-                                }
-                                InstrRet::WanderingValue(_) => {}
+                        // TODO: deduplicate
+                        //
+                        // Check block's execution result
+                        match run_block(body, ctx, Some(loop_scope)) {
+                            // Nothing to note
+                            Ok(None) => {}
+
+                            // Wandering values can be dropped
+                            Ok(Some(InstrRet::WanderingValue(_))) => {}
+
+                            // Propagate functions' return statements
+                            Ok(Some(InstrRet::FnReturn(value))) => {
+                                return Ok(Some(InstrRet::FnReturn(value)))
                             }
+
+                            Err(err) => match err.nature {
+                                // Loop continuation (do nothing)
+                                ExecErrorNature::NotAnError(
+                                    ExecNotActualError::LoopContinuation,
+                                ) => {}
+
+                                // Loop breakage
+                                ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => {
+                                    break
+                                }
+
+                                // Propagate other error types
+                                _ => return Err(err),
+                            },
                         }
                     }
                 }
@@ -479,13 +499,31 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     },
                 );
 
-                if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
-                    match ret {
-                        InstrRet::ContinueLoop => {}
-                        InstrRet::BreakLoop => break,
-                        InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
-                        InstrRet::WanderingValue(_) => {}
+                // TODO: deduplicate
+                //
+                // Check block's execution result
+                match run_block(body, ctx, Some(loop_scope)) {
+                    // Nothing to note
+                    Ok(None) => {}
+
+                    // Wandering values can be dropped
+                    Ok(Some(InstrRet::WanderingValue(_))) => {}
+
+                    // Propagate functions' return statements
+                    Ok(Some(InstrRet::FnReturn(value))) => {
+                        return Ok(Some(InstrRet::FnReturn(value)))
                     }
+
+                    Err(err) => match err.nature {
+                        // Loop continuation (do nothing)
+                        ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation) => {}
+
+                        // Loop breakage
+                        ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => break,
+
+                        // Propagate other error types
+                        _ => return Err(err),
+                    },
                 }
             }
 
@@ -544,13 +582,31 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     },
                 );
 
-                if let Some(ret) = run_block(body, ctx, Some(loop_scope))? {
-                    match ret {
-                        InstrRet::ContinueLoop => {}
-                        InstrRet::BreakLoop => break,
-                        InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
-                        InstrRet::WanderingValue(_) => {}
+                // TODO: deduplicate
+                //
+                // Check block's execution result
+                match run_block(body, ctx, Some(loop_scope)) {
+                    // Nothing to note
+                    Ok(None) => {}
+
+                    // Wandering values can be dropped
+                    Ok(Some(InstrRet::WanderingValue(_))) => {}
+
+                    // Propagate functions' return statements
+                    Ok(Some(InstrRet::FnReturn(value))) => {
+                        return Ok(Some(InstrRet::FnReturn(value)))
                     }
+
+                    Err(err) => match err.nature {
+                        // Loop continuation (do nothing)
+                        ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation) => {}
+
+                        // Loop breakage
+                        ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => break,
+
+                        // Propagate other error types
+                        _ => return Err(err),
+                    },
                 }
             }
 
@@ -579,22 +635,50 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     break;
                 }
 
-                if let Some(ret) = run_block(body, ctx, None)? {
-                    match ret {
-                        InstrRet::ContinueLoop => {}
-                        InstrRet::BreakLoop => break,
-                        InstrRet::FnReturn(value) => return Ok(Some(InstrRet::FnReturn(value))),
-                        InstrRet::WanderingValue(_) => {}
+                // TODO: deduplicate
+                //
+                // Check block's execution result
+                match run_block(body, ctx, None) {
+                    // Nothing to note
+                    Ok(None) => {}
+
+                    // Wandering values can be dropped
+                    Ok(Some(InstrRet::WanderingValue(_))) => {}
+
+                    // Propagate functions' return statements
+                    Ok(Some(InstrRet::FnReturn(value))) => {
+                        return Ok(Some(InstrRet::FnReturn(value)))
                     }
+
+                    Err(err) => match err.nature {
+                        // Loop continuation (do nothing)
+                        ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation) => {}
+
+                        // Loop breakage
+                        ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => break,
+
+                        // Propagate other error types
+                        _ => return Err(err),
+                    },
                 }
             }
 
             None
         }
 
-        Instruction::LoopContinue => return Ok(Some(InstrRet::ContinueLoop)),
+        Instruction::LoopContinue => {
+            return Err(ctx.error(
+                instr.at,
+                ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation),
+            ))
+        }
 
-        Instruction::LoopBreak => return Ok(Some(InstrRet::BreakLoop)),
+        Instruction::LoopBreak => {
+            return Err(ctx.error(
+                instr.at,
+                ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage),
+            ))
+        }
 
         Instruction::Match { expr, cases, els } => {
             let match_on = eval_expr(&expr.data, ctx)?;
@@ -1037,8 +1121,6 @@ fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> 
 
 #[derive(Debug, Clone)]
 pub enum InstrRet {
-    ContinueLoop,
-    BreakLoop,
     FnReturn(Option<LocatedValue>),
     WanderingValue(LocatedValue),
 }

@@ -51,6 +51,10 @@ impl ReportableError {
 
                 ExecErrorNature::NotAnError(err) => match err {
                     ExecNotActualError::SuccessfulExit => false,
+
+                    ExecNotActualError::LoopContinuation | ExecNotActualError::LoopBreakage => {
+                        unreachable!()
+                    }
                 },
             },
         }
@@ -83,6 +87,10 @@ impl ReportableError {
 
                 ExecErrorNature::NotAnError(err) => match &err {
                     ExecNotActualError::SuccessfulExit => Some(0),
+
+                    ExecNotActualError::LoopContinuation | ExecNotActualError::LoopBreakage => {
+                        unreachable!()
+                    }
                 },
             },
         }

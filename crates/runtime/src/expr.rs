@@ -10,7 +10,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecError, ExecErrorNature, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty_impl::pretty_printable_string,
@@ -276,7 +276,7 @@ fn apply_double_op(
 fn eval_expr_inner(inner: &Span<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let ExprInner { content, chainings } = &inner.data;
 
-    let mut left_val = eval_expr_inner_content(&content.data, ctx)?;
+    let mut left_val = eval_expr_inner_content(content, ctx)?;
     let left_at = RuntimeCodeRange::Parsed(content.at);
 
     for chaining in chainings {
@@ -323,16 +323,16 @@ fn eval_expr_inner_chaining(
 }
 
 fn eval_expr_inner_content(
-    expr_inner_content: &ExprInnerContent,
+    content: &Span<ExprInnerContent>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
-    match &expr_inner_content {
+    match &content.data {
         ExprInnerContent::SingleOp {
             op,
             right,
             right_chainings,
         } => {
-            let mut right_val = eval_expr_inner_content(&right.data, ctx)?;
+            let mut right_val = eval_expr_inner_content(right, ctx)?;
 
             let right_at = RuntimeCodeRange::Parsed(right.at);
 
@@ -520,6 +520,16 @@ fn eval_expr_inner_content(
         }
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
+
+        ExprInnerContent::LoopContinue => Err(ctx.error(
+            content.at,
+            ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation),
+        )),
+
+        ExprInnerContent::LoopBreak => Err(ctx.error(
+            content.at,
+            ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage),
+        )),
     }
 }
 

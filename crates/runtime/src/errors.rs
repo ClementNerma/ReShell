@@ -74,6 +74,10 @@ pub enum ExecErrorNature {
 pub enum ExecNotActualError {
     /// Successfull exit (no error)
     SuccessfulExit,
+    /// Loop continuation
+    LoopContinuation,
+    /// Loop breakage
+    LoopBreakage,
 }
 
 impl From<&'static str> for ExecErrorNature {
