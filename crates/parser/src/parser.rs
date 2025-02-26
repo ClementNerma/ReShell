@@ -1681,31 +1681,34 @@ pub fn program(
                     .args
                     .data
                     .first()
-                    .and_then(|first_arg| match first_arg {
-                        FnArg::Positional(arg) => {
-                            let FnPositionalArg {
-                                name,
-                                is_optional,
-                                typ,
-                            } = arg;
+                    .and_then(|first_arg| -> Option<Result<ValueType, ParsingError>> {
+                        match first_arg {
+                            FnArg::Positional(arg) => {
+                                let FnPositionalArg {
+                                    name,
+                                    is_optional,
+                                    typ,
+                                } = arg;
 
-                            let name_at = name.at.parsed_range().unwrap();
+                                let name_at = name.at.parsed_range().unwrap();
 
-                            if name.data != "self" {
-                                None
-                            } else if *is_optional {
-                                Some(Err(ParsingError::custom(name_at, "").criticalize(
-                                    "'self' argument cannot be optional in methods",
-                                )))
-                            } else {
-                                Some(typ.clone().ok_or_else(|| {
-                                    ParsingError::custom(name_at, "")
-                                        .criticalize("'self' argument must have a specified type")
-                                }))
+                                if name.data != "self" {
+                                    None
+                                } else if *is_optional {
+                                    Some(Err(ParsingError::custom(name_at, "").criticalize(
+                                        "'self' argument cannot be optional in methods",
+                                    )))
+                                } else {
+                                    Some(typ.clone().ok_or_else(|| {
+                                        ParsingError::custom(name_at, "").criticalize(
+                                            "'self' argument must have a specified type",
+                                        )
+                                    }))
+                                }
                             }
-                        }
 
-                        _ => None,
+                            _ => None,
+                        }
                     })
                     .transpose()?;
 
