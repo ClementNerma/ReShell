@@ -22,7 +22,9 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore
 use crate::{
     bin_resolver::BinariesResolver,
     conf::RuntimeConf,
-    errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
+    errors::{
+        ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError, ExecResult, ExecResultType,
+    },
     gc::{GcCell, GcReadOnlyCell},
     typechecker::check_if_value_fits_type,
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
@@ -369,6 +371,30 @@ impl Context {
         &self,
         at: impl Into<RuntimeCodeRange>,
         nature: impl Into<ExecErrorNature>,
+    ) -> ExecResultType {
+        self.error_with_infos(at, nature, vec![])
+    }
+
+    /// Generate an error object, with additional informations
+    /// See [`Self::error`]
+    pub fn error_with_infos(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        nature: impl Into<ExecErrorNature>,
+        infos: Vec<(ExecInfoType, String)>,
+    ) -> ExecResultType {
+        ExecResultType::Error(self.raw_error(at, nature, infos))
+    }
+
+    /// Generate a raw error object
+    /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
+    /// Given an error is either critical or related to a function throwing a value, the allocation
+    /// overhead is acceptable here
+    pub fn raw_error(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        nature: impl Into<ExecErrorNature>,
+        infos: Vec<(ExecInfoType, String)>,
     ) -> Box<ExecError> {
         let current_scope = self.current_scope();
 
@@ -376,12 +402,12 @@ impl Context {
             at: at.into(),
             nature: nature.into(),
             call_stack: current_scope.call_stack.clone(),
-            infos: vec![],
+            infos,
         })
     }
 
     /// Generate a "successful exit" value
-    pub fn successful_exit(&self, at: impl Into<RuntimeCodeRange>) -> Box<ExecError> {
+    pub fn successful_exit(&self, at: impl Into<RuntimeCodeRange>) -> ExecResultType {
         self.error(
             at,
             ExecErrorNature::NotAnError(ExecNotActualError::SuccessfulExit),
@@ -393,7 +419,7 @@ impl Context {
         &self,
         at: impl Into<RuntimeCodeRange>,
         code: NonZero<u8>,
-    ) -> Box<ExecError> {
+    ) -> ExecResultType {
         self.error(at, ExecErrorNature::FailureExit { code })
     }
 
@@ -402,7 +428,7 @@ impl Context {
         &self,
         at: impl Into<RuntimeCodeRange> + Copy,
         message: impl Into<String>,
-    ) -> Box<ExecError> {
+    ) -> ExecResultType {
         self.error(
             at,
             ExecErrorNature::Thrown {

@@ -26,7 +26,7 @@ use reshell_parser::{
 };
 use reshell_runtime::{
     context::Context,
-    errors::{ExecErrorNature, ExecNotActualError},
+    errors::{ExecErrorNature, ExecNotActualError, ExecResultType},
     values::RuntimeValue,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
@@ -83,7 +83,9 @@ pub fn start(
         // Render prompt
         let prompt_rendering = match render_prompt(&mut ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
-            Err(err) => {
+            // TODO: cleanup
+            Err(ExecResultType::InternalPropagation(_)) => unreachable!(),
+            Err(ExecResultType::Error(err)) => {
                 let err = ReportableError::Runtime(err, None);
 
                 if let Some(code) = err.exit_code() {
@@ -221,8 +223,6 @@ pub fn start(
                             ExecErrorNature::NotAnError(err) => match err {
                                 ExecNotActualError::SuccessfulExit => unreachable!(),
                             },
-
-                            ExecErrorNature::InternalPropagation(_) => unreachable!(),
                         }
                     }
                 }
@@ -286,7 +286,10 @@ fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<External
             .map(ExternalCompletion::from)
             .collect(),
 
-        Err(err) => {
+        // TODO: cleanup
+        Err(ExecResultType::InternalPropagation(_)) => unreachable!(),
+
+        Err(ExecResultType::Error(err)) => {
             crate::reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
             panic!();
 

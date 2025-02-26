@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use indexmap::IndexSet;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::ast::{
@@ -15,7 +13,10 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeMethod, ScopeVar,
     },
-    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult},
+    errors::{
+        ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult,
+        ExecResultType,
+    },
     expr::{eval_expr, eval_range_bound},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
@@ -26,7 +27,10 @@ use crate::{
     },
 };
 
-pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
+pub fn run_program(
+    program: &Span<Program>,
+    ctx: &mut Context,
+) -> Result<Option<LocatedValue>, Box<ExecError>> {
     // Reset Ctrl+C requests
     ctx.reset_ctrl_c_press_indicator();
 
@@ -34,7 +38,11 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 
     match content.at.start.file_id {
         FileId::None | FileId::Internal | FileId::Custom(_) => {
-            return Err(ctx.error(content.at, "program must be backed by a source file"))
+            return Err(ctx.raw_error(
+                content.at,
+                "program must be backed by a source file",
+                vec![],
+            ))
         }
 
         FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
@@ -42,36 +50,47 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 
     // Check the program
     ctx.prepare_for_new_program(program).map_err(|err| {
-        ctx.error(program.at, ExecErrorNature::CheckingErr(err))
-            .with_info(
+        ctx.raw_error(
+            program.at,
+            ExecErrorNature::CheckingErr(err),
+            vec![(
                 ExecInfoType::Note,
                 "Error was encountered before running the program".to_owned(),
-            )
+            )],
+        )
     })?;
 
-    run_block_in_current_scope(&content.data, ctx).map(|result| match result {
-        None => {
-            ctx.reset_to_program_main_scope();
-            None
-        }
+    let result = run_block_in_current_scope(&content.data, ctx);
 
-        Some(InstrRet::WanderingValue(value)) => {
-            ctx.reset_to_program_main_scope();
-            Some(value)
-        }
+    ctx.reset_to_program_main_scope();
 
-        Some(_) => ctx.panic(
-            content.at,
-            "this instruction shouldn't have been allowed to run here",
-        ),
-    })
+    match result {
+        Ok(()) => Ok(None),
+
+        Err(err) => match err {
+            ExecResultType::Error(err) => Err(err),
+
+            ExecResultType::InternalPropagation(propagation) => match propagation {
+                ExecInternalPropagation::WanderingValue(value) => Ok(Some(value)),
+
+                ExecInternalPropagation::LoopContinuation
+                | ExecInternalPropagation::LoopBreakage
+                | ExecInternalPropagation::FnReturn(_) => ctx.panic(
+                    content.at,
+                    format!(
+                        "unexpected information propagated to program's root: {propagation:#?}"
+                    ),
+                ),
+            },
+        },
+    }
 }
 
 fn run_block(
     block: &Span<Block>,
     ctx: &mut Context,
     content: Option<ScopeContent>,
-) -> ExecResult<Option<InstrRet>> {
+) -> ExecResult<()> {
     // Handle any Ctrl+C press
     ctx.ensure_no_ctrl_c_press(block.at)?;
 
@@ -87,7 +106,7 @@ fn run_block(
     result
 }
 
-fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
+fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<()> {
     let Block {
         scope_id: _,
         instructions,
@@ -103,24 +122,34 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
 fn run_instructions_in_current_scope(
     instructions: &[Span<Instruction>],
     ctx: &mut Context,
-) -> ExecResult<Option<InstrRet>> {
+) -> ExecResult<()> {
     let mut wandering_value = None;
 
     for instr in instructions {
         wandering_value = None;
 
-        match run_instr(instr, ctx)? {
-            Some(InstrRet::WanderingValue(value)) => {
-                wandering_value = Some(value);
+        if let Err(err) = run_instr(instr, ctx) {
+            match err {
+                ExecResultType::Error(_) => return Err(err),
+
+                ExecResultType::InternalPropagation(propagation) => match propagation {
+                    ExecInternalPropagation::WanderingValue(value) => {
+                        wandering_value = Some(value);
+                    }
+
+                    _ => return Err(ExecResultType::InternalPropagation(propagation)),
+                },
             }
-
-            Some(ret) => return Ok(Some(ret)),
-
-            None => {}
         }
     }
 
-    Ok(wandering_value.map(InstrRet::WanderingValue))
+    if let Some(value) = wandering_value {
+        return Err(ExecResultType::InternalPropagation(
+            ExecInternalPropagation::WanderingValue(value),
+        ));
+    }
+
+    Ok(())
 }
 
 fn block_first_pass(
@@ -217,7 +246,7 @@ pub(crate) fn run_body_with_deps(
     scope_content: Option<ScopeContent>,
     parent_scopes: IndexSet<u64>,
     call_stack_entry: Option<CallStackEntry>,
-) -> ExecResult<Option<InstrRet>> {
+) -> ExecResult<()> {
     ctx.create_and_push_scope_with_deps(
         body.data.scope_id,
         DepsScopeCreationData::CapturedDeps(captured_deps),
@@ -233,8 +262,8 @@ pub(crate) fn run_body_with_deps(
     result
 }
 
-fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
-    let instr_ret = match &instr.data {
+fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<()> {
+    match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             let init_value = eval_expr(&init_expr.data, ctx)?;
 
@@ -243,8 +272,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             }
 
             declare_vars(names, init_value, init_expr.at, ctx)?;
-
-            None
         }
 
         Instruction::AssignVar {
@@ -333,8 +360,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             )??;
 
             var.value.write(name.at, ctx)?.from = RuntimeCodeRange::Parsed(expr.at);
-
-            None
         }
 
         Instruction::IfCond {
@@ -358,34 +383,35 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 }
             };
 
-            let mut ret = None;
-
             if cond_val {
-                ret = Some(run_block(body, ctx, None)?);
-            } else {
-                for branch in elsif {
-                    let ElsIf { cond, body } = &branch.data;
+                return run_block(body, ctx, None);
+            }
 
-                    let cond_val = eval_expr(&cond.data, ctx)?;
+            for branch in elsif {
+                let ElsIf { cond, body } = &branch.data;
 
-                    let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.compute_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
-                    };
+                let cond_val = eval_expr(&cond.data, ctx)?;
 
-                    if cond_val {
-                        ret = Some(run_block(body, ctx, None)?);
-                        break;
-                    }
-                }
+                let RuntimeValue::Bool(cond_val) = cond_val else {
+                    return Err(ctx.error(
+                        cond.at,
+                        format!(
+                            "expected the condition to resolve to a boolean, found a {} instead",
+                            cond_val
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                        ),
+                    ));
+                };
 
-                if ret.is_none() {
-                    if let Some(els) = els {
-                        ret = Some(run_block(els, ctx, None)?);
-                    }
+                if cond_val {
+                    return run_block(body, ctx, None);
                 }
             }
 
-            ret.flatten()
+            if let Some(els) = els {
+                return run_block(els, ctx, None);
+            }
         }
 
         Instruction::ForLoop {
@@ -415,32 +441,27 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         // TODO: deduplicate
                         //
                         // Check block's execution result
-                        match run_block(body, ctx, Some(loop_scope)) {
-                            // Nothing to note
-                            Ok(None) => {}
+                        if let Err(err) = run_block(body, ctx, Some(loop_scope)) {
+                            match err {
+                                // Propagate actual errors
+                                ExecResultType::Error(_) => return Err(err),
 
-                            // Wandering values can be dropped
-                            Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                            // Propagate functions' return statements
-                            Ok(Some(InstrRet::FnReturn(value))) => {
-                                return Ok(Some(InstrRet::FnReturn(value)))
-                            }
-
-                            Err(err) => match err.nature {
-                                ExecErrorNature::InternalPropagation(propagation) => {
+                                ExecResultType::InternalPropagation(ref propagation) => {
                                     match propagation {
                                         // Loop continuation (do nothing)
                                         ExecInternalPropagation::LoopContinuation => {}
 
                                         // Loop breakage
                                         ExecInternalPropagation::LoopBreakage => break,
+
+                                        // Function returning
+                                        ExecInternalPropagation::FnReturn(_) => return Err(err),
+
+                                        // Wandering values can be dropped
+                                        ExecInternalPropagation::WanderingValue(_) => {}
                                     }
                                 }
-
-                                // Propagate other error types
-                                _ => return Err(err),
-                            },
+                            }
                         }
                     }
                 }
@@ -457,8 +478,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     ))
                 }
             }
-
-            None
         }
 
         Instruction::ForLoopRanged {
@@ -502,36 +521,29 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 // TODO: deduplicate
                 //
                 // Check block's execution result
-                match run_block(body, ctx, Some(loop_scope)) {
-                    // Nothing to note
-                    Ok(None) => {}
+                if let Err(err) = run_block(body, ctx, Some(loop_scope)) {
+                    match err {
+                        // Propagate actual errors
+                        ExecResultType::Error(_) => return Err(err),
 
-                    // Wandering values can be dropped
-                    Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                    // Propagate functions' return statements
-                    Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)))
-                    }
-
-                    Err(err) => match err.nature {
-                        ExecErrorNature::InternalPropagation(propagation) => {
+                        ExecResultType::InternalPropagation(ref propagation) => {
                             match propagation {
                                 // Loop continuation (do nothing)
                                 ExecInternalPropagation::LoopContinuation => {}
 
                                 // Loop breakage
                                 ExecInternalPropagation::LoopBreakage => break,
+
+                                // Function returning
+                                ExecInternalPropagation::FnReturn(_) => return Err(err),
+
+                                // Wandering values can be dropped
+                                ExecInternalPropagation::WanderingValue(_) => {}
                             }
                         }
-
-                        // Propagate other error types
-                        _ => return Err(err),
-                    },
+                    }
                 }
             }
-
-            None
         }
 
         Instruction::ForLoopKeyed {
@@ -589,36 +601,29 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 // TODO: deduplicate
                 //
                 // Check block's execution result
-                match run_block(body, ctx, Some(loop_scope)) {
-                    // Nothing to note
-                    Ok(None) => {}
+                if let Err(err) = run_block(body, ctx, Some(loop_scope)) {
+                    match err {
+                        // Propagate actual errors
+                        ExecResultType::Error(_) => return Err(err),
 
-                    // Wandering values can be dropped
-                    Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                    // Propagate functions' return statements
-                    Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)))
-                    }
-
-                    Err(err) => match err.nature {
-                        ExecErrorNature::InternalPropagation(propagation) => {
+                        ExecResultType::InternalPropagation(ref propagation) => {
                             match propagation {
                                 // Loop continuation (do nothing)
                                 ExecInternalPropagation::LoopContinuation => {}
 
                                 // Loop breakage
                                 ExecInternalPropagation::LoopBreakage => break,
+
+                                // Function returning
+                                ExecInternalPropagation::FnReturn(_) => return Err(err),
+
+                                // Wandering values can be dropped
+                                ExecInternalPropagation::WanderingValue(_) => {}
                             }
                         }
-
-                        // Propagate other error types
-                        _ => return Err(err),
-                    },
+                    }
                 }
             }
-
-            None
         }
 
         Instruction::WhileLoop { cond, body } => {
@@ -646,49 +651,40 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 // TODO: deduplicate
                 //
                 // Check block's execution result
-                match run_block(body, ctx, None) {
-                    // Nothing to note
-                    Ok(None) => {}
+                if let Err(err) = run_block(body, ctx, None) {
+                    match err {
+                        // Propagate actual errors
+                        ExecResultType::Error(_) => return Err(err),
 
-                    // Wandering values can be dropped
-                    Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                    // Propagate functions' return statements
-                    Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)))
-                    }
-
-                    Err(err) => match err.nature {
-                        ExecErrorNature::InternalPropagation(propagation) => {
+                        ExecResultType::InternalPropagation(ref propagation) => {
                             match propagation {
                                 // Loop continuation (do nothing)
                                 ExecInternalPropagation::LoopContinuation => {}
 
                                 // Loop breakage
                                 ExecInternalPropagation::LoopBreakage => break,
+
+                                // Function returning
+                                ExecInternalPropagation::FnReturn(_) => return Err(err),
+
+                                // Wandering values can be dropped
+                                ExecInternalPropagation::WanderingValue(_) => {}
                             }
                         }
-
-                        // Propagate other error types
-                        _ => return Err(err),
-                    },
+                    }
                 }
             }
-
-            None
         }
 
         Instruction::LoopContinue => {
-            return Err(ctx.error(
-                instr.at,
-                ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
+            return Err(ExecResultType::InternalPropagation(
+                ExecInternalPropagation::LoopContinuation,
             ))
         }
 
         Instruction::LoopBreak => {
-            return Err(ctx.error(
-                instr.at,
-                ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
+            return Err(ExecResultType::InternalPropagation(
+                ExecInternalPropagation::LoopBreakage,
             ))
         }
 
@@ -723,8 +719,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             if let Some(els) = els {
                 return run_block(els, ctx, None);
             }
-
-            None
         }
 
         Instruction::TypeMatch { expr, cases, els } => {
@@ -739,8 +733,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             if let Some(els) = els {
                 return run_block(els, ctx, None);
             }
-
-            None
         }
 
         Instruction::FnDecl { name, content } => {
@@ -754,8 +746,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 .captured_deps
                 .init(captured_deps)
                 .unwrap();
-
-            None
         }
 
         Instruction::MethodDecl {
@@ -779,20 +769,22 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 .captured_deps
                 .init(captured_deps)
                 .unwrap();
-
-            None
         }
 
-        Instruction::FnReturn { expr } => Some(InstrRet::FnReturn(
-            expr.as_ref()
-                .map(|expr| {
-                    Ok::<_, Box<ExecError>>(LocatedValue::new(
-                        RuntimeCodeRange::Parsed(expr.at),
-                        eval_expr(&expr.data, ctx)?,
-                    ))
-                })
-                .transpose()?,
-        )),
+        Instruction::FnReturn { expr } => {
+            return Err(ExecResultType::InternalPropagation(
+                ExecInternalPropagation::FnReturn(
+                    expr.as_ref()
+                        .map(|expr| {
+                            Ok::<_, ExecResultType>(LocatedValue::new(
+                                RuntimeCodeRange::Parsed(expr.at),
+                                eval_expr(&expr.data, ctx)?,
+                            ))
+                        })
+                        .transpose()?,
+                ),
+            ))
+        }
 
         Instruction::Throw(expr) => {
             let message = match eval_expr(&expr.data, ctx)? {
@@ -824,36 +816,44 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             try_expr,
             catch_var,
             catch_body,
-        } => match eval_expr(&try_expr.data, ctx) {
-            Ok(result) => Some(InstrRet::WanderingValue(LocatedValue::new(
-                RuntimeCodeRange::Parsed(try_expr.at),
-                result,
-            ))),
+        } => {
+            return match eval_expr(&try_expr.data, ctx) {
+                Ok(result) => Err(ExecResultType::InternalPropagation(
+                    ExecInternalPropagation::WanderingValue(LocatedValue::new(
+                        RuntimeCodeRange::Parsed(try_expr.at),
+                        result,
+                    )),
+                )),
 
-            Err(err) => match err.nature {
-                ExecErrorNature::Thrown { at, message } => {
-                    let mut scope = ScopeContent::new();
+                Err(err) => match err {
+                    ExecResultType::Error(err) => match err.nature {
+                        ExecErrorNature::Thrown { at, message } => {
+                            let mut scope = ScopeContent::new();
 
-                    scope.vars.insert(
-                        catch_var.data.clone(),
-                        ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                            decl_scope_id: catch_body.data.scope_id,
-                            is_mut: false,
-                            enforced_type: None,
-                            value: GcCell::new(LocatedValue::new(
-                                at,
-                                RuntimeValue::String(message),
-                            )),
-                        },
-                    );
+                            scope.vars.insert(
+                                catch_var.data.clone(),
+                                ScopeVar {
+                                    name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                                    decl_scope_id: catch_body.data.scope_id,
+                                    is_mut: false,
+                                    enforced_type: None,
+                                    value: GcCell::new(LocatedValue::new(
+                                        at,
+                                        RuntimeValue::String(message),
+                                    )),
+                                },
+                            );
 
-                    run_block(catch_body, ctx, Some(scope))?
-                }
+                            run_block(catch_body, ctx, Some(scope))
+                        }
 
-                _ => return Err(err),
-            },
-        },
+                        _ => Err(ExecResultType::Error(err)),
+                    },
+
+                    _ => Err(err),
+                },
+            }
+        }
 
         Instruction::CmdAliasDecl {
             name,
@@ -891,8 +891,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     }),
                 },
             );
-
-            None
         }
 
         Instruction::TypeAliasDecl {
@@ -900,8 +898,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             content: _,
         } => {
             // Nothing to do here as this was already put inside context before
-
-            None
         }
 
         Instruction::DoBlock(block) => run_block(block, ctx, None)?,
@@ -916,7 +912,11 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 },
             )?;
 
-            cmd_result.as_returned().map(InstrRet::WanderingValue)
+            if let Some(returned) = cmd_result.as_returned() {
+                return Err(ExecResultType::InternalPropagation(
+                    ExecInternalPropagation::WanderingValue(returned),
+                ));
+            }
         }
 
         Instruction::Include(program) => {
@@ -934,7 +934,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         }
     };
 
-    Ok(instr_ret)
+    Ok(())
 }
 
 fn declare_vars(
@@ -1129,10 +1129,4 @@ fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> 
     );
 
     Ok(())
-}
-
-#[derive(Debug, Clone)]
-pub enum InstrRet {
-    FnReturn(Option<LocatedValue>),
-    WanderingValue(LocatedValue),
 }

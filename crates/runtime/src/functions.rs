@@ -12,8 +12,8 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     cmd::{eval_cmd_arg, CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
-    errors::{ExecInfoType, ExecResult},
-    exec::{run_body_with_deps, InstrRet},
+    errors::{ExecInfoType, ExecInternalPropagation, ExecResult, ExecResultType},
+    exec::run_body_with_deps,
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
     typechecker::check_if_value_fits_type,
@@ -37,19 +37,20 @@ pub fn eval_fn_call(
 
         FnCallNature::Method => {
             let Some(piped) = piped.as_ref() else {
-                return Err(ctx
-                    .error(
-                        call.data.call_args.at,
-                        "please only call methods as postfix",
-                    )
-                    .with_info(
-                        ExecInfoType::Tip,
-                        "  valid usage: value.method('arg1', 'arg2')",
-                    )
-                    .with_info(
-                        ExecInfoType::Tip,
-                        "invalid usage: .method(value, 'arg1', 'arg2')",
-                    ));
+                return Err(ctx.error_with_infos(
+                    call.data.call_args.at,
+                    "please only call methods as postfix",
+                    vec![
+                        (
+                            ExecInfoType::Tip,
+                            "  valid usage: value.method('arg1', 'arg2')".to_owned(),
+                        ),
+                        (
+                            ExecInfoType::Tip,
+                            "invalid usage: .method(value, 'arg1', 'arg2')".to_owned(),
+                        ),
+                    ],
+                ));
             };
 
             let method = find_applicable_method(&call.data.name, &piped.value, ctx)?;
@@ -136,7 +137,7 @@ pub fn call_fn_value(
                 return Err(ctx.error(call_at, "function called before its declaration"));
             };
 
-            let instr_ret = run_body_with_deps(
+            match run_body_with_deps(
                 body,
                 captured_deps.clone(),
                 ctx,
@@ -145,12 +146,25 @@ pub fn call_fn_value(
                 Some(CallStackEntry {
                     fn_called_at: call_at,
                 }),
-            )?;
+            ) {
+                Ok(()) => None,
 
-            instr_ret.and_then(|instr_ret| match instr_ret {
-                InstrRet::FnReturn(value) => value,
-                InstrRet::WanderingValue(value) => Some(value),
-            })
+                Err(err @ ExecResultType::Error(_)) => return Err(err),
+
+                Err(ExecResultType::InternalPropagation(propagation)) => match propagation {
+                    ExecInternalPropagation::FnReturn(value) => value,
+
+                    ExecInternalPropagation::WanderingValue(value) => Some(value),
+
+                    ExecInternalPropagation::LoopContinuation
+                    | ExecInternalPropagation::LoopBreakage => {
+                        return Err(ExecResultType::InternalPropagation(propagation))
+                    }
+                },
+            }
+
+            // InstrRet::FnReturn(value) => value,
+            // InstrRet::WanderingValue(value) => Some(value),
         }
 
         RuntimeFnBody::Internal(run) => run(InternalFnCallData {
@@ -257,12 +271,10 @@ fn fill_fn_args(
                 typ: _,
             }) => {
                 if !*is_optional {
-                    return Err(ctx
-                        .error(
-                            call_at,
-                            format!("missing value for argument: {}", fn_arg_human_name(arg)),
-                        )
-                        .with_info(
+                    return Err(ctx.error_with_infos(
+                        call_at,
+                        format!("missing value for argument: {}", fn_arg_human_name(arg)),
+                        vec![(
                             ExecInfoType::Tip,
                             format!(
                                 "called function's signature is: {}",
@@ -270,7 +282,8 @@ fn fill_fn_args(
                                     .inner()
                                     .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                             ),
-                        ));
+                        )],
+                    ));
                 }
 
                 if !is_native_fn {
@@ -563,18 +576,16 @@ fn parse_single_fn_call_arg<'a>(
                                         value_on_hold: None,
                                     })
                                 } else {
-                                    Err(ctx
-                                        .error(
-                                            name.at,
-                                            format!(
-                                                "a value of type '{}' is expected for this flag",
-                                                typ.display(
-                                                    ctx.type_alias_store(),
-                                                    PrettyPrintOptions::inline()
-                                                )
-                                            ),
-                                        )
-                                        .with_info(
+                                    Err(ctx.error_with_infos(
+                                        name.at,
+                                        format!(
+                                            "a value of type '{}' is expected for this flag",
+                                            typ.display(
+                                                ctx.type_alias_store(),
+                                                PrettyPrintOptions::inline()
+                                            )
+                                        ),
+                                        vec![(
                                             ExecInfoType::Tip,
                                             format!(
                                                 "called function's signature is: {}",
@@ -583,7 +594,8 @@ fn parse_single_fn_call_arg<'a>(
                                                     PrettyPrintOptions::inline()
                                                 )
                                             ),
-                                        ))
+                                        )],
+                                    ))
                                 }
                             }
 
@@ -598,15 +610,17 @@ fn parse_single_fn_call_arg<'a>(
                                     && !check_if_value_fits_type(&value.value, typ, ctx)
                                 {
                                     Err(
-                                        ctx.error(
+                                        ctx.error_with_infos(
                                             value.from,
                                         format!(
                                             "expected a value of type '{}' for flag '{}', found '{}'",
                                             typ.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
                                             names.display(&(), PrettyPrintOptions::inline()),
                                             value.value.compute_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                                        )
-                                    ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().display(ctx.type_alias_store(), PrettyPrintOptions::inline()))))
+                                        ),
+                                     vec![
+                                        (ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().display(ctx.type_alias_store(), PrettyPrintOptions::inline())))
+                                    ]))
                                 } else {
                                     Ok(ParsedSingleFnCallArg::Variable {
                                         name: var_name,
@@ -633,14 +647,18 @@ fn parse_single_fn_call_arg<'a>(
             }
 
             // Otherwise, we have found an unknown flag
-            Err(ctx.error(name.at, "unknown flag provided").with_info(
-                ExecInfoType::Tip,
-                format!(
-                    "called function's signature is: {}",
-                    func.signature
-                        .inner()
-                        .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                ),
+            Err(ctx.error_with_infos(
+                name.at,
+                "unknown flag provided",
+                vec![(
+                    ExecInfoType::Tip,
+                    format!(
+                        "called function's signature is: {}",
+                        func.signature
+                            .inner()
+                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    ),
+                )],
             ))
         }
 
@@ -655,9 +673,10 @@ fn parse_single_fn_call_arg<'a>(
                 }
                 // Otherwise, we have found an argument that doesn't belong anywhere
                 else {
-                    Err(ctx
-                        .error(loc_val.from, "too many arguments provided")
-                        .with_info(
+                    Err(ctx.error_with_infos(
+                        loc_val.from,
+                        "too many arguments provided",
+                        vec![(
                             ExecInfoType::Tip,
                             format!(
                                 "called function's signature is: {}",
@@ -665,7 +684,8 @@ fn parse_single_fn_call_arg<'a>(
                                     .inner()
                                     .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                             ),
-                        ))
+                        )],
+                    ))
                 };
             };
 
@@ -963,7 +983,7 @@ pub fn find_applicable_method<'s>(
 ) -> ExecResult<&'s ScopeMethod> {
     ctx.find_applicable_method(name, for_value)
         .map_err(|not_matching| {
-            let mut err = ctx.error(
+            ctx.error_with_infos(
                 name.at,
                 format!(
                     "no such method for type {}",
@@ -971,21 +991,21 @@ pub fn find_applicable_method<'s>(
                         .compute_type()
                         .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
-            );
-
-            for method in not_matching {
-                err = err.with_info(
-                    ExecInfoType::Note,
-                    format!(
-                        "a method with the same name exists for type: {}",
-                        method
-                            .on_type
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                );
-            }
-
-            err
+                not_matching
+                    .into_iter()
+                    .map(|method| {
+                        (
+                            ExecInfoType::Note,
+                            format!(
+                                "a method with the same name exists for type: {}",
+                                method
+                                    .on_type
+                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            ),
+                        )
+                    })
+                    .collect(),
+            )
         })
 }
 

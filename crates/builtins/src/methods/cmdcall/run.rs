@@ -1,7 +1,7 @@
 use reshell_parser::ast::CmdCaptureType;
 use reshell_runtime::{
     cmd::{run_cmd, CmdExecParams},
-    errors::ExecErrorNature,
+    errors::{ExecErrorNature, ExecResultType},
 };
 
 use crate::define_internal_fn;
@@ -32,7 +32,7 @@ fn run() -> Runner {
          ctx| {
             let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
 
-            match run_cmd(
+            let cmd_result = run_cmd(
                 &cmd,
                 ctx,
                 CmdExecParams {
@@ -48,11 +48,16 @@ fn run() -> Runner {
 
                     silent,
                 },
-            ) {
+            );
+
+            match cmd_result {
                 Ok(_) => Ok(None),
-                Err(err) => {
+
+                Err(err @ ExecResultType::InternalPropagation(_)) => Err(err),
+
+                Err(ExecResultType::Error(err)) => {
                     if err.at.parsed_range() != Some(cmd_call) {
-                        return Err(err);
+                        return Err(ExecResultType::Error(err));
                     }
 
                     match err.nature {
@@ -81,8 +86,7 @@ fn run() -> Runner {
                         | ExecErrorNature::CtrlC
                         | ExecErrorNature::FailureExit { code: _ }
                         | ExecErrorNature::Custom(_)
-                        | ExecErrorNature::NotAnError(_)
-                        | ExecErrorNature::InternalPropagation(_) => Err(err),
+                        | ExecErrorNature::NotAnError(_) => Err(ExecResultType::Error(err)),
                     }
                 }
             }

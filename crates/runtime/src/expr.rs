@@ -10,7 +10,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecError, ExecErrorNature, ExecInternalPropagation, ExecResult},
+    errors::{ExecErrorNature, ExecInternalPropagation, ExecResult, ExecResultType},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty_impl::pretty_printable_string,
@@ -463,31 +463,37 @@ fn eval_expr_inner_content(
             catch_var,
             catch_expr,
             catch_expr_scope_id,
-        } => eval_expr(try_expr, ctx).or_else(|err| match err.nature {
-            ExecErrorNature::Thrown { at, message } => {
-                let mut scope = ScopeContent::new();
+        } => eval_expr(try_expr, ctx).or_else(|err| match err {
+            ExecResultType::InternalPropagation(_) => Err(err),
+            ExecResultType::Error(err) => match err.nature {
+                ExecErrorNature::Thrown { at, message } => {
+                    let mut scope = ScopeContent::new();
 
-                scope.vars.insert(
-                    catch_var.data.clone(),
-                    ScopeVar {
-                        name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                        decl_scope_id: *catch_expr_scope_id,
-                        is_mut: false,
-                        enforced_type: None,
-                        value: GcCell::new(LocatedValue::new(at, RuntimeValue::String(message))),
-                    },
-                );
+                    scope.vars.insert(
+                        catch_var.data.clone(),
+                        ScopeVar {
+                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                            decl_scope_id: *catch_expr_scope_id,
+                            is_mut: false,
+                            enforced_type: None,
+                            value: GcCell::new(LocatedValue::new(
+                                at,
+                                RuntimeValue::String(message),
+                            )),
+                        },
+                    );
 
-                ctx.create_and_push_scope(*catch_expr_scope_id, scope);
+                    ctx.create_and_push_scope(*catch_expr_scope_id, scope);
 
-                let result = eval_expr(catch_expr, ctx);
+                    let result = eval_expr(catch_expr, ctx);
 
-                ctx.pop_scope();
+                    ctx.pop_scope();
 
-                result
-            }
+                    result
+                }
 
-            _ => Err(err),
+                _ => Err(ExecResultType::Error(err)),
+            },
         }),
 
         ExprInnerContent::FnAsValue(name) => ctx
@@ -521,14 +527,12 @@ fn eval_expr_inner_content(
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
 
-        ExprInnerContent::LoopContinue => Err(ctx.error(
-            content.at,
-            ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
+        ExprInnerContent::LoopContinue => Err(ExecResultType::InternalPropagation(
+            ExecInternalPropagation::LoopContinuation,
         )),
 
-        ExprInnerContent::LoopBreak => Err(ctx.error(
-            content.at,
-            ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
+        ExprInnerContent::LoopBreak => Err(ExecResultType::InternalPropagation(
+            ExecInternalPropagation::LoopBreakage,
         )),
     }
 }
@@ -583,7 +587,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
                 .map(|(field, value)| {
                     let result = eval_expr(value, ctx)?;
 
-                    Ok::<_, Box<ExecError>>((field.data.clone(), result))
+                    Ok::<_, ExecResultType>((field.data.clone(), result))
                 })
                 .collect::<Result<IndexMap<_, _>, _>>()?;
 

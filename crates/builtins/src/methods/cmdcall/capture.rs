@@ -1,7 +1,7 @@
 use reshell_parser::ast::CmdCaptureType;
 use reshell_runtime::{
     cmd::{run_cmd, CmdExecParams, CmdExecResult},
-    errors::ExecErrorNature,
+    errors::{ExecErrorNature, ExecResultType},
 };
 
 use crate::define_internal_fn;
@@ -42,29 +42,32 @@ fn run() -> Runner {
                 },
             );
 
-            let captured = exec_result.map_err(|err| {
-                if err.at.parsed_range() != Some(cmd_call) {
-                    return err;
-                }
+            let captured = exec_result.map_err(|err| match err {
+                ExecResultType::InternalPropagation(_) => err,
 
-                match err.nature {
-                    ExecErrorNature::CommandFailedToStart { message } => {
-                        ctx.throw(at, format!("failed to start command: {message}"))
+                ExecResultType::Error(err) => {
+                    if err.at.parsed_range() != Some(cmd_call) {
+                        return ExecResultType::Error(err);
                     }
 
-                    ExecErrorNature::CommandFailed {
-                        message,
-                        exit_status: _,
-                    } => ctx.throw(at, message),
+                    match err.nature {
+                        ExecErrorNature::CommandFailedToStart { message } => {
+                            ctx.throw(at, format!("failed to start command: {message}"))
+                        }
 
-                    ExecErrorNature::ParsingErr(_)
-                    | ExecErrorNature::CheckingErr(_)
-                    | ExecErrorNature::Thrown { message: _, at: _ }
-                    | ExecErrorNature::CtrlC
-                    | ExecErrorNature::FailureExit { code: _ }
-                    | ExecErrorNature::Custom(_)
-                    | ExecErrorNature::NotAnError(_)
-                    | ExecErrorNature::InternalPropagation(_) => err,
+                        ExecErrorNature::CommandFailed {
+                            message,
+                            exit_status: _,
+                        } => ctx.throw(at, message),
+
+                        ExecErrorNature::ParsingErr(_)
+                        | ExecErrorNature::CheckingErr(_)
+                        | ExecErrorNature::Thrown { message: _, at: _ }
+                        | ExecErrorNature::CtrlC
+                        | ExecErrorNature::FailureExit { code: _ }
+                        | ExecErrorNature::Custom(_)
+                        | ExecErrorNature::NotAnError(_) => ExecResultType::Error(err),
+                    }
                 }
             })?;
 

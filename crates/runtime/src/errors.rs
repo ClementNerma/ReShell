@@ -8,10 +8,17 @@ use parsy::ParsingError;
 use reshell_checker::CheckerError;
 use reshell_parser::ast::RuntimeCodeRange;
 
-use crate::context::CallStack;
+use crate::{context::CallStack, values::LocatedValue};
 
-/// Result of an action that may have resulted in an execution error
-pub type ExecResult<T> = Result<T, Box<ExecError>>;
+/// Result of a runtime action that may have resulted in an execution error
+pub type ExecResult<T> = Result<T, ExecResultType>;
+
+/// Result of a runtime action that is either an error or an information to propagate upwards
+#[derive(Debug)]
+pub enum ExecResultType {
+    Error(Box<ExecError>),
+    InternalPropagation(ExecInternalPropagation),
+}
 
 /// An error that occured during execution (runtime)
 #[derive(Debug)]
@@ -65,9 +72,6 @@ pub enum ExecErrorNature {
     Custom(Cow<'static, str>),
     /// Not an actual error (see the enum's docs)
     NotAnError(ExecNotActualError),
-    /// Not an actual error, internal use only
-    /// Should never appear in a user-facing error
-    InternalPropagation(ExecInternalPropagation),
 }
 
 /// These is technically no errors so they shouldn't be here ideally,
@@ -88,6 +92,10 @@ pub enum ExecInternalPropagation {
     LoopContinuation,
     /// Loop breakage
     LoopBreakage,
+    // Function return
+    FnReturn(Option<LocatedValue>),
+    // Wandering value
+    WanderingValue(LocatedValue),
 }
 
 impl From<&'static str> for ExecErrorNature {

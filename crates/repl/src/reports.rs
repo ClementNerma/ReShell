@@ -52,8 +52,6 @@ impl ReportableError {
                 ExecErrorNature::NotAnError(err) => match err {
                     ExecNotActualError::SuccessfulExit => false,
                 },
-
-                ExecErrorNature::InternalPropagation(_) => unreachable!(),
             },
         }
     }
@@ -86,8 +84,6 @@ impl ReportableError {
                 ExecErrorNature::NotAnError(err) => match &err {
                     ExecNotActualError::SuccessfulExit => Some(0),
                 },
-
-                ExecErrorNature::InternalPropagation(_) => unreachable!(),
             },
         }
     }
@@ -161,8 +157,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             ),
 
             ExecErrorNature::NotAnError(_) => unreachable!(),
-
-            ExecErrorNature::InternalPropagation(_) => unreachable!(),
         },
     };
 

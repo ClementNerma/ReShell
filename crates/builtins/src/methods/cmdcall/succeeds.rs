@@ -1,6 +1,6 @@
 use reshell_runtime::{
     cmd::{run_cmd, CmdExecParams},
-    errors::ExecErrorNature,
+    errors::{ExecErrorNature, ExecResultType},
 };
 
 use crate::define_internal_fn;
@@ -32,7 +32,9 @@ fn run() -> Runner {
         match cmd_result {
             Ok(_) => Ok(Some(RuntimeValue::Bool(true))),
 
-            Err(err) => match err.nature {
+            Err(err @ ExecResultType::InternalPropagation(_)) => Err(err),
+
+            Err(ExecResultType::Error(err)) => match err.nature {
                 ExecErrorNature::CommandFailedToStart { message: _ }
                 | ExecErrorNature::CommandFailed {
                     message: _,
@@ -45,8 +47,7 @@ fn run() -> Runner {
                 | ExecErrorNature::CtrlC
                 | ExecErrorNature::FailureExit { code: _ }
                 | ExecErrorNature::Custom(_)
-                | ExecErrorNature::NotAnError(_)
-                | ExecErrorNature::InternalPropagation(_) => Err(err),
+                | ExecErrorNature::NotAnError(_) => Err(ExecResultType::Error(err)),
             },
         }
     })
