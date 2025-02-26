@@ -63,7 +63,8 @@ fn run() -> Runner {
                     | ExecErrorNature::CtrlC
                     | ExecErrorNature::FailureExit { code: _ }
                     | ExecErrorNature::Custom(_)
-                    | ExecErrorNature::NotAnError(_) => err,
+                    | ExecErrorNature::NotAnError(_)
+                    | ExecErrorNature::InternalPropagation(_) => err,
                 }
             })?;
 

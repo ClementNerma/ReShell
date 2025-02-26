@@ -15,7 +15,7 @@ use crate::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeMethod, ScopeVar,
     },
-    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult},
     expr::{eval_expr, eval_range_bound},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
@@ -428,14 +428,14 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             }
 
                             Err(err) => match err.nature {
-                                // Loop continuation (do nothing)
-                                ExecErrorNature::NotAnError(
-                                    ExecNotActualError::LoopContinuation,
-                                ) => {}
+                                ExecErrorNature::InternalPropagation(propagation) => {
+                                    match propagation {
+                                        // Loop continuation (do nothing)
+                                        ExecInternalPropagation::LoopContinuation => {}
 
-                                // Loop breakage
-                                ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => {
-                                    break
+                                        // Loop breakage
+                                        ExecInternalPropagation::LoopBreakage => break,
+                                    }
                                 }
 
                                 // Propagate other error types
@@ -515,11 +515,15 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     }
 
                     Err(err) => match err.nature {
-                        // Loop continuation (do nothing)
-                        ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation) => {}
+                        ExecErrorNature::InternalPropagation(propagation) => {
+                            match propagation {
+                                // Loop continuation (do nothing)
+                                ExecInternalPropagation::LoopContinuation => {}
 
-                        // Loop breakage
-                        ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => break,
+                                // Loop breakage
+                                ExecInternalPropagation::LoopBreakage => break,
+                            }
+                        }
 
                         // Propagate other error types
                         _ => return Err(err),
@@ -598,11 +602,15 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     }
 
                     Err(err) => match err.nature {
-                        // Loop continuation (do nothing)
-                        ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation) => {}
+                        ExecErrorNature::InternalPropagation(propagation) => {
+                            match propagation {
+                                // Loop continuation (do nothing)
+                                ExecInternalPropagation::LoopContinuation => {}
 
-                        // Loop breakage
-                        ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => break,
+                                // Loop breakage
+                                ExecInternalPropagation::LoopBreakage => break,
+                            }
+                        }
 
                         // Propagate other error types
                         _ => return Err(err),
@@ -651,11 +659,15 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     }
 
                     Err(err) => match err.nature {
-                        // Loop continuation (do nothing)
-                        ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation) => {}
+                        ExecErrorNature::InternalPropagation(propagation) => {
+                            match propagation {
+                                // Loop continuation (do nothing)
+                                ExecInternalPropagation::LoopContinuation => {}
 
-                        // Loop breakage
-                        ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage) => break,
+                                // Loop breakage
+                                ExecInternalPropagation::LoopBreakage => break,
+                            }
+                        }
 
                         // Propagate other error types
                         _ => return Err(err),
@@ -669,14 +681,14 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         Instruction::LoopContinue => {
             return Err(ctx.error(
                 instr.at,
-                ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation),
+                ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
             ))
         }
 
         Instruction::LoopBreak => {
             return Err(ctx.error(
                 instr.at,
-                ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage),
+                ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
             ))
         }
 

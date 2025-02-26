@@ -220,10 +220,9 @@ pub fn start(
 
                             ExecErrorNature::NotAnError(err) => match err {
                                 ExecNotActualError::SuccessfulExit => unreachable!(),
-
-                                ExecNotActualError::LoopContinuation
-                                | ExecNotActualError::LoopBreakage => unreachable!(),
                             },
+
+                            ExecErrorNature::InternalPropagation(_) => unreachable!(),
                         }
                     }
                 }

@@ -65,6 +65,9 @@ pub enum ExecErrorNature {
     Custom(Cow<'static, str>),
     /// Not an actual error (see the enum's docs)
     NotAnError(ExecNotActualError),
+    /// Not an actual error, internal use only
+    /// Should never appear in a user-facing error
+    InternalPropagation(ExecInternalPropagation),
 }
 
 /// These is technically no errors so they shouldn't be here ideally,
@@ -74,6 +77,13 @@ pub enum ExecErrorNature {
 pub enum ExecNotActualError {
     /// Successfull exit (no error)
     SuccessfulExit,
+}
+
+/// These is technically no errors so they shouldn't be here ideally,
+/// but it would be very hard to propagate them along a very long chain of
+/// nested functions up to the top one without wrapping them inside an error structure
+#[derive(Debug)]
+pub enum ExecInternalPropagation {
     /// Loop continuation
     LoopContinuation,
     /// Loop breakage

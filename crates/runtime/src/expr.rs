@@ -10,7 +10,7 @@ use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty_impl::pretty_printable_string,
@@ -523,12 +523,12 @@ fn eval_expr_inner_content(
 
         ExprInnerContent::LoopContinue => Err(ctx.error(
             content.at,
-            ExecErrorNature::NotAnError(ExecNotActualError::LoopContinuation),
+            ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
         )),
 
         ExprInnerContent::LoopBreak => Err(ctx.error(
             content.at,
-            ExecErrorNature::NotAnError(ExecNotActualError::LoopBreakage),
+            ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
         )),
     }
 }
