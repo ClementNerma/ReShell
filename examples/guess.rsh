@@ -5,11 +5,7 @@ let mut lives = 10
 while true {
     let guess = ask("Guess the number: ")
 
-    let guess = try { $guess.parseInt() } catch _ { null }
-
-    if $guess == null {
-        continue
-    }
+    let guess = try { $guess.parseInt() } catch _ { continue }
 
     if $guess > $num {
         echo "Lower!"

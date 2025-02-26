@@ -4,7 +4,7 @@ let mut calls = 0
 fn fibo(n: int) -> int {
     $calls = $calls + 1
 
-    return if $n < 2 {
+    if $n < 2 {
         $n
     } else {
         fibo($n - 1) + fibo($n - 2)
