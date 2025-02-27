@@ -102,7 +102,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         // Regexes
         //
         self::regex::capture::build_fn(),
-        self::regex::r#match::build_fn(),
+        self::regex::matches::build_fn(),
         self::regex::replace::build_fn(),
         //
         // Strings

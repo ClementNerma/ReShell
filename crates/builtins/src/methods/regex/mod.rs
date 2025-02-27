@@ -1,3 +1,3 @@
 pub mod capture;
-pub mod r#match;
+pub mod matches;
 pub mod replace;
