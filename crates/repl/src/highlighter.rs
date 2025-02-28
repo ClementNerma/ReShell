@@ -213,6 +213,9 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                     }))
                 }),
 
+                // Method calls
+                method_call(),
+
                 // Command names
                 Rule::Simple(SimpleRule {
                     matches: Regex::new(pomsky!(
@@ -277,9 +280,6 @@ static RULE_SET: LazyLock<Arc<ValidatedRuleSet>> = LazyLock::new(|| {
                 // Expansions
                 simple(pomsky!( [s ','] :("...") ($ | ['$' '(']) ), [Red]),
                 
-                // Method calls
-                method_call(),
-
                 // Any other character
                 simple(pomsky!( :(.) ), [Green]),
             ]),
