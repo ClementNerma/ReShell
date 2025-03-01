@@ -745,6 +745,35 @@ let value: list[string] = ['a', 'b', 'c']
 let value: list = [1, 2, 3]
 ```
 
+You can also _spread_ a list:
+
+```reshell
+let value = [4, 5, 6]
+
+let value = [1, 2, 3, ...$value, 7, 8, 9]
+
+dbg $value # [1, 2, 3, 4, 5, 6, 7, 8, 9]
+```
+
+Spreads can be expressions too:
+
+```reshell
+let value = [1, 2, 3, ...(
+  # sub-expression goes here
+  [4, 5, 6]
+), 7, 8, 9]
+```
+
+These can also be used in commands:
+
+```reshell
+let value = ['a', 'b', 'c']
+
+cmd ...$value
+# is equivalent to:
+cmd 'a' 'b' 'c'
+```
+
 ### Maps
 
 Maps associate a set of key-values, but unlike with structures they can be added or removed:
@@ -802,6 +831,26 @@ let value: map[string] = map { a: 'a', b: 'b' }
 # we can also use the 'map' type alone, which is functionally equivalent
 # to map[any]:
 let value: map = map { a: 1, b: 'c' }
+```
+
+You can also _spread_ a map:
+
+```reshell
+let value = map { d: 4, e: 5, f: 6 }
+
+let value = map { a: 1, b: 2, c: 3, ...$sub, g: 7, h: 8, i: 9 }
+
+dbg $value # { a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9 }
+```
+
+Note that maps and structs spreading can be combined:
+
+```reshell
+let value = map { b: 2 }
+let value = { a: 1, ...$map }
+
+let value = { b: 2 }
+let value = map { a: 1, ...$map }
 ```
 
 ### Type aliases
