@@ -313,8 +313,8 @@ pub enum Value {
     Literal(LiteralValue),
     ComputedString(ComputedString),
     List(Vec<ListItem>),
-    Map(Vec<(Span<MapKey>, Expr)>),
-    Struct(Vec<(Span<String>, Expr)>),
+    Map(Vec<MapItem>),
+    Struct(Vec<StructItem>),
     Variable(Span<String>),
     FnCall(Span<FnCall>),
     CmdOutput(CmdOutputCapture),
@@ -330,9 +330,9 @@ pub enum ListItem {
 }
 
 #[derive(Debug, Clone)]
-pub enum SpreadValue {
-    Variable(Span<String>),
-    Expr(Expr),
+pub enum MapItem {
+    Single { key: Span<MapKey>, value: Expr },
+    Spread(Span<SpreadValue>),
 }
 
 #[derive(Debug, Clone)]
@@ -340,6 +340,18 @@ pub enum MapKey {
     Raw(String),
     LiteralString(String),
     ComputedString(ComputedString),
+    Expr(Expr),
+}
+
+#[derive(Debug, Clone)]
+pub enum StructItem {
+    Single { field: Span<String>, value: Expr },
+    Spread(Span<SpreadValue>),
+}
+
+#[derive(Debug, Clone)]
+pub enum SpreadValue {
+    Variable(Span<String>),
     Expr(Expr),
 }
 

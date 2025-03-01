@@ -15,10 +15,10 @@ use crate::{
         ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
         FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
-        MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
+        MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
         ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructTypeMember,
-        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -548,13 +548,23 @@ pub fn program(
             .ignore_then(char('{'))
             .ignore_then(msnl)
             .ignore_then(
-                map_key
-                    .spanned()
-                    .then_ignore(ms)
-                    .then_ignore(char(':'))
-                    .then_ignore(msnl)
-                    .then(expr.clone().critical("expected an expression"))
-                    .separated_by_into_vec(char(',').padded_by(msnl)),
+                choice::<MapItem, _>((
+                    //
+                    // Single value
+                    //
+                    map_key
+                        .spanned()
+                        .then_ignore(ms)
+                        .then_ignore(char(':').critical_auto_msg())
+                        .then_ignore(msnl)
+                        .then(expr.clone().critical("expected an expression"))
+                        .map(|(key, value)| MapItem::Single { key, value }),
+                    //
+                    // Spread value
+                    //
+                    spread_value.clone().spanned().map(MapItem::Spread),
+                ))
+                .separated_by_into_vec(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
             .then_ignore(char('}').critical_auto_msg())
@@ -565,13 +575,23 @@ pub fn program(
         char('{')
             .ignore_then(msnl)
             .ignore_then(
-                ident
-                    .spanned()
-                    .then_ignore(ms)
-                    .then_ignore(char(':'))
-                    .then_ignore(msnl)
-                    .then(expr.clone().critical("expected an expression"))
-                    .separated_by_into_vec(char(',').padded_by(msnl)),
+                choice::<StructItem, _>((
+                    //
+                    // Single value
+                    //
+                    ident
+                        .spanned()
+                        .then_ignore(ms)
+                        .then_ignore(char(':').critical_auto_msg())
+                        .then_ignore(msnl)
+                        .then(expr.clone().critical("expected an expression"))
+                        .map(|(field, value)| StructItem::Single { field, value }),
+                    //
+                    // Spread value
+                    //
+                    spread_value.clone().spanned().map(StructItem::Spread),
+                ))
+                .separated_by_into_vec(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
             .then_ignore(char('}').critical_auto_msg())

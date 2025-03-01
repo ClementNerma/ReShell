@@ -27,10 +27,10 @@ use reshell_parser::{
         ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
         FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
         FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
-        MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
+        MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
         ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructTypeMember,
-        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem,
+        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     scope::AstScopeId,
 };
@@ -927,26 +927,40 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
         }
 
         Value::Map(members) => {
-            for (key, value) in members {
-                check_map_key(&key.data, state)?;
-                check_expr(value, state)?;
+            for item in members {
+                match item {
+                    MapItem::Single { key, value } => {
+                        check_map_key(&key.data, state)?;
+                        check_expr(value, state)?;
+                    }
+
+                    MapItem::Spread(spread_value) => check_spread_value(&spread_value.data, state)?,
+                }
             }
 
             Ok(())
         }
 
         Value::Struct(members) => {
-            let mut fields = HashSet::new();
+            let mut explicit_fields = HashSet::with_capacity(members.len());
 
-            for (field, value) in members {
-                if !fields.insert(&field.data) {
-                    return Err(CheckerError::new(
-                        field.at,
-                        "duplicate identifier in struct",
-                    ));
+            for item in members {
+                match item {
+                    StructItem::Single { field, value } => {
+                        if !explicit_fields.insert(&field.data) {
+                            return Err(CheckerError::new(
+                                field.at,
+                                "duplicate identifier in struct",
+                            ));
+                        }
+
+                        check_expr(value, state)?;
+                    }
+
+                    StructItem::Spread(spread_value) => {
+                        check_spread_value(&spread_value.data, state)?;
+                    }
                 }
-
-                check_expr(value, state)?;
             }
 
             Ok(())

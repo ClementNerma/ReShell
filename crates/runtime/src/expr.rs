@@ -2,15 +2,16 @@ use indexmap::IndexMap;
 use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-    ExprInnerContent, ExprOp, Function, ListItem, LiteralValue, MapKey, MatchExprCase, PropAccess,
-    RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, TypeMatchExprCase, Value,
+    ExprInnerContent, ExprOp, Function, ListItem, LiteralValue, MapItem, MapKey, MatchExprCase,
+    PropAccess, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem, TypeMatchExprCase,
+    Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecError, ExecErrorNature, ExecInternalPropagation, ExecResult},
+    errors::{ExecErrorNature, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     pretty_impl::pretty_printable_string,
@@ -554,7 +555,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
                     }
 
                     ListItem::Spread(spread_value) => {
-                        let values = eval_spread_value(spread_value, ctx)?;
+                        let values = eval_list_spread_value(spread_value, ctx)?;
                         list.extend(values.read_promise_no_write().iter().cloned());
                     }
                 }
@@ -566,41 +567,66 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
         Value::Map(members) => {
             let mut map = IndexMap::with_capacity(members.len());
 
-            for (key, value) in members {
-                let key_at = key.at;
+            for item in members {
+                match item {
+                    MapItem::Single { key, value } => {
+                        let eval_key = eval_map_key(key, ctx)?;
 
-                let key = eval_map_key(key, ctx)?;
+                        if map.contains_key(&eval_key) {
+                            return Err(ctx.error(
+                                key.at,
+                                format!(
+                                    "key {} appears twice in this map",
+                                    pretty_printable_string(&eval_key)
+                                        .display(&(), PrettyPrintOptions::inline())
+                                ),
+                            ));
+                        }
 
-                if map.contains_key(&key) {
-                    return Err(ctx.error(
-                        key_at,
-                        format!(
-                            "key {} appears twice in this map",
-                            pretty_printable_string(&key)
-                                .display(&(), PrettyPrintOptions::inline())
-                        ),
-                    ));
+                        let value = eval_expr(value, ctx)?;
+
+                        map.insert(eval_key, value);
+                    }
+
+                    MapItem::Spread(spread_value) => {
+                        let spread_map = eval_map_or_struct_spread_value(spread_value, ctx)?;
+
+                        map.extend(
+                            spread_map
+                                .read_promise_no_write()
+                                .iter()
+                                .map(|(key, value)| (key.clone(), value.clone())),
+                        );
+                    }
                 }
-
-                let value = eval_expr(value, ctx)?;
-
-                map.insert(key, value);
             }
 
             RuntimeValue::Map(GcCell::new(map))
         }
 
-        Value::Struct(obj) => {
-            let members = obj
-                .iter()
-                .map(|(field, value)| {
-                    let result = eval_expr(value, ctx)?;
+        Value::Struct(members) => {
+            let mut obj = IndexMap::with_capacity(members.len());
 
-                    Ok::<_, Box<ExecError>>((field.data.clone(), result))
-                })
-                .collect::<Result<IndexMap<_, _>, _>>()?;
+            for item in members {
+                match item {
+                    StructItem::Single { field, value } => {
+                        obj.insert(field.data.clone(), eval_expr(value, ctx)?);
+                    }
 
-            RuntimeValue::Struct(GcCell::new(members))
+                    StructItem::Spread(spread_value) => {
+                        let spread_struct = eval_map_or_struct_spread_value(spread_value, ctx)?;
+
+                        obj.extend(
+                            spread_struct
+                                .read_promise_no_write()
+                                .iter()
+                                .map(|(key, value)| (key.clone(), value.clone())),
+                        );
+                    }
+                }
+            }
+
+            RuntimeValue::Struct(GcCell::new(obj))
         }
 
         Value::Variable(name) => ctx.get_visible_var(name).value.read(name.at).value.clone(),
@@ -687,26 +713,50 @@ fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
     }
 }
 
-pub fn eval_spread_value(
+fn eval_spread_value(
+    spread_value: &Span<SpreadValue>,
+    ctx: &mut Context,
+) -> ExecResult<RuntimeValue> {
+    match &spread_value.data {
+        SpreadValue::Variable(var_name) => {
+            let var = ctx.get_visible_var(var_name);
+            Ok(var.value.read(var_name.at).value.clone())
+        }
+
+        SpreadValue::Expr(expr) => eval_expr(expr, ctx),
+    }
+}
+
+pub fn eval_list_spread_value(
     spread_value: &Span<SpreadValue>,
     ctx: &mut Context,
 ) -> ExecResult<GcCell<Vec<RuntimeValue>>> {
-    let value = match &spread_value.data {
-        SpreadValue::Variable(var_name) => {
-            let var = ctx.get_visible_var(var_name);
-            var.value.read(var_name.at).value.clone()
-        }
-
-        SpreadValue::Expr(expr) => eval_expr(expr, ctx)?,
-    };
-
-    match value {
+    match eval_spread_value(spread_value, ctx)? {
         RuntimeValue::List(items) => Ok(items),
 
-        _ => Err(ctx.error(
+        value => Err(ctx.error(
             spread_value.at,
             format!(
-                "expected a spread value, found a {}",
+                "expected a list to spread, found a {}",
+                value
+                    .compute_type()
+                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+            ),
+        )),
+    }
+}
+
+fn eval_map_or_struct_spread_value(
+    spread_value: &Span<SpreadValue>,
+    ctx: &mut Context,
+) -> ExecResult<GcCell<IndexMap<String, RuntimeValue>>> {
+    match eval_spread_value(spread_value, ctx)? {
+        RuntimeValue::Map(obj) | RuntimeValue::Struct(obj) => Ok(obj),
+
+        value => Err(ctx.error(
+            spread_value.at,
+            format!(
+                "expected a map or struct to spread, found a {}",
                 value
                     .compute_type()
                     .display(ctx.type_alias_store(), PrettyPrintOptions::inline())

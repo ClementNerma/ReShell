@@ -20,7 +20,8 @@ use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
     expr::{
-        eval_computed_string, eval_expr, eval_literal_value, eval_spread_value, lambda_to_value,
+        eval_computed_string, eval_expr, eval_list_spread_value, eval_literal_value,
+        lambda_to_value,
     },
     functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
@@ -905,7 +906,7 @@ pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgR
         )),
 
         CmdArg::Spread(spread_value) => {
-            let items = eval_spread_value(spread_value, ctx)?;
+            let items = eval_list_spread_value(spread_value, ctx)?;
 
             let spreaded = items
                 .read_promise_no_write()
