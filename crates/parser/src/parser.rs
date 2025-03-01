@@ -497,14 +497,13 @@ pub fn program(
     let spread_value = just("...").ignore_then(
         choice::<SpreadValue, _>((
             char('$')
-                .ignore_then(ident.critical("expected a variable name to use as rest argument"))
+                .ignore_then(ident.critical("expected a variable name to spread"))
                 .spanned()
                 .map(SpreadValue::Variable),
             char('(')
-                .ignore_then(
-                    expr.clone()
-                        .critical("expected an expression to use as rest argument"),
-                )
+                .ignore_then(msnl)
+                .ignore_then(expr.clone().critical("expected an expression to spread"))
+                .then_ignore(msnl)
                 .then_ignore(char(')'))
                 .map(SpreadValue::Expr),
         ))
