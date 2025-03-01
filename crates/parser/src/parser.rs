@@ -10,15 +10,15 @@ use crate::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
         CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe,
-        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdSpreadArg,
-        CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr,
-        EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
-        FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, LiteralValue, MapKey, MatchCase, MatchExprCase, ObjPropSpreading,
-        ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature,
-        RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
+        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg,
+        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
+        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
+        FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
+        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
+        MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
+        ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructTypeMember,
+        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -494,6 +494,23 @@ pub fn program(
         .then_ignore(msnl)
         .then_ignore(char(')').critical_auto_msg());
 
+    let spread_value = just("...").ignore_then(
+        choice::<SpreadValue, _>((
+            char('$')
+                .ignore_then(ident.critical("expected a variable name to use as rest argument"))
+                .spanned()
+                .map(SpreadValue::Variable),
+            char('(')
+                .ignore_then(
+                    expr.clone()
+                        .critical("expected an expression to use as rest argument"),
+                )
+                .then_ignore(char(')'))
+                .map(SpreadValue::Expr),
+        ))
+        .critical("expected a value to spread"),
+    );
+
     let map_key = choice::<MapKey, _>((
         ident.map(MapKey::Raw),
         literal_string.map(MapKey::LiteralString),
@@ -516,9 +533,11 @@ pub fn program(
         char('[')
             .ignore_then(msnl)
             .ignore_then(
-                expr.clone()
-                    .spanned()
-                    .separated_by_into_vec(char(',').padded_by(msnl)),
+                choice::<ListItem, _>((
+                    expr.clone().map(ListItem::Single),
+                    spread_value.clone().spanned().map(ListItem::Spread),
+                ))
+                .separated_by_into_vec(char(',').padded_by(msnl)),
             )
             .then_ignore(msnl)
             .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
@@ -1094,27 +1113,7 @@ pub fn program(
         // Flag arguments
         cmd_flag_arg.map(CmdArg::Flag),
         // Spread
-        just("...")
-            .ignore_then(
-                choice::<CmdSpreadArg, _>((
-                    char('$')
-                        .ignore_then(
-                            ident.critical("expected a variable name to use as rest argument"),
-                        )
-                        .spanned()
-                        .map(CmdSpreadArg::Variable),
-                    char('(')
-                        .ignore_then(
-                            expr.clone()
-                                .critical("expected an expression to use as rest argument"),
-                        )
-                        .then_ignore(char(')'))
-                        .map(CmdSpreadArg::Expr),
-                ))
-                .critical("expected a value to spread"),
-            )
-            .spanned()
-            .map(CmdArg::Spread),
+        spread_value.spanned().map(CmdArg::Spread),
         // Value-making
         cmd_value_making_arg.spanned().map(CmdArg::ValueMaking),
     ));

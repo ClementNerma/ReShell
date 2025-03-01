@@ -11,15 +11,17 @@ use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg,
     CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
-    CmdRawStringPiece, CmdRedirects, CmdSpreadArg, CmdValueMakingArg, FlagValueSeparator,
-    FnCallNature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
+    CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, FlagValueSeparator, FnCallNature,
+    RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     context::{Context, DepsScopeCreationData},
     errors::{ExecErrorNature, ExecResult},
-    expr::{eval_computed_string, eval_expr, eval_literal_value, lambda_to_value},
+    expr::{
+        eval_computed_string, eval_expr, eval_literal_value, eval_spread_value, lambda_to_value,
+    },
     functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
     gc::GcReadOnlyCell,
     values::{
@@ -902,46 +904,23 @@ pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgR
             }),
         )),
 
-        CmdArg::Spread(spread) => {
-            let spread_value = match &spread.data {
-                CmdSpreadArg::Variable(var_name) => {
-                    let var = ctx.get_visible_var(var_name);
-                    var.value.read(var_name.at).value.clone()
-                }
+        CmdArg::Spread(spread_value) => {
+            let items = eval_spread_value(spread_value, ctx)?;
 
-                CmdSpreadArg::Expr(expr) => eval_expr(expr, ctx)?,
-            };
+            let spreaded = items
+                .read_promise_no_write()
+                .iter()
+                .map(|item| match item {
+                    RuntimeValue::CmdArg(arg) => SingleCmdArgResult::from(CmdArgValue::clone(arg)),
 
-            match spread_value {
-                RuntimeValue::List(items) => {
-                    let spreaded = items
-                        .read_promise_no_write()
-                        .iter()
-                        .map(|item| match item {
-                            RuntimeValue::CmdArg(arg) => {
-                                SingleCmdArgResult::from(CmdArgValue::clone(arg))
-                            }
+                    _ => SingleCmdArgResult::Basic(LocatedValue::new(
+                        RuntimeCodeRange::Parsed(spread_value.at),
+                        item.clone(),
+                    )),
+                })
+                .collect::<Vec<_>>();
 
-                            _ => SingleCmdArgResult::Basic(LocatedValue::new(
-                                RuntimeCodeRange::Parsed(spread.at),
-                                item.clone(),
-                            )),
-                        })
-                        .collect::<Vec<_>>();
-
-                    Ok(CmdArgResult::Spreaded(spreaded))
-                }
-
-                _ => Err(ctx.error(
-                    spread.at,
-                    format!(
-                        "expected a spread value, found a {}",
-                        spread_value
-                            .compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                )),
-            }
+            Ok(CmdArgResult::Spreaded(spreaded))
         }
     }
 }

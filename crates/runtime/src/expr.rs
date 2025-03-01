@@ -2,8 +2,8 @@ use indexmap::IndexMap;
 use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-    ExprInnerContent, ExprOp, Function, LiteralValue, MapKey, MatchExprCase, PropAccess,
-    RangeBound, RuntimeCodeRange, SingleOp, TypeMatchExprCase, Value,
+    ExprInnerContent, ExprOp, Function, ListItem, LiteralValue, MapKey, MatchExprCase, PropAccess,
+    RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, TypeMatchExprCase, Value,
 };
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
@@ -543,12 +543,25 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?
         }
 
-        Value::List(values) => RuntimeValue::List(GcCell::new(
-            values
-                .iter()
-                .map(|expr| eval_expr(&expr.data, ctx))
-                .collect::<Result<Vec<_>, _>>()?,
-        )),
+        Value::List(values) => {
+            let mut list = Vec::with_capacity(values.len());
+
+            for item in values {
+                match item {
+                    ListItem::Single(expr) => {
+                        let value = eval_expr(expr, ctx)?;
+                        list.push(value);
+                    }
+
+                    ListItem::Spread(spread_value) => {
+                        let values = eval_spread_value(spread_value, ctx)?;
+                        list.extend(values.read_promise_no_write().iter().cloned());
+                    }
+                }
+            }
+
+            RuntimeValue::List(GcCell::new(list))
+        }
 
         Value::Map(members) => {
             let mut map = IndexMap::with_capacity(members.len());
@@ -671,6 +684,34 @@ fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
                 ),
             )),
         },
+    }
+}
+
+pub fn eval_spread_value(
+    spread_value: &Span<SpreadValue>,
+    ctx: &mut Context,
+) -> ExecResult<GcCell<Vec<RuntimeValue>>> {
+    let value = match &spread_value.data {
+        SpreadValue::Variable(var_name) => {
+            let var = ctx.get_visible_var(var_name);
+            var.value.read(var_name.at).value.clone()
+        }
+
+        SpreadValue::Expr(expr) => eval_expr(expr, ctx)?,
+    };
+
+    match value {
+        RuntimeValue::List(items) => Ok(items),
+
+        _ => Err(ctx.error(
+            spread_value.at,
+            format!(
+                "expected a spread value, found a {}",
+                value
+                    .compute_type()
+                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+            ),
+        )),
     }
 }
 

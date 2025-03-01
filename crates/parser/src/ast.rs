@@ -312,7 +312,7 @@ pub enum Value {
     Null,
     Literal(LiteralValue),
     ComputedString(ComputedString),
-    List(Vec<Span<Expr>>),
+    List(Vec<ListItem>),
     Map(Vec<(Span<MapKey>, Expr)>),
     Struct(Vec<(Span<String>, Expr)>),
     Variable(Span<String>),
@@ -321,6 +321,18 @@ pub enum Value {
     CmdCall(Span<CmdCall>),
     FnAsValue(Span<String>),
     Lambda(Function),
+}
+
+#[derive(Debug, Clone)]
+pub enum ListItem {
+    Single(Expr),
+    Spread(Span<SpreadValue>),
+}
+
+#[derive(Debug, Clone)]
+pub enum SpreadValue {
+    Variable(Span<String>),
+    Expr(Expr),
 }
 
 #[derive(Debug, Clone)]
@@ -514,13 +526,7 @@ pub enum CmdRawStringPiece {
 pub enum CmdArg {
     ValueMaking(Span<CmdValueMakingArg>),
     Flag(CmdFlagArg),
-    Spread(Span<CmdSpreadArg>),
-}
-
-#[derive(Debug, Clone)]
-pub enum CmdSpreadArg {
-    Variable(Span<String>),
-    Expr(Expr),
+    Spread(Span<SpreadValue>),
 }
 
 #[derive(Debug, Clone)]

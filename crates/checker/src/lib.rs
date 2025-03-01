@@ -23,14 +23,14 @@ use reshell_parser::{
     ast::{
         Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
         CmdFlagArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
-        CmdRawStringPiece, CmdRedirects, CmdSpreadArg, CmdValueMakingArg, ComputedString,
-        ComputedStringPiece, ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-        ExprInnerContent, ExprOp, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-        FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, FnSignature, Function,
-        Instruction, LiteralValue, MapKey, MatchCase, MatchExprCase, ObjPropSpreading,
-        ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature,
-        RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
+        CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece,
+        ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
+        FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
+        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
+        MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
+        ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
+        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructTypeMember,
+        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     scope::AstScopeId,
 };
@@ -915,7 +915,12 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
 
         Value::List(list) => {
             for item in list {
-                check_expr(&item.data, state)?;
+                match item {
+                    ListItem::Single(expr) => check_expr(expr, state)?,
+                    ListItem::Spread(spread_value) => {
+                        check_spread_value(&spread_value.data, state)?
+                    }
+                }
             }
 
             Ok(())
@@ -1008,6 +1013,13 @@ fn check_map_key(key: &MapKey, state: &mut State) -> CheckerResult {
         MapKey::LiteralString(_) => Ok(()),
         MapKey::ComputedString(c_str) => check_computed_string(c_str, state),
         MapKey::Expr(expr) => check_expr(expr, state),
+    }
+}
+
+fn check_spread_value(spread_value: &SpreadValue, state: &mut State) -> CheckerResult {
+    match spread_value {
+        SpreadValue::Variable(var_name) => state.register_var_usage(var_name),
+        SpreadValue::Expr(expr) => check_expr(expr, state),
     }
 }
 
@@ -1359,14 +1371,7 @@ fn check_cmd_arg(arg: &Span<CmdArg>, state: &mut State) -> CheckerResult {
             }
         }
 
-        CmdArg::Spread(arg) => check_cmd_spread_arg(&arg.data, state),
-    }
-}
-
-fn check_cmd_spread_arg(arg: &CmdSpreadArg, state: &mut State) -> CheckerResult {
-    match arg {
-        CmdSpreadArg::Variable(var) => state.register_var_usage(var),
-        CmdSpreadArg::Expr(expr) => check_expr(expr, state),
+        CmdArg::Spread(arg) => check_spread_value(&arg.data, state),
     }
 }
 
