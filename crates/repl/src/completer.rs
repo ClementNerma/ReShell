@@ -843,11 +843,11 @@ fn unescape_str(str: &str) -> Vec<UnescapedSegment> {
 // [`Ord`] is derived to enable comparing two escaping types together
 // If we have e.g. a string that needs double quoting and another that needs simple quoting,
 // and we want to concatenate both, then we need the highest one => double quoting
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum EscapingType {
-    DoubleQuotes,
-    SingleQuotes,
     None,
+    SingleQuotes,
+    DoubleQuotes,
 }
 
 fn needs_escaping(str: &str) -> EscapingType {
@@ -876,7 +876,7 @@ fn needs_escaping(str: &str) -> EscapingType {
 
 fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
     let escaping_type = match prefix {
-        Some(prefix) => needs_escaping(str).max(needs_escaping(prefix)),
+        Some(prefix) => needs_escaping(&format!("{prefix}{str}")),
         None => needs_escaping(str),
     };
 
@@ -929,4 +929,54 @@ fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
             Cow::Owned(escaped)
         }
     }
+}
+
+#[test]
+fn tmp() {
+    use reshell_builtins::builder::{build_native_lib_content, NativeLibParams};
+    use reshell_parser::files::FilesMap;
+    use reshell_runtime::{
+        bin_resolver::BinariesResolver,
+        conf::RuntimeConf,
+        context::{Context, ContextCreationParams},
+    };
+
+    use crate::{on_dir_jump, utils::ctrl_c::take_pending_ctrl_c_request};
+
+    let mut ctx = Context::new(
+        ContextCreationParams {
+            // TODO: allow to configure through CLI
+            runtime_conf: RuntimeConf::default(),
+            files_map: FilesMap::new(Box::new(|_, _, _| todo!())),
+            take_ctrl_c_indicator: take_pending_ctrl_c_request,
+            home_dir: Some(dirs::home_dir().unwrap()),
+            on_dir_jump,
+            script_args: vec![],
+        },
+        BinariesResolver::new().unwrap(),
+        build_native_lib_content(NativeLibParams {
+            home_dir: Some(dirs::home_dir().unwrap()),
+            script_args: vec![],
+        }),
+    );
+
+    crate::utils::cmd_checker::COMMANDS_CHECKER
+        .lock()
+        .unwrap()
+        .refresh(&mut ctx);
+
+    // let _ = SHARED_CONTEXT.lock().unwrap().insert(ctx);
+
+    println!(
+        "{:#?}",
+        complete_path(
+            &[
+                UnescapedSegment::VariableName("HOME".to_owned()),
+                UnescapedSegment::String("/Downloads/test".to_owned()),
+            ],
+            Span { start: 0, end: 0 },
+            &ctx,
+        )[0]
+        .value
+    );
 }
