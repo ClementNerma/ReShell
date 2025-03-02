@@ -1,5 +1,5 @@
 //!
-//! Input covering computation
+//! Input coverage computation
 //!
 //! This module provides a way to track which parts of an input (e.g. string) has been covered.
 //! It allows listing uncovered parts of the input as well as fetching the next uncovered segment.
@@ -7,13 +7,13 @@
 //! It is notably used for syntax highlighting.
 
 #[derive(Debug)]
-pub struct InputCovering {
+pub struct InputCoverage {
     offset: usize,
     len: usize,
     covered: Vec<InputRange>,
 }
 
-impl InputCovering {
+impl InputCoverage {
     pub fn new(len: usize, offset: usize) -> Self {
         Self {
             len,

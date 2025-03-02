@@ -17,7 +17,7 @@ use regex::{Captures, Regex};
 use reshell_runtime::context::Context;
 
 use super::{
-    covering::{InputCovering, InputRange},
+    coverage::{InputCoverage, InputRange},
     nesting::{detect_nesting_actions, NestingOpeningType},
 };
 use crate::{
@@ -186,7 +186,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
                             | NestingActionType::Content => None,
                         });
 
-                let mut covering = InputCovering::new(len, offset);
+                let mut covering = InputCoverage::new(len, offset);
 
                 while let Some(uncovered) = covering.next_uncovered() {
                     let matched = find_matching_rule(
@@ -244,7 +244,7 @@ fn find_matching_rule<'h, 'str>(
     })
 }
 
-fn highlight_piece(matched: &Match, covering: &mut InputCovering, out: &mut Vec<HighlightPiece>) {
+fn highlight_piece(matched: &Match, covering: &mut InputCoverage, out: &mut Vec<HighlightPiece>) {
     // Ensure the highlighted piece is not empty,
     // as this could cause an infinite highlighting
     // (the rule matches an empty piece, then re-matches it, etc.)
