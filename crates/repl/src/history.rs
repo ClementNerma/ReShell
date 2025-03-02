@@ -69,7 +69,10 @@ impl History {
         for (i, line) in BufReader::new(file).lines().enumerate() {
             let line = line.map_err(|err| format!("Failed to read line {}: {err}", i + 1))?;
 
-            entries.insert(HistoryItemId(i.try_into().unwrap()), line.to_owned());
+            entries.insert(
+                HistoryItemId(i.try_into().unwrap()),
+                line.replace("\\\\n", "\n").replace("\\\\", "\\"),
+            );
         }
 
         Ok(Self {
@@ -110,9 +113,15 @@ impl RlHistory for History {
                 .map_err(ReedlineErrorVariants::IOError)
                 .map_err(ReedlineError)?;
 
-            file.write_all(format!("{}\n", h.command_line).as_bytes())
-                .map_err(ReedlineErrorVariants::IOError)
-                .map_err(ReedlineError)?;
+            file.write_all(
+                format!(
+                    "{}\n",
+                    h.command_line.replace('\\', "\\\\").replace('\n', "\\n")
+                )
+                .as_bytes(),
+            )
+            .map_err(ReedlineErrorVariants::IOError)
+            .map_err(ReedlineError)?;
         }
 
         let id = HistoryItemId(self.entries.last().map_or(0, |(last, _)| last.0 + 1));
