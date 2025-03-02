@@ -9,6 +9,7 @@
 use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
 use reshell_runtime::{context::Context, values::RuntimeValue};
+use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::completer::UnescapedSegment;
 
@@ -68,11 +69,12 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
                     RuntimeValue::Float(float) => float.to_string(),
                     RuntimeValue::String(string) => string.clone(),
 
-                    _ => {
-                        return Err(format!(
-                            "Variable '{var_name}' does not have a string-like type"
-                        ))
-                    }
+                    value => return Err(format!(
+                        "Variable '{var_name}' does not have a stringifyable type ; found type {}",
+                        value
+                            .compute_type()
+                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    )),
                 };
 
                 if i == 0 {
