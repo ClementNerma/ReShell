@@ -567,7 +567,7 @@ fn parse_single_fn_call_arg<'a>(
                                         .error(
                                             name.at,
                                             format!(
-                                                "a value of type '{}' is expected for this flag",
+                                                "a value of type {} is expected for this flag",
                                                 typ.display(
                                                     ctx.type_alias_store(),
                                                     PrettyPrintOptions::inline()
@@ -597,16 +597,32 @@ fn parse_single_fn_call_arg<'a>(
                                 return if !is_null_for_optional
                                     && !check_if_value_fits_type(&value.value, typ, ctx)
                                 {
-                                    Err(
-                                        ctx.error(
+                                    Err(ctx
+                                        .error(
                                             value.from,
-                                        format!(
-                                            "expected a value of type '{}' for flag '{}', found '{}'",
-                                            typ.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                                            names.display(&(), PrettyPrintOptions::inline()),
-                                            value.value.compute_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                                            format!(
+                                                "expected a value of type {} for flag {}, found a {}",
+                                                typ.display(
+                                                    ctx.type_alias_store(),
+                                                    PrettyPrintOptions::inline()
+                                                ),
+                                                names.display(&(), PrettyPrintOptions::inline()),
+                                                value.value.compute_type().display(
+                                                    ctx.type_alias_store(),
+                                                    PrettyPrintOptions::inline()
+                                                )
+                                            ),
                                         )
-                                    ).with_info(ExecInfoType::Tip, format!("called function's signature is: {}", func.signature.inner().display(ctx.type_alias_store(), PrettyPrintOptions::inline()))))
+                                        .with_info(
+                                            ExecInfoType::Tip,
+                                            format!(
+                                                "called function's signature is: {}",
+                                                func.signature.inner().display(
+                                                    ctx.type_alias_store(),
+                                                    PrettyPrintOptions::inline()
+                                                )
+                                            ),
+                                        ))
                                 } else {
                                     Ok(ParsedSingleFnCallArg::Variable {
                                         name: var_name,

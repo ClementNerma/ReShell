@@ -252,6 +252,44 @@ macro_rules! implement_specific_int_types {
 
 implement_specific_int_types!(u8, u16, u32, u64, i8, i16, i32, i64, usize);
 
+/// Type handler for the literal string type
+#[macro_export]
+macro_rules! declare_string_literal_type {
+    ($pub: vis $name: ident => enum $result_enum: ident { $($variant_name: ident ($string: literal)),+ }) => {
+        $pub struct $name;
+
+        impl $crate::helpers::args::TypedValueParser for $name {
+            fn value_type() -> ::reshell_parser::ast::ValueType {
+                ::reshell_parser::ast::ValueType::Union(vec![$(::reshell_parser::ast::SingleValueType::StringLiteral($string.to_owned())),+])
+            }
+
+            type Parsed = $result_enum;
+
+            fn parse(value: ::reshell_runtime::values::RuntimeValue) -> Result<Self::Parsed, String> {
+                match value {
+                    ::reshell_runtime::values::RuntimeValue::String(string) => {
+                        let string = string.as_str();
+
+                        $(
+                            if string == $string {
+                                return Ok($result_enum::$variant_name);
+                            }
+                        )+
+
+                        Err("none of string literal choices matched".to_owned())
+                    },
+
+                    _ => Err("expected a string".to_owned())
+                }
+            }
+        }
+
+        $pub enum $result_enum {
+            $($variant_name),+
+        }
+    };
+}
+
 /// Type handler that clones a list before accessing it
 pub struct DetachedListType<Inner: TypedValueParser> {
     _i: PhantomData<Inner>,

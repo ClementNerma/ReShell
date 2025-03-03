@@ -1,6 +1,11 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use reshell_runtime::{errors::ExecInfoType, gc::GcCell};
+
+use crate::declare_string_literal_type;
 
 crate::define_internal_fn!(
     //
@@ -10,25 +15,30 @@ crate::define_internal_fn!(
     "readDir",
 
     (
-        path: OptionalArg<StringType> = Arg::positional("path"),
-        lossy: PresenceFlag = Arg::long_flag("lossy"),
-        full_path: PresenceFlag = Arg::long_and_short_flag("full-path", 'f')
+        dir_path: OptionalArg<StringType> = Arg::positional("dirPath"),
+        path_mode: OptionalArg<PathModeType> = Arg::long_and_short_flag("path-mode", 'p'),
+        lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
     -> DetachedListType<StringType>
 );
 
+declare_string_literal_type!(PathModeType => enum PathMode {
+    FullPath("full-path"),
+    Relative("relative")
+});
+
 fn run() -> Runner {
     Runner::new(
         |at,
          Args {
-             path,
+             dir_path,
+             path_mode,
              lossy,
-             full_path,
          },
          args_at,
          ctx| {
-            let reading_dir = match path {
+            let reading_dir = match dir_path {
                 None => std::env::current_dir().map_err(|err| {
                     ctx.throw(
                         at,
@@ -36,12 +46,12 @@ fn run() -> Runner {
                     )
                 })?,
 
-                Some(path) => {
-                    let path = PathBuf::from(path);
+                Some(ref path) => {
+                    let path = PathBuf::from(path.to_owned());
 
                     if !path.is_dir() {
                         return Err(ctx.throw(
-                            args_at.path.unwrap(),
+                            args_at.dir_path.unwrap(),
                             format!("Directory not found at path: {}", path.display()),
                         ));
                     }
@@ -73,20 +83,28 @@ fn run() -> Runner {
                     )
                 })?;
 
-                let path = if full_path {
-                    item.path()
-                } else {
-                    item.path().strip_prefix(&reading_dir).unwrap().to_owned()
+                let item_path = match &path_mode {
+                    None => item.file_name(),
+                    Some(mode) => match mode {
+                        PathMode::FullPath => item.path().into_os_string(),
+                        PathMode::Relative => match &dir_path {
+                            Some(dir_path) => {
+                                Path::new(dir_path).join(item.file_name()).into_os_string()
+                            }
+                            None => item.file_name().to_os_string(),
+                        },
+                    },
                 };
 
-                let path = if lossy {
-                    path.to_str()
+                let item_path = if lossy {
+                    item_path
+                        .to_str()
                         .ok_or_else(|| {
                             ctx.throw(
                                 at,
                                 format!(
-                                    "Item name contains invalid UTF-8 characters: {}",
-                                    path.display()
+                                    "Path contains invalid UTF-8 characters: {}",
+                                    item_path.display()
                                 ),
                             )
                             .with_info(
@@ -96,10 +114,10 @@ fn run() -> Runner {
                         })?
                         .to_owned()
                 } else {
-                    path.to_string_lossy().into_owned()
+                    item_path.to_string_lossy().into_owned()
                 };
 
-                items.push(RuntimeValue::String(path));
+                items.push(RuntimeValue::String(item_path));
             }
 
             Ok(Some(RuntimeValue::List(GcCell::new(items))))
