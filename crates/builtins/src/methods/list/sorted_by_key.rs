@@ -1,10 +1,11 @@
 use reshell_parser::ast::SingleValueType;
-use reshell_runtime::{gc::GcCell, values::CustomValueType};
+use reshell_runtime::{errors::ExecError, gc::GcCell, values::CustomValueType};
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use super::sorted::ComparableValueType;
 use crate::{
     declare_typed_fn_handler,
+    methods::list::sorted::ComparableType,
     types::{DateTimeValue, DurationValue},
     utils::{call_fn_checked, expect_returned_value},
 };
@@ -36,7 +37,14 @@ fn run() -> Runner {
             return Ok(Some(RuntimeValue::List(GcCell::new(vec![]))));
         };
 
-        enum Keys {
+        /// Represents the type of keys that are being used to sort the list.
+        ///
+        /// As a sortable list must be uniform, this enum is used to track the
+        /// type of the first key, and then check that all subsequent keys are
+        /// of the same type.
+        ///
+        /// The name "keys" is related to the function's name, `sortedByKey`.
+        enum SortingKeys {
             Strings(Vec<(usize, String)>),
             Integers(Vec<(usize, i64)>),
             Durations(Vec<(usize, Box<DurationValue>)>),
@@ -49,68 +57,75 @@ fn run() -> Runner {
         };
 
         let mut keys = match get_item_key(first.clone())? {
-            Union4Result::A(first) => Keys::Strings(vec![(0, first)]),
-            Union4Result::B(first) => Keys::Integers(vec![(0, first)]),
-            Union4Result::C(first) => Keys::Durations(vec![(0, first)]),
-            Union4Result::D(first) => Keys::DateTimes(vec![(0, first)]),
+            ComparableType::String(first) => SortingKeys::Strings(vec![(0, first)]),
+            ComparableType::Int(first) => SortingKeys::Integers(vec![(0, first)]),
+            ComparableType::Duration(first) => SortingKeys::Durations(vec![(0, first)]),
+            ComparableType::DateTime(first) => SortingKeys::DateTimes(vec![(0, first)]),
         };
+
+        fn gen_err(
+            keys: &SortingKeys,
+            (i, key): (usize, <ComparableValueType as TypedValueParser>::Parsed),
+            keyer_fn_at: RuntimeCodeRange,
+            ctx: &mut Context,
+        ) -> Box<ExecError> {
+            let first_item_type = match &keys {
+                SortingKeys::Strings(_) => SingleValueType::String,
+                SortingKeys::Integers(_) => SingleValueType::Int,
+                SortingKeys::Durations(_) => {
+                    SingleValueType::Custom(DurationValue::typename_static())
+                }
+                SortingKeys::DateTimes(_) => {
+                    SingleValueType::Custom(DateTimeValue::typename_static())
+                }
+            };
+
+            ctx.error(
+                keyer_fn_at,
+                format!(
+                    "first call to this function returned a {}, but {i} call(s) later it returned a {}",
+                    first_item_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                    key.from_value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                )
+            )
+        }
 
         for (i, value) in list.iter().enumerate().skip(1) {
             let key = get_item_key(value.clone())?;
 
-            let gen_err = |keys: &Keys,
-                           key: <ComparableValueType as TypedValueParser>::Parsed,
-                           ctx: &mut Context| {
-                let first_item_type = match &keys {
-                    Keys::Strings(_) => SingleValueType::String,
-                    Keys::Integers(_) => SingleValueType::Int,
-                    Keys::Durations(_) => SingleValueType::Custom(DurationValue::typename_static()),
-                    Keys::DateTimes(_) => SingleValueType::Custom(DateTimeValue::typename_static()),
-                };
-
-                ctx.error(
-                    args_at.keyer,
-                    format!(
-                        "first call to this function returned a {}, but {i} call(s) later it returned a {}",
-                        first_item_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                        key.from_value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    )
-                )
-            };
-
             match &mut keys {
-                Keys::Strings(vec) => match key {
-                    Union4Result::A(value) => {
+                SortingKeys::Strings(vec) => match key {
+                    ComparableType::String(value) => {
                         vec.push((i, value));
                     }
-                    _ => return Err(gen_err(&keys, key, ctx)),
+                    _ => return Err(gen_err(&keys, (i, key), args_at.keyer, ctx)),
                 },
 
-                Keys::Integers(vec) => match key {
-                    Union4Result::B(value) => {
+                SortingKeys::Integers(vec) => match key {
+                    ComparableType::Int(value) => {
                         vec.push((i, value));
                     }
-                    _ => return Err(gen_err(&keys, key, ctx)),
+                    _ => return Err(gen_err(&keys, (i, key), args_at.keyer, ctx)),
                 },
 
-                Keys::Durations(vec) => match key {
-                    Union4Result::C(value) => {
+                SortingKeys::Durations(vec) => match key {
+                    ComparableType::Duration(value) => {
                         vec.push((i, value));
                     }
-                    _ => return Err(gen_err(&keys, key, ctx)),
+                    _ => return Err(gen_err(&keys, (i, key), args_at.keyer, ctx)),
                 },
 
-                Keys::DateTimes(vec) => match key {
-                    Union4Result::D(value) => {
+                SortingKeys::DateTimes(vec) => match key {
+                    ComparableType::DateTime(value) => {
                         vec.push((i, value));
                     }
-                    _ => return Err(gen_err(&keys, key, ctx)),
+                    _ => return Err(gen_err(&keys, (i, key), args_at.keyer, ctx)),
                 },
             }
         }
 
         let sorted_values: Vec<RuntimeValue> = match keys {
-            Keys::Strings(mut vec) => {
+            SortingKeys::Strings(mut vec) => {
                 vec.sort_by(|(_, a), (_, b)| a.cmp(b));
 
                 vec.iter()
@@ -118,7 +133,7 @@ fn run() -> Runner {
                     .collect()
             }
 
-            Keys::Integers(mut vec) => {
+            SortingKeys::Integers(mut vec) => {
                 vec.sort_by(|(_, a), (_, b)| a.cmp(b));
 
                 vec.iter()
@@ -126,7 +141,7 @@ fn run() -> Runner {
                     .collect()
             }
 
-            Keys::Durations(mut vec) => {
+            SortingKeys::Durations(mut vec) => {
                 vec.sort_by(|(_, a), (_, b)| a.cmp(b));
 
                 vec.iter()
@@ -134,7 +149,7 @@ fn run() -> Runner {
                     .collect()
             }
 
-            Keys::DateTimes(mut vec) => {
+            SortingKeys::DateTimes(mut vec) => {
                 vec.sort_by(|(_, a), (_, b)| a.cmp(b));
 
                 vec.iter()

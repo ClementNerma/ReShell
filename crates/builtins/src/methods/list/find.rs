@@ -18,7 +18,7 @@ crate::define_internal_fn!(
     -> Union2Type<AnyType, NullType>
 );
 
-declare_typed_fn_handler!(PredicateFn(value: Union2Type<AnyType, NullType>) -> BoolType);
+declare_typed_fn_handler!(PredicateFn(value: AnyType) -> BoolType);
 
 fn run() -> Runner {
     Runner::new(|_, Args { list, predicate }, args_at, ctx| {

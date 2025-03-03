@@ -1,6 +1,9 @@
 use reshell_runtime::gc::{GcCell, GcReadOnlyCell};
 
-use crate::types::{DateTimeValue, DurationValue};
+use crate::{
+    declare_typed_union_handler,
+    types::{DateTimeValue, DurationValue},
+};
 
 crate::define_internal_fn!(
     //
@@ -15,49 +18,52 @@ crate::define_internal_fn!(
      -> UntypedListType
 );
 
-pub type ComparableValueType =
-    Union4Type<StringType, IntType, CustomType<DurationValue>, CustomType<DateTimeValue>>;
+declare_typed_union_handler!(pub ComparableValueType => enum ComparableType {
+    String(StringType),
+    Int(IntType),
+    Duration(CustomType<DurationValue>),
+    DateTime(CustomType<DateTimeValue>)
+});
 
-pub type ComparableListType = Union4Type<
-    DetachedListType<StringType>,
-    DetachedListType<IntType>,
-    DetachedListType<CustomType<DurationValue>>,
-    DetachedListType<CustomType<DateTimeValue>>,
->;
+declare_typed_union_handler!(pub ComparableListType => enum ComparableList {
+    String(DetachedListType<StringType>),
+    Int(DetachedListType<IntType>),
+    Duration(DetachedListType<CustomType<DurationValue>>),
+    DateTime(DetachedListType<CustomType<DateTimeValue>>)
+});
 
 fn run() -> Runner {
-    Runner::new(|_, Args { list }, _, _| Ok(Some(RuntimeValue::List(GcCell::new(sort_list(list))))))
-}
+    Runner::new(|_, Args { list }, _, _| {
+        let sorted = match list {
+            ComparableList::String(mut strings) => {
+                strings.sort();
+                strings.into_iter().map(RuntimeValue::String).collect()
+            }
 
-pub fn sort_list(list: <ComparableListType as TypedValueParser>::Parsed) -> Vec<RuntimeValue> {
-    match list {
-        Union4Result::A(mut strings) => {
-            strings.sort();
+            ComparableList::Int(mut integers) => {
+                integers.sort();
+                integers.into_iter().map(RuntimeValue::Int).collect()
+            }
 
-            strings.into_iter().map(RuntimeValue::String).collect()
-        }
+            ComparableList::Duration(mut durations) => {
+                durations.sort();
 
-        Union4Result::B(mut integers) => {
-            integers.sort();
+                durations
+                    .into_iter()
+                    .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
+                    .collect()
+            }
 
-            integers.into_iter().map(RuntimeValue::Int).collect()
-        }
+            ComparableList::DateTime(mut datetimes) => {
+                datetimes.sort();
 
-        Union4Result::C(mut durations) => {
-            durations.sort();
+                datetimes
+                    .into_iter()
+                    .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
+                    .collect()
+            }
+        };
 
-            durations
-                .into_iter()
-                .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
-                .collect()
-        }
-
-        Union4Result::D(mut datetimes) => {
-            datetimes.sort();
-            datetimes
-                .into_iter()
-                .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
-                .collect()
-        }
-    }
+        Ok(Some(RuntimeValue::List(GcCell::new(sorted))))
+    })
 }

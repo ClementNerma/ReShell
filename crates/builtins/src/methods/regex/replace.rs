@@ -7,7 +7,7 @@ use reshell_runtime::{
 };
 
 use crate::{
-    declare_typed_fn_handler,
+    declare_typed_fn_handler, declare_typed_union_handler,
     types::RegexValue,
     utils::{call_fn_checked, expect_returned_value},
 };
@@ -18,11 +18,16 @@ crate::define_internal_fn!(
     (
         regex: RequiredArg<CustomType<RegexValue>> = Arg::method_self(),
         subject: RequiredArg<StringType> = Arg::positional("subject"),
-        replacer: RequiredArg<Union2Type<StringType, ReplacerFn>> = Arg::positional("replacer")
+        replacer: RequiredArg<ReplacerType> = Arg::positional("replacer")
     )
 
     -> StringType
 );
+
+declare_typed_union_handler!(ReplacerType => enum Replacer {
+    Pattern(StringType),
+    Function(ReplacerFn)
+});
 
 declare_typed_fn_handler!(ReplacerFn(matched: DetachedMapType<StringType>) -> StringType);
 
@@ -38,12 +43,12 @@ fn run() -> Runner {
          ctx| {
             let replaced = match replacer {
                 // Replace using a string
-                Union2Result::A(pattern) => {
+                Replacer::Pattern(pattern) => {
                     replace_regex_with_pattern(&regex, &subject, &pattern, args_at.replacer, ctx)?
                 }
 
                 // Replace using a mapper function
-                Union2Result::B(replacer_fn) => {
+                Replacer::Function(replacer_fn) => {
                     replace_regex_with_fn(&regex, &subject, replacer_fn, args_at.replacer, ctx)?
                 }
             };

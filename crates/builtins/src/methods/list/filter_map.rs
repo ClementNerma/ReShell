@@ -21,7 +21,7 @@ crate::define_internal_fn!(
 );
 
 declare_typed_fn_handler!(
-    FilterMapFn(value: Union2Type<AnyType, NullType>) -> NullableType<AnyType>
+    FilterMapFn(value: AnyType) -> NullableType<AnyType>
 );
 
 fn run() -> Runner {

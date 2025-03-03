@@ -1,3 +1,5 @@
+use crate::declare_typed_union_handler;
+
 crate::define_internal_fn!(
     //
     // Display a message
@@ -16,13 +18,18 @@ fn run() -> Runner {
     Runner::new(|_, Args { value }, _, _| Ok(Some(RuntimeValue::String(stringify_value(value)))))
 }
 
-pub type StringifyableType = Union4Type<StringType, IntType, FloatType, BoolType>;
+declare_typed_union_handler!(pub StringifyableType => enum Stringifyable {
+    String(StringType),
+    Int(IntType),
+    Float(FloatType),
+    Bool(BoolType)
+});
 
 pub fn stringify_value(value: <StringifyableType as TypedValueParser>::Parsed) -> String {
     match value {
-        Union4Result::A(string) => string,
-        Union4Result::B(int) => int.to_string(),
-        Union4Result::C(float) => float.to_string(),
-        Union4Result::D(bool) => bool.to_string(),
+        Stringifyable::String(string) => string,
+        Stringifyable::Int(int) => int.to_string(),
+        Stringifyable::Float(float) => float.to_string(),
+        Stringifyable::Bool(bool) => bool.to_string(),
     }
 }

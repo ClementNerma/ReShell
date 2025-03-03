@@ -444,7 +444,7 @@ impl<A: TypedValueParser + TypedValueEncoder, B: TypedValueParser + TypedValueEn
 }
 
 /// Macro to implement a type handler for a union type
-macro_rules! declare_typed_union_handler {
+macro_rules! generic_type_union_handler {
     ($handler_struct: ident ($($generic: ident),+) => $result_struct: ident) => {
         #[allow(non_snake_case)]
         pub struct $handler_struct<$($generic: TypedValueParser),+> {
@@ -498,9 +498,58 @@ macro_rules! declare_typed_union_handler {
 }
 
 // Create union type handlers
-declare_typed_union_handler!(Union2Type (A, B) => Union2Result);
-declare_typed_union_handler!(Union3Type (A, B, C) => Union3Result);
-declare_typed_union_handler!(Union4Type (A, B, C, D) => Union4Result);
+generic_type_union_handler!(Union2Type (A, B) => Union2Result);
+generic_type_union_handler!(Union3Type (A, B, C) => Union3Result);
+generic_type_union_handler!(Union4Type (A, B, C, D) => Union4Result);
+
+#[macro_export]
+macro_rules! declare_typed_union_handler {
+    ($pub: vis $name: ident => enum $result_enum: ident { $($variant_name: ident ($variant_type: ty)),+ }) => {
+        $pub struct $name;
+
+        impl $crate::helpers::args::TypedValueParser for $name {
+            fn value_type() -> ::reshell_parser::ast::ValueType {
+                let mut type_union = vec![];
+
+                $(
+                    match <$variant_type as $crate::helpers::args::TypedValueParser>::value_type() {
+                        ::reshell_parser::ast::ValueType::Single(single) => type_union.push(single),
+                        ::reshell_parser::ast::ValueType::Union(sub_types) => {
+                            type_union.extend(sub_types);
+                        }
+                    }
+                )+
+
+                ::reshell_parser::ast::ValueType::Union(type_union)
+            }
+
+            type Parsed = $result_enum;
+
+            fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
+                $(
+                    if let Ok(parsed) = <$variant_type as $crate::helpers::args::TypedValueParser>::parse(value.clone()) {
+                        return Ok($result_enum::$variant_name(parsed))
+                    }
+                )+
+
+                Err("union error".to_owned())
+            }
+        }
+
+        impl $result_enum {
+            #[allow(dead_code, clippy::wrong_self_convention)]
+            pub fn from_value_type(&self) -> ::reshell_parser::ast::ValueType {
+                match self {
+                    $(Self::$variant_name(_) => <$variant_type as $crate::helpers::args::TypedValueParser>::value_type()),+
+                }
+            }
+        }
+
+        $pub enum $result_enum {
+            $($variant_name(<$variant_type as $crate::helpers::args::TypedValueParser>::Parsed)),+
+        }
+    }
+}
 
 /// Macro to create a struct type handler (without encoding support)
 #[macro_export]
