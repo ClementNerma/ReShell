@@ -16,7 +16,8 @@ crate::define_internal_fn!(
 
     (
         dir_path: OptionalArg<StringType> = Arg::positional("dirPath"),
-        path_mode: OptionalArg<PathModeType> = Arg::long_and_short_flag("path-mode", 'p'),
+        full_path: PresenceFlag = Arg::long_and_short_flag("full-path", 'p'),
+        relative_path: PresenceFlag = Arg::long_and_short_flag("relative-path", 'r'),
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
@@ -33,11 +34,19 @@ fn run() -> Runner {
         |at,
          Args {
              dir_path,
-             path_mode,
+             full_path,
+             relative_path,
              lossy,
          },
          args_at,
          ctx| {
+            if full_path && relative_path {
+                return Err(ctx.throw(
+                    at,
+                    "Cannot use both '--full-path' and '--relative-path' at the same time",
+                ));
+            }
+
             let reading_dir = match dir_path {
                 None => std::env::current_dir().map_err(|err| {
                     ctx.throw(
@@ -83,17 +92,17 @@ fn run() -> Runner {
                     )
                 })?;
 
-                let item_path = match &path_mode {
-                    None => item.file_name(),
-                    Some(mode) => match mode {
-                        PathMode::FullPath => item.path().into_os_string(),
-                        PathMode::Relative => match &dir_path {
-                            Some(dir_path) => {
-                                Path::new(dir_path).join(item.file_name()).into_os_string()
-                            }
-                            None => item.file_name().to_os_string(),
-                        },
-                    },
+                let item_path = if full_path {
+                    item.path().into_os_string()
+                } else if relative_path {
+                    match &dir_path {
+                        Some(dir_path) => {
+                            Path::new(dir_path).join(item.file_name()).into_os_string()
+                        }
+                        None => item.file_name().to_os_string(),
+                    }
+                } else {
+                    item.file_name()
                 };
 
                 let item_path = if lossy {
