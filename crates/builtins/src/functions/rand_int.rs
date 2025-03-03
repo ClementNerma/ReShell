@@ -1,5 +1,3 @@
-use rand::Rng;
-
 crate::define_internal_fn!(
     "randInt",
 
@@ -20,13 +18,11 @@ fn run() -> Runner {
          },
          _,
          _| {
-            let mut rand = rand::thread_rng();
-
             let num = match (low_bound, high_bound) {
-                (Some(low_bound), Some(high_bound)) => rand.gen_range(low_bound..=high_bound),
-                (Some(low_bound), None) => rand.gen_range(low_bound..=i64::MAX),
-                (None, Some(high_bound)) => rand.gen_range(i64::MIN..=high_bound),
-                (None, None) => rand.gen(),
+                (Some(low_bound), Some(high_bound)) => rand::random_range(low_bound..=high_bound),
+                (Some(low_bound), None) => rand::random_range(low_bound..=i64::MAX),
+                (None, Some(high_bound)) => rand::random_range(i64::MIN..=high_bound),
+                (None, None) => rand::random(),
             };
 
             Ok(Some(RuntimeValue::Int(num)))
