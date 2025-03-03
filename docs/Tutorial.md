@@ -44,6 +44,7 @@ Everything you need to master it is written in this document, so take your time 
   - [Structures](#structures)
   - [Lists](#lists)
   - [Maps](#maps)
+  - [String literals](#string-literals)
   - [Type aliases](#type-aliases)
   - [Function signatures](#function-signatures)
   - [Sub-typing](#sub-typing)
@@ -851,6 +852,20 @@ let value = { a: 1, ...$map }
 
 let value = { b: 2 }
 let value = map { a: 1, ...$map }
+```
+
+### String literals
+
+A special category of types are _string literals_:
+
+```reshell
+fn doSomething(times: 'once' | 'twice') {
+  # ...
+}
+
+doSomething once   # OK
+doSomething twice  # OK
+doSoemthnig thrice # ERROR
 ```
 
 ### Type aliases
