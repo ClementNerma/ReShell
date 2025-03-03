@@ -33,6 +33,11 @@ pub fn check_if_value_fits_single_type(
         SingleValueType::UntypedMap => matches!(value, RuntimeValue::Map(_)),
         SingleValueType::UntypedStruct => matches!(value, RuntimeValue::Struct(_)),
 
+        SingleValueType::StringLiteral(literal) => match value {
+            RuntimeValue::String(string) => string == literal,
+            _ => false,
+        },
+
         SingleValueType::TypedList(items_type) => match &value {
             RuntimeValue::List(items) => items
                 .read_promise_no_write()

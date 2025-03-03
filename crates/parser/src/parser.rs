@@ -77,6 +77,31 @@ pub fn program(
 
     let fn_signature = late::<FnSignature>();
 
+    let escapable_char = char('\\').ignore_then(
+        choice((
+            char('n').to(EscapableChar::Newline),
+            char('r').to(EscapableChar::CarriageReturn),
+            char('t').to(EscapableChar::Tab),
+            char('"').to(EscapableChar::DoubleQuote),
+            char('\'').to(EscapableChar::SingleQuote),
+            char('`').to(EscapableChar::BackQuote),
+            char('$').to(EscapableChar::DollarSign),
+            char('\\').to(EscapableChar::Backslash),
+            char('^').to(EscapableChar::Caret),
+        ))
+        .critical("this character is not escapable"),
+    );
+
+    let literal_string = char('\'')
+        .ignore_then(
+            choice((
+                escapable_char.map(EscapableChar::original_char),
+                filter(|c| c != '\''),
+            ))
+            .repeated_into_container::<String>(),
+        )
+        .then_ignore(char('\''));
+
     let value_type = recursive::<ValueType, _>(|value_type| {
         let single_value_type = choice::<SingleValueType, _>((
             just("any")
@@ -148,6 +173,7 @@ pub fn program(
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::UntypedStruct),
             ident.spanned().map(SingleValueType::TypeAlias),
+            literal_string.map(SingleValueType::StringLiteral),
         ));
 
         choice((
@@ -362,31 +388,6 @@ pub fn program(
     .then_ignore(char(')').critical_auto_msg())
     .map(|(capture, cmd_call)| CmdOutputCapture { capture, cmd_call });
 
-    let escaped_char = char('\\').ignore_then(
-        choice((
-            char('n').to(EscapableChar::Newline),
-            char('r').to(EscapableChar::CarriageReturn),
-            char('t').to(EscapableChar::Tab),
-            char('"').to(EscapableChar::DoubleQuote),
-            char('\'').to(EscapableChar::SingleQuote),
-            char('`').to(EscapableChar::BackQuote),
-            char('$').to(EscapableChar::DollarSign),
-            char('\\').to(EscapableChar::Backslash),
-            char('^').to(EscapableChar::Caret),
-        ))
-        .critical("this character is not escapable"),
-    );
-
-    let literal_string = char('\'')
-        .ignore_then(
-            choice((
-                escaped_char.map(EscapableChar::original_char),
-                filter(|c| c != '\''),
-            ))
-            .repeated_into_container::<String>(),
-        )
-        .then_ignore(char('\''));
-
     let int_literal = char('-')
         .or_not()
         .then(digits(10))
@@ -423,7 +424,7 @@ pub fn program(
             .ignore_then(
                 choice::<ComputedStringPiece, _>((
                     // Escaped
-                    escaped_char.map(ComputedStringPiece::Escaped),
+                    escapable_char.map(ComputedStringPiece::Escaped),
                     // Command calls
                     cmd_capture.clone().map(ComputedStringPiece::CmdOutput),
                     // Variables

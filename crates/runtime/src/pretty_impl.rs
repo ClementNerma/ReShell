@@ -4,7 +4,9 @@
 
 use colored::{Color, Colorize};
 use reshell_parser::ast::FlagValueSeparator;
-use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
+use reshell_shared::pretty::{
+    pretty_printable_string, PrettyPrintable, PrettyPrintablePiece, Styled,
+};
 
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
@@ -208,36 +210,4 @@ impl PrettyPrintable for SingleCmdArgResult {
             Self::Flag(flag) => flag.generate_pretty_data(ctx),
         }
     }
-}
-
-pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
-    let mut pieces = vec![Styled::colored("'", Color::BrightGreen)];
-
-    let mut shift = 0;
-
-    while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '\'']) {
-        pos += shift;
-
-        if pos > shift {
-            pieces.push(Styled::colored(&string[shift..pos], Color::BrightGreen));
-        }
-
-        let to_escape = match &string[pos..pos + 1] {
-            "\r" => "r",
-            "\n" => "n",
-            str => str,
-        };
-
-        pieces.push(Styled::colored(format!("\\{to_escape}"), Color::Cyan));
-
-        shift = pos + 1;
-    }
-
-    if shift < string.len() {
-        pieces.push(Styled::colored(&string[shift..], Color::BrightGreen));
-    }
-
-    pieces.push(Styled::colored("'", Color::BrightGreen));
-
-    PrettyPrintablePiece::Suite(pieces)
 }

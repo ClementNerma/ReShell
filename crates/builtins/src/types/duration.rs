@@ -1,8 +1,8 @@
 use std::{ops::Deref, time::Duration};
 
 use colored::Color;
-use reshell_runtime::{pretty_impl::pretty_printable_string, values::CustomValueType};
-use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
+use reshell_runtime::values::CustomValueType;
+use reshell_shared::pretty::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
 
 /// Time duration
 ///

@@ -2,8 +2,8 @@ use std::{ops::Deref, sync::Arc};
 
 use colored::Color;
 use regex::Regex;
-use reshell_runtime::{pretty_impl::pretty_printable_string, values::CustomValueType};
-use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
+use reshell_runtime::values::CustomValueType;
+use reshell_shared::pretty::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
 
 /// Regular expression
 ///

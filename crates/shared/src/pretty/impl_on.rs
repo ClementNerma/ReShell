@@ -55,6 +55,7 @@ impl PrettyPrintable for SingleValueType {
             Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
             Self::CmdArg => PrettyPrintablePiece::colored_atomic("cmdarg", Color::Magenta),
             Self::UntypedList => PrettyPrintablePiece::colored_atomic("list", Color::Magenta),
+            Self::StringLiteral(inner) => pretty_printable_string(inner),
             Self::TypedList(inner) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("list[", Color::Magenta),
                 inner.generate_pretty_data(ctx),
@@ -283,4 +284,36 @@ impl PrettyPrintable for CmdFlagNameArg {
 
         PrettyPrintablePiece::colored_atomic(name, Color::BrightYellow)
     }
+}
+
+pub fn pretty_printable_string(string: &str) -> PrettyPrintablePiece {
+    let mut pieces = vec![Styled::colored("'", Color::BrightGreen)];
+
+    let mut shift = 0;
+
+    while let Some(mut pos) = string[shift..].find(['\\', '\r', '\n', '\'']) {
+        pos += shift;
+
+        if pos > shift {
+            pieces.push(Styled::colored(&string[shift..pos], Color::BrightGreen));
+        }
+
+        let to_escape = match &string[pos..pos + 1] {
+            "\r" => "r",
+            "\n" => "n",
+            str => str,
+        };
+
+        pieces.push(Styled::colored(format!("\\{to_escape}"), Color::Cyan));
+
+        shift = pos + 1;
+    }
+
+    if shift < string.len() {
+        pieces.push(Styled::colored(&string[shift..], Color::BrightGreen));
+    }
+
+    pieces.push(Styled::colored("'", Color::BrightGreen));
+
+    PrettyPrintablePiece::Suite(pieces)
 }

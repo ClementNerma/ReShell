@@ -6,7 +6,7 @@ use reshell_parser::ast::{
     PropAccess, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem, TypeMatchExprCase,
     Value,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_shared::pretty::{pretty_printable_string, PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::capture_cmd_output,
@@ -14,7 +14,6 @@ use crate::{
     errors::{ExecErrorNature, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
-    pretty_impl::pretty_printable_string,
     props::{eval_props_access, PropAccessMode, TailPropAccessPolicy},
     typechecker::check_if_value_fits_type,
     values::{

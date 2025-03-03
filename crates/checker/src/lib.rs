@@ -1692,7 +1692,8 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::CmdArg
         | SingleValueType::UntypedList
         | SingleValueType::UntypedMap
-        | SingleValueType::UntypedStruct => Ok(()),
+        | SingleValueType::UntypedStruct
+        | SingleValueType::StringLiteral(_) => Ok(()),
 
         SingleValueType::TypedList(inner) | SingleValueType::TypedMap(inner) => {
             check_value_type(inner, state)

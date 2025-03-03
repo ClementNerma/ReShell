@@ -86,8 +86,15 @@ pub fn check_if_single_type_fits_single(
         (SingleValueType::Float, SingleValueType::Float) => true,
         (SingleValueType::Float, _) | (_, SingleValueType::Float) => false,
 
-        (SingleValueType::String, SingleValueType::String) => true,
+        (SingleValueType::String | SingleValueType::StringLiteral(_), SingleValueType::String) => {
+            true
+        }
         (SingleValueType::String, _) | (_, SingleValueType::String) => false,
+
+        (SingleValueType::StringLiteral(left), SingleValueType::StringLiteral(right)) => {
+            left == right
+        }
+        (SingleValueType::StringLiteral(_), _) | (_, SingleValueType::StringLiteral(_)) => false,
 
         (SingleValueType::CmdCall, SingleValueType::CmdCall) => true,
         (SingleValueType::CmdCall, _) | (_, SingleValueType::CmdCall) => false,

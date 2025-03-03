@@ -382,6 +382,7 @@ pub enum SingleValueType {
     Int,
     Float,
     String,
+    StringLiteral(String),
     Error,
     UntypedList,
     TypedList(Box<ValueType>),
