@@ -16,7 +16,7 @@ fn fibo(n: int) -> int {
     }
 }
 
-for i in 0..=30 {
+for i in 0..=90 {
     $calls = 0
     echo "fibo($i) = `fibo($i)` (function calls: $calls)"
 }
