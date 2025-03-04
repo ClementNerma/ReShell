@@ -9,7 +9,6 @@
 use std::{
     borrow::Cow,
     collections::HashSet,
-    error::Error,
     fs,
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
@@ -74,6 +73,9 @@ impl RlCompleter for Completer {
             SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
             self.external_completer.as_ref(),
         )
+        // TODO: error reporting
+        .ok()
+        .unwrap_or_default()
     }
 }
 
@@ -84,7 +86,7 @@ pub fn generate_completions(
     pos: usize,
     ctx: &mut Context,
     external_completer: Option<&ExternalCompleter>,
-) -> Vec<Suggestion> {
+) -> Result<Vec<Suggestion>, String> {
     // Parse the last command present in the provided line
     // (up to the cursor's position)
     // into a list made of the command name and its arguments
@@ -135,7 +137,7 @@ pub fn generate_completions(
         //
         // As a result, we return an empty set of completions (as the current content is invalid anyway)
         if complete_special_instructions(&cmd_pieces).is_some() {
-            return vec![];
+            return Ok(vec![]);
         }
 
         // Otherwise, we try to complete the command's name
@@ -149,18 +151,18 @@ pub fn generate_completions(
 
     match mode {
         // Return no completion result
-        CompletionMode::None => return vec![],
+        CompletionMode::None => return Ok(vec![]),
 
         // Return a single completion result
         CompletionMode::Single(single) => {
-            return vec![Suggestion {
+            return Ok(vec![Suggestion {
                 value: single.to_owned(),
                 description: None,
                 style: None,
                 extra: None,
                 span,
                 append_whitespace: true,
-            }]
+            }])
         }
 
         // Complete as a command's name
@@ -173,7 +175,7 @@ pub fn generate_completions(
                 .flatten()
                 .unwrap_or_default();
 
-            return sort_results(word, results);
+            return Ok(sort_results(word, results));
         }
 
         // Complete as an expression or normally
@@ -183,16 +185,16 @@ pub fn generate_completions(
                 return if s_word.chars().any(|c| !c.is_alphanumeric() && c != '_') {
                     complete_path(&unescape_str(word), span, ctx)
                 } else {
-                    complete_var_name(s_word, Some("$"), span, ctx)
+                    Ok(complete_var_name(s_word, Some("$"), span, ctx))
                 };
             }
 
             // Try to complete a function-as-a-value's name
             if let Some(s_word) = word.strip_prefix('@') {
-                return sort_results(
+                return Ok(sort_results(
                     word,
                     build_fn_completions(s_word, next_char, Some("@"), None, span, ctx).collect(),
-                );
+                ));
             }
 
             // Otherwise, if the current word does not contain a path separator or a string delimiter...
@@ -210,11 +212,11 @@ pub fn generate_completions(
                     //
                     // If it's not, then we can't perform any completion
                     CompletionMode::Expr => {
-                        return sort_results(
+                        return Ok(sort_results(
                             word,
                             build_fn_completions(word, next_char, None, Some("("), span, ctx)
                                 .collect(),
-                        )
+                        ))
                     }
 
                     _ => unreachable!(),
@@ -240,7 +242,7 @@ pub fn generate_completions(
             // If it returned some results...
             if !completions.is_empty() {
                 // Return them
-                return completions
+                return Ok(completions
                     .into_iter()
                     .map(|comp| {
                         let ExternalCompletion { value, description } = comp;
@@ -254,7 +256,7 @@ pub fn generate_completions(
                             append_whitespace: true,
                         }
                     })
-                    .collect();
+                    .collect());
             }
         }
     }
@@ -276,7 +278,7 @@ fn complete_cmd_name(
     next_char: Option<char>,
     span: Span,
     ctx: &Context,
-) -> Vec<Suggestion> {
+) -> Result<Vec<Suggestion>, String> {
     // First try to complete as a method's name
     if let Some(word) = word.strip_prefix('.') {
         let comp =
@@ -284,7 +286,7 @@ fn complete_cmd_name(
 
         // If we've got at least one result, return it
         if !comp.is_empty() {
-            return sort_results(word, comp);
+            return Ok(sort_results(word, comp));
         }
     }
 
@@ -293,15 +295,12 @@ fn complete_cmd_name(
         build_fn_completions(word, next_char, None, None, span, ctx).collect::<Vec<_>>();
 
     // ...and as an external command's name
-    cmd_comp.extend(
-        build_external_cmd_completions(word, next_char, span)
-            .ok()
-            .flatten()
-            .unwrap_or_default(),
-    );
+    if let Some(cmds) = build_external_cmd_completions(word, next_char, span)? {
+        cmd_comp.extend(cmds);
+    }
 
     // Return the results (even if we've got nothing)
-    sort_results(word, cmd_comp)
+    Ok(sort_results(word, cmd_comp))
 }
 
 fn build_fn_completions<'a>(
@@ -397,7 +396,7 @@ fn build_external_cmd_completions(
     word: &str,
     next_char: Option<char>,
     span: Span,
-) -> Result<Option<Vec<SortableSuggestion>>, Box<dyn Error>> {
+) -> Result<Option<Vec<SortableSuggestion>>, String> {
     if word.contains('/') || word.contains('\\') {
         return Ok(None);
     }
@@ -528,27 +527,28 @@ fn complete_var_name(
     sort_results(&word, results)
 }
 
-fn complete_path(path: &[UnescapedSegment], span: Span, ctx: &Context) -> Vec<Suggestion> {
-    let Ok(globified) = globify_path(path, ctx) else {
-        // TODO: error handling
-        return vec![];
-    };
+fn complete_path(
+    path: &[UnescapedSegment],
+    span: Span,
+    ctx: &Context,
+) -> Result<Vec<Suggestion>, String> {
+    let globified =
+        globify_path(path, ctx).map_err(|err| format!("Failed to globify path {path:?}: {err}"))?;
 
     let GlobPathOut {
         glob_pattern,
         starts_with,
     } = globified;
 
-    let Ok(entries) = glob_with(
+    let entries = glob_with(
         &glob_pattern,
         MatchOptions {
             case_sensitive: false,
             require_literal_leading_dot: false,
             require_literal_separator: true,
         },
-    ) else {
-        return vec![];
-    };
+    )
+    .map_err(|err| format!("Failed to get glob results for path {path:?}: {err}"))?;
 
     let paths = entries.collect::<Vec<_>>();
 
@@ -620,7 +620,7 @@ fn complete_path(path: &[UnescapedSegment], span: Span, ctx: &Context) -> Vec<Su
         ));
     }
 
-    sort_results(&glob_pattern, results)
+    Ok(sort_results(&glob_pattern, results))
 }
 
 fn sort_results(input: &str, values: Vec<(String, Suggestion)>) -> Vec<Suggestion> {
@@ -929,54 +929,4 @@ fn escape_str<'a>(str: &'a str, prefix: Option<&str>) -> Cow<'a, str> {
             Cow::Owned(escaped)
         }
     }
-}
-
-#[test]
-fn tmp() {
-    use reshell_builtins::builder::{build_native_lib_content, NativeLibParams};
-    use reshell_parser::files::FilesMap;
-    use reshell_runtime::{
-        bin_resolver::BinariesResolver,
-        conf::RuntimeConf,
-        context::{Context, ContextCreationParams},
-    };
-
-    use crate::{on_dir_jump, utils::ctrl_c::take_pending_ctrl_c_request};
-
-    let mut ctx = Context::new(
-        ContextCreationParams {
-            // TODO: allow to configure through CLI
-            runtime_conf: RuntimeConf::default(),
-            files_map: FilesMap::new(Box::new(|_, _, _| todo!())),
-            take_ctrl_c_indicator: take_pending_ctrl_c_request,
-            home_dir: Some(dirs::home_dir().unwrap()),
-            on_dir_jump,
-            script_args: vec![],
-        },
-        BinariesResolver::new().unwrap(),
-        build_native_lib_content(NativeLibParams {
-            home_dir: Some(dirs::home_dir().unwrap()),
-            script_args: vec![],
-        }),
-    );
-
-    crate::utils::cmd_checker::COMMANDS_CHECKER
-        .lock()
-        .unwrap()
-        .refresh(&mut ctx);
-
-    // let _ = SHARED_CONTEXT.lock().unwrap().insert(ctx);
-
-    println!(
-        "{:#?}",
-        complete_path(
-            &[
-                UnescapedSegment::VariableName("HOME".to_owned()),
-                UnescapedSegment::String("/Downloads/test".to_owned()),
-            ],
-            Span { start: 0, end: 0 },
-            &ctx,
-        )[0]
-        .value
-    );
 }
