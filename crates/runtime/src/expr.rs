@@ -133,6 +133,10 @@ fn apply_double_op(
                     }
 
                     DoubleOp::Div => {
+                        if *right == 0 {
+                            return Err(ctx.error(op.at, "cannot divide by zero"));
+                        }
+
                         RuntimeValue::Int(left.checked_div(*right).ok_or_else(got_overflow)?)
                     }
 
@@ -162,7 +166,13 @@ fn apply_double_op(
                         DoubleOp::Add => try_op(left + right)?,
                         DoubleOp::Sub => try_op(left - right)?,
                         DoubleOp::Mul => try_op(left * right)?,
-                        DoubleOp::Div => try_op(left / right)?,
+                        DoubleOp::Div => {
+                            if *right == 0.0 {
+                                return Err(ctx.error(op.at, "cannot divide by zero"));
+                            }
+
+                            try_op(left / right)?
+                        }
 
                         DoubleOp::Mod => RuntimeValue::Float(left % right),
                         DoubleOp::Lt => RuntimeValue::Bool(left < right),
