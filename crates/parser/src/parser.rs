@@ -1140,7 +1140,8 @@ pub fn program(
 
     let single_cmd_call = cmd_env_var
         .spanned()
-        .separated_by_into_vec(s)
+        .then_ignore(s.critical("expected a space after the variable's value"))
+        .repeated_into_vec()
         .spanned()
         .then(cmd_path.spanned().followed_by(silent_choice((
             end(),
