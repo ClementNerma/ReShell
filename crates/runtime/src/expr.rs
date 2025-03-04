@@ -107,12 +107,35 @@ fn apply_double_op(
         | DoubleOp::Gte => {
             let right = right(ctx)?;
 
+            let got_overflow = || {
+                ctx.error(
+                    op.at,
+                    format!(
+                        "overflow during arithmetic operation with operands: {} and {}",
+                        left.display(ctx, PrettyPrintOptions::inline()),
+                        right.display(ctx, PrettyPrintOptions::inline())
+                    ),
+                )
+            };
+
             match (&left, &right) {
                 (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match op.data {
-                    DoubleOp::Add => RuntimeValue::Int(left + right),
-                    DoubleOp::Sub => RuntimeValue::Int(left - right),
-                    DoubleOp::Mul => RuntimeValue::Int(left * right),
-                    DoubleOp::Div => RuntimeValue::Int(left / right),
+                    DoubleOp::Add => {
+                        RuntimeValue::Int(left.checked_add(*right).ok_or_else(got_overflow)?)
+                    }
+
+                    DoubleOp::Sub => {
+                        RuntimeValue::Int(left.checked_sub(*right).ok_or_else(got_overflow)?)
+                    }
+
+                    DoubleOp::Mul => {
+                        RuntimeValue::Int(left.checked_mul(*right).ok_or_else(got_overflow)?)
+                    }
+
+                    DoubleOp::Div => {
+                        RuntimeValue::Int(left.checked_div(*right).ok_or_else(got_overflow)?)
+                    }
+
                     DoubleOp::Mod => RuntimeValue::Int(left % right),
                     DoubleOp::Lt => RuntimeValue::Bool(left < right),
                     DoubleOp::Lte => RuntimeValue::Bool(left <= right),
@@ -126,23 +149,34 @@ fn apply_double_op(
                     | DoubleOp::NullFallback => unreachable!(),
                 },
 
-                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match op.data {
-                    DoubleOp::Add => RuntimeValue::Float(left + right),
-                    DoubleOp::Sub => RuntimeValue::Float(left - right),
-                    DoubleOp::Mul => RuntimeValue::Float(left * right),
-                    DoubleOp::Div => RuntimeValue::Float(left / right),
-                    DoubleOp::Mod => RuntimeValue::Float(left % right),
-                    DoubleOp::Lt => RuntimeValue::Bool(left < right),
-                    DoubleOp::Lte => RuntimeValue::Bool(left <= right),
-                    DoubleOp::Gt => RuntimeValue::Bool(left > right),
-                    DoubleOp::Gte => RuntimeValue::Bool(left >= right),
+                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => {
+                    let try_op = |result: f64| {
+                        if result.is_finite() {
+                            Ok(RuntimeValue::Float(result))
+                        } else {
+                            Err(got_overflow())
+                        }
+                    };
 
-                    DoubleOp::And
-                    | DoubleOp::Or
-                    | DoubleOp::Eq
-                    | DoubleOp::Neq
-                    | DoubleOp::NullFallback => unreachable!(),
-                },
+                    match op.data {
+                        DoubleOp::Add => try_op(left + right)?,
+                        DoubleOp::Sub => try_op(left - right)?,
+                        DoubleOp::Mul => try_op(left * right)?,
+                        DoubleOp::Div => try_op(left / right)?,
+
+                        DoubleOp::Mod => RuntimeValue::Float(left % right),
+                        DoubleOp::Lt => RuntimeValue::Bool(left < right),
+                        DoubleOp::Lte => RuntimeValue::Bool(left <= right),
+                        DoubleOp::Gt => RuntimeValue::Bool(left > right),
+                        DoubleOp::Gte => RuntimeValue::Bool(left >= right),
+
+                        DoubleOp::And
+                        | DoubleOp::Or
+                        | DoubleOp::Eq
+                        | DoubleOp::Neq
+                        | DoubleOp::NullFallback => unreachable!(),
+                    }
+                }
 
                 (RuntimeValue::Int(_), RuntimeValue::Float(_)) => {
                     return Err(ctx.error(
