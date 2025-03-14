@@ -62,6 +62,7 @@ pub fn check_if_single_type_fits_single(
     ctx: &TypeAliasStore,
 ) -> bool {
     match (value_type, into) {
+        (SingleValueType::Void, SingleValueType::Void) => true,
         (SingleValueType::Void, _) | (_, SingleValueType::Void) => false,
 
         (SingleValueType::Any, _) | (_, SingleValueType::Any) => true,
