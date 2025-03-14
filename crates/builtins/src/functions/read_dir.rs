@@ -93,7 +93,18 @@ fn run() -> Runner {
                 })?;
 
                 let item_path = if full_path {
-                    item.path().into_os_string()
+                    let canon = fs::canonicalize(item.path()).map_err(|err| {
+                        ctx.error(
+                            args_at.full_path,
+                            format!(
+                                "Failed to canonicalize directory entry at '{}': {}",
+                                item.path().display(),
+                                err
+                            ),
+                        )
+                    })?;
+
+                    canon.into_os_string()
                 } else if relative_path {
                     match &dir_path {
                         Some(dir_path) => {
