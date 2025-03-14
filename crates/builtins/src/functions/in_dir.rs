@@ -13,10 +13,10 @@ crate::define_internal_fn!(
         func: RequiredArg<RunFn> = Arg::positional("func")
     )
 
-    -> VoidType
+    -> AnyType
 );
 
-declare_typed_fn_handler!(RunFn() -> VoidType);
+declare_typed_fn_handler!(RunFn() -> AnyType);
 
 fn run() -> Runner {
     Runner::new(|at, Args { path, func }, args_at, ctx| {
@@ -38,6 +38,9 @@ fn run() -> Runner {
 
         change_current_dir(cur_dir, at, ctx)?;
 
-        result.map(|_| None)
+        Ok(Some(match result? {
+            Some(ret_val) => ret_val.value,
+            None => RuntimeValue::Void,
+        }))
     })
 }
