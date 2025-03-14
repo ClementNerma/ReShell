@@ -5,7 +5,7 @@ define_internal_fn!(
 
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
-        index: RequiredArg<ExactIntType<usize>> = Arg::positional("key"),
+        index: RequiredArg<ExactIntType<usize>> = Arg::positional("index"),
         or_else: OptionalArg<AnyType> = Arg::long_flag("or-else")
     )
 
