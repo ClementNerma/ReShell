@@ -15,6 +15,7 @@ use reshell_runtime::conf::RuntimeConf;
 use crate::{paths::HISTORY_PATH, print_err, print_warn};
 
 pub static HISTORY_MENU_NAME: &str = "history_menu";
+pub static NEWLINE_SYMBOL: &str = "<<</newline/>>>";
 
 pub fn create_history(runtime_conf: &RuntimeConf) -> Box<dyn RlHistory> {
     if runtime_conf.history.enabled {
@@ -71,7 +72,7 @@ impl History {
 
             entries.insert(
                 HistoryItemId(i.try_into().unwrap()),
-                line.replace("\\\\n", "\n").replace("\\\\", "\\"),
+                line.replace(NEWLINE_SYMBOL, "\n"),
             );
         }
 
@@ -114,11 +115,7 @@ impl RlHistory for History {
                 .map_err(ReedlineError)?;
 
             file.write_all(
-                format!(
-                    "{}\n",
-                    h.command_line.replace('\\', "\\\\").replace('\n', "\\n")
-                )
-                .as_bytes(),
+                format!("{}\n", h.command_line.replace("\n", NEWLINE_SYMBOL)).as_bytes(),
             )
             .map_err(ReedlineErrorVariants::IOError)
             .map_err(ReedlineError)?;
