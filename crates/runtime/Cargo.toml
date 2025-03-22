@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 colored = "3.0.0"
-indexmap = "2.7.1"
+indexmap = "2.8.0"
 parsy = "0.10.1"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
-dyn-clone = "1.0.18"
+dyn-clone = "1.0.19"
 reshell-shared = { version = "0.1.0", path = "../shared" }
