@@ -654,7 +654,6 @@ pub enum FnCallArg {
         name: Span<CmdFlagNameArg>,
         value: Span<Expr>,
     },
-    CmdArg(Box<Span<CmdArg>>),
 }
 
 /// A token that's either eaten from a real input or generated at runtime

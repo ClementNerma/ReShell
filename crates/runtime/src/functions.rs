@@ -10,7 +10,7 @@ use reshell_parser::ast::{
 use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    cmd::{eval_cmd_arg, CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
+    cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
     exec::{run_body_with_deps, InstrRet},
@@ -797,14 +797,6 @@ fn flatten_fn_call_args(
                             }),
                         }))
                     }
-
-                    FnCallArg::CmdArg(arg) => match eval_cmd_arg(arg, ctx)? {
-                        CmdArgResult::Single(single) => out.push(single),
-
-                        CmdArgResult::Spreaded(items) => {
-                            out.extend(items);
-                        }
-                    },
                 }
             }
         }

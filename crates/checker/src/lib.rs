@@ -1061,7 +1061,6 @@ fn check_fn_call_arg(arg: &Span<FnCallArg>, state: &mut State) -> CheckerResult 
     match &arg.data {
         FnCallArg::Expr(expr) => check_expr(&expr.data, state),
         FnCallArg::Flag { name: _, value } => check_expr(&value.data, state),
-        FnCallArg::CmdArg(cmd_arg) => check_cmd_arg(cmd_arg, state),
     }
 }
 
