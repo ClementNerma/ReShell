@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 colored = "3.0.0"
-indexmap = "2.8.0"
+indexmap = "2.9.0"
 parsy = "0.10.1"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
