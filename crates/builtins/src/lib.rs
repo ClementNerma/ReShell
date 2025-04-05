@@ -6,8 +6,6 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
-// TODO: nightly
-#![feature(os_str_display)]
 
 mod functions;
 mod helpers;
