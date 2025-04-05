@@ -16,8 +16,6 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone)]
-// Disable large enum variants lint as Clippy's detection isn't working properly
-#[allow(clippy::large_enum_variant)]
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
@@ -316,11 +314,11 @@ pub enum Value {
     Map(Vec<MapItem>),
     Struct(Vec<StructItem>),
     Variable(Span<String>),
-    FnCall(Span<FnCall>),
-    CmdOutput(CmdOutputCapture),
-    CmdCall(Span<CmdCall>),
+    FnCall(Box<Span<FnCall>>),
+    CmdOutput(Box<CmdOutputCapture>),
+    CmdCall(Box<Span<CmdCall>>),
     FnAsValue(Span<String>),
-    Lambda(Function),
+    Lambda(Box<Function>),
 }
 
 #[derive(Debug, Clone)]
@@ -453,7 +451,7 @@ pub enum ComputedStringPiece {
     Escaped(EscapableChar),
     Variable(Span<String>),
     Expr(Span<Expr>),
-    CmdOutput(CmdOutputCapture),
+    CmdOutput(Box<CmdOutputCapture>),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -656,7 +654,7 @@ pub enum FnCallArg {
         name: Span<CmdFlagNameArg>,
         value: Span<Expr>,
     },
-    CmdArg(Span<CmdArg>),
+    CmdArg(Box<Span<CmdArg>>),
 }
 
 /// A token that's either eaten from a real input or generated at runtime

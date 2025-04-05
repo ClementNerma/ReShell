@@ -426,7 +426,7 @@ pub fn program(
                     // Escaped
                     escapable_char.map(ComputedStringPiece::Escaped),
                     // Command calls
-                    cmd_capture.clone().map(ComputedStringPiece::CmdOutput),
+                    cmd_capture.clone().map(Box::new).map(ComputedStringPiece::CmdOutput),
                     // Variables
                     char('$')
                         .ignore_then(ident.critical("expected an identifier after '$' symbol (did you want to escape it with a backslash?)"))
@@ -484,7 +484,7 @@ pub fn program(
         .then_ignore(char('}').critical_auto_msg())
         .map(|(signature, body)| Function { signature, body });
 
-    let inline_cmd = just("@(")
+    let inline_cmd_call = just("@(")
         .ignore_then(msnl)
         .ignore_then(
             cmd_call
@@ -570,7 +570,7 @@ pub fn program(
             .then_ignore(char('}').critical_auto_msg())
             .map(Value::Map),
         // Lambdas
-        lambda.clone().map(Value::Lambda),
+        lambda.clone().map(Box::new).map(Value::Lambda),
         // Structures
         char('{')
             .ignore_then(msnl)
@@ -597,13 +597,13 @@ pub fn program(
             .then_ignore(char('}').critical_auto_msg())
             .map(Value::Struct),
         // Function calls
-        fn_call.clone().spanned().map(Value::FnCall),
+        fn_call.clone().spanned().map(Box::new).map(Value::FnCall),
         // Command output captures
-        cmd_capture.clone().map(Value::CmdOutput),
+        cmd_capture.clone().map(Box::new).map(Value::CmdOutput),
         // Variables
         var_name.spanned().map(Value::Variable),
-        // Commands
-        inline_cmd.clone().map(Value::CmdCall),
+        // Command calls
+        inline_cmd_call.clone().map(Box::new).map(Value::CmdCall),
         // Function as value
         char('@')
             .ignore_then(ident.critical("expected a function name"))
@@ -1065,7 +1065,7 @@ pub fn program(
             .then_ignore(char(')').critical_auto_msg())
             .map(CmdValueMakingArg::ParenExpr),
         // Inline command call
-        inline_cmd.map(CmdValueMakingArg::InlineCmdCall),
+        inline_cmd_call.map(CmdValueMakingArg::InlineCmdCall),
         // Lambdas
         lambda.clone().spanned().map(CmdValueMakingArg::Lambda),
         // Raw argument (but not flags, which aren't value making arguments)
