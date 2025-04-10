@@ -22,7 +22,7 @@ use reshell_runtime::{
     context::{Context, ContextCreationParams},
     errors::ExecResult,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use self::{
     args::{Args, RuntimeConfArgs},

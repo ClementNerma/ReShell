@@ -4,6 +4,7 @@ use reshell_checker::typechecker::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
     FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeSpan, ValueType,
 };
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     cmd::{CmdArgResult, SingleCmdArgResult},
     context::Context,
@@ -11,7 +12,6 @@ use reshell_runtime::{
     functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::helpers::args::TypedValueParser;
 

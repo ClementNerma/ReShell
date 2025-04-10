@@ -1,5 +1,5 @@
 use colored::Colorize;
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use terminal_size::{terminal_size, Width};
 
 crate::define_internal_fn!(

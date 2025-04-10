@@ -7,7 +7,7 @@ use reshell_parser::ast::{
     FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeSpan,
     SingleValueType, ValueType,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},

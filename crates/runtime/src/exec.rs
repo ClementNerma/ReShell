@@ -7,7 +7,7 @@ use reshell_parser::ast::{
     ObjPropSpreadingType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType,
     VarSpreading,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::{run_cmd, CmdExecParams},

@@ -2,7 +2,7 @@ use std::{ops::Deref, time::Instant};
 
 use colored::Color;
 use reshell_runtime::values::CustomValueType;
-use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
+use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece};
 
 /// Time instant
 ///

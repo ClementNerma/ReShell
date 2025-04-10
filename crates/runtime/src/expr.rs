@@ -6,7 +6,7 @@ use reshell_parser::ast::{
     PropAccess, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem, TypeMatchExprCase,
     Value,
 };
-use reshell_shared::pretty::{pretty_printable_string, PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{pretty_printable_string, PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::capture_cmd_output,

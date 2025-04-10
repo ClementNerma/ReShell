@@ -5,6 +5,6 @@ members = [
     "crates/runtime",
     "crates/repl",
     "crates/builtins",
-    "crates/shared",
+    "crates/prettify",
 ]
 resolver = "2"

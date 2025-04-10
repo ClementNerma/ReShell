@@ -4,7 +4,7 @@ use reshell_parser::ast::{
     FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
     FnSignature, SingleValueType, StructTypeMember, ValueType,
 };
-use reshell_shared::pretty::TypeAliasStore;
+use reshell_prettify::TypeAliasStore;
 
 /// Check if a type can fit into another (which is if all values of this type would be compatible with the target type)
 #[must_use]

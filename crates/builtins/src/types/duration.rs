@@ -2,7 +2,7 @@ use std::{ops::Deref, time::Duration};
 
 use colored::Color;
 use reshell_runtime::values::CustomValueType;
-use reshell_shared::pretty::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
+use reshell_prettify::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
 
 /// Time duration
 ///

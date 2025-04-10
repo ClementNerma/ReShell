@@ -17,7 +17,7 @@ use reshell_parser::{
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore};
 
 use crate::{
     bin_resolver::BinariesResolver,

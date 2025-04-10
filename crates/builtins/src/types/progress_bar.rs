@@ -2,8 +2,8 @@ use std::ops::Deref;
 
 use colored::Color;
 use indicatif::ProgressBar;
+use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece};
 use reshell_runtime::values::CustomValueType;
-use reshell_shared::pretty::{PrettyPrintable, PrettyPrintablePiece};
 
 /// Progress bar displayer
 #[derive(Debug, Clone)]

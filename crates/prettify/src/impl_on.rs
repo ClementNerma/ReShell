@@ -14,7 +14,7 @@ use reshell_parser::{
     files::{FilesMap, SourceFileLocation},
 };
 
-use crate::pretty::{PrettyPrintable, PrettyPrintablePiece, Styled};
+use crate::{PrettyPrintable, PrettyPrintablePiece, Styled};
 
 pub type TypeAliasStore = HashMap<Span<String>, Arc<Span<ValueType>>>;
 

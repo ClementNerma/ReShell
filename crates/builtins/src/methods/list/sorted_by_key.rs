@@ -1,6 +1,6 @@
 use reshell_parser::ast::SingleValueType;
 use reshell_runtime::{errors::ExecError, gc::GcCell, values::CustomValueType};
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use super::sorted::ComparableValueType;
 use crate::{

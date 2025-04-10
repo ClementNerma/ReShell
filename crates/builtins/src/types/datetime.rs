@@ -3,7 +3,7 @@ use std::ops::Deref;
 use colored::Color;
 use jiff::{fmt::rfc2822, Zoned};
 use reshell_runtime::values::CustomValueType;
-use reshell_shared::pretty::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
+use reshell_prettify::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
 
 /// Date and time value
 ///

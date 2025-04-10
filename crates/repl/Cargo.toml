@@ -24,6 +24,6 @@ annotate-snippets = { version = "0.11.5" }
 ctrlc = "3.4.6"
 indexmap = "2.9.0"
 dunce = "1.0.5"
-reshell-shared = { version = "0.1.0", path = "../shared" }
 reedline = "0.39.0"
+reshell-prettify = { version = "0.1.0", path = "../prettify" }
 pomsky-macro = "0.11.0"

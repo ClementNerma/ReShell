@@ -21,7 +21,7 @@ use reshell_runtime::{
     context::CallStackEntry,
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError},
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 #[derive(Debug)]
 pub enum ReportableError {

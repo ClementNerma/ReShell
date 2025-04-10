@@ -1,5 +1,5 @@
 [package]
-name = "reshell-shared"
+name = "reshell-prettify"
 version = "0.1.0"
 edition = "2021"
 

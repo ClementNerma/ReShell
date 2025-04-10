@@ -6,7 +6,7 @@
 use indexmap::map::{Entry, VacantEntry};
 use parsy::Span;
 use reshell_parser::ast::PropAccessNature;
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{context::Context, errors::ExecResult, expr::eval_expr, values::RuntimeValue};
 

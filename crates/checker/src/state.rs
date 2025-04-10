@@ -5,7 +5,7 @@ use reshell_parser::{
     ast::{Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
-use reshell_shared::pretty::TypeAliasStore;
+use reshell_prettify::TypeAliasStore;
 
 use crate::{errors::CheckerResult, output::*, CheckerError};
 

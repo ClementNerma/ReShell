@@ -4,7 +4,7 @@ use colored::Colorize;
 use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
 use regex::Regex;
 use reshell_runtime::gc::GcReadOnlyCell;
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{define_internal_fn, types::RegexValue};
 

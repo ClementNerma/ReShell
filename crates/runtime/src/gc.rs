@@ -4,7 +4,7 @@ use std::{
 };
 
 use reshell_parser::ast::RuntimeCodeRange;
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{context::Context, errors::ExecResult};
 

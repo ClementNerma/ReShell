@@ -4,9 +4,7 @@
 
 use colored::{Color, Colorize};
 use reshell_parser::ast::FlagValueSeparator;
-use reshell_shared::pretty::{
-    pretty_printable_string, PrettyPrintable, PrettyPrintablePiece, Styled,
-};
+use reshell_prettify::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece, Styled};
 
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},

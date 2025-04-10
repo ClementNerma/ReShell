@@ -14,7 +14,7 @@ use reshell_parser::ast::{
     CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, FlagValueSeparator, FnCallNature,
     RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     context::{Context, DepsScopeCreationData},

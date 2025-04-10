@@ -875,8 +875,8 @@ dependencies = [
  "regex",
  "reshell-checker",
  "reshell-parser",
+ "reshell-prettify",
  "reshell-runtime",
- "reshell-shared",
  "serde_json",
  "terminal_size",
  "toml",
@@ -888,7 +888,7 @@ version = "0.1.0"
 dependencies = [
  "parsy",
  "reshell-parser",
- "reshell-shared",
+ "reshell-prettify",
 ]
 
 [[package]]
@@ -896,6 +896,15 @@ name = "reshell-parser"
 version = "0.1.0"
 dependencies = [
  "parsy",
+]
+
+[[package]]
+name = "reshell-prettify"
+version = "0.1.0"
+dependencies = [
+ "colored",
+ "parsy",
+ "reshell-parser",
 ]
 
 [[package]]
@@ -919,8 +928,8 @@ dependencies = [
  "reshell-builtins",
  "reshell-checker",
  "reshell-parser",
+ "reshell-prettify",
  "reshell-runtime",
- "reshell-shared",
 ]
 
 [[package]]
@@ -933,16 +942,7 @@ dependencies = [
  "parsy",
  "reshell-checker",
  "reshell-parser",
- "reshell-shared",
-]
-
-[[package]]
-name = "reshell-shared"
-version = "0.1.0"
-dependencies = [
- "colored",
- "parsy",
- "reshell-parser",
+ "reshell-prettify",
 ]
 
 [[package]]

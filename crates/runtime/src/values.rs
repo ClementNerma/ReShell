@@ -17,7 +17,7 @@ use reshell_parser::{
     },
     scope::AstScopeId,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::FlagArgValueResult,

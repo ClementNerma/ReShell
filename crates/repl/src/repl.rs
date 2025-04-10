@@ -29,7 +29,7 @@ use reshell_runtime::{
     errors::{ExecErrorNature, ExecNotActualError},
     values::RuntimeValue,
 };
-use reshell_shared::pretty::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     args::ExecArgs,
