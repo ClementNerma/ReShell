@@ -6,5 +6,6 @@ members = [
     "crates/repl",
     "crates/builtins",
     "crates/prettify",
+    "crates/globby",
 ]
 resolver = "3"

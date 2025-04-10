@@ -13,24 +13,24 @@ use std::{
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
-use glob::{glob_with, MatchOptions};
 use reedline::{
     ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
 };
 use reshell_builtins::repl::completer::GeneratedCompletion;
+use reshell_globby::Globby;
 use reshell_parser::DELIMITER_CHARS;
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
-    compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
+    compat::{PATH_VAR_SEP, TARGET_FAMILY, TargetFamily},
     context::Context,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     repl::SHARED_CONTEXT,
     utils::{
-        cmd_pieces::{compute_command_pieces, CmdPiece},
+        cmd_pieces::{CmdPiece, compute_command_pieces},
         jaro_winkler::jaro_winkler_distance,
-        path_globifier::{globify_path, GlobPathOut, GlobPathStartsWith},
+        path_globifier::{GlobPathOut, GlobPathStartsWith, globify_path},
     },
 };
 
@@ -162,7 +162,7 @@ pub fn generate_completions(
                 extra: None,
                 span,
                 append_whitespace: true,
-            }])
+            }]);
         }
 
         // Complete as a command's name
@@ -216,7 +216,7 @@ pub fn generate_completions(
                             word,
                             build_fn_completions(word, next_char, None, Some("("), span, ctx)
                                 .collect(),
-                        ))
+                        ));
                     }
 
                     _ => unreachable!(),
@@ -540,33 +540,26 @@ fn complete_path(
         starts_with,
     } = globified;
 
-    let entries = glob_with(
-        &glob_pattern,
-        MatchOptions {
-            case_sensitive: false,
-            require_literal_leading_dot: false,
-            require_literal_separator: true,
-        },
-    )
-    .map_err(|err| format!("Failed to get glob results for path {path:?}: {err}"))?;
+    let entries = Globby::in_current_dir(&glob_pattern, Default::default())
+        .map_err(|err| format!("Failed to get glob results for path {path:?}: {err}"))?;
 
     let paths = entries.collect::<Vec<_>>();
 
     let mut results = vec![];
 
-    for path in paths {
-        let Ok(path) = path else {
+    for entry in paths {
+        let Ok(entry) = entry else {
             continue;
         };
 
-        let Ok(metadata) = path.metadata() else {
+        let Ok(metadata) = entry.metadata() else {
             continue;
         };
 
         let file_type = metadata.file_type();
 
         // NOTE: Invalid UTF-8 paths will be displayed lossily (no other way to handle this)
-        let mut path_str = path.to_string_lossy().to_string();
+        let mut path_str = entry.path().to_string_lossy().to_string();
 
         if file_type.is_dir() {
             path_str.push(MAIN_SEPARATOR);

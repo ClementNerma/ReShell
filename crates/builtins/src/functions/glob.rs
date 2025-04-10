@@ -1,4 +1,4 @@
-use glob::{glob_with, MatchOptions};
+use reshell_globby::{Globby, GlobbyOptions};
 use reshell_runtime::gc::GcCell;
 
 crate::define_internal_fn!(
@@ -10,7 +10,7 @@ crate::define_internal_fn!(
 
     (
         pattern: RequiredArg<StringType> = Arg::positional("pattern"),
-        case_sensitive: PresenceFlag = Arg::long_flag("case-sensitive"),
+        case_insensitive: PresenceFlag = Arg::long_flag("case-insensitive"),
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
@@ -22,18 +22,17 @@ fn run() -> Runner {
         |at,
          Args {
              pattern,
-             case_sensitive,
+             case_insensitive,
              lossy,
          },
          args_at,
          ctx| {
-            let mut options = MatchOptions::default();
+            let options = GlobbyOptions {
+                case_insensitive,
+                ..Default::default()
+            };
 
-            if case_sensitive {
-                options.case_sensitive = true;
-            }
-
-            let paths = glob_with(&pattern, options).map_err(|err| {
+            let paths = Globby::in_current_dir(&pattern, options).map_err(|err| {
                 ctx.throw(
                     args_at.pattern,
                     format!("invalid glob pattern provided: {err}"),
@@ -41,10 +40,12 @@ fn run() -> Runner {
             })?;
 
             let paths = paths
-                .map(|path| -> ExecResult<RuntimeValue> {
-                    let path = path.map_err(|err| {
+                .map(|entry| -> ExecResult<RuntimeValue> {
+                    let entry = entry.map_err(|err| {
                         ctx.throw(at, format!("failed to access path during glob: {err}"))
                     })?;
+
+                    let path = entry.path();
 
                     if lossy {
                         return Ok(RuntimeValue::String(path.to_string_lossy().to_string()));

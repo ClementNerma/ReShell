@@ -1,0 +1,9 @@
+[package]
+name = "reshell-globby"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.97"
+globset = "0.4.16"
+walkdir = "2.5.0"
