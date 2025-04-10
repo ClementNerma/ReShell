@@ -16,7 +16,7 @@ impl ScopeIdGenerator {
         }
     }
 
-    pub fn gen(&self) -> AstScopeId {
+    pub fn next(&self) -> AstScopeId {
         let mut counter = self.counter.lock().unwrap();
         *counter += 1;
 

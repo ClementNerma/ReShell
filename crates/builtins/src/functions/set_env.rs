@@ -15,7 +15,11 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { var_name, value }, _, ctx| {
-        std::env::set_var(&var_name, value);
+        #[allow(unsafe_code)]
+        unsafe {
+            // TODO: add guards
+            std::env::set_var(&var_name, value);
+        }
 
         if var_name == "PATH" {
             ctx.binaries_resolver()

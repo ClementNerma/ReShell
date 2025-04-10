@@ -1,9 +1,10 @@
 use std::{collections::HashSet, sync::LazyLock};
 
 use parsy::{
+    FileId, Parser, ParsingError,
     atoms::{alphanumeric, digits},
     char, choice, empty, end, filter, just, late, lookahead, newline, not, recursive,
-    silent_choice, whitespaces, FileId, Parser, ParsingError,
+    silent_choice, whitespaces,
 };
 
 use crate::{
@@ -841,7 +842,7 @@ pub fn program(
                         try_expr,
                         catch_var,
                         catch_expr,
-                        catch_expr_scope_id: scope_id_gen_bis.gen(),
+                        catch_expr_scope_id: scope_id_gen_bis.next(),
                     },
                 ),
             //
@@ -1806,7 +1807,7 @@ pub fn program(
             )
             .map(move |(name, content)| Instruction::CmdAliasDecl {
                 name,
-                content_scope_id: scope_id_gen_bis.gen(),
+                content_scope_id: scope_id_gen_bis.next(),
                 content,
             }),
         //
@@ -1871,7 +1872,7 @@ pub fn program(
             .padded_by(msnl)
             .repeated_into_vec()
             .map(move |instructions| Block {
-                scope_id: scope_id_gen.gen(),
+                scope_id: scope_id_gen.next(),
                 instructions,
             })
             .followed_by(
