@@ -19,6 +19,7 @@ pub struct Pattern {
 }
 
 impl Pattern {
+    // TODO: option for case insensitivity
     pub fn parse(input: &str) -> Result<Self, ParsingError> {
         let RawPattern {
             is_absolute,

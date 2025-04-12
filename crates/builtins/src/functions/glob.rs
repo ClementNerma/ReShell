@@ -27,11 +27,9 @@ fn run() -> Runner {
 
         let paths = paths
             .map(|entry| -> ExecResult<RuntimeValue> {
-                let entry = entry.map_err(|err| {
+                let path = entry.map_err(|err| {
                     ctx.throw(at, format!("failed to access path during glob: {err}"))
                 })?;
-
-                let path = entry.path();
 
                 if lossy {
                     return Ok(RuntimeValue::String(path.to_string_lossy().to_string()));

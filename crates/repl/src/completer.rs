@@ -548,18 +548,18 @@ fn complete_path(
     let mut results = vec![];
 
     for entry in paths {
-        let Ok(entry) = entry else {
+        let Ok(path) = entry else {
             continue;
         };
 
-        let Ok(metadata) = entry.metadata() else {
+        let Ok(metadata) = path.metadata() else {
             continue;
         };
 
         let file_type = metadata.file_type();
 
         // NOTE: Invalid UTF-8 paths will be displayed lossily (no other way to handle this)
-        let mut path_str = entry.path().to_string_lossy().to_string();
+        let mut path_str = path.to_string_lossy().to_string();
 
         if file_type.is_dir() {
             path_str.push(MAIN_SEPARATOR);
