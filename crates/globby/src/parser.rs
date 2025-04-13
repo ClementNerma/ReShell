@@ -190,7 +190,7 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
 );
 
 static SPECIAL_CHARS: LazyLock<HashSet<char>> =
-    LazyLock::new(|| HashSet::from(['[', ']', '{', '}', '*', '?', '\\', '/']));
+    LazyLock::new(|| HashSet::from(['[', ']', '{', '}', '*', '?', '\\', '/', '|']));
 
 #[derive(Debug)]
 pub struct RawPattern {

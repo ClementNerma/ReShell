@@ -23,11 +23,14 @@ pub fn compile_component(component: &RawComponent) -> Component {
             join_iter(chars_matchers.iter().map(compile_chars_matcher), "")
         }
 
-        RawComponent::OneOf(items) => join_iter(
-            items
-                .iter()
-                .map(|group| join_iter(group.iter().map(compile_chars_matcher), "")),
-            "|",
+        RawComponent::OneOf(items) => format!(
+            "({})",
+            join_iter(
+                items
+                    .iter()
+                    .map(|group| join_iter(group.iter().map(compile_chars_matcher), "")),
+                "|",
+            )
         ),
     };
 
