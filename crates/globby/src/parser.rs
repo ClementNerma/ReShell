@@ -2,8 +2,8 @@ use std::{collections::HashSet, num::NonZero, sync::LazyLock};
 
 use parsy::{Parser, char, choice, end, filter, just, not, silent_choice};
 
-pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
-    LazyLock::new(|| {
+pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> = LazyLock::new(
+    || {
         let normal_char = filter(|c| !SPECIAL_CHARS.contains(&c));
 
         let chars_matcher = choice::<CharsMatcher, _>((
@@ -142,7 +142,7 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                 })
                 // TODO: critical message in case of error
                 .validate(|component| match component {
-                    RawComponent::Literal(lit) => !lit.is_empty() && lit != "." && lit != "..",
+                    RawComponent::Literal(lit) => lit != "." && lit != "..",
                     _ => true,
                 })
                 .critical("yoh")
@@ -176,14 +176,18 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
         ));
 
         let pattern = pattern_type
+            // TODO: remove empty components
+            // TODO: for that, use a "VecWithFilter" alloc container
             .then(component.separated_by_into_vec(dir_sep))
             .map(|(pattern_type, components)| RawPattern {
                 pattern_type,
-                components,
+                // TODO: then remove this
+                components: components.into_iter().filter(|component| !matches!(component, RawComponent::Literal(str) if str.is_empty())).collect(),
             });
 
         Box::new(pattern.full())
-    });
+    },
+);
 
 static SPECIAL_CHARS: LazyLock<HashSet<char>> =
     LazyLock::new(|| HashSet::from(['[', ']', '{', '}', '*', '?', '\\', '/']));
