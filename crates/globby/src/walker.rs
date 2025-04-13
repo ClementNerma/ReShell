@@ -12,6 +12,7 @@ pub struct Walker {
     pattern: Pattern,
     dir_walker: walkdir::IntoIter,
     strip_dir: PathBuf,
+    base_dir: PathBuf,
 }
 
 impl Walker {
@@ -34,6 +35,11 @@ impl Walker {
 
                 base_dir.to_owned()
             },
+            base_dir: if matches!(pattern.pattern_type(), PatternType::Absolute) {
+                PathBuf::new()
+            } else {
+                base_dir.to_owned()
+            },
             pattern,
         })
     }
@@ -52,11 +58,14 @@ impl Iterator for Walker {
             // TODO: don't unwrap
             let entry_path = canonicalize(entry.path()).unwrap();
 
-            let entry_path = diff_paths(&entry_path, &self.strip_dir).unwrap();
-
-            match self.pattern.match_against(&entry_path) {
+            match self
+                .pattern
+                .match_against(&diff_paths(&entry_path, &self.strip_dir).unwrap())
+            {
                 PatternMatchResult::PathNotAbsolute => unreachable!(),
-                PatternMatchResult::Matched => return Some(Ok(entry_path)),
+                PatternMatchResult::Matched => {
+                    return Some(Ok(diff_paths(&entry_path, &self.base_dir).unwrap()));
+                }
                 PatternMatchResult::NotMatched => {
                     if entry.file_type().is_dir() {
                         self.dir_walker.skip_current_dir();
@@ -79,9 +88,7 @@ pub fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
         }
     } else {
         let mut ita = path.components();
-
         let mut itb = base.components();
-
         let mut comps: Vec<std::path::Component> = vec![];
 
         loop {
@@ -90,9 +97,7 @@ pub fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
 
                 (Some(a), None) => {
                     comps.push(a);
-
                     comps.extend(ita.by_ref());
-
                     break;
                 }
 
@@ -112,9 +117,7 @@ pub fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
                     }
 
                     comps.push(a);
-
                     comps.extend(ita.by_ref());
-
                     break;
                 }
             }

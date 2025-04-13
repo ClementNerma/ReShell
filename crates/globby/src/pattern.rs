@@ -90,6 +90,8 @@ impl Pattern {
 }
 
 fn simplify_path_components(path: &Path) -> (Option<PrefixComponent>, Vec<&OsStr>) {
+    use std::path::Component;
+
     let mut components_iter = path.components();
 
     let Some(first_component) = components_iter.next() else {
@@ -100,16 +102,15 @@ fn simplify_path_components(path: &Path) -> (Option<PrefixComponent>, Vec<&OsStr
     let mut normalized_components = vec![];
 
     let prefix = match first_component {
-        std::path::Component::Prefix(prefix) => Some(prefix),
+        Component::Prefix(prefix) => Some(prefix),
+        Component::RootDir | Component::CurDir => None,
 
-        std::path::Component::RootDir
-        | std::path::Component::CurDir
-        | std::path::Component::ParentDir => {
+        Component::ParentDir => {
             normalized_components.push(OsStr::new(".."));
             None
         }
 
-        std::path::Component::Normal(os_str) => {
+        Component::Normal(os_str) => {
             normalized_components.push(os_str);
             None
         }
@@ -117,12 +118,12 @@ fn simplify_path_components(path: &Path) -> (Option<PrefixComponent>, Vec<&OsStr
 
     for component in components_iter {
         match component {
-            std::path::Component::Prefix(_) | std::path::Component::RootDir => unreachable!(),
-            std::path::Component::CurDir => continue,
-            std::path::Component::ParentDir => {
+            Component::Prefix(_) | Component::RootDir => unreachable!(),
+            Component::CurDir => continue,
+            Component::ParentDir => {
                 normalized_components.push(OsStr::new(".."));
             }
-            std::path::Component::Normal(os_str) => normalized_components.push(os_str),
+            Component::Normal(os_str) => normalized_components.push(os_str),
         }
     }
 

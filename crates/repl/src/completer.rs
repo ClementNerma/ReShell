@@ -592,7 +592,11 @@ fn complete_path(
             }
 
             Some(GlobPathStartsWith::CurrentDir) => {
-                escape_str(&path_str, Some(&format!(".{MAIN_SEPARATOR}")))
+                if !path_str.starts_with("../") && !path_str.starts_with("..\\") {
+                    escape_str(&path_str, Some(&format!(".{MAIN_SEPARATOR}")))
+                } else {
+                    escape_str(&path_str, None)
+                }
             }
 
             None => escape_str(&path_str, None),
