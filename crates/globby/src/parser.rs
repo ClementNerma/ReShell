@@ -1,12 +1,20 @@
 use std::{collections::HashSet, num::NonZero, sync::LazyLock};
 
-use parsy::{Parser, char, choice, end, filter, just, not, silent_choice};
+use parsy::{Parser, arc_recursive, char, choice, end, filter, just, not, silent_choice};
 
 pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> = LazyLock::new(
     || {
         let normal_char = filter(|c| !SPECIAL_CHARS.contains(&c));
 
-        let chars_matcher = choice::<CharsMatcher, _>((
+        let component_repetition = choice::<ComponentRepetition, _>((
+            char('*').to(ComponentRepetition::Any),
+            char('?').to(ComponentRepetition::AtMostOnce),
+        ))
+        .or_not()
+        .map(|rep| rep.unwrap_or(ComponentRepetition::ExactlyOnce));
+
+        let chars_matcher = arc_recursive(|chars_matcher| {
+            choice::<CharsMatcher, _>((
             //
             // Literal characters
             //
@@ -85,15 +93,30 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                     }
                 })
                 .then(
-                    choice::<ComponentRepetition, _>((
-                        char('*').to(ComponentRepetition::Any),
-                        char('?').to(ComponentRepetition::AtMostOnce),
-                    ))
-                    .or_not()
-                    .map(|rep| rep.unwrap_or(ComponentRepetition::ExactlyOnce)),
+                    component_repetition
                 )
                 .map(|(nature, repetition)| CharsMatcher { nature, repetition }),
-        ));
+            //
+            // Group alternates
+            //
+            char('{')
+                .ignore_then(
+                    chars_matcher
+                        .repeated_into_vec()
+                        .at_least(1)
+                        .separated_by_into_vec(char('|'))
+                        .at_least(2)
+                        .critical("expected at least 2 alternative matchers"),
+                )
+                .then_ignore(char('}').critical_auto_msg())
+                .map(CharsMatcherNature::OneOfGroups)
+                .then(
+                    component_repetition
+                )
+                .map(|(nature, repetition)| CharsMatcher { nature, repetition }),
+
+        ))
+        });
 
         let dir_sep = silent_choice((char('/'), char('\\')));
 
@@ -106,20 +129,6 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                     "Wildcard components '**' must be preceded and followed by path separators",
                 ))
                 .map(|_| RawComponent::Wildcard),
-            //
-            // Alternate groups
-            //
-            char('{')
-                .ignore_then(
-                    chars_matcher
-                        .repeated_into_vec()
-                        .at_least(1)
-                        .separated_by_into_vec(char('|'))
-                        .at_least(2)
-                        .critical("expected at least 2 alternative matchers"),
-                )
-                .then_ignore(char('}').critical_auto_msg())
-                .map(RawComponent::OneOf),
             //
             // Character matchers
             //
@@ -209,7 +218,6 @@ pub enum PatternType {
 pub enum RawComponent {
     Literal(String),
     Suite(Vec<CharsMatcher>),
-    OneOf(Vec<Vec<CharsMatcher>>),
     Wildcard,
 }
 
@@ -226,6 +234,7 @@ pub enum CharsMatcherNature {
     Literal(String),
     OneOfChars(Vec<SingleCharMatcher>),
     NoneOfChars(Vec<SingleCharMatcher>),
+    OneOfGroups(Vec<Vec<CharsMatcher>>),
 }
 
 #[derive(Debug, Clone, Copy)]

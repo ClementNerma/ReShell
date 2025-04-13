@@ -676,9 +676,9 @@ dependencies = [
 
 [[package]]
 name = "parsy"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c9152f5cce7e63df447a0cb1af2db71f5e8e842872b42b554df383f552cca75"
+checksum = "7e2db7d444be39201c86d7a7852b1836021c72446690267e5b33a8a0682df42d"
 dependencies = [
  "perfect-derive",
 ]
@@ -905,7 +905,7 @@ name = "reshell-globby"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "parsy 0.11.0",
+ "parsy 0.12.0",
  "regex",
  "walkdir",
 ]
