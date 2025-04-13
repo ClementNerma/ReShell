@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{collections::HashSet, num::NonZero, sync::LazyLock};
 
 use parsy::{Parser, char, choice, end, filter, just, not, silent_choice};
 
@@ -95,12 +95,14 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                 .map(|(nature, repetition)| CharsMatcher { nature, repetition }),
         ));
 
+        let dir_sep = silent_choice((char('/'), char('\\')));
+
         let component = choice::<RawComponent, _>((
             //
             // Wildcard
             //
             just("**")
-                .followed_by(silent_choice((char('/'), char('\\'), end())).critical(
+                .followed_by(silent_choice((dir_sep, end())).critical(
                     "Wildcard components '**' must be preceded and followed by path separators",
                 ))
                 .map(|_| RawComponent::Wildcard),
@@ -121,32 +123,87 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
             //
             // Character matchers
             //
-            chars_matcher.repeated_into_vec().map(RawComponent::Suite),
+            chars_matcher
+                .repeated_into_vec()
+                .map(|matchers| match matchers.as_slice() {
+                    [] => RawComponent::Literal(String::new()),
+
+                    [
+                        CharsMatcher {
+                            nature: CharsMatcherNature::Literal(lit),
+                            repetition,
+                        },
+                    ] => {
+                        assert!(matches!(repetition, ComponentRepetition::ExactlyOnce));
+                        RawComponent::Literal(lit.to_owned())
+                    }
+
+                    _ => RawComponent::Suite(matchers),
+                })
+                // TODO: critical message in case of error
+                .validate(|component| match component {
+                    RawComponent::Literal(lit) => !lit.is_empty() && lit != "." && lit != "..",
+                    _ => true,
+                })
+                .critical("yoh")
+                .unexpected_eof_msg(false),
         ));
 
-        let pattern = silent_choice((char('/'), char('\\')))
-            .or_not()
-            // TODO: handle empty components
-            .then(component.separated_by_into_vec(silent_choice((char('/'), char('\\')))))
-            .full()
-            .map(|(is_absolute, components)| RawPattern {
-                is_absolute: is_absolute.is_some(),
+        let pattern_type = choice::<PatternType, _>((
+            //
+            // Absolute path (starts with a path separator)
+            //
+            dir_sep.to(PatternType::Absolute),
+            //
+            // Relative path starting from a parent directory (starts with one or more ".." components)
+            //
+            just(".")
+                .then(dir_sep)
+                .repeated()
+                .ignore_then(
+                    just("..")
+                        .then(dir_sep)
+                        // TODO: use counter container
+                        .repeated_into_vec()
+                        .map(|matches| matches.len()),
+                )
+                .try_map(NonZero::new)
+                .map(|depth| PatternType::RelativeToParent { depth }),
+            //
+            // Relative path (does not start with a path separator)
+            //
+            just(".").then(dir_sep).repeated().to(PatternType::Relative),
+        ));
+
+        let pattern = pattern_type
+            .then(component.separated_by_into_vec(dir_sep))
+            .map(|(pattern_type, components)| RawPattern {
+                pattern_type,
                 components,
             });
 
-        Box::new(pattern)
+        Box::new(pattern.full())
     });
 
 static SPECIAL_CHARS: LazyLock<HashSet<char>> =
     LazyLock::new(|| HashSet::from(['[', ']', '{', '}', '*', '?', '\\', '/']));
 
+#[derive(Debug)]
 pub struct RawPattern {
-    pub is_absolute: bool,
+    pub pattern_type: PatternType,
     pub components: Vec<RawComponent>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PatternType {
+    Absolute,
+    Relative,
+    RelativeToParent { depth: NonZero<usize> },
 }
 
 #[derive(Debug)]
 pub enum RawComponent {
+    Literal(String),
     Suite(Vec<CharsMatcher>),
     OneOf(Vec<Vec<CharsMatcher>>),
     Wildcard,

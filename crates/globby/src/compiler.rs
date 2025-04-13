@@ -17,6 +17,8 @@ pub fn compile_component(component: &RawComponent) -> Component {
     let regex = match component {
         RawComponent::Wildcard => return Component::Wildcard,
 
+        RawComponent::Literal(lit) => regex::escape(lit),
+
         RawComponent::Suite(chars_matchers) => {
             join_iter(chars_matchers.iter().map(compile_chars_matcher), "")
         }

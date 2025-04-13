@@ -1,7 +1,7 @@
 use std::{
     ffi::OsStr,
     os::unix::ffi::OsStrExt,
-    path::{Path, PrefixComponent},
+    path::{MAIN_SEPARATOR_STR, Path, PathBuf, PrefixComponent},
 };
 
 use anyhow::Result;
@@ -9,12 +9,13 @@ use parsy::ParsingError;
 
 use crate::{
     compiler::{Component, compile_component},
-    parser::{PATTERN_PARSER, RawPattern},
+    parser::{PATTERN_PARSER, PatternType, RawComponent, RawPattern},
 };
 
 #[derive(Debug)]
 pub struct Pattern {
-    is_absolute: bool,
+    pattern_type: PatternType,
+    common_root_dir: PathBuf,
     components: Vec<Component>,
 }
 
@@ -22,12 +23,41 @@ impl Pattern {
     // TODO: option for case insensitivity
     pub fn parse(input: &str) -> Result<Self, ParsingError> {
         let RawPattern {
-            is_absolute,
+            pattern_type,
             components,
         } = PATTERN_PARSER.parse_str(input).map(|parsed| parsed.data)?;
 
+        let mut common_root_dir_components = components
+            .iter()
+            .map_while(|component| match component {
+                RawComponent::Literal(lit) => Some(lit.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+
+        if common_root_dir_components.len() == components.len() {
+            common_root_dir_components.pop();
+        }
+
+        let common_root_dir = common_root_dir_components.join(MAIN_SEPARATOR_STR);
+
         Ok(Self {
-            is_absolute,
+            pattern_type,
+            common_root_dir: PathBuf::from(if matches!(pattern_type, PatternType::Absolute) {
+                format!("/{common_root_dir}")
+            } else if let PatternType::RelativeToParent { depth } = pattern_type {
+                format!(
+                    "{}{}{common_root_dir}",
+                    format!("..{}", MAIN_SEPARATOR_STR).repeat(depth.into()),
+                    if !common_root_dir.is_empty() {
+                        MAIN_SEPARATOR_STR
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                common_root_dir
+            }),
             components: components.iter().map(compile_component).collect(),
         })
     }
@@ -37,7 +67,7 @@ impl Pattern {
     }
 
     pub fn match_against(&self, path: &Path) -> PatternMatchResult {
-        if self.is_absolute && !path.is_absolute() {
+        if matches!(self.pattern_type, PatternType::Absolute) && !path.is_absolute() {
             return PatternMatchResult::PathNotAbsolute;
         }
 
@@ -50,8 +80,12 @@ impl Pattern {
         match_components(&self.components, &path_components)
     }
 
-    pub fn is_absolute(&self) -> bool {
-        self.is_absolute
+    pub fn common_root_dir(&self) -> &Path {
+        &self.common_root_dir
+    }
+
+    pub fn pattern_type(&self) -> PatternType {
+        self.pattern_type
     }
 }
 
@@ -68,9 +102,12 @@ fn simplify_path_components(path: &Path) -> (Option<PrefixComponent>, Vec<&OsStr
     let prefix = match first_component {
         std::path::Component::Prefix(prefix) => Some(prefix),
 
-        std::path::Component::RootDir | std::path::Component::CurDir => None,
-
-        std::path::Component::ParentDir => return (None, vec![]),
+        std::path::Component::RootDir
+        | std::path::Component::CurDir
+        | std::path::Component::ParentDir => {
+            normalized_components.push(OsStr::new(".."));
+            None
+        }
 
         std::path::Component::Normal(os_str) => {
             normalized_components.push(os_str);
@@ -83,7 +120,7 @@ fn simplify_path_components(path: &Path) -> (Option<PrefixComponent>, Vec<&OsStr
             std::path::Component::Prefix(_) | std::path::Component::RootDir => unreachable!(),
             std::path::Component::CurDir => continue,
             std::path::Component::ParentDir => {
-                normalized_components.pop();
+                normalized_components.push(OsStr::new(".."));
             }
             std::path::Component::Normal(os_str) => normalized_components.push(os_str),
         }
