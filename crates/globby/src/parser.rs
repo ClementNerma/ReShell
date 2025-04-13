@@ -6,13 +6,6 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
     || {
         let normal_char = filter(|c| !SPECIAL_CHARS.contains(&c));
 
-        let component_repetition = choice::<ComponentRepetition, _>((
-            char('*').to(ComponentRepetition::Any),
-            char('?').to(ComponentRepetition::AtMostOnce),
-        ))
-        .or_not()
-        .map(|rep| rep.unwrap_or(ComponentRepetition::ExactlyOnce));
-
         let chars_matcher = arc_recursive(|chars_matcher| {
             choice::<CharsMatcher, _>((
             //
@@ -21,10 +14,7 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
             normal_char
                 .repeated_into_container::<String>()
                 .at_least(1)
-                .map(|string| CharsMatcher {
-                    nature: CharsMatcherNature::Literal(string),
-                    repetition: ComponentRepetition::ExactlyOnce,
-                }),
+                .map(CharsMatcher::Literal),
             //
             // Wildcard
             //
@@ -32,17 +22,11 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                 .followed_by(not(char('*')).critical(
                     "Wildcard components '**' must be preceded by and followed by a path separator",
                 ))
-                .map(|_| CharsMatcher {
-                    nature: CharsMatcherNature::AnyChars,
-                    repetition: ComponentRepetition::ExactlyOnce,
-                }),
+                .map(|_| CharsMatcher::AnyChars),
             //
             // Optional universal character (or not)
             //
-            char('?').map(|_| CharsMatcher {
-                nature: CharsMatcherNature::AnyCharOrNot,
-                repetition: ComponentRepetition::ExactlyOnce,
-            }),
+            char('?').map(|_| CharsMatcher::AnyCharOrNot),
             //
             // Character alternates
             //
@@ -87,15 +71,11 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                 .then_ignore(char(']').critical_auto_msg())
                 .map(|(neg, chars)| {
                     if neg.is_some() {
-                        CharsMatcherNature::NoneOfChars(chars)
+                        CharsMatcher::NoneOfChars(chars)
                     } else {
-                        CharsMatcherNature::OneOfChars(chars)
+                        CharsMatcher::OneOfChars(chars)
                     }
-                })
-                .then(
-                    component_repetition
-                )
-                .map(|(nature, repetition)| CharsMatcher { nature, repetition }),
+                }),
             //
             // Group alternates
             //
@@ -109,12 +89,7 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                         .critical("expected at least 2 alternative matchers"),
                 )
                 .then_ignore(char('}').critical_auto_msg())
-                .map(CharsMatcherNature::OneOfGroups)
-                .then(
-                    component_repetition
-                )
-                .map(|(nature, repetition)| CharsMatcher { nature, repetition }),
-
+                .map(CharsMatcher::OneOfGroups),
         ))
         });
 
@@ -136,17 +111,7 @@ pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> =
                 .repeated_into_vec()
                 .map(|matchers| match matchers.as_slice() {
                     [] => RawComponent::Literal(String::new()),
-
-                    [
-                        CharsMatcher {
-                            nature: CharsMatcherNature::Literal(lit),
-                            repetition,
-                        },
-                    ] => {
-                        assert!(matches!(repetition, ComponentRepetition::ExactlyOnce));
-                        RawComponent::Literal(lit.to_owned())
-                    }
-
+                    [CharsMatcher::Literal(lit)] => RawComponent::Literal(lit.to_owned()),
                     _ => RawComponent::Suite(matchers),
                 })
                 // TODO: critical message in case of error
@@ -222,13 +187,7 @@ pub enum RawComponent {
 }
 
 #[derive(Debug)]
-pub struct CharsMatcher {
-    pub nature: CharsMatcherNature,
-    pub repetition: ComponentRepetition,
-}
-
-#[derive(Debug)]
-pub enum CharsMatcherNature {
+pub enum CharsMatcher {
     AnyChars,
     AnyCharOrNot,
     Literal(String),
@@ -251,12 +210,5 @@ pub enum CharacterClass {
     Uppercase,
     Lowercase,
     Whitespace,
-    Any,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum ComponentRepetition {
-    ExactlyOnce,
-    AtMostOnce,
     Any,
 }

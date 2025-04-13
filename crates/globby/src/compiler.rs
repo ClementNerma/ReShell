@@ -1,9 +1,6 @@
 use regex::bytes::Regex;
 
-use crate::parser::{
-    CharacterClass, CharsMatcher, CharsMatcherNature, ComponentRepetition, RawComponent,
-    SingleCharMatcher,
-};
+use crate::parser::{CharacterClass, CharsMatcher, RawComponent, SingleCharMatcher};
 
 // TODO: remove a lot of string allocations!
 
@@ -28,13 +25,11 @@ pub fn compile_component(component: &RawComponent) -> Component {
 }
 
 fn compile_chars_matcher(chars_matcher: &CharsMatcher) -> String {
-    let CharsMatcher { nature, repetition } = chars_matcher;
-
-    let base = match nature {
-        CharsMatcherNature::AnyChars => ".*".to_owned(),
-        CharsMatcherNature::AnyCharOrNot => ".?".to_owned(),
-        CharsMatcherNature::Literal(lit) => regex::escape(lit),
-        CharsMatcherNature::OneOfChars(single_char_matchers) => format!(
+    match chars_matcher {
+        CharsMatcher::AnyChars => ".*".to_owned(),
+        CharsMatcher::AnyCharOrNot => ".?".to_owned(),
+        CharsMatcher::Literal(lit) => regex::escape(lit),
+        CharsMatcher::OneOfChars(single_char_matchers) => format!(
             "[{}]",
             join_iter(
                 single_char_matchers
@@ -44,7 +39,7 @@ fn compile_chars_matcher(chars_matcher: &CharsMatcher) -> String {
                 ""
             )
         ),
-        CharsMatcherNature::NoneOfChars(single_char_matchers) => format!(
+        CharsMatcher::NoneOfChars(single_char_matchers) => format!(
             "[^{}]",
             join_iter(
                 single_char_matchers
@@ -54,7 +49,7 @@ fn compile_chars_matcher(chars_matcher: &CharsMatcher) -> String {
                 ""
             )
         ),
-        CharsMatcherNature::OneOfGroups(items) => format!(
+        CharsMatcher::OneOfGroups(items) => format!(
             "({})",
             join_iter(
                 items
@@ -63,15 +58,7 @@ fn compile_chars_matcher(chars_matcher: &CharsMatcher) -> String {
                 "|",
             )
         ),
-    };
-
-    let repetition = match repetition {
-        ComponentRepetition::ExactlyOnce => "",
-        ComponentRepetition::AtMostOnce => "?",
-        ComponentRepetition::Any => "*",
-    };
-
-    format!("{base}{repetition}")
+    }
 }
 
 fn compile_single_char_matcher(char_matcher: SingleCharMatcher) -> String {
