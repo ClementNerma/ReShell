@@ -11,11 +11,11 @@ pub struct FsWalker {
 }
 
 impl FsWalker {
-    pub fn new(dir: PathBuf) -> Result<Self> {
-        Ok(Self {
+    pub fn new(dir: PathBuf) -> Self {
+        Self {
             readers: vec![],
             going_into_dir: Some(dir),
-        })
+        }
     }
 
     pub fn skip_incoming_dir(&mut self) -> Result<PathBuf> {

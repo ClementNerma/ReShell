@@ -21,7 +21,7 @@ pub fn glob(pattern: &str, dir: &Path, opts: PatternOpts) -> Result<Walker> {
     let pattern = Pattern::parse(pattern, opts)
         .map_err(|err| anyhow!("Failed to parse provided pattern: {err:?}"))?;
 
-    Walker::new(pattern, dir)
+    Ok(Walker::new(pattern, dir))
 }
 
 pub fn glob_current_dir(pattern: &str, opts: PatternOpts) -> Result<Walker> {
