@@ -3,6 +3,7 @@
 #![warn(unused_crate_dependencies)]
 
 mod compiler;
+mod fs_walker;
 mod parser;
 mod pattern;
 mod walker;
@@ -25,7 +26,7 @@ pub fn glob(pattern: &str, dir: &Path) -> Result<Walker> {
 
 pub fn glob_current_dir(pattern: &str) -> Result<Walker> {
     let current_dir =
-        std::env::current_dir().context("Failed to get path of the  current directory")?;
+        std::env::current_dir().context("Failed to get path of the current directory")?;
 
     glob(pattern, &current_dir)
 }

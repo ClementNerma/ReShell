@@ -1,26 +1,31 @@
 use std::{
     fs::canonicalize,
-    path::{Path, PathBuf},
+    path::{MAIN_SEPARATOR_STR, Path, PathBuf},
 };
 
 use anyhow::{Context, Result};
-use walkdir::WalkDir;
 
-use crate::{Pattern, parser::PatternType, pattern::PatternMatchResult};
+use crate::{Pattern, fs_walker::FsWalker, parser::PatternType, pattern::PatternMatchResult};
 
 pub struct Walker {
     pattern: Pattern,
-    dir_walker: walkdir::IntoIter,
+    dir_walker: FsWalker,
     strip_dir: PathBuf,
-    base_dir: PathBuf,
 }
 
 impl Walker {
     pub fn new(pattern: Pattern, base_dir: &Path) -> Result<Self> {
+        let walk_from = base_dir.join(pattern.common_root_dir());
+        let walk_from = canonicalize(&walk_from).with_context(|| {
+            format!(
+                "Failed to canonicalize base directory {}",
+                walk_from.display()
+            )
+        })?;
+
         Ok(Self {
-            dir_walker: WalkDir::new(base_dir.join(pattern.common_root_dir()))
-                .min_depth(1)
-                .into_iter(),
+            dir_walker: FsWalker::new(walk_from)?,
+
             strip_dir: if pattern.common_root_dir().is_absolute() {
                 PathBuf::new()
             } else {
@@ -35,18 +40,14 @@ impl Walker {
 
                 base_dir.to_owned()
             },
-            base_dir: if matches!(pattern.pattern_type(), PatternType::Absolute) {
-                PathBuf::new()
-            } else {
-                base_dir.to_owned()
-            },
+
             pattern,
         })
     }
 }
 
 impl Iterator for Walker {
-    type Item = walkdir::Result<PathBuf>;
+    type Item = Result<PathBuf>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -55,74 +56,33 @@ impl Iterator for Walker {
                 Err(err) => return Some(Err(err)),
             };
 
-            // TODO: don't unwrap
-            let entry_path = canonicalize(entry.path()).unwrap();
+            let entry_path = entry
+                .path()
+                .strip_prefix(&self.strip_dir)
+                .unwrap()
+                .to_owned();
 
-            match self
-                .pattern
-                .match_against(&diff_paths(&entry_path, &self.strip_dir).unwrap())
-            {
+            match self.pattern.match_against(&entry_path) {
                 PatternMatchResult::PathNotAbsolute => unreachable!(),
                 PatternMatchResult::Matched => {
-                    return Some(Ok(diff_paths(&entry_path, &self.base_dir).unwrap()));
+                    return Some(Ok(match self.pattern.pattern_type() {
+                        PatternType::RelativeToParent { depth } => {
+                            // TODO: cache this string to avoid runtime formatting overhead
+                            let prefix = format!("..{MAIN_SEPARATOR_STR}").repeat(depth.into());
+
+                            Path::new(&prefix).join(entry_path)
+                        }
+
+                        _ => entry_path,
+                    }));
                 }
                 PatternMatchResult::NotMatched => {
-                    if entry.file_type().is_dir() {
-                        self.dir_walker.skip_current_dir();
+                    if entry.path().is_dir() {
+                        self.dir_walker.skip_incoming_dir().unwrap();
                     }
                 }
                 PatternMatchResult::Starved => {}
             }
         }
-    }
-}
-
-pub fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
-    use std::path::Component;
-
-    if path.is_absolute() != base.is_absolute() {
-        if path.is_absolute() {
-            Some(PathBuf::from(path))
-        } else {
-            None
-        }
-    } else {
-        let mut ita = path.components();
-        let mut itb = base.components();
-        let mut comps: Vec<std::path::Component> = vec![];
-
-        loop {
-            match (ita.next(), itb.next()) {
-                (None, None) => break,
-
-                (Some(a), None) => {
-                    comps.push(a);
-                    comps.extend(ita.by_ref());
-                    break;
-                }
-
-                (None, _) => comps.push(Component::ParentDir),
-
-                (Some(a), Some(b)) if comps.is_empty() && a == b => (),
-
-                (Some(a), Some(Component::CurDir)) => comps.push(a),
-
-                (Some(_), Some(Component::ParentDir)) => return None,
-
-                (Some(a), Some(_)) => {
-                    comps.push(Component::ParentDir);
-
-                    for _ in itb {
-                        comps.push(Component::ParentDir);
-                    }
-
-                    comps.push(a);
-                    comps.extend(ita.by_ref());
-                    break;
-                }
-            }
-        }
-
-        Some(comps.iter().map(|c| c.as_os_str()).collect())
     }
 }
