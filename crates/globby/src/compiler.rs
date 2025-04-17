@@ -2,8 +2,6 @@ use regex::bytes::Regex;
 
 use crate::parser::{CharacterClass, CharsMatcher, RawComponent, SingleCharMatcher};
 
-// TODO: remove a lot of string allocations!
-
 #[derive(Debug, Clone)]
 pub enum Component {
     Regex(Regex),
@@ -22,7 +20,13 @@ pub fn compile_component(component: &RawComponent, case_sensitivity: CaseSensiti
         RawComponent::Literal(lit) => regex::escape(lit),
 
         RawComponent::Suite(chars_matchers) => {
-            join_iter(chars_matchers.iter().map(compile_chars_matcher), "")
+            let mut out = String::new();
+
+            for matcher in chars_matchers {
+                compile_chars_matcher(matcher, &mut out);
+            }
+
+            out
         }
     };
 
@@ -38,69 +42,59 @@ pub fn compile_component(component: &RawComponent, case_sensitivity: CaseSensiti
     )
 }
 
-fn compile_chars_matcher(chars_matcher: &CharsMatcher) -> String {
+fn compile_chars_matcher(chars_matcher: &CharsMatcher, out: &mut String) {
     match chars_matcher {
-        CharsMatcher::AnyChars => ".*".to_owned(),
-        CharsMatcher::AnyCharOrNot => ".?".to_owned(),
-        CharsMatcher::Literal(lit) => regex::escape(lit),
-        CharsMatcher::OneOfChars(single_char_matchers) => format!(
-            "[{}]",
-            join_iter(
-                single_char_matchers
-                    .iter()
-                    .copied()
-                    .map(compile_single_char_matcher),
-                ""
-            )
-        ),
-        CharsMatcher::NoneOfChars(single_char_matchers) => format!(
-            "[^{}]",
-            join_iter(
-                single_char_matchers
-                    .iter()
-                    .copied()
-                    .map(compile_single_char_matcher),
-                ""
-            )
-        ),
-        CharsMatcher::OneOfGroups(items) => format!(
-            "({})",
-            join_iter(
-                items
-                    .iter()
-                    .map(|group| join_iter(group.iter().map(compile_chars_matcher), "")),
-                "|",
-            )
-        ),
-    }
-}
+        CharsMatcher::AnyChars => out.push_str(".*"),
+        CharsMatcher::AnyCharOrNot => out.push_str(".?"),
+        CharsMatcher::Literal(lit) => out.push_str(&regex::escape(lit)),
+        CharsMatcher::OneOfChars(single_char_matchers) => {
+            out.push('[');
 
-fn compile_single_char_matcher(char_matcher: SingleCharMatcher) -> String {
-    match char_matcher {
-        SingleCharMatcher::Literal(lit) => regex::escape(&lit.to_string()),
+            for matcher in single_char_matchers {
+                compile_single_char_matcher(*matcher, out);
+            }
 
-        SingleCharMatcher::Class(character_class) => match character_class {
-            CharacterClass::Alpha => "[:alpha:]".to_owned(),
-            CharacterClass::Digit => "[:digit:]".to_owned(),
-            CharacterClass::Alphanumeric => "[:alnum:]".to_owned(),
-            CharacterClass::Uppercase => "[:upper:]".to_owned(),
-            CharacterClass::Lowercase => "[:lower:]".to_owned(),
-            CharacterClass::Whitespace => "[:space:]".to_owned(),
-            CharacterClass::Any => ".".to_owned(),
-        },
-    }
-}
-
-fn join_iter(iter: impl Iterator<Item = impl AsRef<str>>, join: &str) -> String {
-    let mut out = String::new();
-
-    for (i, item) in iter.enumerate() {
-        if i > 0 {
-            out.push_str(join);
+            out.push(']');
         }
+        CharsMatcher::NoneOfChars(single_char_matchers) => {
+            out.push_str("[^");
 
-        out.push_str(item.as_ref());
+            for matcher in single_char_matchers {
+                compile_single_char_matcher(*matcher, out);
+            }
+
+            out.push(']');
+        }
+        CharsMatcher::OneOfGroups(matchers) => {
+            out.push('(');
+
+            for (i, matchers) in matchers.iter().enumerate() {
+                if i > 0 {
+                    out.push('|');
+                }
+
+                for matcher in matchers {
+                    compile_chars_matcher(matcher, out);
+                }
+            }
+
+            out.push(')');
+        }
     }
+}
 
-    out
+fn compile_single_char_matcher(char_matcher: SingleCharMatcher, out: &mut String) {
+    match char_matcher {
+        SingleCharMatcher::Literal(lit) => out.push_str(&regex::escape(&lit.to_string())),
+
+        SingleCharMatcher::Class(character_class) => out.push_str(match character_class {
+            CharacterClass::Alpha => "[:alpha:]",
+            CharacterClass::Digit => "[:digit:]",
+            CharacterClass::Alphanumeric => "[:alnum:]",
+            CharacterClass::Uppercase => "[:upper:]",
+            CharacterClass::Lowercase => "[:lower:]",
+            CharacterClass::Whitespace => "[:space:]",
+            CharacterClass::Any => ".",
+        }),
+    }
 }
