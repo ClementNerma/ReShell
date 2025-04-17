@@ -3,8 +3,8 @@ use std::{collections::HashSet, sync::LazyLock};
 use parsy::{
     FileId, Parser, ParsingError,
     atoms::{alphanumeric, digits},
-    char, choice, empty, end, filter, just, late, lookahead, newline, not, recursive,
-    silent_choice, whitespaces,
+    char, choice, empty, end, filter, just, lookahead, newline, not, recursive, silent_choice,
+    to_define, whitespaces,
 };
 
 use crate::{
@@ -34,7 +34,7 @@ use crate::{
 pub fn program(
     load_file: impl Fn(String, FileId) -> Result<SourceFile, String> + 'static,
 ) -> impl Parser<Program> {
-    let program = late::<Program>();
+    let program = to_define::<Program>();
     let program_bis = program.clone();
 
     let comment = char('#').then(filter(|c| c != '\r' && c != '\n').repeated());
@@ -49,7 +49,7 @@ pub fn program(
 
     let scope_id_gen = ScopeIdGenerator::new();
 
-    let raw_block = late::<Block>();
+    let raw_block = to_define::<Block>();
 
     let s = whitespaces().no_newline().at_least_one();
 
@@ -70,13 +70,13 @@ pub fn program(
 
     let var_name = char('$').ignore_then(ident);
 
-    let cmd_call = late::<CmdCall>();
+    let cmd_call = to_define::<CmdCall>();
 
-    let expr = late::<Expr>();
+    let expr = to_define::<Expr>();
 
-    let cmd_flag_arg = late::<CmdFlagArg>();
+    let cmd_flag_arg = to_define::<CmdFlagArg>();
 
-    let fn_signature = late::<FnSignature>();
+    let fn_signature = to_define::<FnSignature>();
 
     let escapable_char = char('\\').ignore_then(
         choice((
@@ -300,7 +300,7 @@ pub fn program(
             .map(|(name, typ)| FnArg::Rest(FnRestArg { name, typ })),
     ));
 
-    fn_signature.finish(
+    fn_signature.define(
         char('(')
             .ignore_then(
                 fn_arg
@@ -638,7 +638,7 @@ pub fn program(
         .then_ignore(msnl)
         .then_ignore(char('}').critical_auto_msg());
 
-    let expr_inner_chaining = late::<ExprInnerChaining>();
+    let expr_inner_chaining = to_define::<ExprInnerChaining>();
 
     let scope_id_gen_bis = scope_id_gen.clone();
 
@@ -908,7 +908,7 @@ pub fn program(
             nature,
         });
 
-    expr_inner_chaining.finish(choice::<ExprInnerChaining, _>((
+    expr_inner_chaining.define(choice::<ExprInnerChaining, _>((
         msnl.ignore_then(lookahead(char('.')))
             .ignore_then(fn_call.clone())
             .spanned()
@@ -948,7 +948,7 @@ pub fn program(
             .map(|right_op| ExprOp::TypeIs { right_op }),
     ));
 
-    expr.finish(
+    expr.define(
         expr_inner
             .spanned()
             .then(expr_op.repeated_into_vec())
@@ -1109,7 +1109,7 @@ pub fn program(
         end(),
     )));
 
-    cmd_flag_arg.finish(
+    cmd_flag_arg.define(
         cmd_flag_name_arg
             .spanned()
             .then(
@@ -1249,7 +1249,7 @@ pub fn program(
             .map(CmdCallBase::SingleCmdCall),
     ));
 
-    cmd_call.finish(
+    cmd_call.define(
         cmd_call_base
             .then(
                 msnl.ignore_then(
@@ -1841,7 +1841,7 @@ pub fn program(
                 literal_string
                     .spanned()
                     .critical("expected a file path")
-                    .and_then_or_str(move |path| load_file(path.data, path.at.start.file_id))
+                    .and_then_or_critical(move |path| load_file(path.data, path.at.start.file_id))
                     .and_then(move |file| {
                         program_bis
                             .parse_str_with_file_id(&file.content, FileId::SourceFile(file.id))
@@ -1867,7 +1867,7 @@ pub fn program(
     );
 
     // Raw block
-    raw_block.finish(
+    raw_block.define(
         instr
             .padded_by(msnl)
             .repeated_into_vec()
@@ -1881,7 +1881,7 @@ pub fn program(
             ),
     );
 
-    program.finish(
+    program.define(
         raw_block
             .spanned()
             .padded_by(msnl)

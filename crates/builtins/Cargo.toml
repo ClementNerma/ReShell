@@ -9,7 +9,7 @@ dunce = "1.0.5"
 dyn-clone = "1.0.19"
 indexmap = "2.9.0"
 indicatif = "0.17.11"
-parsy = "0.10.1"
+parsy = "0.12.3"
 pomsky = "0.11.0"
 regex = "1.11.1"
 reshell-parser = { path = "../parser" }
@@ -18,8 +18,8 @@ reshell-checker = { path = "../checker" }
 serde_json = { version = "1.0.140", features = ["preserve_order"] }
 terminal_size = "0.4.2"
 toml = "0.8.20"
-rand = { version = "0.9.0" }
+rand = { version = "0.9.1" }
 reshell-globby = { version = "0.1.0", path = "../globby" }
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
-jiff = "0.2.5"
+jiff = "0.2.8"
 identconv = "0.2.0"

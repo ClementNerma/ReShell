@@ -1,12 +1,12 @@
 use std::{collections::HashSet, num::NonZero, sync::LazyLock};
 
-use parsy::{Parser, arc_recursive, char, choice, end, filter, just, not, silent_choice};
+use parsy::{Parser, char, choice, end, filter, just, not, recursive_shared, silent_choice};
 
 pub static PATTERN_PARSER: LazyLock<Box<dyn Parser<RawPattern> + Send + Sync>> = LazyLock::new(
     || {
         let normal_char = filter(|c| !SPECIAL_CHARS.contains(&c));
 
-        let chars_matcher = arc_recursive(|chars_matcher| {
+        let chars_matcher = recursive_shared(|chars_matcher| {
             choice::<CharsMatcher, _>((
             //
             // Literal characters
