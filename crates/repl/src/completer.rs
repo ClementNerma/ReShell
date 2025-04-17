@@ -17,7 +17,7 @@ use reedline::{
     ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
 };
 use reshell_builtins::repl::completer::GeneratedCompletion;
-use reshell_globby::glob_current_dir;
+use reshell_globby::{PatternOpts, glob_current_dir};
 use reshell_parser::DELIMITER_CHARS;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
@@ -540,8 +540,13 @@ fn complete_path(
         starts_with,
     } = globified;
 
-    let entries = glob_current_dir(&glob_pattern)
-        .map_err(|err| format!("Failed to get glob results for path {path:?}: {err}"))?;
+    let entries = glob_current_dir(
+        &glob_pattern,
+        PatternOpts {
+            case_insensitive: true,
+        },
+    )
+    .map_err(|err| format!("Failed to get glob results for path {path:?}: {err}"))?;
 
     let paths = entries.collect::<Vec<_>>();
 

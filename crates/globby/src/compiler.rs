@@ -4,13 +4,18 @@ use crate::parser::{CharacterClass, CharsMatcher, RawComponent, SingleCharMatche
 
 // TODO: remove a lot of string allocations!
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Component {
     Regex(Regex),
     Wildcard,
 }
 
-pub fn compile_component(component: &RawComponent) -> Component {
+pub enum CaseSensitivity {
+    Sensitive,
+    Insensitive,
+}
+
+pub fn compile_component(component: &RawComponent, case_sensitivity: CaseSensitivity) -> Component {
     let regex = match component {
         RawComponent::Wildcard => return Component::Wildcard,
 
@@ -21,7 +26,16 @@ pub fn compile_component(component: &RawComponent) -> Component {
         }
     };
 
-    Component::Regex(Regex::new(&format!("^{regex}$")).unwrap())
+    Component::Regex(
+        Regex::new(&format!(
+            "{}^{regex}$",
+            match case_sensitivity {
+                CaseSensitivity::Sensitive => "",
+                CaseSensitivity::Insensitive => "(?i)",
+            }
+        ))
+        .unwrap(),
+    )
 }
 
 fn compile_chars_matcher(chars_matcher: &CharsMatcher) -> String {

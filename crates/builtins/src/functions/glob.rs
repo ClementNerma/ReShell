@@ -1,4 +1,4 @@
-use reshell_globby::glob_current_dir;
+use reshell_globby::{PatternOpts, glob_current_dir};
 use reshell_runtime::gc::GcCell;
 
 crate::define_internal_fn!(
@@ -10,6 +10,7 @@ crate::define_internal_fn!(
 
     (
         pattern: RequiredArg<StringType> = Arg::positional("pattern"),
+        case_sensitive: PresenceFlag = Arg::long_flag("case-sensitive"),
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
 
@@ -17,38 +18,53 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|at, Args { pattern, lossy }, args_at, ctx| {
-        let paths = glob_current_dir(&pattern).map_err(|err| {
-            ctx.throw(
-                args_at.pattern,
-                format!("invalid glob pattern provided: {err}"),
+    Runner::new(
+        |at,
+         Args {
+             pattern,
+             case_sensitive,
+             lossy,
+         },
+         args_at,
+         ctx| {
+            let paths = glob_current_dir(
+                &pattern,
+                PatternOpts {
+                    case_insensitive: !case_sensitive,
+                },
             )
-        })?;
+            .map_err(|err| {
+                ctx.throw(
+                    args_at.pattern,
+                    format!("invalid glob pattern provided: {err}"),
+                )
+            })?;
 
-        let paths = paths
-            .map(|entry| -> ExecResult<RuntimeValue> {
-                let path = entry.map_err(|err| {
-                    ctx.throw(at, format!("failed to access path during glob: {err}"))
-                })?;
+            let paths = paths
+                .map(|entry| -> ExecResult<RuntimeValue> {
+                    let path = entry.map_err(|err| {
+                        ctx.throw(at, format!("failed to access path during glob: {err}"))
+                    })?;
 
-                if lossy {
-                    return Ok(RuntimeValue::String(path.to_string_lossy().to_string()));
-                }
+                    if lossy {
+                        return Ok(RuntimeValue::String(path.to_string_lossy().to_string()));
+                    }
 
-                let path = path.to_str().ok_or_else(|| {
-                    ctx.throw(
-                        at,
-                        format!(
-                            "encountered path with invalid UTF-8 character(s): {}",
-                            path.display()
-                        ),
-                    )
-                })?;
+                    let path = path.to_str().ok_or_else(|| {
+                        ctx.throw(
+                            at,
+                            format!(
+                                "encountered path with invalid UTF-8 character(s): {}",
+                                path.display()
+                            ),
+                        )
+                    })?;
 
-                Ok(RuntimeValue::String(path.to_owned()))
-            })
-            .collect::<Result<_, _>>()?;
+                    Ok(RuntimeValue::String(path.to_owned()))
+                })
+                .collect::<Result<_, _>>()?;
 
-        Ok(Some(RuntimeValue::List(GcCell::new(paths))))
-    })
+            Ok(Some(RuntimeValue::List(GcCell::new(paths))))
+        },
+    )
 }

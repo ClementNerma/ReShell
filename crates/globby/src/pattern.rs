@@ -8,11 +8,16 @@ use anyhow::Result;
 use parsy::ParsingError;
 
 use crate::{
-    compiler::{Component, compile_component},
+    compiler::{CaseSensitivity, Component, compile_component},
     parser::{PATTERN_PARSER, PatternType, RawComponent, RawPattern},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PatternOpts {
+    pub case_insensitive: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct Pattern {
     pattern_type: PatternType,
     common_root_dir: PathBuf,
@@ -20,8 +25,9 @@ pub struct Pattern {
 }
 
 impl Pattern {
-    // TODO: option for case insensitivity
-    pub fn parse(input: &str) -> Result<Self, ParsingError> {
+    pub fn parse(input: &str, opts: PatternOpts) -> Result<Self, ParsingError> {
+        let PatternOpts { case_insensitive } = opts;
+
         let RawPattern {
             pattern_type,
             components,
@@ -58,7 +64,19 @@ impl Pattern {
             } else {
                 common_root_dir
             }),
-            components: components.iter().map(compile_component).collect(),
+            components: components
+                .iter()
+                .map(|component| {
+                    compile_component(
+                        component,
+                        if case_insensitive {
+                            CaseSensitivity::Insensitive
+                        } else {
+                            CaseSensitivity::Sensitive
+                        },
+                    )
+                })
+                .collect(),
         })
     }
 
