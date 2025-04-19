@@ -19,7 +19,7 @@ serde_json = { version = "1.0.140", features = ["preserve_order"] }
 terminal_size = "0.4.2"
 toml = "0.8.20"
 rand = { version = "0.9.1" }
-reshell-globby = { version = "0.1.0", path = "../globby" }
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
 jiff = "0.2.8"
 identconv = "0.2.0"
+globby = "0.1.2"

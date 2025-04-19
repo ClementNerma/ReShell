@@ -1,4 +1,6 @@
-use reshell_globby::{PatternOpts, glob_current_dir};
+use std::path::{Path, PathBuf};
+
+use globby::{Pattern, PatternOpts, Walker};
 use reshell_runtime::gc::GcCell;
 
 crate::define_internal_fn!(
@@ -10,6 +12,7 @@ crate::define_internal_fn!(
 
     (
         pattern: RequiredArg<StringType> = Arg::positional("pattern"),
+        from: OptionalArg<StringType> = Arg::long_and_short_flag("from", 'f'),
         case_sensitive: PresenceFlag = Arg::long_flag("case-sensitive"),
         lossy: PresenceFlag = Arg::long_flag("lossy")
     )
@@ -22,12 +25,13 @@ fn run() -> Runner {
         |at,
          Args {
              pattern,
+             from,
              case_sensitive,
              lossy,
          },
          args_at,
          ctx| {
-            let paths = glob_current_dir(
+            let pattern = Pattern::new_with_opts(
                 &pattern,
                 PatternOpts {
                     case_insensitive: !case_sensitive,
@@ -36,11 +40,30 @@ fn run() -> Runner {
             .map_err(|err| {
                 ctx.throw(
                     args_at.pattern,
-                    format!("invalid glob pattern provided: {err}"),
+                    format!("invalid glob pattern provided: {err:?}"),
                 )
             })?;
 
-            let paths = paths
+            let from = match from {
+                Some(from) => {
+                    if !Path::new(&from).is_dir() {
+                        return Err(ctx.throw(
+                            args_at.from.unwrap(),
+                            format!("provided directory does not exist at path: {from}"),
+                        ));
+                    }
+
+                    PathBuf::from(from)
+                }
+                None => std::env::current_dir().map_err(|err| {
+                    ctx.error(
+                        at,
+                        format!("Failed to get path to current directory: {err}"),
+                    )
+                })?,
+            };
+
+            let paths = Walker::new(pattern, &from)
                 .map(|entry| -> ExecResult<RuntimeValue> {
                     let path = entry.map_err(|err| {
                         ctx.throw(at, format!("failed to access path during glob: {err}"))

@@ -13,11 +13,11 @@ use std::{
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
+use globby::{PatternOpts, glob_current_dir_with};
 use reedline::{
     ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
 };
 use reshell_builtins::repl::completer::GeneratedCompletion;
-use reshell_globby::{PatternOpts, glob_current_dir};
 use reshell_parser::DELIMITER_CHARS;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
@@ -540,13 +540,13 @@ fn complete_path(
         starts_with,
     } = globified;
 
-    let entries = glob_current_dir(
+    let entries = glob_current_dir_with(
         &glob_pattern,
         PatternOpts {
             case_insensitive: true,
         },
     )
-    .map_err(|err| format!("Failed to get glob results for path {path:?}: {err}"))?;
+    .map_err(|err| format!("Failed to get glob results for path {path:?}: {err:?}"))?;
 
     let paths = entries.collect::<Vec<_>>();
 

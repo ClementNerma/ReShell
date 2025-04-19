@@ -87,12 +87,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.98"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
-
-[[package]]
 name = "autocfg"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -371,6 +365,16 @@ dependencies = [
  "libc",
  "r-efi",
  "wasi 0.14.2+wasi-0.2.4",
+]
+
+[[package]]
+name = "globby"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6121fd1b57074049bd1260392edcf892fe87d2b5132b5924f7e8dc6803d9500e"
+dependencies = [
+ "parsy",
+ "regex",
 ]
 
 [[package]]
@@ -863,6 +867,7 @@ dependencies = [
  "colored",
  "dunce",
  "dyn-clone",
+ "globby",
  "identconv",
  "indexmap",
  "indicatif",
@@ -872,7 +877,6 @@ dependencies = [
  "rand",
  "regex",
  "reshell-checker",
- "reshell-globby",
  "reshell-parser",
  "reshell-prettify",
  "reshell-runtime",
@@ -888,15 +892,6 @@ dependencies = [
  "parsy",
  "reshell-parser",
  "reshell-prettify",
-]
-
-[[package]]
-name = "reshell-globby"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "parsy",
- "regex",
 ]
 
 [[package]]
@@ -926,6 +921,7 @@ dependencies = [
  "ctrlc",
  "dirs",
  "dunce",
+ "globby",
  "indexmap",
  "nu-ansi-term",
  "parsy",
@@ -934,7 +930,6 @@ dependencies = [
  "regex",
  "reshell-builtins",
  "reshell-checker",
- "reshell-globby",
  "reshell-parser",
  "reshell-prettify",
  "reshell-runtime",

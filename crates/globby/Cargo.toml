@@ -1,9 +1,0 @@
-[package]
-name = "reshell-globby"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-anyhow = "1.0.98"
-parsy = "0.12.3"
-regex = "1.11.1"
