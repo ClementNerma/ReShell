@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{PipeReader, PipeWriter, Read, Write},
-    path::{Path, MAIN_SEPARATOR},
+    path::{MAIN_SEPARATOR, Path},
     process::{Child, Command, Stdio},
 };
 
@@ -23,11 +23,11 @@ use crate::{
         eval_computed_string, eval_expr, eval_list_spread_value, eval_literal_value,
         lambda_to_value,
     },
-    functions::{call_fn_value, find_applicable_method, FnCallInfos, FnPossibleCallArgs},
+    functions::{FnCallInfos, FnPossibleCallArgs, call_fn_value, find_applicable_method},
     gc::GcReadOnlyCell,
     values::{
-        value_to_str, CmdArgValue, CmdFlagValue, LocatedValue, RuntimeCmdAlias, RuntimeFnValue,
-        RuntimeValue,
+        CmdArgValue, CmdFlagValue, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue,
+        value_to_str,
     },
 };
 
@@ -801,7 +801,10 @@ fn compute_pipes_for_child(
 fn open_redirect_file(path: &Span<CmdRawString>, ctx: &mut Context) -> ExecResult<File> {
     let path_str = eval_cmd_raw_string(path, ctx)?;
 
-    if !Path::new(&path_str).parent().is_some_and(Path::exists) {
+    if !Path::new(".")
+        .join(Path::new(&path_str).parent().unwrap_or(Path::new("")))
+        .is_dir()
+    {
         return Err(ctx.error(
             path.at,
             "the parent directory of this file does not exist".to_string(),
