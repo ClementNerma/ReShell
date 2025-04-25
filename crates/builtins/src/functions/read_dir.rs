@@ -5,8 +5,6 @@ use std::{
 
 use reshell_runtime::{errors::ExecInfoType, gc::GcCell};
 
-use crate::declare_string_literal_type;
-
 crate::define_internal_fn!(
     //
     // List items in a directory
@@ -23,11 +21,6 @@ crate::define_internal_fn!(
 
     -> DetachedListType<StringType>
 );
-
-declare_string_literal_type!(PathModeType => enum PathMode {
-    FullPath("full-path"),
-    Relative("relative")
-});
 
 fn run() -> Runner {
     Runner::new(

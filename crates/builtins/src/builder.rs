@@ -20,7 +20,7 @@ use crate::{
     functions::native_functions,
     helpers::fns::InternalFunction,
     methods::native_methods,
-    utils::{internal_runtime_span, INTERNAL_CODE_RANGE},
+    utils::{INTERNAL_CODE_RANGE, internal_runtime_span},
     vars::native_vars,
 };
 

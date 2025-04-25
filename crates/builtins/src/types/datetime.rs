@@ -1,9 +1,9 @@
 use std::ops::Deref;
 
 use colored::Color;
-use jiff::{fmt::rfc2822, Zoned};
+use jiff::{Zoned, fmt::rfc2822};
+use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, pretty_printable_string};
 use reshell_runtime::values::CustomValueType;
-use reshell_prettify::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
 
 /// Date and time value
 ///

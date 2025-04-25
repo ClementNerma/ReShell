@@ -12,7 +12,7 @@
 //! This module is used to extract informations for command completions.
 //!
 
-use super::nesting::{detect_nesting_actions, NestingActionType};
+use super::nesting::{NestingActionType, detect_nesting_actions};
 use crate::utils::nesting::NestingOpeningType;
 
 #[derive(Debug, Clone, Copy)]

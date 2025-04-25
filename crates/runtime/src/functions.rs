@@ -13,7 +13,7 @@ use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
-    exec::{run_body_with_deps, InstrRet},
+    exec::{InstrRet, run_body_with_deps},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
     typechecker::check_if_value_fits_type,
@@ -75,7 +75,7 @@ pub fn eval_fn_call(
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             }
         }

@@ -1,4 +1,4 @@
-use jiff::{fmt::rfc2822, Zoned};
+use jiff::{Zoned, fmt::rfc2822};
 
 use crate::types::DateTimeValue;
 

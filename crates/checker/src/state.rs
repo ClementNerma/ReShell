@@ -7,7 +7,7 @@ use reshell_parser::{
 };
 use reshell_prettify::TypeAliasStore;
 
-use crate::{errors::CheckerResult, output::*, CheckerError};
+use crate::{CheckerError, errors::CheckerResult, output::*};
 
 /// Checker's state
 pub struct State<'a> {

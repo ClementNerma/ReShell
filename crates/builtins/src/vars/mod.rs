@@ -6,12 +6,12 @@ use std::{ffi::OsStr, path::MAIN_SEPARATOR};
 
 use reshell_parser::ast::{SingleValueType, ValueType};
 use reshell_runtime::{
-    compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY},
+    compat::{PATH_VAR_SEP, TARGET_FAMILY, TargetFamily},
     gc::GcCell,
     values::RuntimeValue,
 };
 
-use self::repl::{ReplConfig, REPL_CONFIG_VAR_NAME};
+use self::repl::{REPL_CONFIG_VAR_NAME, ReplConfig};
 use crate::{
     builder::{BuiltinVar, NativeLibParams},
     helpers::args::{TypedValueEncoder, TypedValueParser},

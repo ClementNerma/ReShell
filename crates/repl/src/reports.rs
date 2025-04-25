@@ -17,11 +17,11 @@ use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
     files::{FilesMap, SourceFile, SourceFileLocation},
 };
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::CallStackEntry,
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError},
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 #[derive(Debug)]
 pub enum ReportableError {

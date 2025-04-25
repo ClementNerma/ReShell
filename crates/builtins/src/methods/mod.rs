@@ -15,7 +15,7 @@ mod string;
 mod stringifyable;
 mod structure;
 
-pub use stringifyable::to_string::{stringify_value, StringifyableType};
+pub use stringifyable::to_string::{StringifyableType, stringify_value};
 
 use crate::helpers::fns::InternalFunction;
 

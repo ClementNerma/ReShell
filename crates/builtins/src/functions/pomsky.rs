@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use colored::Colorize;
-use pomsky::{diagnose::Severity, options::CompileOptions, Expr};
+use pomsky::{Expr, diagnose::Severity, options::CompileOptions};
 use regex::Regex;
-use reshell_runtime::gc::GcReadOnlyCell;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::{define_internal_fn, types::RegexValue};
 

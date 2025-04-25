@@ -8,8 +8,8 @@
 
 use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
 
-use reshell_runtime::{context::Context, values::RuntimeValue};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_runtime::{context::Context, values::RuntimeValue};
 
 use crate::completer::UnescapedSegment;
 

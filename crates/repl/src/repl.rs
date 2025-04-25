@@ -17,21 +17,22 @@ use colored::Colorize;
 use parsy::Parser;
 use reedline::{Reedline, Signal};
 use reshell_builtins::repl::{
-    completer::{generate_completions, CompletionStringSegment},
-    prompt::{render_prompt, LastCmdStatus, PromptRendering},
+    completer::{CompletionStringSegment, generate_completions},
+    prompt::{LastCmdStatus, PromptRendering, render_prompt},
 };
 use reshell_parser::{
     ast::{Instruction, Program},
     files::SourceFileLocation,
 };
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::Context,
     errors::{ExecErrorNature, ExecNotActualError},
     values::RuntimeValue,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
+    Timings,
     args::ExecArgs,
     completer::{self, ExternalCompletion, UnescapedSegment},
     edit_mode,
@@ -41,7 +42,7 @@ use crate::{
     prompt::Prompt,
     reports::{self, ReportableError},
     utils::cmd_checker::COMMANDS_CHECKER,
-    validator, Timings,
+    validator,
 };
 
 pub fn start(

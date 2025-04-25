@@ -2,7 +2,7 @@ use std::{ops::Deref, sync::Arc};
 
 use colored::Color;
 use regex::Regex;
-use reshell_prettify::{pretty_printable_string, PrettyPrintable, PrettyPrintablePiece};
+use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, pretty_printable_string};
 use reshell_runtime::values::CustomValueType;
 
 /// Regular expression

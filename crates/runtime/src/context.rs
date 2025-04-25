@@ -3,11 +3,11 @@ use std::{collections::HashMap, ffi::OsString, num::NonZero, path::PathBuf, sync
 use indexmap::IndexSet;
 use parsy::{CodeRange, Span};
 use reshell_checker::{
+    CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
     long_flag_var_name,
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
-    CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
 };
 use reshell_parser::{
     ast::{
@@ -417,7 +417,9 @@ impl Context {
         panic!(
             "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
-            at.into().display(self.files_map(), PrettyPrintOptions::inline()).no_colors()
+            at.into()
+                .display(self.files_map(), PrettyPrintOptions::inline())
+                .no_colors()
         );
     }
 

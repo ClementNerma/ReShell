@@ -10,7 +10,7 @@ use reshell_parser::ast::{
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    cmd::{run_cmd, CmdExecParams},
+    cmd::{CmdExecParams, run_cmd},
     context::{
         CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
         ScopeMethod, ScopeVar,
@@ -18,11 +18,11 @@ use crate::{
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult},
     expr::{eval_expr, eval_range_bound},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
-    props::{eval_props_access, PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy},
+    props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
     typechecker::check_if_value_fits_type,
     values::{
-        are_values_equal, CapturedDependencies, LocatedValue, NotComparableTypesErr,
-        RuntimeCmdAlias, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
+        CapturedDependencies, LocatedValue, NotComparableTypesErr, RuntimeCmdAlias, RuntimeFnBody,
+        RuntimeFnSignature, RuntimeFnValue, RuntimeValue, are_values_equal,
     },
 };
 
@@ -34,7 +34,7 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 
     match content.at.start.file_id {
         FileId::None | FileId::Internal | FileId::Custom(_) => {
-            return Err(ctx.error(content.at, "program must be backed by a source file"))
+            return Err(ctx.error(content.at, "program must be backed by a source file"));
         }
 
         FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
@@ -343,10 +343,10 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             elsif,
             els,
         } => {
-            let cond_val = match eval_expr(&cond.data, ctx)? {
-                RuntimeValue::Bool(bool) => bool,
-                value => {
-                    return Err(ctx.error(
+            let cond_val =
+                match eval_expr(&cond.data, ctx)? {
+                    RuntimeValue::Bool(bool) => bool,
+                    value => return Err(ctx.error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -354,9 +354,8 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
-                }
-            };
+                    )),
+                };
 
             let mut ret = None;
 
@@ -424,7 +423,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
                             // Propagate functions' return statements
                             Ok(Some(InstrRet::FnReturn(value))) => {
-                                return Ok(Some(InstrRet::FnReturn(value)))
+                                return Ok(Some(InstrRet::FnReturn(value)));
                             }
 
                             Err(err) => match err.nature {
@@ -454,7 +453,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             }
 
@@ -511,7 +510,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
                     // Propagate functions' return statements
                     Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)))
+                        return Ok(Some(InstrRet::FnReturn(value)));
                     }
 
                     Err(err) => match err.nature {
@@ -551,7 +550,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             };
 
@@ -598,7 +597,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
                     // Propagate functions' return statements
                     Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)))
+                        return Ok(Some(InstrRet::FnReturn(value)));
                     }
 
                     Err(err) => match err.nature {
@@ -625,18 +624,15 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             loop {
                 let cond_val = match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
-                    value => {
-                        return Err(ctx.error(
-                            cond.at,
-                            format!(
+                    value => return Err(ctx.error(
+                        cond.at,
+                        format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.compute_type().display(
-                                ctx.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            value
+                                .compute_type()
+                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                        ))
-                    }
+                    )),
                 };
 
                 if !cond_val {
@@ -655,7 +651,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
                     // Propagate functions' return statements
                     Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)))
+                        return Ok(Some(InstrRet::FnReturn(value)));
                     }
 
                     Err(err) => match err.nature {
@@ -682,14 +678,14 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             return Err(ctx.error(
                 instr.at,
                 ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
-            ))
+            ));
         }
 
         Instruction::LoopBreak => {
             return Err(ctx.error(
                 instr.at,
                 ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
-            ))
+            ));
         }
 
         Instruction::Match { expr, cases, els } => {
@@ -807,7 +803,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             };
 
@@ -861,10 +857,11 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             content_scope_id,
         } => {
             // We can do this thanks to the checker
-            assert!(!ctx
-                .current_scope_content_mut()
-                .cmd_aliases
-                .contains_key(&name.data));
+            assert!(
+                !ctx.current_scope_content_mut()
+                    .cmd_aliases
+                    .contains_key(&name.data)
+            );
 
             let parent_scopes = ctx.generate_parent_scopes_list();
 
@@ -976,7 +973,7 @@ fn declare_vars(
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             };
 
@@ -1013,7 +1010,7 @@ fn declare_vars(
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             };
 

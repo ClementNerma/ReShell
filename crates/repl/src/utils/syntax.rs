@@ -18,7 +18,7 @@ use reshell_runtime::context::Context;
 
 use super::{
     coverage::{InputCoverage, InputRange},
-    nesting::{detect_nesting_actions, NestingOpeningType},
+    nesting::{NestingOpeningType, detect_nesting_actions},
 };
 use crate::{
     repl::SHARED_CONTEXT,
@@ -456,7 +456,10 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         match &style {
             RuleStylization::Static(style) => {
                 if style.len() != static_len {
-                    return Err(format!("Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it", style.len()));
+                    return Err(format!(
+                        "Regex '{matches}' has {static_len} capture group(s) but {} style(s) are associated to it",
+                        style.len()
+                    ));
                 }
             }
 

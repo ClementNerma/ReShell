@@ -16,11 +16,11 @@ use regex::Regex;
 use crate::{
     repl::SHARED_CONTEXT,
     utils::{
-        cmd_checker::{CheckCmdType, COMMANDS_CHECKER},
+        cmd_checker::{COMMANDS_CHECKER, CheckCmdType},
         nesting::NestingOpeningType,
         syntax::{
-            compute_highlight_pieces, HighlightPiece, NestedContentRules, Rule, RuleSet,
-            RuleStylization, SimpleRule, ValidatedRuleSet,
+            HighlightPiece, NestedContentRules, Rule, RuleSet, RuleStylization, SimpleRule,
+            ValidatedRuleSet, compute_highlight_pieces,
         },
     },
 };

@@ -8,4 +8,4 @@ mod impls;
 mod parser;
 pub mod scope;
 
-pub use parser::{program, DELIMITER_CHARS};
+pub use parser::{DELIMITER_CHARS, program};

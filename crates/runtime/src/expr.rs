@@ -6,7 +6,7 @@ use reshell_parser::ast::{
     PropAccess, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem, TypeMatchExprCase,
     Value,
 };
-use reshell_prettify::{pretty_printable_string, PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, pretty_printable_string};
 
 use crate::{
     cmd::capture_cmd_output,
@@ -14,11 +14,11 @@ use crate::{
     errors::{ExecErrorNature, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
-    props::{eval_props_access, PropAccessMode, TailPropAccessPolicy},
+    props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
     typechecker::check_if_value_fits_type,
     values::{
-        are_values_equal, value_to_str, LocatedValue, NotComparableTypesErr, RuntimeFnBody,
-        RuntimeFnSignature, RuntimeFnValue, RuntimeValue,
+        LocatedValue, NotComparableTypesErr, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
+        RuntimeValue, are_values_equal, value_to_str,
     },
 };
 
@@ -192,14 +192,14 @@ fn apply_double_op(
                     return Err(ctx.error(
                         op.at,
                         "left operand is an int but right operand is a float".to_string(),
-                    ))
+                    ));
                 }
 
                 (RuntimeValue::Float(_), RuntimeValue::Int(_)) => {
                     return Err(ctx.error(
                         op.at,
                         "left operand is a float but right operand is an int".to_string(),
-                    ))
+                    ));
                 }
 
                 (_, _) => {
@@ -213,7 +213,7 @@ fn apply_double_op(
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             }
         }
@@ -415,10 +415,10 @@ fn eval_expr_inner_content(
             elsif,
             els,
         } => {
-            let cond_val = match eval_expr(&cond.data, ctx)? {
-                RuntimeValue::Bool(bool) => bool,
-                value => {
-                    return Err(ctx.error(
+            let cond_val =
+                match eval_expr(&cond.data, ctx)? {
+                    RuntimeValue::Bool(bool) => bool,
+                    value => return Err(ctx.error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -426,9 +426,8 @@ fn eval_expr_inner_content(
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
-                }
-            };
+                    )),
+                };
 
             if cond_val {
                 return eval_expr(body, ctx);
@@ -550,7 +549,7 @@ fn eval_expr_inner_content(
                                 .compute_type()
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
-                    ))
+                    ));
                 }
             };
 
@@ -678,7 +677,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
         Value::FnCall(call) => {
             return Ok(
                 eval_fn_call(call, None, ctx)?.map_or(RuntimeValue::Void, |ret_val| ret_val.value)
-            )
+            );
         }
 
         Value::CmdOutput(capture) => RuntimeValue::String(capture_cmd_output(capture, ctx)?),

@@ -16,7 +16,7 @@ use crate::{
         args::{TypedValueEncoder, TypedValueParser},
         types::{BoolType, ExactIntType, NullableType, StringType},
     },
-    utils::{call_fn_checked, INTERNAL_CODE_RANGE},
+    utils::{INTERNAL_CODE_RANGE, call_fn_checked},
 };
 
 declare_typed_fn_handler!(

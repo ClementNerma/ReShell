@@ -1,6 +1,6 @@
 use reedline::{ValidationResult, Validator as RlValidator};
 
-use crate::utils::nesting::{detect_nesting_actions, NestingAction, NestingActionType};
+use crate::utils::nesting::{NestingAction, NestingActionType, detect_nesting_actions};
 
 pub fn create_validator() -> Box<dyn RlValidator> {
     Box::new(Validator)

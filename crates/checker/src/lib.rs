@@ -1115,14 +1115,14 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
                     return Err(CheckerError::new(
                         pipe_type.at,
                         "expressions don't have an error output",
-                    ))
+                    ));
                 }
 
                 PrevCallType::ActualCall(CmdPathTargetType::Function) => {
                     return Err(CheckerError::new(
                         pipe_type.at,
                         "functions don't have an error output",
-                    ))
+                    ));
                 }
 
                 PrevCallType::ActualCall(CmdPathTargetType::ExternalCommand) => {
@@ -1168,7 +1168,7 @@ fn check_cmd_redirect(
                             return Err(CheckerError::new(
                                 next_pipe.at,
                                 "cannot pipe STDERR as it's being redirected elsewhere",
-                            ))
+                            ));
                         }
                     },
 
@@ -1184,7 +1184,7 @@ fn check_cmd_redirect(
                             return Err(CheckerError::new(
                                 next_pipe.at,
                                 "cannot pipe STDOUT as it's being redirected elsewhere",
-                            ))
+                            ));
                         }
                     },
                 }
@@ -1455,7 +1455,7 @@ fn check_cmd_capture(capture: &CmdOutputCapture, state: &mut State) -> CheckerRe
                     return Err(CheckerError::new(
                         capture.at,
                         "cannot capture STDOUT as it's being redirected elsewhere",
-                    ))
+                    ));
                 }
             },
 
@@ -1471,7 +1471,7 @@ fn check_cmd_capture(capture: &CmdOutputCapture, state: &mut State) -> CheckerRe
                     return Err(CheckerError::new(
                         capture.at,
                         "cannot capture STDERR as it's being redirected elsewhere",
-                    ))
+                    ));
                 }
             },
         }
@@ -1600,10 +1600,8 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                         typ.at.parsed_range().unwrap(),
                         format!(
                             "rest types, when provided, must be either 'list' or 'list[...]', found: {}",
-                            typ.data.display(
-                                state.type_alias_store(),
-                                PrettyPrintOptions::inline()
-                            )
+                            typ.data
+                                .display(state.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ));
                 }

@@ -1,6 +1,6 @@
 use reshell_parser::ast::CmdCaptureType;
 use reshell_runtime::{
-    cmd::{run_cmd, CmdExecParams, CmdExecResult},
+    cmd::{CmdExecParams, CmdExecResult, run_cmd},
     errors::ExecErrorNature,
 };
 

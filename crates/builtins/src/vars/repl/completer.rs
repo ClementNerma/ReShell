@@ -17,7 +17,7 @@ use crate::{
         args::TypedValueParser,
         types::{DetachedListType, NullType, StringType, Union2Type},
     },
-    utils::{call_fn_checked, INTERNAL_CODE_RANGE},
+    utils::{INTERNAL_CODE_RANGE, call_fn_checked},
 };
 
 pub enum CompletionStringSegment {

@@ -14,7 +14,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::compat::{TargetFamily, PATH_VAR_SEP, TARGET_FAMILY};
+use crate::compat::{PATH_VAR_SEP, TARGET_FAMILY, TargetFamily};
 
 pub struct BinariesResolver {
     path_dirs: Vec<String>,

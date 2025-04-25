@@ -75,13 +75,13 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 true => {
                                     return Err(
                                         ctx.error(next_acc.at, "left operand is a primitive")
-                                    )
+                                    );
                                 }
                             },
 
                             None => match policy {
                                 TailPropAccessPolicy::Read => {
-                                    return Ok(finalize(PropAccessMode::ReadExisting(value), ctx))
+                                    return Ok(finalize(PropAccessMode::ReadExisting(value), ctx));
                                 }
 
                                 TailPropAccessPolicy::Write(_) => {
@@ -138,7 +138,7 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         (Some(value), None) => match policy {
                             TailPropAccessPolicy::Read => {
-                                return Ok(finalize(PropAccessMode::ReadExisting(value), ctx))
+                                return Ok(finalize(PropAccessMode::ReadExisting(value), ctx));
                             }
 
                             TailPropAccessPolicy::Write(_) => {
@@ -154,7 +154,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                         },
 
                         (None, Some(_)) => {
-                            return Err(ctx.error(key_expr.at, format!("key '{key}' was not found")))
+                            return Err(ctx.error(key_expr.at, format!("key '{key}' was not found")));
                         }
 
                         (None, None) => match policy {
@@ -162,7 +162,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                             | TailPropAccessPolicy::Write(TailPropWritingPolicy::ExistingOnly) => {
                                 return Err(
                                     ctx.error(key_expr.at, format!("key '{key}' was not found"))
-                                )
+                                );
                             }
 
                             TailPropAccessPolicy::Write(TailPropWritingPolicy::TailMayNotExist) => {
@@ -217,7 +217,7 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         None => match policy {
                             TailPropAccessPolicy::Read => {
-                                return Ok(finalize(PropAccessMode::ReadExisting(value), ctx))
+                                return Ok(finalize(PropAccessMode::ReadExisting(value), ctx));
                             }
 
                             TailPropAccessPolicy::Write(_) => {

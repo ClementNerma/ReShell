@@ -9,7 +9,7 @@ use reshell_runtime::{
     cmd::{CmdArgResult, SingleCmdArgResult},
     context::Context,
     errors::ExecResult,
-    functions::{call_fn_value, FnCallInfos, FnPossibleCallArgs},
+    functions::{FnCallInfos, FnPossibleCallArgs, call_fn_value},
     values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
@@ -97,7 +97,7 @@ pub fn call_fn_checked_with_parsed_args(
                         .compute_type()
                         .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 ),
-            ))
+            ));
         }
     };
 

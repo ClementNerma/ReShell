@@ -8,7 +8,7 @@ use clap::Parser as _;
 use colored::Colorize;
 use parsy::FileId;
 use reshell_builtins::{
-    builder::{build_native_lib_content, NativeLibParams},
+    builder::{NativeLibParams, build_native_lib_content},
     repl::on_dir_jump::trigger_directory_jump_event,
 };
 use reshell_parser::{
@@ -16,13 +16,13 @@ use reshell_parser::{
     files::{FilesMap, SourceFileLocation},
     program,
 };
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     bin_resolver::BinariesResolver,
     conf::{HistoryConf, RuntimeConf},
     context::{Context, ContextCreationParams},
     errors::ExecResult,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use self::{
     args::{Args, RuntimeConfArgs},

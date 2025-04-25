@@ -1,6 +1,6 @@
 use colored::{Color, Colorize};
 
-use crate::methods::{stringify_value, StringifyableType};
+use crate::methods::{StringifyableType, stringify_value};
 
 crate::define_internal_fn!(
     //
@@ -45,7 +45,7 @@ fn run() -> Runner {
                     _ => {
                         return Err(
                             ctx.throw(args_at.color.unwrap(), format!("unknown color '{color}'"))
-                        )
+                        );
                     }
                 };
 

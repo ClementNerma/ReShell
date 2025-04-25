@@ -1,5 +1,5 @@
 use reshell_runtime::{
-    cmd::{run_cmd, CmdExecParams},
+    cmd::{CmdExecParams, run_cmd},
     errors::ExecErrorNature,
 };
 

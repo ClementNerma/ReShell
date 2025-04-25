@@ -1,4 +1,4 @@
-use reshell_runtime::values::{are_values_equal, NotComparableTypesErr};
+use reshell_runtime::values::{NotComparableTypesErr, are_values_equal};
 
 use crate::define_internal_fn;
 

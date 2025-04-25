@@ -1,7 +1,7 @@
 use colored::Colorize;
 use parsy::FileId;
-use reshell_runtime::context::ScopeContent;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_runtime::context::ScopeContent;
 
 use crate::define_internal_fn;
 
