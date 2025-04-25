@@ -13,7 +13,7 @@ use std::{
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
-use globby::{PatternOpts, glob_current_dir_with};
+use globby::{PatternOpts, glob_with};
 use reedline::{
     ColumnarMenu, Completer as RlCompleter, MenuBuilder, ReedlineMenu, Span, Suggestion,
 };
@@ -540,7 +540,7 @@ fn complete_path(
         starts_with,
     } = globified;
 
-    let entries = glob_current_dir_with(
+    let entries = glob_with(
         &glob_pattern,
         PatternOpts {
             case_insensitive: true,

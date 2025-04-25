@@ -22,4 +22,4 @@ rand = { version = "0.9.1" }
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
 jiff = "0.2.8"
 identconv = "0.2.0"
-globby = "0.1.5"
+globby = "0.1.6"
