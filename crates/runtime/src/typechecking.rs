@@ -1,4 +1,4 @@
-use reshell_checker::typechecker::check_if_fn_signature_fits_another;
+use reshell_checker::typechecking::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{SingleValueType, StructTypeMember, ValueType};
 
 use crate::{context::Context, values::RuntimeValue};

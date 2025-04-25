@@ -15,7 +15,7 @@ use crate::{
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
-    typechecker::check_if_value_fits_type,
+    typechecking::check_if_value_fits_type,
     values::{
         LocatedValue, NotComparableTypesErr, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
         RuntimeValue, are_values_equal, value_to_str,

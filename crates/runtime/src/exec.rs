@@ -19,7 +19,7 @@ use crate::{
     expr::{eval_expr, eval_range_bound},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
-    typechecker::check_if_value_fits_type,
+    typechecking::check_if_value_fits_type,
     values::{
         CapturedDependencies, LocatedValue, NotComparableTypesErr, RuntimeCmdAlias, RuntimeFnBody,
         RuntimeFnSignature, RuntimeFnValue, RuntimeValue, are_values_equal,

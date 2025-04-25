@@ -1,6 +1,6 @@
 //! This module contains various utilities to force internal spans, call function values or extract returned values
 
-use reshell_checker::typechecker::check_if_fn_signature_fits_another;
+use reshell_checker::typechecking::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
     FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeSpan, ValueType,
 };

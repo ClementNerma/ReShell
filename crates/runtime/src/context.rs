@@ -24,7 +24,7 @@ use crate::{
     conf::RuntimeConf,
     errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
-    typechecker::check_if_value_fits_type,
+    typechecking::check_if_value_fits_type,
     values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 

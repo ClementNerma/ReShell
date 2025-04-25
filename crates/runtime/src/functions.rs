@@ -16,7 +16,7 @@ use crate::{
     exec::{InstrRet, run_body_with_deps},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
-    typechecker::check_if_value_fits_type,
+    typechecking::check_if_value_fits_type,
     values::{
         CmdArgValue, CmdFlagValue, InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue,
         RuntimeValue,

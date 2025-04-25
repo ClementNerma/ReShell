@@ -14,7 +14,7 @@ mod errors;
 mod state;
 
 pub mod output;
-pub mod typechecker;
+pub mod typechecking;
 
 use std::collections::{HashMap, HashSet};
 
@@ -36,7 +36,7 @@ use reshell_parser::{
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
-use self::typechecker::check_if_type_fits_type;
+use self::typechecking::check_if_type_fits_type;
 pub use self::{
     errors::CheckerError,
     state::{
