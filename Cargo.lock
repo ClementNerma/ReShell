@@ -369,11 +369,11 @@ dependencies = [
 
 [[package]]
 name = "globby"
-version = "0.1.2"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6121fd1b57074049bd1260392edcf892fe87d2b5132b5924f7e8dc6803d9500e"
+checksum = "46185e28f27a3207b22fd667d6a768e90c437a1203d08a74e0a05329c0905d58"
 dependencies = [
- "parsy",
+ "parsy 0.13.0",
  "regex",
 ]
 
@@ -679,6 +679,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "parsy"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a3571f66a77b3fd56610112d757b521cb3fd376d5ffbebb0e63a22991607948"
+dependencies = [
+ "perfect-derive",
+]
+
+[[package]]
 name = "perfect-derive"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -872,7 +881,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "jiff",
- "parsy",
+ "parsy 0.12.3",
  "pomsky",
  "rand",
  "regex",
@@ -889,7 +898,7 @@ dependencies = [
 name = "reshell-checker"
 version = "0.1.0"
 dependencies = [
- "parsy",
+ "parsy 0.12.3",
  "reshell-parser",
  "reshell-prettify",
 ]
@@ -898,7 +907,7 @@ dependencies = [
 name = "reshell-parser"
 version = "0.1.0"
 dependencies = [
- "parsy",
+ "parsy 0.12.3",
 ]
 
 [[package]]
@@ -906,7 +915,7 @@ name = "reshell-prettify"
 version = "0.1.0"
 dependencies = [
  "colored",
- "parsy",
+ "parsy 0.12.3",
  "reshell-parser",
 ]
 
@@ -924,7 +933,7 @@ dependencies = [
  "globby",
  "indexmap",
  "nu-ansi-term",
- "parsy",
+ "parsy 0.12.3",
  "pomsky-macro",
  "reedline",
  "regex",
@@ -942,7 +951,7 @@ dependencies = [
  "colored",
  "dyn-clone",
  "indexmap",
- "parsy",
+ "parsy 0.12.3",
  "reshell-checker",
  "reshell-parser",
  "reshell-prettify",
