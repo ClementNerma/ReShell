@@ -6,6 +6,7 @@
 
 mod approx_int_div;
 mod ask;
+mod assert;
 mod basename;
 mod canonicalize;
 mod cd;
@@ -57,6 +58,7 @@ pub fn native_functions() -> Vec<InternalFunction> {
         // Collect function from individual modules
         self::approx_int_div::build_fn(),
         self::ask::build_fn(),
+        self::assert::build_fn(),
         self::basename::build_fn(),
         self::canonicalize::build_fn(),
         self::cd::build_fn(),
