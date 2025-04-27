@@ -50,6 +50,7 @@ Everything you need to master it is written in this document, so take your time 
   - [Sub-typing](#sub-typing)
   - [Union types](#union-types)
   - [Matching on types](#matching-on-types)
+  - [Defining your own methods](#defining-your-own-methods)
 - [Advanced features](#advanced-features)
   - [Variable shadowing](#variable-shadowing)
   - [Destructuring](#destructuring)
@@ -958,6 +959,50 @@ typematch $value {
   else {
     # here we know it's neither a string nor an integer
   }
+}
+```
+
+### Defining your own methods
+
+As we saw [earlier](#methods), it is possible to define your own methods for any given type. This also works with complex types like structures or maps.
+
+The way methods are handled is as follows:
+
+* When calling a method on an expression, the interpreter looks up all methods with the provided name
+* It then tries to find the method that accept a `self` argument with a type compatible with the value the method was called on, and calls it
+* It starts from the current scope and traverses upwards
+
+Example:
+
+```reshell
+fn sayHello(self: { name: string }) {
+  echo "Hello, `$self.name`!"
+}
+
+let user = { name: "John" }
+$user.sayHello() # Hello, John!
+```
+
+Note that we can't declare methods with overlapping types in the same scope:
+
+```reshell
+fn sayHello(self: string) { echo "A: $self" }
+
+# Will fail as we won't be able to know which method to call when
+# calling 'sayHello' on a `string`
+fn sayHello(self: (string | int)) { echo "B: $self" }
+```
+
+But we can if they're in different scopes:
+
+```reshell
+fn sayHello(self: string) { echo "A: $self" }
+
+do {
+  fn sayHello(self: (string | int)) { echo "B: $self" }
+
+  let string = "test"
+  $string.sayHello() # B: hello
 }
 ```
 
