@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::LazyLock};
+use std::{borrow::Cow, collections::HashSet, sync::LazyLock};
 
 use parsy::{
     FileId, Parser, ParsingError,
@@ -976,7 +976,8 @@ pub fn program(
         .repeated()
         .at_least(1)
         .collect_string()
-        .validate(|cmd_name| {
+        .validate_or_critical(|cmd_name| {
+            if 
             // Command name (no slashes)
             !cmd_name.contains(['/', '\\'])
                 || (
@@ -987,11 +988,12 @@ pub fn program(
                     // Relative command paths
                     cmd_name.starts_with("./") || cmd_name.starts_with("../") || cmd_name.starts_with(".\\") || cmd_name.starts_with("..\\")
                 )
-        })
-        .with_custom_msg(
-            "Relative command paths must start with a dot and a slash (e.g. './path/to/cmd' or '../path/to/cmd')",
-        )
-        .as_critical();
+                {
+                    Ok(())
+                } else {
+                    Err("Relative command paths must start with a dot and a slash (e.g. './path/to/cmd' or '../path/to/cmd')".into())
+                }
+        });
 
     let cmd_path = choice::<CmdPath, _>((
         //
@@ -1717,12 +1719,12 @@ pub fn program(
                                     None
                                 } else if *is_optional {
                                     Some(Err(ParsingError::custom(name_at, "").criticalize(
-                                        "'self' argument cannot be optional in methods",
+                                        "'self' argument cannot be optional in methods".into(),
                                     )))
                                 } else {
                                     Some(typ.clone().ok_or_else(|| {
                                         ParsingError::custom(name_at, "").criticalize(
-                                            "'self' argument must have a specified type",
+                                            "'self' argument must have a specified type".into(),
                                         )
                                     }))
                                 }
@@ -1841,7 +1843,7 @@ pub fn program(
                 literal_string
                     .spanned()
                     .critical("expected a file path")
-                    .and_then_or_critical(move |path| load_file(path.data, path.at.start.file_id))
+                    .and_then_or_critical(move |path| load_file(path.data, path.at.start.file_id).map_err(Cow::from))
                     .and_then(move |file| {
                         program_bis
                             .parse_str_with_file_id(&file.content, FileId::SourceFile(file.id))

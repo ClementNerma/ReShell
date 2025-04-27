@@ -12,13 +12,13 @@ reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
 reshell-runtime = { path = "../runtime" }
 reshell-builtins = { path = "../builtins" }
-parsy = "0.12.3"
-clap = { version = "4.5.36", features = ["derive"] }
+parsy = "0.13.0"
+clap = { version = "4.5.37", features = ["derive"] }
 nu-ansi-term = "0.50.1"
 colored = "3.0.0"
 dirs = "6.0.0"
 regex = "1.11.1"
-crossterm = { version = "0.28.1", default-features = false }
+crossterm = { version = "0.28.1", features = [], default-features = false }
 annotate-snippets = { version = "0.11.5" }
 ctrlc = "3.4.6"
 indexmap = "2.9.0"
