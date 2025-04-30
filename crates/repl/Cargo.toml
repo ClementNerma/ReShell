@@ -17,7 +17,6 @@ clap = { version = "4.5.37", features = ["derive"] }
 nu-ansi-term = "0.50.1"
 colored = "3.0.0"
 dirs = "6.0.0"
-regex = "1.11.1"
 crossterm = { version = "0.28.1", features = [], default-features = false }
 annotate-snippets = { version = "0.11.5" }
 ctrlc = "3.4.6"
@@ -25,5 +24,5 @@ indexmap = "2.9.0"
 dunce = "1.0.5"
 reedline = "0.39.0"
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
-pomsky-macro = "0.11.0"
 globby = "0.1.6"
+reshell-syntax-highlighter = { path = "../syntax-highlighter" }

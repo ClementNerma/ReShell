@@ -6,6 +6,7 @@ use std::{
 use reshell_runtime::{
     bin_resolver::BinariesResolver, cmd::try_replace_home_dir_tilde, context::Context,
 };
+use reshell_syntax_highlighter::CheckCmdType;
 
 pub struct CommandsChecker {
     for_path: Vec<String>,
@@ -85,13 +86,6 @@ impl CommandsChecker {
             }
         }
     }
-}
-
-pub enum CheckCmdType {
-    Method,
-    Function,
-    ExternalCmd,
-    BroadCmd, // External cmd or function name or alias
 }
 
 pub static COMMANDS_CHECKER: LazyLock<Arc<Mutex<CommandsChecker>>> =

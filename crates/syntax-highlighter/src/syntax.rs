@@ -12,62 +12,57 @@ use std::{
     ops::Deref,
 };
 
-use nu_ansi_term::Style;
 use regex::{Captures, Regex};
-use reshell_runtime::context::Context;
 
 use super::{
     coverage::{InputCoverage, InputRange},
-    nesting::{NestingOpeningType, detect_nesting_actions},
+    nesting::{NestingAction, NestingActionType, NestingOpeningType, detect_nesting_actions},
 };
-use crate::{
-    repl::SHARED_CONTEXT,
-    utils::nesting::{NestingAction, NestingActionType},
-};
+use crate::ItemType;
 
 #[derive(Debug)]
-pub struct ValidatedRuleSet(RuleSet);
+pub struct ValidatedRuleSet<T>(RuleSet<T>);
 
 #[derive(Debug)]
-pub struct RuleSet {
-    pub groups: HashMap<String, Vec<Rule>>,
-    pub non_nested_content_rules: Vec<Rule>,
-    pub nested_content_rules: HashMap<NestingOpeningType, NestedContentRules>,
-    pub closing_without_opening_style: Style,
-    pub unclosed_style: Style,
-    pub command_separator_style: Style,
+pub struct RuleSet<T> {
+    pub groups: HashMap<String, Vec<Rule<T>>>,
+    pub non_nested_content_rules: Vec<Rule<T>>,
+    pub nested_content_rules: HashMap<NestingOpeningType, NestedContentRules<T>>,
+    pub closing_without_opening_style: ItemType,
+    pub unclosed_style: ItemType,
+    pub command_separator_style: ItemType,
     pub use_arguments_separator: bool,
 }
 
 #[derive(Debug)]
-pub struct NestedContentRules {
-    pub opening_style: Style,
-    pub closing_style: Style,
-    pub rules: Vec<Rule>,
+pub struct NestedContentRules<T> {
+    pub opening_style: fn(usize) -> ItemType,
+    pub closing_style: fn(usize) -> ItemType,
+    pub rules: Vec<Rule<T>>,
 }
 
 #[derive(Debug)]
-pub enum Rule {
-    Simple(SimpleRule),
+pub enum Rule<T> {
+    Simple(SimpleRule<T>),
     Group(String),
 }
 
 #[derive(Debug)]
-pub struct SimpleRule {
+pub struct SimpleRule<T> {
     pub matches: Regex,
     pub inside: Option<HashSet<NestingOpeningType>>,
     pub preceded_by: Option<Regex>,
     pub followed_by: Option<Regex>,
     pub followed_by_nesting: Option<HashSet<NestingOpeningType>>,
-    pub style: RuleStylization,
+    pub style: RuleStylization<T>,
 }
 
-pub enum RuleStylization {
-    Static(Vec<Style>),
-    Dynamic(DynamicRuleStylizer),
+pub enum RuleStylization<T> {
+    Static(Vec<ItemType>),
+    Dynamic(DynamicRuleStylizer<T>),
 }
 
-impl std::fmt::Debug for RuleStylization {
+impl<T> std::fmt::Debug for RuleStylization<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Static(styles) => f.debug_tuple("Static").field(styles).finish(),
@@ -76,10 +71,14 @@ impl std::fmt::Debug for RuleStylization {
     }
 }
 
-pub type DynamicRuleStylizer =
-    Box<dyn Fn(&mut Context, Vec<String>) -> Vec<Style> + Send + Sync + 'static>;
+pub type DynamicRuleStylizer<T> =
+    Box<dyn Fn(Vec<String>, &T) -> Vec<ItemType> + Send + Sync + 'static>;
 
-pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec<HighlightPiece> {
+pub fn compute_highlight_pieces<T>(
+    input: &str,
+    rule_set: &ValidatedRuleSet<T>,
+    rule_data: &T,
+) -> Vec<HighlightedPiece> {
     let ValidatedRuleSet(rule_set) = rule_set;
 
     let RuleSet {
@@ -92,7 +91,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
         use_arguments_separator,
     } = rule_set;
 
-    let mut output = Vec::<HighlightPiece>::new();
+    let mut output = Vec::<HighlightedPiece>::new();
 
     let nesting = detect_nesting_actions(input, *use_arguments_separator);
 
@@ -103,9 +102,7 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
             offset,
             len,
             action_type,
-
-            // TODO: highlight parenthesis depending on their nesting level
-            nesting_level: _,
+            nesting_level,
         } = action;
 
         match action_type {
@@ -115,11 +112,12 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
             } => {
                 opened.push((action, typ));
 
-                output.push(HighlightPiece {
+                output.push(HighlightedPiece {
                     start: offset,
                     len,
-                    style: Some(if matching_close {
-                        nested_content_rules.get(&typ).unwrap().opening_style
+                    item: Some(if matching_close {
+                        let style = nested_content_rules.get(&typ).unwrap().opening_style;
+                        style(nesting_level)
                     } else {
                         *unclosed_style
                     }),
@@ -127,32 +125,34 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
             }
 
             NestingActionType::Closing { matching_opening } => {
-                output.push(HighlightPiece {
+                output.push(HighlightedPiece {
                     start: offset,
                     len,
-                    style: Some(if matching_opening.is_some() {
-                        nested_content_rules
+                    item: Some(if matching_opening.is_some() {
+                        let style = nested_content_rules
                             .get(&opened.pop().unwrap().1)
                             .unwrap()
-                            .closing_style
+                            .closing_style;
+
+                        style(nesting_level)
                     } else {
                         *closing_without_opening_style
                     }),
                 });
             }
 
-            NestingActionType::CommandSeparator => output.push(HighlightPiece {
+            NestingActionType::CommandSeparator => output.push(HighlightedPiece {
                 start: offset,
                 len,
-                style: Some(*command_separator_style),
+                item: Some(*command_separator_style),
             }),
 
             NestingActionType::ArgumentSeparator => {
-                output.push(HighlightPiece {
+                output.push(HighlightedPiece {
                     start: offset,
                     len,
                     // No styling (these are spaces)
-                    style: None,
+                    item: None,
                 })
             }
 
@@ -200,14 +200,14 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
 
                     match matched {
                         Some(matched) => {
-                            highlight_piece(&matched, &mut covering, &mut output);
+                            highlight_piece(&matched, &mut covering, rule_data, &mut output);
                         }
 
                         None => {
-                            output.push(HighlightPiece {
+                            output.push(HighlightedPiece {
                                 start: uncovered.from,
                                 len: uncovered.len,
-                                style: None,
+                                item: None,
                             });
 
                             covering.mark_as_covered(uncovered.from, uncovered.len);
@@ -222,14 +222,14 @@ pub fn compute_highlight_pieces(input: &str, rule_set: &ValidatedRuleSet) -> Vec
     output
 }
 
-fn find_matching_rule<'h, 'str>(
+fn find_matching_rule<'h, 'str, T>(
     input: &'str str,
-    rules: &'h [Rule],
+    rules: &'h [Rule<T>],
     range: InputRange,
     inside: Option<(usize, NestingOpeningType)>,
     next_nesting: Option<NestingOpeningType>,
-    groups: &'h HashMap<String, Vec<Rule>>,
-) -> Option<Match<'h, 'str>> {
+    groups: &'h HashMap<String, Vec<Rule<T>>>,
+) -> Option<Match<'h, 'str, T>> {
     rules.iter().find_map(|rule| match rule {
         Rule::Simple(simple) => Match::test(simple, input, range, inside, next_nesting),
 
@@ -244,7 +244,12 @@ fn find_matching_rule<'h, 'str>(
     })
 }
 
-fn highlight_piece(matched: &Match, covering: &mut InputCoverage, out: &mut Vec<HighlightPiece>) {
+fn highlight_piece<T>(
+    matched: &Match<T>,
+    covering: &mut InputCoverage,
+    rule_data: &T,
+    out: &mut Vec<HighlightedPiece>,
+) {
     // Ensure the highlighted piece is not empty,
     // as this could cause an infinite highlighting
     // (the rule matches an empty piece, then re-matches it, etc.)
@@ -255,12 +260,12 @@ fn highlight_piece(matched: &Match, covering: &mut InputCoverage, out: &mut Vec<
     let style = match &matched.rule.style {
         RuleStylization::Static(style) => style.clone(),
         RuleStylization::Dynamic(stylizer) => stylizer(
-            SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
             matched
                 ._captured
                 .iter()
                 .map(|cap| cap.unwrap().as_str().to_owned())
                 .collect(),
+            rule_data,
         ),
     };
 
@@ -280,34 +285,34 @@ fn highlight_piece(matched: &Match, covering: &mut InputCoverage, out: &mut Vec<
 
         if let Some(prev) = matched.get(i).map(|m| m.start + m.len) {
             if captured.start() > prev {
-                out.push(HighlightPiece {
+                out.push(HighlightedPiece {
                     start: prev,
                     len: captured.start() - prev,
-                    style: None,
+                    item: None,
                 });
             }
         }
 
-        out.push(HighlightPiece {
+        out.push(HighlightedPiece {
             start: captured.start(),
             len: captured.len(),
-            style: Some(*style),
+            item: Some(*style),
         });
     }
 }
 
 #[derive(Debug)]
-struct Match<'h, 'str> {
+struct Match<'h, 'str, T> {
     nesting_at: usize,
-    rule: &'h SimpleRule,
+    rule: &'h SimpleRule<T>,
     start: usize,
     end: usize,
     _captured: Captures<'str>,
 }
 
-impl<'h, 'str> Match<'h, 'str> {
+impl<'h, 'str, T> Match<'h, 'str, T> {
     fn test(
-        rule: &'h SimpleRule,
+        rule: &'h SimpleRule<T>,
         input: &'str str,
         range: InputRange,
         inside: Option<(usize, NestingOpeningType)>,
@@ -407,7 +412,7 @@ impl<'str> CapturedGroup<'str> {
     // }
 }
 
-pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
+pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
     let RuleSet {
         groups,
         non_nested_content_rules,
@@ -418,7 +423,7 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         use_arguments_separator: _,
     } = rule_set;
 
-    fn _validate_simple_rule(rule: &SimpleRule) -> Result<(), String> {
+    fn _validate_simple_rule<T>(rule: &SimpleRule<T>) -> Result<(), String> {
         let SimpleRule {
             matches,
             inside: _,
@@ -469,7 +474,10 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
         Ok(())
     }
 
-    fn _validate_rules(rules: &[Rule], groups: &HashMap<String, Vec<Rule>>) -> Result<(), String> {
+    fn _validate_rules<T>(
+        rules: &[Rule<T>],
+        groups: &HashMap<String, Vec<Rule<T>>>,
+    ) -> Result<(), String> {
         for rule in rules {
             match rule {
                 Rule::Simple(rule) => _validate_simple_rule(rule)?,
@@ -505,20 +513,20 @@ pub fn validate_rule_set(rule_set: &RuleSet) -> Result<(), String> {
 }
 
 #[derive(Debug)]
-pub struct HighlightPiece {
+pub struct HighlightedPiece {
     pub start: usize,
     pub len: usize,
-    pub style: Option<Style>,
+    pub item: Option<ItemType>,
 }
 
-impl ValidatedRuleSet {
-    pub fn validate(rule_set: RuleSet) -> Result<Self, String> {
+impl<T> ValidatedRuleSet<T> {
+    pub fn validate(rule_set: RuleSet<T>) -> Result<Self, String> {
         validate_rule_set(&rule_set).map(|()| Self(rule_set))
     }
 }
 
-impl Deref for ValidatedRuleSet {
-    type Target = RuleSet;
+impl<T> Deref for ValidatedRuleSet<T> {
+    type Target = RuleSet<T>;
 
     fn deref(&self) -> &Self::Target {
         let Self(rule_set) = &self;

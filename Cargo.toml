@@ -6,5 +6,5 @@ members = [
     "crates/repl",
     "crates/builtins",
     "crates/prettify"
-]
+, "crates/syntax-highlighter"]
 resolver = "3"
