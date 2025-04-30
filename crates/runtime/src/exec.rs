@@ -319,10 +319,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
                                 Err(ctx.error(
                                     list_push.at,
-                                    format!(
-                                        "cannot push a value as this is not a list but a {}",
-                                        left_type
-                                    ),
+                                    format!("cannot push a value as this is not a list but a {left_type}"),
                                 ))
                             }
                         },

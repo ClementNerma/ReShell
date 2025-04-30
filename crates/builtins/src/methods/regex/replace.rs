@@ -115,7 +115,7 @@ fn replace_regex_with_pattern(
             let Some(captured) = captured else {
                 return Err(ctx.error(
                     pattern_at,
-                    format!("No capture group named '{}' in matched content", group_name),
+                    format!("No capture group named '{group_name}' in matched content"),
                 ));
             };
 
