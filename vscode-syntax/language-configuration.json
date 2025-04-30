@@ -3,6 +3,17 @@
 		"lineComment": "#"
 	},
 	"brackets": [["{", "}"], ["[", "]"], ["(", ")"]],
-	"autoClosingPairs": [["{", "}"], ["[", "]"], ["(", ")"], ["\"", "\""], ["'", "'"]],
-	"surroundingPairs": [["{", "}"], ["[", "]"], ["(", ")"], ["\"", "\"", ["'", "'"]]]
+	"colorizedBracketPairs": [["{", "}"], ["[", "]"], ["(", ")"]],
+	"autoClosingPairs": [
+		{ "open": "{", "close": "}", "notIn": ["string"] },
+		{ "open": "[", "close": "]", "notIn": ["string"] },
+		{ "open": "(", "close": ")", "notIn": ["string"] },
+		{ "open": "`", "close": "`" }
+	],
+	"autoCloseBefore": ";:.,=}])> \n\t",
+	"surroundingPairs": [["{", "}"], ["[", "]"], ["(", ")"], ["\"", "\""], ["'", "'"], ["`", "`"]],
+	"indentationRules": {
+		"increaseIndentPattern": "^.*\\{[^}\"']*$|^.*\\([^\\)\"']*$",
+		"decreaseIndentPattern": "^\\s*(\\s*\\/[*].*[*]\\/\\s*)*[})]"
+	}
 }

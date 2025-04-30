@@ -5,6 +5,8 @@ members = [
     "crates/runtime",
     "crates/repl",
     "crates/builtins",
-    "crates/prettify"
-, "crates/syntax-highlighter"]
+    "crates/prettify",
+    "crates/syntax-highlighter",
+    "vscode-syntax/rust-wasm",
+]
 resolver = "3"

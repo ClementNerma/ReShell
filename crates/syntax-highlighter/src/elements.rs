@@ -70,6 +70,7 @@ define_item_types!(pub ItemType {
         CommentsMarker,
         FlagDashes,
         CmdPipe,
+        FnReturnTypePrefix,
         Parenthesis,
         Bracket,
         Brace,
@@ -109,5 +110,6 @@ define_item_types!(pub ItemType {
         UnclosedOpening,
     ),
 
-    | Keyword
+    | Keyword,
+    | Comment
 });

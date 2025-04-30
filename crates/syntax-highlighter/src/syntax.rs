@@ -115,12 +115,12 @@ pub fn compute_highlight_pieces<T>(
                 output.push(HighlightedPiece {
                     start: offset,
                     len,
-                    item: Some(if matching_close {
+                    item: if matching_close {
                         let style = nested_content_rules.get(&typ).unwrap().opening_style;
                         style(nesting_level)
                     } else {
                         *unclosed_style
-                    }),
+                    },
                 });
             }
 
@@ -128,7 +128,7 @@ pub fn compute_highlight_pieces<T>(
                 output.push(HighlightedPiece {
                     start: offset,
                     len,
-                    item: Some(if matching_opening.is_some() {
+                    item: if matching_opening.is_some() {
                         let style = nested_content_rules
                             .get(&opened.pop().unwrap().1)
                             .unwrap()
@@ -137,23 +137,23 @@ pub fn compute_highlight_pieces<T>(
                         style(nesting_level)
                     } else {
                         *closing_without_opening_style
-                    }),
+                    },
                 });
             }
 
             NestingActionType::CommandSeparator => output.push(HighlightedPiece {
                 start: offset,
                 len,
-                item: Some(*command_separator_style),
+                item: *command_separator_style,
             }),
 
             NestingActionType::ArgumentSeparator => {
-                output.push(HighlightedPiece {
-                    start: offset,
-                    len,
-                    // No styling (these are spaces)
-                    item: None,
-                })
+                // output.push(HighlightedPiece {
+                //     start: offset,
+                //     len,
+                //     // No styling (these are spaces)
+                //     item: None,
+                // })
             }
 
             NestingActionType::Content => {
@@ -204,11 +204,11 @@ pub fn compute_highlight_pieces<T>(
                         }
 
                         None => {
-                            output.push(HighlightedPiece {
-                                start: uncovered.from,
-                                len: uncovered.len,
-                                item: None,
-                            });
+                            // output.push(HighlightedPiece {
+                            //     start: uncovered.from,
+                            //     len: uncovered.len,
+                            //     item: None,
+                            // });
 
                             covering.mark_as_covered(uncovered.from, uncovered.len);
                         }
@@ -283,20 +283,20 @@ fn highlight_piece<T>(
             continue;
         }
 
-        if let Some(prev) = matched.get(i).map(|m| m.start + m.len) {
-            if captured.start() > prev {
-                out.push(HighlightedPiece {
-                    start: prev,
-                    len: captured.start() - prev,
-                    item: None,
-                });
-            }
-        }
+        // if let Some(prev) = matched.get(i).map(|m| m.start + m.len) {
+        //     if captured.start() > prev {
+        //         out.push(HighlightedPiece {
+        //             start: prev,
+        //             len: captured.start() - prev,
+        //             item: None,
+        //         });
+        //     }
+        // }
 
         out.push(HighlightedPiece {
             start: captured.start(),
             len: captured.len(),
-            item: Some(*style),
+            item: *style,
         });
     }
 }
@@ -516,7 +516,7 @@ pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
 pub struct HighlightedPiece {
     pub start: usize,
     pub len: usize,
-    pub item: Option<ItemType>,
+    pub item: ItemType,
 }
 
 impl<T> ValidatedRuleSet<T> {

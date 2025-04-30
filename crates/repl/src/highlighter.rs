@@ -29,25 +29,29 @@ impl RlHighlighter for Highlighter {
 }
 
 fn highlight(input: &str) -> StyledText {
-    StyledText {
-        buffer: reshell_syntax_highlighter::syntax_highlight(input, |cmd_name, cmd_type| {
-            COMMANDS_CHECKER.lock().unwrap().check(
-                SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
-                cmd_name,
-                cmd_type,
-            )
-        })
-        .into_iter()
-        .map(|piece| {
-            let HighlightedPiece { start, len, item } = piece;
+    let pieces = reshell_syntax_highlighter::syntax_highlight(input, |cmd_name, cmd_type| {
+        COMMANDS_CHECKER.lock().unwrap().check(
+            SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
+            cmd_name,
+            cmd_type,
+        )
+    });
 
-            (
-                item.map(color_match_item).unwrap_or_else(Style::default),
-                input[start..start + len].to_owned(),
-            )
-        })
-        .collect(),
+    let mut last = 0;
+    let mut out = vec![];
+
+    for piece in pieces {
+        let HighlightedPiece { start, len, item } = piece;
+
+        if start > last {
+            out.push((Style::default(), input[last..start].to_owned()));
+        }
+
+        last = start + len;
+        out.push((color_match_item(item), input[start..start + len].to_owned()));
     }
+
+    StyledText { buffer: out }
 }
 
 fn color_match_item(item: ItemType) -> Style {
@@ -98,6 +102,7 @@ fn color_match_item(item: ItemType) -> Style {
             SymbolType::CommentsMarker => DarkGray,
             SymbolType::FlagDashes => Yellow,
             SymbolType::CmdPipe => DarkGray,
+            SymbolType::FnReturnTypePrefix => DarkGray,
             SymbolType::Parenthesis => DarkGray,
             SymbolType::Bracket => DarkGray,
             SymbolType::Brace => DarkGray,
@@ -139,5 +144,6 @@ fn color_match_item(item: ItemType) -> Style {
         },
 
         ItemType::Keyword => Magenta,
+        ItemType::Comment => DarkGray,
     })
 }

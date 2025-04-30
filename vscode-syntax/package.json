@@ -2,30 +2,41 @@
 	"name": "reshell-syntax",
 	"displayName": "reshell-syntax",
 	"description": "Syntax highlighting for ReShell's scripting language",
-	"version": "0.1.0",
+	"version": "0.0.1",
 	"repository": {
+		"type": "git",
 		"url": "https://github.com/ClementNerma/ReShell"
 	},
+	"license": "Apache-2.0",
 	"engines": {
-		"vscode": "^1.79.0"
+		"vscode": "^1.99.0"
 	},
 	"categories": ["Programming Languages"],
+	"activationEvents": [],
 	"contributes": {
 		"languages": [
 			{
 				"id": "reshell",
-				"aliases": ["ReShell", "reshell"],
 				"extensions": [".rsh"],
-				"configuration": "./language-configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "reshell",
-				"scopeName": "source.reshell",
-				"path": "./syntaxes/reshell.tmLanguage.json"
+				"configuration": "language-configuration.json"
 			}
 		]
 	},
-	"files": ["syntaxes/", "language-configuration.json", "LICENSE.md"]
+	"main": "./out/extension.js",
+	"scripts": {
+		"vscode:prepublish": "pnpm run compile",
+		"compile": "pnpm run compile:rust && pnpm run compile:ts",
+		"compile:ts": "tsc -p ./",
+		"compile:rust": "wasm-pack build rust-wasm/ --out-dir target/rust-wasm --target nodejs",
+		"watch": "tsc -watch -p ./",
+		"pretest": "pnpm run compile && pnpm run lint",
+		"lint": "eslint src",
+		"test": "vscode-test"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@types/node": "20.x",
+		"@types/vscode": "^1.99.0",
+		"typescript": "^5.8.3"
+	}
 }

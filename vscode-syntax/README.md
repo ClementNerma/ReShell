@@ -1,3 +1,3 @@
-# `reshell-syntax`
+# reshell-syntax
 
-Syntax highlighting (.tmLanguage) extension for Visual Studio Code
+A work-in-progress syntax highlighting extension for ReShell's scripting language.

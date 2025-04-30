@@ -109,7 +109,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         groups: [
             ("instructions", vec![
                 // Comments
-                simple(pomsky!( :('#' .* $) ), [Keyword]),
+                simple(pomsky!( :('#') :(.* $) ), [Symbol(CommentsMarker), Comment]),
                 
                 // Mutable variable declaration
                 simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, Keyword, Identifier(Variable), Operator(Assignment)]),
@@ -128,6 +128,9 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 // Function declaration
                 simple(pomsky!( % :("fn") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Identifier(FunctionOrMethod)]),
 
+                // Function return type
+                simple(pomsky!( :("->") [s]* :([Letter '_'] [Letter d '_']*) % ), [Symbol(FnReturnTypePrefix), Identifier(Type)]),
+
                 // Command aliases
                 simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :('=') ), [Keyword, Identifier(CmdNameOrPath), Operator(Assignment)]),
                 simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Identifier(CmdNameOrPath)]),
@@ -137,7 +140,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             ]),
             ("commands", vec![
                 // Pipes
-                simple(pomsky!( :("->" | '!'? '|') ), [Symbol(CmdPipe)]),
+                simple(pomsky!( :('!'? '|') ), [Symbol(CmdPipe)]),
 
                 // Markers
                 simple(pomsky!( ^ [s]* :("include") ([s] | $) ), [Keyword]),
@@ -310,7 +313,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :('@' ([Letter '_'] [Letter d '_']*)?) ), [Keyword]),
 
                 // Numbers
-                simple(pomsky!( % :([d]+ ('.' [d]+)?) % ), [Value(NamedFunction)]),
+                simple(pomsky!( % :([d]+ ('.' [d]+)?) % ), [Value(Number)]),
 
                 // Symbols and operators
                 // TODO: deduplicate from above
