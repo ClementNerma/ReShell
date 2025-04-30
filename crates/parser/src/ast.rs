@@ -562,8 +562,6 @@ pub struct CmdFlagArg {
 pub enum CmdFlagNameArg {
     Short(char),
     Long(String),
-    /// Optimization: flag names which are already in camel case
-    LongNoConvert(String),
 }
 
 #[derive(Debug, Clone)]
@@ -651,9 +649,15 @@ pub enum FnCallNature {
 pub enum FnArg {
     Expr(Span<Expr>),
     Flag {
-        name: Span<CmdFlagNameArg>,
-        value: Span<Expr>,
+        name: Span<FnFlagArgName>,
+        value: Option<Span<Expr>>,
     },
+}
+
+#[derive(Debug, Clone)]
+pub enum FnFlagArgName {
+    Short(char),
+    Long(String),
 }
 
 /// A token that's either eaten from a real input or generated at runtime

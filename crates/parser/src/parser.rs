@@ -1,25 +1,12 @@
 use std::{borrow::Cow, collections::HashSet, sync::LazyLock};
 
 use parsy::{
-    FileId, Parser, ParsingError,
-    atoms::{alphanumeric, digits},
-    char, choice, empty, end, filter, just, lookahead, newline, not, recursive, silent_choice,
-    to_define, whitespaces,
+    atoms::{alphanumeric, digits}, char, choice, empty, end, filter, just, lookahead, newline, not, recursive, silent_choice, to_define, whitespaces, FileId, Parser, ParsingError
 };
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
-        CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe,
-        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg,
-        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
-        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnSignatureArg, FnCall,
-        FnArg, FnCallNature, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg,
-        FnSignaturePresenceFlagArg, FnSignatureRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
-        MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
-        ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
+        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -194,19 +181,23 @@ pub fn program(
         ))
     });
 
-    let fn_arg_long_flag = just("--")
+    let fn_arg_long_flag_name_identifier = first_ident_char
+        .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
+        .collect_string();
+
+    let fn_arg_short_flag_name_identifier = first_ident_char;
+
+    let fn_arg_long_flag_name = just("--")
         .ignore_then(
-            first_ident_char
-                .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
-                .collect_string()
+            fn_arg_long_flag_name_identifier
                 .spanned()
                 .critical("expected a flag name (identifier)"),
         )
         .followed_by(not(possible_ident_char).critical("unexpected symbol after long flag name"));
 
-    let fn_arg_short_flag = char('-')
+    let fn_arg_short_flag_name = char('-')
         .ignore_then(
-            first_ident_char
+            fn_arg_short_flag_name_identifier
                 .spanned()
                 .critical("expected a single-character identifier"),
         )
@@ -214,19 +205,19 @@ pub fn program(
 
     let fn_flag_arg_signature_names = choice::<FnSignatureFlagArgNames, _>((
         // Long *and* short flags
-        fn_arg_long_flag
+        fn_arg_long_flag_name
             .map(RuntimeSpan::from)
             .then_ignore(ms)
             .then_ignore(char('('))
-            .then(fn_arg_short_flag.map(RuntimeSpan::from))
+            .then(fn_arg_short_flag_name.map(RuntimeSpan::from))
             .then_ignore(char(')').critical_auto_msg())
             .map(|(long, short)| FnSignatureFlagArgNames::LongAndShortFlag { short, long }),
         // Long flag only
-        fn_arg_long_flag
+        fn_arg_long_flag_name
             .map(RuntimeSpan::from)
             .map(FnSignatureFlagArgNames::LongFlag),
         // Long flag only
-        fn_arg_short_flag
+        fn_arg_short_flag_name
             .map(RuntimeSpan::from)
             .map(FnSignatureFlagArgNames::ShortFlag),
     ));
@@ -329,26 +320,22 @@ pub fn program(
     );
 
     let fn_arg = choice::<FnArg, _>((
-        ident
-            .spanned()
-            .then_ignore(ms)
-            .then_ignore(char(':'))
-            .then_ignore(msnl)
-            .then(
-                expr.clone()
-                    .spanned()
-                    .critical("expected an expression for the flag"),
-            )
-            .map(|(name, value)| FnArg::Flag {
-                name: name.map(|name| {
-                    if name.chars().nth(1).is_some() {
-                        CmdFlagNameArg::LongNoConvert(name)
-                    } else {
-                        CmdFlagNameArg::Short(name.chars().next().unwrap())
-                    }
-                }),
-                value,
-            }),
+        //
+        // Flags
+        //
+        choice::<FnFlagArgName, _>((
+            just("--").ignore_then(fn_arg_long_flag_name_identifier.critical("expected a flag name after '--'")).map(FnFlagArgName::Long),
+            char('-').ignore_then(fn_arg_short_flag_name_identifier).map(FnFlagArgName::Short)
+        ))
+        .spanned()
+        .then(
+            silent_choice((s, ms.then(char('=')).then(ms)))
+                .ignore_then(expr.clone().critical("expected an expression").spanned())
+                .or_not(),
+        ).map(|(name, value)| FnArg::Flag { name, value }),
+        //
+        // Expression
+        //
         expr.clone().spanned().map(FnArg::Expr),
     ));
 
@@ -363,10 +350,11 @@ pub fn program(
         fn_arg
             .spanned()
             .padded_by(msnl)
+            // TODO: here and in some other places, make a critical error if no match after first repetition
             .separated_by_into_vec(char(','))
             .spanned(),
     )
-    .then_ignore(char(')').critical_auto_msg())
+    .then_ignore(char(')').critical("unexpected symbol"))
     .map(|((nature, name), call_args)| FnCall {
         nature,
         name,

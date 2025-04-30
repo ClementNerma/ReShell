@@ -1,8 +1,8 @@
 use parsy::{CodeRange, Span};
 
 use crate::ast::{
-    CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnSignatureFlagArgNames,
-    RuntimeCodeRange, RuntimeSpan,
+    CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgName,
+    FnSignatureFlagArgNames, RuntimeCodeRange, RuntimeSpan,
 };
 
 impl FnSignatureFlagArgNames {
@@ -27,7 +27,16 @@ impl CmdFlagNameArg {
     pub fn back_to_string(&self) -> String {
         match self {
             CmdFlagNameArg::Short(short) => format!("-{short}"),
-            CmdFlagNameArg::Long(long) | CmdFlagNameArg::LongNoConvert(long) => format!("--{long}"),
+            CmdFlagNameArg::Long(long) => format!("--{long}"),
+        }
+    }
+}
+
+impl From<FnFlagArgName> for CmdFlagNameArg {
+    fn from(value: FnFlagArgName) -> Self {
+        match value {
+            FnFlagArgName::Short(name) => Self::Short(name),
+            FnFlagArgName::Long(name) => Self::Long(name),
         }
     }
 }

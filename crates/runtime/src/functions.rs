@@ -787,13 +787,20 @@ fn flatten_fn_call_args(
                     ))),
 
                     FnArg::Flag { name, value } => {
+                        let name = name.clone().map(CmdFlagNameArg::from);
+
+                        let value = match value {
+                            Some(value) => LocatedValue::new(
+                                RuntimeCodeRange::Parsed(value.at),
+                                eval_expr(&value.data, ctx)?,
+                            ),
+                            None => LocatedValue::new(name.at.into(), RuntimeValue::Bool(true)),
+                        };
+
                         out.push(SingleCmdArgResult::Flag(CmdFlagValue {
-                            name: RuntimeSpan::from(name.clone()),
+                            name: RuntimeSpan::from(name),
                             value: Some(FlagArgValueResult {
-                                value: LocatedValue::new(
-                                    RuntimeCodeRange::Parsed(value.at),
-                                    eval_expr(&value.data, ctx)?,
-                                ),
+                                value,
                                 value_sep: FlagValueSeparator::Equal,
                             }),
                         }))
@@ -946,21 +953,6 @@ fn get_matching_var_name(
             | FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 if *name == long.data {
                     Some(ctx.get_long_flag_var_name(long))
-                } else {
-                    None
-                }
-            }
-        },
-
-        CmdFlagNameArg::LongNoConvert(name) => match into {
-            FnSignatureFlagArgNames::ShortFlag(_) => None,
-
-            FnSignatureFlagArgNames::LongFlag(long)
-            | FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
-                let var_name = ctx.get_long_flag_var_name(long);
-
-                if name == &var_name {
-                    Some(var_name.clone())
                 } else {
                     None
                 }

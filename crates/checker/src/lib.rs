@@ -1061,7 +1061,10 @@ fn check_fn_call(fn_call: &Span<FnCall>, state: &mut State) -> CheckerResult {
 fn check_fn_call_arg(arg: &Span<FnArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
         FnArg::Expr(expr) => check_expr(&expr.data, state),
-        FnArg::Flag { name: _, value } => check_expr(&value.data, state),
+        FnArg::Flag { name: _, value } => match value {
+            Some(value) => check_expr(&value.data, state),
+            None => Ok(()),
+        },
     }
 }
 
