@@ -8,8 +8,9 @@ use colored::Color;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::{
     ast::{
-        CmdFlagNameArg, FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg,
-        FnRestArg, FnSignature, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
+        CmdFlagNameArg, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
+        FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
+        FnSignatureRestArg, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
     },
     files::{FilesMap, SourceFileLocation},
 };
@@ -193,12 +194,12 @@ impl PrettyPrintable for FnSignature {
     }
 }
 
-impl PrettyPrintable for FnArg {
+impl PrettyPrintable for FnSignatureArg {
     type Context = TypeAliasStore;
 
     fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
         match self {
-            FnArg::Positional(FnPositionalArg {
+            FnSignatureArg::Positional(FnSignaturePositionalArg {
                 name,
                 is_optional,
                 typ,
@@ -217,12 +218,14 @@ impl PrettyPrintable for FnArg {
                 PrettyPrintablePiece::Join(out)
             }
 
-            FnArg::PresenceFlag(FnPresenceFlagArg { names }) => PrettyPrintablePiece::Join(vec![
-                names.generate_pretty_data(&()),
-                PrettyPrintablePiece::colored_atomic("?", Color::White),
-            ]),
+            FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => {
+                PrettyPrintablePiece::Join(vec![
+                    names.generate_pretty_data(&()),
+                    PrettyPrintablePiece::colored_atomic("?", Color::White),
+                ])
+            }
 
-            FnArg::NormalFlag(FnNormalFlagArg {
+            FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
                 names,
                 is_optional,
                 typ,
@@ -239,7 +242,7 @@ impl PrettyPrintable for FnArg {
                 PrettyPrintablePiece::Join(out)
             }
 
-            FnArg::Rest(FnRestArg { name, typ }) => {
+            FnSignatureArg::Rest(FnSignatureRestArg { name, typ }) => {
                 let mut out = vec![PrettyPrintablePiece::colored_atomic(
                     format!("...{}", name.data),
                     Color::BrightYellow,
@@ -256,14 +259,14 @@ impl PrettyPrintable for FnArg {
     }
 }
 
-impl PrettyPrintable for FnFlagArgNames {
+impl PrettyPrintable for FnSignatureFlagArgNames {
     type Context = ();
 
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         let str = match self {
-            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data),
-            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data),
-            FnFlagArgNames::LongAndShortFlag { long, short } => {
+            FnSignatureFlagArgNames::ShortFlag(short) => format!("-{}", short.data),
+            FnSignatureFlagArgNames::LongFlag(long) => format!("--{}", long.data),
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short } => {
                 format!("--{} (-{})", long.data, short.data)
             }
         };

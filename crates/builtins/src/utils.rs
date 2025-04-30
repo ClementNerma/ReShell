@@ -2,7 +2,7 @@
 
 use reshell_checker::typechecking::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
-    FnArg, FnCallNature, FnPositionalArg, FnSignature, RuntimeCodeRange, RuntimeSpan, ValueType,
+    FnSignatureArg, FnCallNature, FnSignaturePositionalArg, FnSignature, RuntimeCodeRange, RuntimeSpan, ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
@@ -33,7 +33,7 @@ pub fn forge_basic_fn_signature(
         args: internal_runtime_span(
             args.into_iter()
                 .map(|(name, typ)| {
-                    FnArg::Positional(FnPositionalArg {
+                    FnSignatureArg::Positional(FnSignaturePositionalArg {
                         name: internal_runtime_span(name.into()),
                         is_optional: false,
                         typ: Some(typ),

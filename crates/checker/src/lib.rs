@@ -25,12 +25,13 @@ use reshell_parser::{
         CmdFlagArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
         CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece,
         ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
-        FnCall, FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
-        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
-        MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
-        ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange,
-        SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem,
-        StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
+        FnCall, FnCallNature, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
+        FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
+        FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey,
+        MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType,
+        Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall,
+        SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember,
+        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     scope::AstScopeId,
 };
@@ -1057,10 +1058,10 @@ fn check_fn_call(fn_call: &Span<FnCall>, state: &mut State) -> CheckerResult {
     Ok(())
 }
 
-fn check_fn_call_arg(arg: &Span<FnCallArg>, state: &mut State) -> CheckerResult {
+fn check_fn_call_arg(arg: &Span<FnArg>, state: &mut State) -> CheckerResult {
     match &arg.data {
-        FnCallArg::Expr(expr) => check_expr(&expr.data, state),
-        FnCallArg::Flag { name: _, value } => check_expr(&value.data, state),
+        FnArg::Expr(expr) => check_expr(&expr.data, state),
+        FnArg::Flag { name: _, value } => check_expr(&value.data, state),
     }
 }
 
@@ -1522,9 +1523,9 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
     check_block_with(body, state, fill_scope)
 }
 
-fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
+fn check_fn_arg(arg: &FnSignatureArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
     let (name, name_at, alt_var_name, is_rest, typ) = match arg {
-        FnArg::Positional(FnPositionalArg {
+        FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
             is_optional: _,
             typ,
@@ -1536,12 +1537,12 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             (name.data.clone(), name.at, None, false, typ.as_ref())
         }
 
-        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
-            FnFlagArgNames::ShortFlag(short) => {
+        FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => match names {
+            FnSignatureFlagArgNames::ShortFlag(short) => {
                 (short.data.to_string(), short.at, None, false, None)
             }
 
-            FnFlagArgNames::LongFlag(long) => (
+            FnSignatureFlagArgNames::LongFlag(long) => (
                 long.data.clone(),
                 long.at,
                 Some(long_flag_var_name(&long.data)),
@@ -1549,7 +1550,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                 None,
             ),
 
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => (
                 long.data.clone(),
                 long.at,
                 Some(long_flag_var_name(&long.data)),
@@ -1558,7 +1559,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             ),
         },
 
-        FnArg::NormalFlag(FnNormalFlagArg {
+        FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
             names,
             is_optional: _,
             typ,
@@ -1566,11 +1567,11 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             check_value_type(typ, state)?;
 
             match names {
-                FnFlagArgNames::ShortFlag(short) => {
+                FnSignatureFlagArgNames::ShortFlag(short) => {
                     (short.data.to_string(), short.at, None, false, Some(typ))
                 }
 
-                FnFlagArgNames::LongFlag(long) => (
+                FnSignatureFlagArgNames::LongFlag(long) => (
                     long.data.clone(),
                     long.at,
                     Some(long_flag_var_name(&long.data)),
@@ -1578,7 +1579,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
                     Some(typ),
                 ),
 
-                FnFlagArgNames::LongAndShortFlag { long, short: _ } => (
+                FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => (
                     long.data.clone(),
                     long.at,
                     Some(long_flag_var_name(&long.data)),
@@ -1588,7 +1589,7 @@ fn check_fn_arg(arg: &FnArg, state: &mut State) -> CheckerResult<CheckedFnArg> {
             }
         }
 
-        FnArg::Rest(FnRestArg { name, typ }) => {
+        FnSignatureArg::Rest(FnSignatureRestArg { name, typ }) => {
             if let Some(typ) = typ {
                 check_value_type(&typ.data, state)?;
 
@@ -1767,7 +1768,7 @@ fn check_fn_signature(
             }
         }
 
-        if let FnArg::Positional(FnPositionalArg {
+        if let FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
             is_optional,
             typ: _,

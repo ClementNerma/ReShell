@@ -13,9 +13,9 @@ use crate::{
         CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe,
         CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg,
         ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
-        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
-        FnCallArg, FnCallNature, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg,
-        FnPresenceFlagArg, FnRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
+        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnSignatureArg, FnCall,
+        FnArg, FnCallNature, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg,
+        FnSignaturePresenceFlagArg, FnSignatureRestArg, FnSignature, Function, Instruction, ListItem, LiteralValue,
         MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding,
         ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan,
         SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem,
@@ -212,7 +212,7 @@ pub fn program(
         )
         .followed_by(not(possible_ident_char).critical("expected a single-character identifier"));
 
-    let fn_flag_arg_names = choice::<FnFlagArgNames, _>((
+    let fn_flag_arg_signature_names = choice::<FnSignatureFlagArgNames, _>((
         // Long *and* short flags
         fn_arg_long_flag
             .map(RuntimeSpan::from)
@@ -220,18 +220,18 @@ pub fn program(
             .then_ignore(char('('))
             .then(fn_arg_short_flag.map(RuntimeSpan::from))
             .then_ignore(char(')').critical_auto_msg())
-            .map(|(long, short)| FnFlagArgNames::LongAndShortFlag { short, long }),
+            .map(|(long, short)| FnSignatureFlagArgNames::LongAndShortFlag { short, long }),
         // Long flag only
         fn_arg_long_flag
             .map(RuntimeSpan::from)
-            .map(FnFlagArgNames::LongFlag),
+            .map(FnSignatureFlagArgNames::LongFlag),
         // Long flag only
         fn_arg_short_flag
             .map(RuntimeSpan::from)
-            .map(FnFlagArgNames::ShortFlag),
+            .map(FnSignatureFlagArgNames::ShortFlag),
     ));
 
-    let fn_arg = choice::<FnArg, _>((
+    let fn_arg_signature = choice::<FnSignatureArg, _>((
         // Positional
         ident
             .spanned()
@@ -249,14 +249,14 @@ pub fn program(
                     .or_not(),
             )
             .map(|((name, is_optional), typ)| {
-                FnArg::Positional(FnPositionalArg {
+                FnSignatureArg::Positional(FnSignaturePositionalArg {
                     name,
                     is_optional: is_optional.is_some(),
                     typ,
                 })
             }),
         // Normal flags
-        fn_flag_arg_names
+        fn_flag_arg_signature_names
             .then_ignore(msnl)
             .then(char('?').or_not())
             .then_ignore(char(':'))
@@ -267,19 +267,19 @@ pub fn program(
                     .critical("expected a type for the flag argument"),
             )
             .map(|((names, is_optional), typ)| {
-                FnArg::NormalFlag(FnNormalFlagArg {
+                FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
                     names,
                     is_optional: is_optional.is_some(),
                     typ,
                 })
             }),
         // Presence flags
-        fn_flag_arg_names
+        fn_flag_arg_signature_names
             .then_ignore(msnl)
             .then_ignore(
                 char('?').critical("expected either a '?' or a ':' marker after flag argument"),
             )
-            .map(|names| FnArg::PresenceFlag(FnPresenceFlagArg { names })),
+            .map(|names| FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names })),
         // Rest
         just("...")
             .ignore_then(ident)
@@ -297,13 +297,13 @@ pub fn program(
                     )
                     .or_not(),
             )
-            .map(|(name, typ)| FnArg::Rest(FnRestArg { name, typ })),
+            .map(|(name, typ)| FnSignatureArg::Rest(FnSignatureRestArg { name, typ })),
     ));
 
     fn_signature.define(
         char('(')
             .ignore_then(
-                fn_arg
+                fn_arg_signature
                     .clone()
                     .separated_by_into_vec(char(',').padded_by(msnl))
                     .spanned()
@@ -328,7 +328,7 @@ pub fn program(
             .map(|(args, ret_type)| FnSignature { args, ret_type }),
     );
 
-    let fn_call_arg = choice::<FnCallArg, _>((
+    let fn_arg = choice::<FnArg, _>((
         ident
             .spanned()
             .then_ignore(ms)
@@ -339,7 +339,7 @@ pub fn program(
                     .spanned()
                     .critical("expected an expression for the flag"),
             )
-            .map(|(name, value)| FnCallArg::Flag {
+            .map(|(name, value)| FnArg::Flag {
                 name: name.map(|name| {
                     if name.chars().nth(1).is_some() {
                         CmdFlagNameArg::LongNoConvert(name)
@@ -349,7 +349,7 @@ pub fn program(
                 }),
                 value,
             }),
-        expr.clone().spanned().map(FnCallArg::Expr),
+        expr.clone().spanned().map(FnArg::Expr),
     ));
 
     let fn_call = choice::<FnCallNature, _>((
@@ -360,7 +360,7 @@ pub fn program(
     .then(ident.spanned())
     .then_ignore(char('('))
     .then(
-        fn_call_arg
+        fn_arg
             .spanned()
             .padded_by(msnl)
             .separated_by_into_vec(char(','))
@@ -461,7 +461,7 @@ pub fn program(
             char('|')
                 .ignore_then(msnl)
                 .ignore_then(
-                    fn_arg
+                    fn_arg_signature
                         .separated_by_into_vec(char(',').padded_by(msnl))
                         .spanned()
                         .map(RuntimeSpan::from)
@@ -1706,8 +1706,8 @@ pub fn program(
                     .first()
                     .and_then(|first_arg| -> Option<Result<ValueType, ParsingError>> {
                         match first_arg {
-                            FnArg::Positional(arg) => {
-                                let FnPositionalArg {
+                            FnSignatureArg::Positional(arg) => {
+                                let FnSignaturePositionalArg {
                                     name,
                                     is_optional,
                                     typ,

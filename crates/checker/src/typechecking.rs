@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
 use reshell_parser::ast::{
-    FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-    FnSignature, SingleValueType, StructTypeMember, ValueType,
+    FnSignatureRestArg, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
+    FnSignaturePositionalArg, FnSignaturePresenceFlagArg, SingleValueType, StructTypeMember,
+    ValueType,
 };
 use reshell_prettify::TypeAliasStore;
 
@@ -242,11 +243,13 @@ pub fn check_if_fn_signature_fits_another(
     let mut used_flag_names = HashSet::new();
     let mut used_into_flag_names = HashSet::new();
 
-    let mark_used_name = |flag_names: &FnFlagArgNames, used_names: &mut HashSet<String>| -> bool {
+    let mark_used_name = |flag_names: &FnSignatureFlagArgNames,
+                          used_names: &mut HashSet<String>|
+     -> bool {
         match flag_names {
-            FnFlagArgNames::ShortFlag(name) => used_names.insert(name.data.to_string()),
-            FnFlagArgNames::LongFlag(name) => used_names.insert(name.data.clone()),
-            FnFlagArgNames::LongAndShortFlag { long, short } => {
+            FnSignatureFlagArgNames::ShortFlag(name) => used_names.insert(name.data.to_string()),
+            FnSignatureFlagArgNames::LongFlag(name) => used_names.insert(name.data.clone()),
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short } => {
                 used_names.insert(long.data.clone()) && used_names.insert(short.data.to_string())
             }
         }
@@ -359,23 +362,26 @@ pub fn check_if_fn_signature_fits_another(
 /// a case where a call to it would result in an error due to it missing
 /// either the short and long flag
 #[must_use]
-fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) -> bool {
+fn check_fn_flag_args_name_compat(
+    curr: &FnSignatureFlagArgNames,
+    into: &FnSignatureFlagArgNames,
+) -> bool {
     match into {
-        FnFlagArgNames::ShortFlag(b) => match curr {
-            FnFlagArgNames::LongFlag(_) => false,
-            FnFlagArgNames::ShortFlag(a)
-            | FnFlagArgNames::LongAndShortFlag { long: _, short: a } => a.data == b.data,
+        FnSignatureFlagArgNames::ShortFlag(b) => match curr {
+            FnSignatureFlagArgNames::LongFlag(_) => false,
+            FnSignatureFlagArgNames::ShortFlag(a)
+            | FnSignatureFlagArgNames::LongAndShortFlag { long: _, short: a } => a.data == b.data,
         },
 
-        FnFlagArgNames::LongFlag(b) => match curr {
-            FnFlagArgNames::ShortFlag(_) => false,
-            FnFlagArgNames::LongFlag(a)
-            | FnFlagArgNames::LongAndShortFlag { long: a, short: _ } => a.data == b.data,
+        FnSignatureFlagArgNames::LongFlag(b) => match curr {
+            FnSignatureFlagArgNames::ShortFlag(_) => false,
+            FnSignatureFlagArgNames::LongFlag(a)
+            | FnSignatureFlagArgNames::LongAndShortFlag { long: a, short: _ } => a.data == b.data,
         },
 
-        FnFlagArgNames::LongAndShortFlag { long, short } => match curr {
-            FnFlagArgNames::ShortFlag(_) | FnFlagArgNames::LongFlag(_) => false,
-            FnFlagArgNames::LongAndShortFlag {
+        FnSignatureFlagArgNames::LongAndShortFlag { long, short } => match curr {
+            FnSignatureFlagArgNames::ShortFlag(_) | FnSignatureFlagArgNames::LongFlag(_) => false,
+            FnSignatureFlagArgNames::LongAndShortFlag {
                 long: a_long,
                 short: a_short,
             } => a_long.data == long.data && a_short.data == short.data,
@@ -385,10 +391,10 @@ fn check_fn_flag_args_name_compat(curr: &FnFlagArgNames, into: &FnFlagArgNames) 
 
 /// Data structure for comparing functions' arguments
 struct FnCategorizedArgs<'a> {
-    positionals: Vec<&'a FnPositionalArg>,
-    presence_flags: Vec<&'a FnPresenceFlagArg>,
-    normal_flags: Vec<&'a FnNormalFlagArg>,
-    rest_arg: Option<&'a FnRestArg>,
+    positionals: Vec<&'a FnSignaturePositionalArg>,
+    presence_flags: Vec<&'a FnSignaturePresenceFlagArg>,
+    normal_flags: Vec<&'a FnSignatureNormalFlagArg>,
+    rest_arg: Option<&'a FnSignatureRestArg>,
 }
 
 impl<'a> FnCategorizedArgs<'a> {
@@ -401,10 +407,10 @@ impl<'a> FnCategorizedArgs<'a> {
 
         for arg in &fn_signature.args.data {
             match arg {
-                FnArg::Positional(arg) => positionals.push(arg),
-                FnArg::PresenceFlag(arg) => presence_flags.push(arg),
-                FnArg::NormalFlag(arg) => normal_flags.push(arg),
-                FnArg::Rest(rest) => rest_arg = Some(rest),
+                FnSignatureArg::Positional(arg) => positionals.push(arg),
+                FnSignatureArg::PresenceFlag(arg) => presence_flags.push(arg),
+                FnSignatureArg::NormalFlag(arg) => normal_flags.push(arg),
+                FnSignatureArg::Rest(rest) => rest_arg = Some(rest),
             }
         }
 

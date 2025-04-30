@@ -405,7 +405,7 @@ pub struct StructTypeMember {
 
 #[derive(Debug, Clone, Hash)]
 pub struct FnSignature {
-    pub args: RuntimeSpan<Vec<FnArg>>,
+    pub args: RuntimeSpan<Vec<FnSignatureArg>>,
     pub ret_type: Option<RuntimeSpan<Box<ValueType>>>,
 }
 
@@ -591,40 +591,40 @@ pub enum CmdPipeType {
 }
 
 #[derive(Debug, Clone, Hash)]
-pub enum FnArg {
-    Positional(FnPositionalArg),
-    PresenceFlag(FnPresenceFlagArg),
-    NormalFlag(FnNormalFlagArg),
-    Rest(FnRestArg),
+pub enum FnSignatureArg {
+    Positional(FnSignaturePositionalArg),
+    PresenceFlag(FnSignaturePresenceFlagArg),
+    NormalFlag(FnSignatureNormalFlagArg),
+    Rest(FnSignatureRestArg),
 }
 
 #[derive(Debug, Clone, Hash)]
-pub struct FnPositionalArg {
+pub struct FnSignaturePositionalArg {
     pub name: RuntimeSpan<String>,
     pub is_optional: bool,
     pub typ: Option<ValueType>,
 }
 
 #[derive(Debug, Clone, Hash)]
-pub struct FnPresenceFlagArg {
-    pub names: FnFlagArgNames,
+pub struct FnSignaturePresenceFlagArg {
+    pub names: FnSignatureFlagArgNames,
 }
 
 #[derive(Debug, Clone, Hash)]
-pub struct FnNormalFlagArg {
-    pub names: FnFlagArgNames,
+pub struct FnSignatureNormalFlagArg {
+    pub names: FnSignatureFlagArgNames,
     pub is_optional: bool,
     pub typ: ValueType,
 }
 
 #[derive(Debug, Clone, Hash)]
-pub struct FnRestArg {
+pub struct FnSignatureRestArg {
     pub name: RuntimeSpan<String>,
     pub typ: Option<RuntimeSpan<ValueType>>,
 }
 
 #[derive(Debug, Clone, Hash)]
-pub enum FnFlagArgNames {
+pub enum FnSignatureFlagArgNames {
     ShortFlag(RuntimeSpan<char>),
     LongFlag(RuntimeSpan<String>),
     LongAndShortFlag {
@@ -637,7 +637,7 @@ pub enum FnFlagArgNames {
 pub struct FnCall {
     pub nature: FnCallNature,
     pub name: Span<String>,
-    pub call_args: Span<Vec<Span<FnCallArg>>>,
+    pub call_args: Span<Vec<Span<FnArg>>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -648,7 +648,7 @@ pub enum FnCallNature {
 }
 
 #[derive(Debug, Clone)]
-pub enum FnCallArg {
+pub enum FnArg {
     Expr(Span<Expr>),
     Flag {
         name: Span<CmdFlagNameArg>,

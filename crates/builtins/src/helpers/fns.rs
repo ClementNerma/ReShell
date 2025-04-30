@@ -2,7 +2,7 @@
 //!
 //! Mainly the [`define_internal_fn`] macro
 
-use reshell_parser::ast::{FnArg, ValueType};
+use reshell_parser::ast::{FnSignatureArg, ValueType};
 use reshell_runtime::values::InternalFnBody;
 
 /// Description of an internal function
@@ -14,7 +14,7 @@ pub struct InternalFunction {
     pub method_on_type: Option<ValueType>,
 
     /// List of arguments the function takes
-    pub args: Vec<FnArg>,
+    pub args: Vec<FnSignatureArg>,
 
     /// Callback of the function
     pub run: InternalFnBody,
@@ -29,7 +29,7 @@ macro_rules! define_internal_fn {
     ($name: expr, ( $( $arg_name: ident : $arg_handler_type: ty = $arg_handler_gen: expr ),* ) -> $ret_type: ty) => {
         use std::collections::HashMap;
 
-        use reshell_parser::ast::{FnArg, FnPositionalArg, RuntimeCodeRange, RuntimeSpan};
+        use reshell_parser::ast::{FnSignatureArg, FnSignaturePositionalArg, RuntimeCodeRange, RuntimeSpan};
 
         use reshell_runtime::{
             context::Context,
@@ -135,7 +135,7 @@ macro_rules! define_internal_fn {
             ];
 
             let method_on_type = args.first().and_then(|first_arg| match first_arg {
-                FnArg::Positional(FnPositionalArg {
+                FnSignatureArg::Positional(FnSignaturePositionalArg {
                     name: RuntimeSpan {
                         at: RuntimeCodeRange::Internal(_),
                         data: name,

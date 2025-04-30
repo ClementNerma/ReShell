@@ -1,24 +1,24 @@
 use parsy::{CodeRange, Span};
 
 use crate::ast::{
-    CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgNames,
+    CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnSignatureFlagArgNames,
     RuntimeCodeRange, RuntimeSpan,
 };
 
-impl FnFlagArgNames {
+impl FnSignatureFlagArgNames {
     pub fn short_flag(&self) -> Option<RuntimeSpan<char>> {
         match self {
-            FnFlagArgNames::ShortFlag(flag) => Some(*flag),
-            FnFlagArgNames::LongFlag(_) => None,
-            FnFlagArgNames::LongAndShortFlag { long: _, short } => Some(*short),
+            FnSignatureFlagArgNames::ShortFlag(flag) => Some(*flag),
+            FnSignatureFlagArgNames::LongFlag(_) => None,
+            FnSignatureFlagArgNames::LongAndShortFlag { long: _, short } => Some(*short),
         }
     }
 
     pub fn long_flag(&self) -> Option<&RuntimeSpan<String>> {
         match self {
-            FnFlagArgNames::ShortFlag(_) => None,
-            FnFlagArgNames::LongFlag(flag) => Some(flag),
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => Some(long),
+            FnSignatureFlagArgNames::ShortFlag(_) => None,
+            FnSignatureFlagArgNames::LongFlag(flag) => Some(flag),
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => Some(long),
         }
     }
 }

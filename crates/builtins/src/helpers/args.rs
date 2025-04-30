@@ -3,8 +3,8 @@
 use std::marker::PhantomData;
 
 use reshell_parser::ast::{
-    FnArg, FnFlagArgNames, FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg,
-    SingleValueType, ValueType,
+    FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg,
+    FnSignaturePresenceFlagArg, FnSignatureRestArg, SingleValueType, ValueType,
 };
 use reshell_runtime::values::RuntimeValue;
 
@@ -252,7 +252,7 @@ pub fn generate_internal_arg_decl<
     A: ArgHandler<Parsed = Parsed, TypedValueParser = Parser>,
 >(
     arg: A,
-) -> FnArg {
+) -> FnSignatureArg {
     match arg.names() {
         ArgNames::Positional(name) => {
             let name = internal_runtime_span((*name).to_owned());
@@ -264,12 +264,12 @@ pub fn generate_internal_arg_decl<
             };
 
             if arg.is_rest() {
-                FnArg::Rest(FnRestArg {
+                FnSignatureArg::Rest(FnSignatureRestArg {
                     name,
                     typ: typ.map(internal_runtime_span),
                 })
             } else {
-                FnArg::Positional(FnPositionalArg {
+                FnSignatureArg::Positional(FnSignaturePositionalArg {
                     name,
                     is_optional: arg.is_optional(),
                     typ,
@@ -284,21 +284,23 @@ pub fn generate_internal_arg_decl<
                 // }
                 //
                 ArgFlagNames::Long(long) => {
-                    FnFlagArgNames::LongFlag(internal_runtime_span(long.raw.to_owned()))
+                    FnSignatureFlagArgNames::LongFlag(internal_runtime_span(long.raw.to_owned()))
                 }
 
-                ArgFlagNames::LongAndShort(long, short) => FnFlagArgNames::LongAndShortFlag {
-                    long: internal_runtime_span(long.raw.to_owned()),
-                    short: internal_runtime_span(*short),
-                },
+                ArgFlagNames::LongAndShort(long, short) => {
+                    FnSignatureFlagArgNames::LongAndShortFlag {
+                        long: internal_runtime_span(long.raw.to_owned()),
+                        short: internal_runtime_span(*short),
+                    }
+                }
             };
 
             match Parser::value_type() {
                 ValueType::Single(SingleValueType::Bool) => {
-                    FnArg::PresenceFlag(FnPresenceFlagArg { names })
+                    FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names })
                 }
 
-                typ => FnArg::NormalFlag(FnNormalFlagArg {
+                typ => FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
                     names,
                     is_optional: arg.is_optional(),
                     typ,

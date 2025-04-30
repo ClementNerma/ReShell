@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use colored::Colorize;
 use parsy::{CodeRange, Span};
 use reshell_parser::ast::{
-    CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallArg, FnCallNature, FnFlagArgNames,
-    FnNormalFlagArg, FnPositionalArg, FnPresenceFlagArg, FnRestArg, RuntimeCodeRange, RuntimeSpan,
-    SingleValueType, ValueType,
+    CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnSignatureArg,
+    FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg,
+    FnSignaturePresenceFlagArg, FnSignatureRestArg, RuntimeCodeRange, RuntimeSpan, SingleValueType,
+    ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
@@ -223,7 +224,7 @@ fn fill_fn_args(
     call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
     infos: FnCallInfos,
-    fn_args: &[FnArg],
+    fn_args: &[FnSignatureArg],
     ctx: &mut Context,
 ) -> ExecResult<HashMap<String, ValidatedFnCallArg>> {
     let ParsedFnCallArgs {
@@ -246,12 +247,12 @@ fn fill_fn_args(
         }
 
         match arg {
-            FnArg::Positional(FnPositionalArg {
+            FnSignatureArg::Positional(FnSignaturePositionalArg {
                 name: _,
                 is_optional,
                 typ: _,
             })
-            | FnArg::NormalFlag(FnNormalFlagArg {
+            | FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
                 names: _,
                 is_optional,
                 typ: _,
@@ -285,7 +286,7 @@ fn fill_fn_args(
                 }
             }
 
-            FnArg::PresenceFlag(_) => {
+            FnSignatureArg::PresenceFlag(_) => {
                 parsed_args.insert(
                     arg_var_name,
                     ValidatedFnCallArg {
@@ -296,7 +297,7 @@ fn fill_fn_args(
                 );
             }
 
-            FnArg::Rest(rest_arg) => {
+            FnSignatureArg::Rest(rest_arg) => {
                 // This trick allows to avoid ownership problems
                 // We will never have to fill the rest argument twice of course,
                 // so we can .unwrap() here
@@ -345,7 +346,7 @@ fn parse_fn_call_args(
     call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
     infos: FnCallInfos,
-    fn_args: &[FnArg],
+    fn_args: &[FnSignatureArg],
     ctx: &mut Context,
 ) -> ExecResult<ParsedFnCallArgs> {
     let mut call_args = flatten_fn_call_args(call_at, func.is_method, infos, ctx)?;
@@ -357,7 +358,7 @@ fn parse_fn_call_args(
     let mut rest_args = Vec::<SingleCmdArgResult>::new();
 
     let mut positional_fn_args = fn_args.iter().filter_map(|fn_arg| match fn_arg {
-        FnArg::Positional(FnPositionalArg {
+        FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
             is_optional,
             typ,
@@ -367,13 +368,15 @@ fn parse_fn_call_args(
             typ,
         }),
 
-        FnArg::PresenceFlag(_) | FnArg::NormalFlag(_) | FnArg::Rest(_) => None,
+        FnSignatureArg::PresenceFlag(_)
+        | FnSignatureArg::NormalFlag(_)
+        | FnSignatureArg::Rest(_) => None,
     });
 
     let mut value_on_hold = None::<SingleCmdArgResult>;
 
     let rest_arg = fn_args.iter().find_map(|arg| match arg {
-        FnArg::Rest(rest) => Some(rest),
+        FnSignatureArg::Rest(rest) => Some(rest),
         _ => None,
     });
 
@@ -480,19 +483,19 @@ struct SimplifiedPositionalFnArg<'a> {
 /// Depending on the provided informations, it will determine the argument it belongs to along with its value
 fn parse_single_fn_call_arg<'a>(
     func: &RuntimeFnValue,
-    rest_arg: Option<&FnRestArg>,
+    rest_arg: Option<&FnSignatureRestArg>,
     positional_fn_args: &mut impl Iterator<Item = SimplifiedPositionalFnArg<'a>>,
     arg_result: SingleCmdArgResult,
-    fn_args: &[FnArg],
+    fn_args: &[FnSignatureArg],
     ctx: &mut Context,
 ) -> ExecResult<ParsedSingleFnCallArg> {
     match arg_result {
         SingleCmdArgResult::Flag(CmdFlagValue { name, value }) => {
             for arg in fn_args {
                 match arg {
-                    FnArg::Positional(_) | FnArg::Rest(_) => continue,
+                    FnSignatureArg::Positional(_) | FnSignatureArg::Rest(_) => continue,
 
-                    FnArg::PresenceFlag(FnPresenceFlagArg { names }) => {
+                    FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => {
                         let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
                             continue;
                         };
@@ -541,7 +544,7 @@ fn parse_single_fn_call_arg<'a>(
                         };
                     }
 
-                    FnArg::NormalFlag(FnNormalFlagArg {
+                    FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
                         names,
                         is_optional,
                         typ,
@@ -778,14 +781,12 @@ fn flatten_fn_call_args(
         FnPossibleCallArgs::Parsed(args) => {
             for parsed in &args.data {
                 match &parsed.data {
-                    FnCallArg::Expr(expr) => {
-                        out.push(SingleCmdArgResult::Basic(LocatedValue::new(
-                            RuntimeCodeRange::Parsed(expr.at),
-                            eval_expr(&expr.data, ctx)?,
-                        )))
-                    }
+                    FnArg::Expr(expr) => out.push(SingleCmdArgResult::Basic(LocatedValue::new(
+                        RuntimeCodeRange::Parsed(expr.at),
+                        eval_expr(&expr.data, ctx)?,
+                    ))),
 
-                    FnCallArg::Flag { name, value } => {
+                    FnArg::Flag { name, value } => {
                         out.push(SingleCmdArgResult::Flag(CmdFlagValue {
                             name: RuntimeSpan::from(name.clone()),
                             value: Some(FlagArgValueResult {
@@ -827,95 +828,99 @@ fn flatten_fn_call_args(
     Ok(out)
 }
 
-fn fn_arg_human_name(arg: &FnArg) -> String {
+fn fn_arg_human_name(arg: &FnSignatureArg) -> String {
     match &arg {
-        FnArg::Positional(FnPositionalArg {
+        FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
             is_optional: _,
             typ: _,
         }) => name.data.clone(),
 
-        FnArg::PresenceFlag(FnPresenceFlagArg { names })
-        | FnArg::NormalFlag(FnNormalFlagArg {
+        FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names })
+        | FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
             names,
             is_optional: _,
             typ: _,
         }) => match names {
-            FnFlagArgNames::ShortFlag(short) => format!("-{}", short.data),
-            FnFlagArgNames::LongFlag(long) => format!("--{}", long.data),
-            FnFlagArgNames::LongAndShortFlag { long, short } => {
+            FnSignatureFlagArgNames::ShortFlag(short) => format!("-{}", short.data),
+            FnSignatureFlagArgNames::LongFlag(long) => format!("--{}", long.data),
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short } => {
                 format!("--{} (-{})", long.data, short.data)
             }
         },
 
-        FnArg::Rest(FnRestArg { name, typ: _ }) => name.data.clone(),
+        FnSignatureArg::Rest(FnSignatureRestArg { name, typ: _ }) => name.data.clone(),
     }
 }
 
-fn fn_arg_var_name(arg: &FnArg, ctx: &mut Context) -> String {
+fn fn_arg_var_name(arg: &FnSignatureArg, ctx: &mut Context) -> String {
     match &arg {
-        FnArg::Positional(FnPositionalArg {
+        FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
             is_optional: _,
             typ: _,
         }) => name.data.clone(),
 
-        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
-            FnFlagArgNames::ShortFlag(short) => short.data.to_string(),
-            FnFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
+        FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => match names {
+            FnSignatureFlagArgNames::ShortFlag(short) => short.data.to_string(),
+            FnSignatureFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
+                ctx.get_long_flag_var_name(long)
+            }
         },
 
-        FnArg::NormalFlag(FnNormalFlagArg {
+        FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
             names,
             is_optional: _,
             typ: _,
         }) => match names {
-            FnFlagArgNames::ShortFlag(short) => short.data.to_string(),
-            FnFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => ctx.get_long_flag_var_name(long),
+            FnSignatureFlagArgNames::ShortFlag(short) => short.data.to_string(),
+            FnSignatureFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
+                ctx.get_long_flag_var_name(long)
+            }
         },
 
-        FnArg::Rest(FnRestArg { name, typ: _ }) => name.data.clone(),
+        FnSignatureArg::Rest(FnSignatureRestArg { name, typ: _ }) => name.data.clone(),
     }
 }
 
-fn fn_arg_var_at(arg: &FnArg) -> RuntimeCodeRange {
+fn fn_arg_var_at(arg: &FnSignatureArg) -> RuntimeCodeRange {
     match &arg {
-        FnArg::Positional(FnPositionalArg {
+        FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
             is_optional: _,
             typ: _,
         }) => name.at,
 
-        FnArg::PresenceFlag(FnPresenceFlagArg { names }) => match names {
-            FnFlagArgNames::ShortFlag(short) => short.at,
-            FnFlagArgNames::LongFlag(long) => long.at,
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.at,
+        FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => match names {
+            FnSignatureFlagArgNames::ShortFlag(short) => short.at,
+            FnSignatureFlagArgNames::LongFlag(long) => long.at,
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => long.at,
         },
 
-        FnArg::NormalFlag(FnNormalFlagArg {
+        FnSignatureArg::NormalFlag(FnSignatureNormalFlagArg {
             names,
             is_optional: _,
             typ: _,
         }) => match names {
-            FnFlagArgNames::ShortFlag(short) => short.at,
-            FnFlagArgNames::LongFlag(long) => long.at,
-            FnFlagArgNames::LongAndShortFlag { long, short: _ } => long.at,
+            FnSignatureFlagArgNames::ShortFlag(short) => short.at,
+            FnSignatureFlagArgNames::LongFlag(long) => long.at,
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => long.at,
         },
 
-        FnArg::Rest(FnRestArg { name, typ: _ }) => name.at,
+        FnSignatureArg::Rest(FnSignatureRestArg { name, typ: _ }) => name.at,
     }
 }
 
 fn get_matching_var_name(
     name: &CmdFlagNameArg,
-    into: &FnFlagArgNames,
+    into: &FnSignatureFlagArgNames,
     ctx: &mut Context,
 ) -> Option<String> {
     match name {
         CmdFlagNameArg::Short(name) => match into {
-            FnFlagArgNames::ShortFlag(short) => {
+            FnSignatureFlagArgNames::ShortFlag(short) => {
                 if *name == short.data {
                     Some(short.data.to_string())
                 } else {
@@ -923,9 +928,9 @@ fn get_matching_var_name(
                 }
             }
 
-            FnFlagArgNames::LongFlag(_) => None,
+            FnSignatureFlagArgNames::LongFlag(_) => None,
 
-            FnFlagArgNames::LongAndShortFlag { long, short } => {
+            FnSignatureFlagArgNames::LongAndShortFlag { long, short } => {
                 if *name == short.data {
                     Some(ctx.get_long_flag_var_name(long))
                 } else {
@@ -935,10 +940,10 @@ fn get_matching_var_name(
         },
 
         CmdFlagNameArg::Long(name) => match into {
-            FnFlagArgNames::ShortFlag(_) => None,
+            FnSignatureFlagArgNames::ShortFlag(_) => None,
 
-            FnFlagArgNames::LongFlag(long)
-            | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
+            FnSignatureFlagArgNames::LongFlag(long)
+            | FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 if *name == long.data {
                     Some(ctx.get_long_flag_var_name(long))
                 } else {
@@ -948,10 +953,10 @@ fn get_matching_var_name(
         },
 
         CmdFlagNameArg::LongNoConvert(name) => match into {
-            FnFlagArgNames::ShortFlag(_) => None,
+            FnSignatureFlagArgNames::ShortFlag(_) => None,
 
-            FnFlagArgNames::LongFlag(long)
-            | FnFlagArgNames::LongAndShortFlag { long, short: _ } => {
+            FnSignatureFlagArgNames::LongFlag(long)
+            | FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 let var_name = ctx.get_long_flag_var_name(long);
 
                 if name == &var_name {
@@ -1004,7 +1009,7 @@ pub struct FnCallInfos<'a> {
 }
 
 pub enum FnPossibleCallArgs<'a> {
-    Parsed(&'a Span<Vec<Span<FnCallArg>>>),
+    Parsed(&'a Span<Vec<Span<FnArg>>>),
     ParsedCmdArgs {
         at: CodeRange,
         args: Vec<(CmdArgResult, CodeRange)>,
