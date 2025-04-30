@@ -22,7 +22,7 @@ annotate-snippets = { version = "0.11.5" }
 ctrlc = "3.4.6"
 indexmap = "2.9.0"
 dunce = "1.0.5"
-reedline = "0.39.0"
+reedline = "0.40.0"
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
-globby = "0.1.6"
+globby = "0.1.7"
 reshell-syntax-highlighter = { path = "../syntax-highlighter" }
