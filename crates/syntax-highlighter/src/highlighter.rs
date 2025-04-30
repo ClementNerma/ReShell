@@ -62,7 +62,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
     // Import all item types for easier use
     use crate::elements::{
         ArgumentType::*, IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*,
-        SymbolType::*, ValueType::*, WrapperType::*, SyntaxErrorType::*
+        SymbolType::*, SyntaxErrorType::*, ValueType::*, WrapperType::*,
     };
 
     // Match method calls

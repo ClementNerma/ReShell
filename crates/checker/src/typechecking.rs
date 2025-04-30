@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 use reshell_parser::ast::{
-    FnSignatureRestArg, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
-    FnSignaturePositionalArg, FnSignaturePresenceFlagArg, SingleValueType, StructTypeMember,
-    ValueType,
+    FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
+    FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, SingleValueType,
+    StructTypeMember, ValueType,
 };
 use reshell_prettify::TypeAliasStore;
 

@@ -2,7 +2,8 @@
 
 use reshell_checker::typechecking::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
-    FnSignatureArg, FnCallNature, FnSignaturePositionalArg, FnSignature, RuntimeCodeRange, RuntimeSpan, ValueType,
+    FnCallNature, FnSignature, FnSignatureArg, FnSignaturePositionalArg, RuntimeCodeRange,
+    RuntimeSpan, ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{

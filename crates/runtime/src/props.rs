@@ -154,7 +154,9 @@ pub fn eval_props_access<'ast, 'c, T>(
                         },
 
                         (None, Some(_)) => {
-                            return Err(ctx.error(key_expr.at, format!("key '{key}' was not found")));
+                            return Err(
+                                ctx.error(key_expr.at, format!("key '{key}' was not found"))
+                            );
                         }
 
                         (None, None) => match policy {

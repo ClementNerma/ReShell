@@ -1,12 +1,26 @@
 use std::{borrow::Cow, collections::HashSet, sync::LazyLock};
 
 use parsy::{
-    atoms::{alphanumeric, digits}, char, choice, empty, end, filter, just, lookahead, newline, not, recursive, silent_choice, to_define, whitespaces, FileId, Parser, ParsingError
+    FileId, Parser, ParsingError,
+    atoms::{alphanumeric, digits},
+    char, choice, empty, end, filter, just, lookahead, newline, not, recursive, silent_choice,
+    to_define, whitespaces,
 };
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagArgName, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading
+        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
+        CmdFlagArg, CmdFlagArgName, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe,
+        CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg,
+        ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr,
+        ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall,
+        FnCallNature, FnFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
+        FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
+        FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey,
+        MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType,
+        Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp,
+        SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase,
+        TypeMatchExprCase, Value, ValueType, VarSpreading,
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -324,15 +338,22 @@ pub fn program(
         // Flags
         //
         choice::<FnFlagArgName, _>((
-            just("--").ignore_then(fn_arg_long_flag_name_identifier.critical("expected a flag name after '--'")).map(FnFlagArgName::Long),
-            char('-').ignore_then(fn_arg_short_flag_name_identifier).map(FnFlagArgName::Short)
+            just("--")
+                .ignore_then(
+                    fn_arg_long_flag_name_identifier.critical("expected a flag name after '--'"),
+                )
+                .map(FnFlagArgName::Long),
+            char('-')
+                .ignore_then(fn_arg_short_flag_name_identifier)
+                .map(FnFlagArgName::Short),
         ))
         .spanned()
         .then(
             silent_choice((s, ms.then(char('=')).then(ms)))
                 .ignore_then(expr.clone().critical("expected an expression").spanned())
                 .or_not(),
-        ).map(|(name, value)| FnArg::Flag { name, value }),
+        )
+        .map(|(name, value)| FnArg::Flag { name, value }),
         //
         // Expression
         //
@@ -1831,7 +1852,9 @@ pub fn program(
                 literal_string
                     .spanned()
                     .critical("expected a file path")
-                    .and_then_or_critical(move |path| load_file(path.data, path.at.start.file_id).map_err(Cow::from))
+                    .and_then_or_critical(move |path| {
+                        load_file(path.data, path.at.start.file_id).map_err(Cow::from)
+                    })
                     .and_then(move |file| {
                         program_bis
                             .parse_str_with_file_id(&file.content, FileId::SourceFile(file.id))
