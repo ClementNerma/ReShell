@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use colored::Colorize;
 use parsy::{CodeRange, Span};
 use reshell_parser::ast::{
-    CmdFlagNameArg, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnSignatureArg,
+    CmdFlagArgName, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnSignatureArg,
     FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg,
     FnSignaturePresenceFlagArg, FnSignatureRestArg, RuntimeCodeRange, RuntimeSpan, SingleValueType,
     ValueType,
@@ -787,7 +787,7 @@ fn flatten_fn_call_args(
                     ))),
 
                     FnArg::Flag { name, value } => {
-                        let name = name.clone().map(CmdFlagNameArg::from);
+                        let name = name.clone().map(CmdFlagArgName::from);
 
                         let value = match value {
                             Some(value) => LocatedValue::new(
@@ -921,12 +921,12 @@ fn fn_arg_var_at(arg: &FnSignatureArg) -> RuntimeCodeRange {
 }
 
 fn get_matching_var_name(
-    name: &CmdFlagNameArg,
+    name: &CmdFlagArgName,
     into: &FnSignatureFlagArgNames,
     ctx: &mut Context,
 ) -> Option<String> {
     match name {
-        CmdFlagNameArg::Short(name) => match into {
+        CmdFlagArgName::Short(name) => match into {
             FnSignatureFlagArgNames::ShortFlag(short) => {
                 if *name == short.data {
                     Some(short.data.to_string())
@@ -946,7 +946,7 @@ fn get_matching_var_name(
             }
         },
 
-        CmdFlagNameArg::Long(name) => match into {
+        CmdFlagArgName::Long(name) => match into {
             FnSignatureFlagArgNames::ShortFlag(_) => None,
 
             FnSignatureFlagArgNames::LongFlag(long)

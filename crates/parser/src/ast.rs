@@ -554,12 +554,12 @@ pub enum CmdValueMakingArg {
 
 #[derive(Debug, Clone)]
 pub struct CmdFlagArg {
-    pub name: Span<CmdFlagNameArg>,
+    pub name: Span<CmdFlagArgName>,
     pub value: Option<CmdFlagValueArg>,
 }
 
 #[derive(Debug, Clone)]
-pub enum CmdFlagNameArg {
+pub enum CmdFlagArgName {
     Short(char),
     Long(String),
 }

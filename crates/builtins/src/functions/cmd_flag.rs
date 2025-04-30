@@ -1,4 +1,4 @@
-use reshell_parser::ast::{CmdFlagNameArg, FlagValueSeparator};
+use reshell_parser::ast::{CmdFlagArgName, FlagValueSeparator};
 use reshell_runtime::{
     cmd::FlagArgValueResult,
     values::{CmdArgValue, CmdFlagValue},
@@ -21,7 +21,7 @@ fn run() -> Runner {
             CmdFlagValue {
                 name: RuntimeSpan {
                     at: args_at.name,
-                    data: CmdFlagNameArg::dynamic(name)
+                    data: CmdFlagArgName::dynamic(name)
                         .map_err(|err| ctx.throw(args_at.name, err))?,
                 },
                 value: value.map(|value| FlagArgValueResult {

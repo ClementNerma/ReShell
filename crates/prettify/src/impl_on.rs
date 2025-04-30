@@ -8,7 +8,7 @@ use colored::Color;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::{
     ast::{
-        CmdFlagNameArg, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
+        CmdFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
         FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
         FnSignatureRestArg, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
     },
@@ -275,13 +275,13 @@ impl PrettyPrintable for FnSignatureFlagArgNames {
     }
 }
 
-impl PrettyPrintable for CmdFlagNameArg {
+impl PrettyPrintable for CmdFlagArgName {
     type Context = ();
 
     fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
         let name = match self {
-            CmdFlagNameArg::Short(name) => format!("-{name}"),
-            CmdFlagNameArg::Long(name) => format!("--{name}"),
+            CmdFlagArgName::Short(name) => format!("-{name}"),
+            CmdFlagArgName::Long(name) => format!("--{name}"),
         };
 
         PrettyPrintablePiece::colored_atomic(name, Color::BrightYellow)

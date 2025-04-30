@@ -6,7 +6,7 @@ use parsy::{
 
 use crate::{
     ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagNameArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading
+        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagArgName, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece, DoubleOp, ElsIf, ElsIfExpr, EscapableChar, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey, MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess, PropAccessNature, RangeBound, RuntimeSpan, SingleCmdCall, SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading
     },
     files::SourceFile,
     scope::ScopeIdGenerator,
@@ -1081,17 +1081,17 @@ pub fn program(
         )
         .map(|(name, value)| CmdEnvVar { name, value });
 
-    let cmd_flag_name_arg = choice::<CmdFlagNameArg, _>((
+    let cmd_flag_name_arg = choice::<CmdFlagArgName, _>((
         just("--")
             .ignore_then(
                 first_ident_char
                     .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
                     .collect_string(),
             )
-            .map(CmdFlagNameArg::Long),
+            .map(CmdFlagArgName::Long),
         char('-')
             .ignore_then(possible_ident_char)
-            .map(CmdFlagNameArg::Short),
+            .map(CmdFlagArgName::Short),
     ))
     .followed_by(silent_choice((
         filter(|c| c.is_whitespace() || DELIMITER_CHARS.contains(&c)),

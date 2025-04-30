@@ -12,7 +12,7 @@ use parsy::{CodeRange, Span};
 use reshell_checker::output::Dependency;
 use reshell_parser::{
     ast::{
-        Block, CmdFlagNameArg, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
+        Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
         SingleValueType, StructTypeMember, ValueType,
     },
     scope::AstScopeId,
@@ -139,7 +139,7 @@ pub enum CmdArgValue {
 /// Content of a command flag
 #[derive(Debug, Clone)]
 pub struct CmdFlagValue {
-    pub name: RuntimeSpan<CmdFlagNameArg>,
+    pub name: RuntimeSpan<CmdFlagArgName>,
     pub value: Option<FlagArgValueResult>,
 }
 

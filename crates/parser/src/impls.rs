@@ -1,7 +1,7 @@
 use parsy::{CodeRange, Span};
 
 use crate::ast::{
-    CmdFlagNameArg, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgName,
+    CmdFlagArgName, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgName,
     FnSignatureFlagArgNames, RuntimeCodeRange, RuntimeSpan,
 };
 
@@ -23,16 +23,16 @@ impl FnSignatureFlagArgNames {
     }
 }
 
-impl CmdFlagNameArg {
+impl CmdFlagArgName {
     pub fn back_to_string(&self) -> String {
         match self {
-            CmdFlagNameArg::Short(short) => format!("-{short}"),
-            CmdFlagNameArg::Long(long) => format!("--{long}"),
+            CmdFlagArgName::Short(short) => format!("-{short}"),
+            CmdFlagArgName::Long(long) => format!("--{long}"),
         }
     }
 }
 
-impl From<FnFlagArgName> for CmdFlagNameArg {
+impl From<FnFlagArgName> for CmdFlagArgName {
     fn from(value: FnFlagArgName) -> Self {
         match value {
             FnFlagArgName::Short(name) => Self::Short(name),
@@ -116,12 +116,12 @@ impl CmdRawString {
     }
 }
 
-impl CmdFlagNameArg {
+impl CmdFlagArgName {
     pub fn dynamic(name: String) -> Result<Self, &'static str> {
         match name.chars().count() {
             0 => Err("flag name cannot be empty!"),
-            1 => Ok(CmdFlagNameArg::Short(name.chars().next().unwrap())),
-            _ => Ok(CmdFlagNameArg::Long(name)),
+            1 => Ok(CmdFlagArgName::Short(name.chars().next().unwrap())),
+            _ => Ok(CmdFlagArgName::Long(name)),
         }
     }
 }
