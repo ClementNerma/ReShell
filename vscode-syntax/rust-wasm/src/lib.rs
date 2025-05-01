@@ -159,7 +159,7 @@ pub fn highlight(input: &str) -> Vec<Token> {
                         WrapperType::CmdOutput(_) => TokenType::Operator,
                         WrapperType::CmdCall(_) => TokenType::Operator,
                         WrapperType::Lambda(_) => TokenType::Operator,
-                        WrapperType::LambdaArgs(_) => TokenType::Operator,
+                        WrapperType::FnArgs(_) => TokenType::Operator,
                     },
 
                     ItemType::Invalid(invalid_type) => match invalid_type {

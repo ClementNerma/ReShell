@@ -216,6 +216,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                     _ => {
                         if input[..offset].ends_with("$^") {
                             open!(offset - 2, 3, NestingOpeningType::CmdOutput);
+                        } else if is_fn_decl(&input[..offset]) {
+                            open!(offset, 1, NestingOpeningType::FnArgs { lambda: false });
                         } else {
                             open!(offset, 1, NestingOpeningType::ExprWithParen);
                         }
@@ -255,10 +257,10 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                             .chars()
                             .all(char::is_whitespace) =>
                     {
-                        open!(offset, 1, NestingOpeningType::LambdaArgs);
+                        open!(offset, 1, NestingOpeningType::FnArgs { lambda: true });
                     }
 
-                    Some((NestingOpeningType::LambdaArgs, args_start)) => {
+                    Some((NestingOpeningType::FnArgs { lambda: true }, args_start)) => {
                         close!(offset, 1, args_start);
                     }
 
@@ -273,7 +275,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                                 NestingOpeningType::ExprWithParen
                                     | NestingOpeningType::ComputedString
                                     | NestingOpeningType::CmdOutput
-                                    | NestingOpeningType::CmdCall,
+                                    | NestingOpeningType::CmdCall
+                                    | NestingOpeningType::FnArgs { lambda: false },
                                 ')'
                             ) | (NestingOpeningType::List, ']')
                                 | (NestingOpeningType::Block | NestingOpeningType::Lambda, '}')
@@ -339,6 +342,28 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
     output
 }
 
+fn is_fn_decl(input: &str) -> bool {
+    let mut chars = input.chars().rev().peekable();
+
+    let mut try_match = |filter: fn(&char) -> bool| -> bool {
+        let mut matched = false;
+
+        while chars.next_if(filter).is_some() {
+            matched = true;
+        }
+
+        matched
+    };
+
+    try_match(|c| c.is_alphanumeric() || *c == '_')
+        && try_match(|c| c.is_whitespace())
+        && chars.next() == Some('n')
+        && chars.next() == Some('f')
+        && chars
+            .next()
+            .is_none_or(|c| !c.is_alphanumeric() && c != '_')
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct NestingAction {
     pub offset: usize,
@@ -373,6 +398,5 @@ pub enum NestingOpeningType {
     CmdOutput,
     CmdCall,
     Lambda,
-    LambdaArgs,
-    // TODO: FnArgs, opening parenthesis for function declaration
+    FnArgs { lambda: bool },
 }

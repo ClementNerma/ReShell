@@ -129,7 +129,7 @@ fn color_match_item(item: ItemType) -> Style {
             WrapperType::CmdOutput(_) => DarkGray,
             WrapperType::CmdCall(_) => DarkGray,
             WrapperType::Lambda(_) => DarkGray,
-            WrapperType::LambdaArgs(_) => DarkGray,
+            WrapperType::FnArgs(_) => DarkGray,
         },
 
         ItemType::Invalid(invalid_type) => match invalid_type {

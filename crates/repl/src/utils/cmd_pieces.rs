@@ -32,7 +32,7 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
                 typ: NestingOpeningType::CmdOutput | NestingOpeningType::CmdCall,
                 matching_close: _,
             } | NestingActionType::Closing {
-                matching_opening: Some(NestingOpeningType::LambdaArgs),
+                matching_opening: Some(NestingOpeningType::FnArgs { lambda: _ }),
             } | NestingActionType::CommandSeparator
         )
     });

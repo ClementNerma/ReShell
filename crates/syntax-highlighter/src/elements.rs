@@ -96,7 +96,7 @@ define_item_types!(pub ItemType {
         CmdOutput(usize),
         CmdCall(usize),
         Lambda(usize),
-        LambdaArgs(usize),
+        FnArgs(usize),
     ),
 
     Invalid(

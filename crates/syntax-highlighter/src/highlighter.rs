@@ -4,7 +4,7 @@
 //!
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     sync::{Arc, LazyLock, Mutex},
 };
 
@@ -15,7 +15,10 @@ use crate::{
     CheckCmdType,
     elements::ItemType,
     nesting::NestingOpeningType,
-    syntax::{NestedContentRules, Rule, RuleSet, RuleStylization, SimpleRule, ValidatedRuleSet},
+    syntax::{
+        NestedContentRules, Rule, RuleSet, RuleStylization, RulesForNesting, SimpleRule,
+        ValidatedRuleSet,
+    },
 };
 
 pub type CmdChecker = Box<dyn FnMut(&str, CheckCmdType) -> bool + Send + Sync>;
@@ -348,90 +351,90 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         ]
         .into_iter().map(|(group, rules)| (group.to_owned(), rules)).collect(),
 
-        nested_content_rules: HashMap::from([
-            (NestingOpeningType::Block, NestedContentRules {
+        nested_content_rules: RulesForNesting {
+            block: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(Block(nesting_level)),
                 closing_style: |nesting_level| Wrapper(Block(nesting_level)),
                 rules: vec![
                     include_group("instructions")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::VarSpreading, NestedContentRules {
+            var_spreading: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(VarSpreading(nesting_level)),
                 closing_style: |nesting_level| Wrapper(VarSpreading(nesting_level)),
                 rules: vec![
                     include_group("var-spreading")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::List, NestedContentRules {
+            list: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(List(nesting_level)),
                 closing_style: |nesting_level| Wrapper(List(nesting_level)),
                 rules: vec![
                     include_group("expressions")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::ExprWithParen, NestedContentRules {
+            expr_with_paren: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(ExpressionParen(nesting_level)),
                 closing_style: |nesting_level| Wrapper(ExpressionParen(nesting_level)),
                 rules: vec![
                     include_group("expressions")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::LiteralString, NestedContentRules {
+            literal_string: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(LiteralString(nesting_level)),
                 closing_style: |nesting_level| Wrapper(LiteralString(nesting_level)),
                 rules: vec![
                     include_group("literal-strings")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::ComputedString, NestedContentRules {
+            computed_string: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(ComputedString(nesting_level)),
                 closing_style: |nesting_level| Wrapper(ComputedString(nesting_level)),
                 rules: vec![
                     include_group("computed-strings")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::ExprInString, NestedContentRules {
+            expr_in_string: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(ExprInString(nesting_level)),
                 closing_style: |nesting_level| Wrapper(ExprInString(nesting_level)),
                 rules: vec![
                     include_group("expressions")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::CmdOutput, NestedContentRules {
+            cmd_output: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(CmdOutput(nesting_level)),
                 closing_style: |nesting_level| Wrapper(CmdOutput(nesting_level)),
                 rules: vec![
                     include_group("commands")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::CmdCall, NestedContentRules {
+            cmd_call: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(CmdCall(nesting_level)),
                 closing_style: |nesting_level| Wrapper(CmdCall(nesting_level)),
                 rules: vec![
                     include_group("commands")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::Lambda, NestedContentRules {
+            lambda: NestedContentRules {
                 opening_style: |nesting_level| Wrapper(Lambda(nesting_level)),
                 closing_style: |nesting_level| Wrapper(Lambda(nesting_level)),
                 rules: vec![
                     include_group("commands")
                 ]
-            }),
+            },
 
-            (NestingOpeningType::LambdaArgs, NestedContentRules {
-                opening_style: |nesting_level| Wrapper(LambdaArgs(nesting_level)),
-                closing_style: |nesting_level| Wrapper(LambdaArgs(nesting_level)),
+            fn_args: NestedContentRules {
+                opening_style: |nesting_level| Wrapper(FnArgs(nesting_level)),
+                closing_style: |nesting_level| Wrapper(FnArgs(nesting_level)),
                 rules: vec![
                     // Normalized flags
                     simple_followed_by(
@@ -452,8 +455,8 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     // Variables
                     simple(pomsky!(:([Letter '_'] [Letter d '_']*) %), [Identifier(VariableOrConstant)]),
                 ]
-            })
-        ]),
+            }
+        },
 
         non_nested_content_rules: vec![
             include_group("instructions")

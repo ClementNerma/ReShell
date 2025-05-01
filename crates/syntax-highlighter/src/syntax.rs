@@ -27,11 +27,44 @@ pub struct ValidatedRuleSet<T>(RuleSet<T>);
 pub struct RuleSet<T> {
     pub groups: HashMap<String, Vec<Rule<T>>>,
     pub non_nested_content_rules: Vec<Rule<T>>,
-    pub nested_content_rules: HashMap<NestingOpeningType, NestedContentRules<T>>,
+    pub nested_content_rules: RulesForNesting<T>,
     pub closing_without_opening_style: ItemType,
     pub unclosed_style: ItemType,
     pub command_separator_style: ItemType,
     pub use_arguments_separator: bool,
+}
+
+#[derive(Debug)]
+pub struct RulesForNesting<T> {
+    pub block: NestedContentRules<T>,
+    pub list: NestedContentRules<T>,
+    pub expr_with_paren: NestedContentRules<T>,
+    pub literal_string: NestedContentRules<T>,
+    pub computed_string: NestedContentRules<T>,
+    pub expr_in_string: NestedContentRules<T>,
+    pub var_spreading: NestedContentRules<T>,
+    pub cmd_output: NestedContentRules<T>,
+    pub cmd_call: NestedContentRules<T>,
+    pub lambda: NestedContentRules<T>,
+    pub fn_args: NestedContentRules<T>,
+}
+
+impl<T> RulesForNesting<T> {
+    pub fn get_for_type(&self, typ: NestingOpeningType) -> &NestedContentRules<T> {
+        match typ {
+            NestingOpeningType::Block => &self.block,
+            NestingOpeningType::List => &self.list,
+            NestingOpeningType::ExprWithParen => &self.expr_with_paren,
+            NestingOpeningType::LiteralString => &self.literal_string,
+            NestingOpeningType::ComputedString => &self.computed_string,
+            NestingOpeningType::ExprInString => &self.expr_in_string,
+            NestingOpeningType::VarSpreading => &self.var_spreading,
+            NestingOpeningType::CmdOutput => &self.cmd_output,
+            NestingOpeningType::CmdCall => &self.cmd_call,
+            NestingOpeningType::Lambda => &self.lambda,
+            NestingOpeningType::FnArgs { lambda: _ } => &self.fn_args,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -116,7 +149,7 @@ pub fn compute_highlight_pieces<T>(
                     start: offset,
                     len,
                     item: if matching_close {
-                        let style = nested_content_rules.get(&typ).unwrap().opening_style;
+                        let style = nested_content_rules.get_for_type(typ).opening_style;
                         style(nesting_level)
                     } else {
                         *unclosed_style
@@ -130,8 +163,7 @@ pub fn compute_highlight_pieces<T>(
                     len,
                     item: if matching_opening.is_some() {
                         let style = nested_content_rules
-                            .get(&opened.pop().unwrap().1)
-                            .unwrap()
+                            .get_for_type(opened.pop().unwrap().1)
                             .closing_style;
 
                         style(nesting_level)
@@ -159,7 +191,7 @@ pub fn compute_highlight_pieces<T>(
             NestingActionType::Content => {
                 let rules = match opened.last() {
                     Some((_, opening_type)) => {
-                        &nested_content_rules.get(opening_type).unwrap().rules
+                        &nested_content_rules.get_for_type(*opening_type).rules
                     }
 
                     None => non_nested_content_rules,
@@ -495,7 +527,33 @@ pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
 
     _validate_rules(non_nested_content_rules, groups)?;
 
-    for rules in nested_content_rules.values() {
+    let RulesForNesting {
+        block,
+        list,
+        expr_with_paren,
+        literal_string,
+        computed_string,
+        expr_in_string,
+        var_spreading,
+        cmd_output,
+        cmd_call,
+        lambda,
+        fn_args,
+    } = nested_content_rules;
+
+    for rules in [
+        block,
+        list,
+        expr_with_paren,
+        literal_string,
+        computed_string,
+        expr_in_string,
+        var_spreading,
+        cmd_output,
+        cmd_call,
+        lambda,
+        fn_args,
+    ] {
         let NestedContentRules {
             opening_style: _,
             closing_style: _,
