@@ -5,7 +5,7 @@
 
 use nu_ansi_term::{Color, Style};
 use reedline::{Highlighter as RlHighlighter, StyledText};
-use reshell_syntax_highlighter::{HighlightedPiece, elements::*};
+use reshell_syntax_highlighter::{SyntaxItem, elements::*};
 
 use crate::{repl::SHARED_CONTEXT, utils::cmd_checker::COMMANDS_CHECKER};
 
@@ -41,7 +41,7 @@ fn highlight(input: &str) -> StyledText {
     let mut out = vec![];
 
     for piece in pieces {
-        let HighlightedPiece { start, len, item } = piece;
+        let SyntaxItem { start, len, item } = piece;
 
         if start > last {
             out.push((Style::default(), input[last..start].to_owned()));

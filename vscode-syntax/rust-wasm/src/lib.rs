@@ -1,5 +1,5 @@
 use reshell_syntax_highlighter::{
-    HighlightedPiece,
+    SyntaxItem,
     elements::{
         ArgumentType, IdentifierType, InvalidType, ItemType, OperatorType, SymbolType,
         SyntaxErrorType, ValueType, WrapperType,
@@ -70,7 +70,7 @@ pub fn highlight(input: &str) -> Vec<Token> {
 
     pieces
         .into_iter()
-        .map(|HighlightedPiece { start, len, item }| {
+        .map(|SyntaxItem { start, len, item }| {
             let line = line_offsets
                 .iter()
                 .rposition(|line_offset| start >= *line_offset)

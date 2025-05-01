@@ -111,7 +111,7 @@ pub fn compute_highlight_pieces<T>(
     input: &str,
     rule_set: &ValidatedRuleSet<T>,
     rule_data: &T,
-) -> Vec<HighlightedPiece> {
+) -> Vec<SyntaxItem> {
     let ValidatedRuleSet(rule_set) = rule_set;
 
     let RuleSet {
@@ -124,7 +124,7 @@ pub fn compute_highlight_pieces<T>(
         use_arguments_separator,
     } = rule_set;
 
-    let mut output = Vec::<HighlightedPiece>::new();
+    let mut output = Vec::<SyntaxItem>::new();
 
     let nesting = detect_nesting_actions(input, *use_arguments_separator);
 
@@ -145,7 +145,7 @@ pub fn compute_highlight_pieces<T>(
             } => {
                 opened.push((action, typ));
 
-                output.push(HighlightedPiece {
+                output.push(SyntaxItem {
                     start: offset,
                     len,
                     item: if matching_close {
@@ -158,7 +158,7 @@ pub fn compute_highlight_pieces<T>(
             }
 
             NestingActionType::Closing { matching_opening } => {
-                output.push(HighlightedPiece {
+                output.push(SyntaxItem {
                     start: offset,
                     len,
                     item: if matching_opening.is_some() {
@@ -173,7 +173,7 @@ pub fn compute_highlight_pieces<T>(
                 });
             }
 
-            NestingActionType::CommandSeparator => output.push(HighlightedPiece {
+            NestingActionType::CommandSeparator => output.push(SyntaxItem {
                 start: offset,
                 len,
                 item: *command_separator_style,
@@ -280,7 +280,7 @@ fn highlight_piece<T>(
     matched: &Match<T>,
     covering: &mut InputCoverage,
     rule_data: &T,
-    out: &mut Vec<HighlightedPiece>,
+    out: &mut Vec<SyntaxItem>,
 ) {
     // Ensure the highlighted piece is not empty,
     // as this could cause an infinite highlighting
@@ -325,7 +325,7 @@ fn highlight_piece<T>(
         //     }
         // }
 
-        out.push(HighlightedPiece {
+        out.push(SyntaxItem {
             start: captured.start(),
             len: captured.len(),
             item: *style,
@@ -571,7 +571,7 @@ pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
 }
 
 #[derive(Debug)]
-pub struct HighlightedPiece {
+pub struct SyntaxItem {
     pub start: usize,
     pub len: usize,
     pub item: ItemType,
