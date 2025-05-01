@@ -3,10 +3,7 @@
 //! using the [`super::utils::syntax`] module.
 //!
 
-use std::{
-    collections::HashSet,
-    sync::{Arc, LazyLock},
-};
+use std::{collections::HashSet, sync::LazyLock};
 
 use pomsky_macro::pomsky;
 use regex::Regex;
@@ -23,7 +20,7 @@ use crate::{
 
 pub type CmdChecker = Box<dyn Fn(&str, CheckCmdType) -> bool + Send + Sync>;
 
-type SharedCmdChecker = Arc<CmdChecker>;
+type SharedCmdChecker = CmdChecker;
 
 pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::new(|| {
     /// Create a simple rule's inner content
@@ -95,8 +92,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by: Some(Regex::new(pomsky!( [s] | $ )).unwrap()),
             followed_by_nesting: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                let item_type = if cmd_checker(&matched[2], CheckCmdType::Method)
-                {
+                let item_type = if cmd_checker(&matched[2], CheckCmdType::Method) {
                     Identifier(Method)
                 } else {
                     Invalid(MethodNotFound)
