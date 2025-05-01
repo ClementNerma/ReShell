@@ -51,6 +51,10 @@ fn highlight(input: &str) -> StyledText {
         out.push((color_match_item(item), input[start..start + len].to_owned()));
     }
 
+    if last < input.len() {
+        out.push((Style::default(), input[last..].to_owned()));
+    }
+
     StyledText { buffer: out }
 }
 
