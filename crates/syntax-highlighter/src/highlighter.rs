@@ -112,7 +112,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         groups: [
             ("instructions", vec![
                 // Comments
-                simple(pomsky!( :('#') :(.* $) ), [Symbol(CommentsMarker), Comment]),
+                simple(pomsky!( :('#') :(.*) ), [Symbol(CommentsMarker), Comment]),
                 
                 // Mutable variable declaration
                 simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, Keyword, Identifier(Variable), Operator(Assignment)]),
