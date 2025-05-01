@@ -31,13 +31,13 @@ impl RlHighlighter for Highlighter {
 fn highlight(input: &str) -> StyledText {
     let pieces = reshell_syntax_highlighter::syntax_highlight(
         input,
-        Box::new(|cmd_name, cmd_type| {
+        Some(Box::new(|cmd_name, cmd_type| {
             COMMANDS_CHECKER.lock().unwrap().check(
                 SHARED_CONTEXT.lock().unwrap().as_mut().unwrap(),
                 cmd_name,
                 cmd_type,
             )
-        }),
+        })),
     );
 
     let mut last = 0;

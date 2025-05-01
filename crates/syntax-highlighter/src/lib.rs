@@ -29,7 +29,7 @@ pub enum CheckCmdType {
 ///
 /// Note that the first call to this function make take longer due to the lazy-initialized parser warming up.
 /// If you prefer warming up before calling this function, use [`preinit_lazy_syntax_highlighter`].
-pub fn syntax_highlight(input: &str, cmd_checker: CmdChecker) -> Vec<SyntaxItem> {
+pub fn syntax_highlight(input: &str, cmd_checker: Option<CmdChecker>) -> Vec<SyntaxItem> {
     self::syntax::compute_highlight_pieces(input, &self::highlighter::RULE_SET, &cmd_checker)
 }
 
