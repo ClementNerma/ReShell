@@ -557,16 +557,14 @@ fn complete_path(
             continue;
         };
 
-        let Ok(metadata) = path.metadata() else {
-            continue;
-        };
-
-        let file_type = metadata.file_type();
+        let file_type = path.metadata().ok().map(|mt| mt.file_type());
 
         // NOTE: Invalid UTF-8 paths will be displayed lossily (no other way to handle this)
         let mut path_str = path.to_string_lossy().to_string();
 
-        if file_type.is_dir() {
+        let is_dir = file_type.is_some_and(|file_type| file_type.is_dir());
+
+        if is_dir {
             path_str.push(MAIN_SEPARATOR);
         }
 
@@ -617,7 +615,7 @@ fn complete_path(
                 style: None,
                 extra: None,
                 span,
-                append_whitespace: !file_type.is_dir(),
+                append_whitespace: !is_dir,
             },
         ));
     }
