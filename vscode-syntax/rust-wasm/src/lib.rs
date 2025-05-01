@@ -59,6 +59,11 @@ pub struct Token {
 }
 
 #[wasm_bindgen]
+pub fn warmup() {
+    reshell_syntax_highlighter::preinit_lazy_syntax_highlighter();
+}
+
+#[wasm_bindgen]
 pub fn highlight(input: &str) -> Vec<Token> {
     let pieces = reshell_syntax_highlighter::syntax_highlight(input, None);
 

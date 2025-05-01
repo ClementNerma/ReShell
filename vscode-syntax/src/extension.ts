@@ -7,6 +7,8 @@ import Wasm from "../rust-wasm/target/rust-wasm/reshell_wasm_syntax_highlighter.
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate() {
+	Wasm.warmup();
+
 	const tokenTypes = Wasm.list_token_types();
 	const tokenModifiers = Wasm.list_token_modifiers();
 
