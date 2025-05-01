@@ -2,10 +2,10 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
-use self::elements::ItemType;
 pub use self::syntax::SyntaxItem;
+use self::{elements::ItemType, highlighter::CmdChecker};
 
 mod coverage;
 pub mod elements;
@@ -31,14 +31,11 @@ pub enum CheckCmdType {
 ///
 /// Note that the first call to this function make take longer due to the lazy-initialized parser warming up.
 /// If you prefer warming up before calling this function, use [`preinit_lazy_syntax_highlighter`].
-pub fn syntax_highlight(
-    input: &str,
-    cmd_checker: impl FnMut(&str, CheckCmdType) -> bool + Send + Sync + 'static,
-) -> Vec<SyntaxItem> {
+pub fn syntax_highlight(input: &str, cmd_checker: CmdChecker) -> Vec<SyntaxItem> {
     self::syntax::compute_highlight_pieces(
         input,
         &self::highlighter::RULE_SET,
-        &Arc::new(Mutex::new(Box::new(cmd_checker))),
+        &Arc::new(cmd_checker),
     )
 }
 

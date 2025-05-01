@@ -60,7 +60,7 @@ pub struct Token {
 
 #[wasm_bindgen]
 pub fn highlight(input: &str) -> Vec<Token> {
-    let pieces = reshell_syntax_highlighter::syntax_highlight(input, |_, _| true);
+    let pieces = reshell_syntax_highlighter::syntax_highlight(input, Box::new(|_, _| true));
 
     let mut line_offsets = vec![0];
 

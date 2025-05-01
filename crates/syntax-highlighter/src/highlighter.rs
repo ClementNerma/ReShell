@@ -5,7 +5,7 @@
 
 use std::{
     collections::HashSet,
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, LazyLock},
 };
 
 use pomsky_macro::pomsky;
@@ -21,9 +21,9 @@ use crate::{
     },
 };
 
-pub type CmdChecker = Box<dyn FnMut(&str, CheckCmdType) -> bool + Send + Sync>;
+pub type CmdChecker = Box<dyn Fn(&str, CheckCmdType) -> bool + Send + Sync>;
 
-type SharedCmdChecker = Arc<Mutex<CmdChecker>>;
+type SharedCmdChecker = Arc<CmdChecker>;
 
 pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::new(|| {
     /// Create a simple rule's inner content
@@ -95,7 +95,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by: Some(Regex::new(pomsky!( [s] | $ )).unwrap()),
             followed_by_nesting: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                let item_type = if (cmd_checker.lock().unwrap())(&matched[2], CheckCmdType::Method)
+                let item_type = if cmd_checker(&matched[2], CheckCmdType::Method)
                 {
                     Identifier(Method)
                 } else {
@@ -214,7 +214,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                             CheckCmdType::BroadCmd
                         };
 
-                        let item_type = if (cmd_checker.lock().unwrap())(&matched[2], cmd_type) {
+                        let item_type = if cmd_checker(&matched[2], cmd_type) {
                             Identifier(CmdNameOrPath)
                         } else {
                             Invalid(CmdPathNotFound)
@@ -234,7 +234,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
                     preceded_by: None,
                     style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        let item_type = if (cmd_checker.lock().unwrap())(&matched[1], CheckCmdType::Function) {
+                        let item_type = if cmd_checker(&matched[1], CheckCmdType::Function) {
                             Identifier(Function)
                         } else {
                             Invalid(FunctionNotFound)
@@ -287,7 +287,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
                     preceded_by: None,
                     style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        let item_type = if (cmd_checker.lock().unwrap())(&matched[1], CheckCmdType::Function) {
+                        let item_type = if cmd_checker(&matched[1], CheckCmdType::Function) {
                             Identifier(Function)
                         } else {
                             Invalid(FunctionNotFound)
