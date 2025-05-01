@@ -143,8 +143,8 @@ fn color_match_item(item: ItemType) -> Style {
         },
 
         ItemType::SyntaxError(syntax_error_type) => match syntax_error_type {
-            SyntaxErrorType::ClosingWithoutOpening => return Style::new().fg(Red).on(White),
-            SyntaxErrorType::UnclosedOpening => return Style::new().fg(Red).on(White),
+            SyntaxErrorType::ClosingWithoutOpening => return Style::new().fg(White).on(Red),
+            SyntaxErrorType::UnclosedOpening => return Style::new().fg(White).on(Red),
         },
 
         ItemType::Keyword => Magenta,
