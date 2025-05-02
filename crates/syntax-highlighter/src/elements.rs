@@ -27,6 +27,17 @@ macro_rules! define_item_types {
 }
 
 define_item_types!(pub ItemType {
+    IdentifierDeclaration(
+        VariableDecl,
+        ConstantDecl,
+        FunctionDecl,
+        FunctionOrMethodDecl,
+        FnVariableArgDecl,
+        FnFlagArgDecl,
+        TypeDecl,
+        AliasDecl,
+    ),
+
     Identifier(
         Variable,
         Constant,
@@ -36,6 +47,7 @@ define_item_types!(pub ItemType {
         Method,
         CmdNameOrPath,
         StructMember,
+        StructOrTupleMemberDestructuring,
         FnArgument,
         FlagName,
         Type,

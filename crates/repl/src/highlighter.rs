@@ -65,11 +65,29 @@ fn color_match_item(item: ItemType) -> Style {
     // Import all colors to make writing easier
     use Color::*;
 
-    Style::new().fg(match item {
+    let mut style = Style::new();
+
+    let fg_color = match item {
+        ItemType::IdentifierDeclaration(identifier_declaration_type) => {
+            style = style.underline();
+
+            match identifier_declaration_type {
+                IdentifierDeclarationType::VariableDecl => Red,
+                IdentifierDeclarationType::ConstantDecl => Red,
+                IdentifierDeclarationType::FunctionDecl => Blue,
+                IdentifierDeclarationType::FunctionOrMethodDecl => Blue,
+                IdentifierDeclarationType::FnVariableArgDecl => Red,
+                IdentifierDeclarationType::FnFlagArgDecl => Yellow,
+                IdentifierDeclarationType::TypeDecl => Magenta,
+                IdentifierDeclarationType::AliasDecl => Blue,
+            }
+        }
+
         ItemType::Identifier(identifier_type) => match identifier_type {
             IdentifierType::Variable => Red,
             IdentifierType::Constant => Red,
             IdentifierType::VariableOrConstant => Red,
+            IdentifierType::StructOrTupleMemberDestructuring => Red,
             IdentifierType::Function => Blue,
             IdentifierType::FunctionOrMethod => Blue,
             IdentifierType::Method => Blue,
@@ -140,11 +158,20 @@ fn color_match_item(item: ItemType) -> Style {
         },
 
         ItemType::SyntaxError(syntax_error_type) => match syntax_error_type {
-            SyntaxErrorType::ClosingWithoutOpening => return Style::new().fg(White).on(Red),
-            SyntaxErrorType::UnclosedOpening => return Style::new().fg(White).on(Red),
+            SyntaxErrorType::ClosingWithoutOpening => {
+                style = style.on(Red);
+                White
+            }
+
+            SyntaxErrorType::UnclosedOpening => {
+                style = style.on(Red);
+                White
+            }
         },
 
         ItemType::Keyword => Magenta,
         ItemType::Comment => DarkGray,
-    })
+    };
+
+    style.fg(fg_color)
 }

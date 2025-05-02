@@ -20,8 +20,15 @@ use crate::{
 
 // Import all item types for easier use
 use crate::elements::{
-    IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*, SymbolType::*,
-    SyntaxErrorType::*, ValueType::*, WrapperType::*,
+    IdentifierDeclarationType::*,
+    IdentifierType::*,
+    InvalidType::*,
+    ItemType::*,
+    OperatorType::*,
+    SymbolType::*,
+    SyntaxErrorType::*,
+    ValueType::*,
+    WrapperType::*,
 };
 
 pub type CmdChecker = Box<dyn Fn(&str, CheckCmdType) -> bool + Send + Sync>;
@@ -113,28 +120,28 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :('#') :(.*) ), [Symbol(CommentsMarker), Comment]),
                 
                 // Mutable variable declaration
-                simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, Keyword, Identifier(Variable), Operator(Assignment)]),
-                simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Keyword, Identifier(Variable)]),
+                simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, Keyword, IdentifierDeclaration(VariableDecl), Operator(Assignment)]),
+                simple(pomsky!( % :("let") [s]+ :("mut") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Keyword, IdentifierDeclaration(VariableDecl)]),
                 simple(pomsky!( % :("let") [s]+ :("mut") % ), [Keyword, Keyword]),
                 
                 // Immutable variable declaration
-                simple(pomsky!( % :("let") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, Identifier(Constant), Operator(Assignment)]),
-                simple(pomsky!( % :("let") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Identifier(Constant)]),
+                simple(pomsky!( % :("let") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, IdentifierDeclaration(ConstantDecl), Operator(Assignment)]),
+                simple(pomsky!( % :("let") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, IdentifierDeclaration(ConstantDecl)]),
                 simple(pomsky!( % :("let") % ), [Keyword]),
 
                 // For loop
-                simple(pomsky!( % :("for") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :("in") % ), [Keyword, Identifier(Constant), Keyword]),
-                simple(pomsky!( % :("for") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Identifier(Constant)]),
+                simple(pomsky!( % :("for") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :("in") % ), [Keyword, IdentifierDeclaration(ConstantDecl), Keyword]),
+                simple(pomsky!( % :("for") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, IdentifierDeclaration(ConstantDecl)]),
                 
                 // Function declaration
-                simple(pomsky!( % :("fn") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Identifier(FunctionOrMethod)]),
+                simple(pomsky!( % :("fn") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, IdentifierDeclaration(FunctionOrMethodDecl)]),
 
                 // Function return type
-                simple(pomsky!( :("->") [s]* :([Letter '_'] [Letter d '_']*) % ), [Symbol(FnReturnTypePrefix), Identifier(Type)]),
+                simple(pomsky!( :("->") [s]* :([Letter '_'] [Letter d '_']*) % ), [Symbol(FnReturnTypePrefix), IdentifierDeclaration(TypeDecl)]),
 
                 // Command aliases
-                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :('=') ), [Keyword, Identifier(CmdNameOrPath), Operator(Assignment)]),
-                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, Identifier(CmdNameOrPath)]),
+                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :('=') ), [Keyword, IdentifierDeclaration(AliasDecl), Operator(Assignment)]),
+                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, IdentifierDeclaration(AliasDecl)]),
 
                 // Commands
                 include_group("commands"),
@@ -332,8 +339,14 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :(.) ), [Value(LiteralCharacter)])
             ]),
             ("var-spreading", vec![
-                // Identifiers
-                simple(pomsky!( :([Letter '_']) ), [Identifier(VariableOrConstant)]),
+                // Binding to a constant
+                simple(pomsky!( :(':') [s]* :("mut") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Symbol(BindInSpreading), Keyword, IdentifierDeclaration(ConstantDecl)]),
+
+                // Binding to a variable
+                simple(pomsky!( :(':') [s]* :([Letter '_'] [Letter d '_']*) % ), [Symbol(BindInSpreading), IdentifierDeclaration(VariableDecl)]),
+
+                // Destructured property
+                simple(pomsky!( % :([Letter '_'] [Letter d '_']*) [':' ']' '}'] ), [Identifier(StructOrTupleMemberDestructuring)]),
 
                 // Binding
                 simple(pomsky!( :(':') ), [Symbol(BindInSpreading)])
@@ -429,14 +442,14 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     // Flags
                     simple(
                         pomsky!( (^ | ',' [s]*) :('-' [Letter d '_']*) % ),
-                        [Identifier(FlagName)],
+                        [IdentifierDeclaration(FnFlagArgDecl)],
                     ),
 
                     // Types
                     simple(pomsky!( ':' [s]+ :([Letter '_'] [Letter d '_']*) % ), [Identifier(Type)]),
 
                     // Variables
-                    simple(pomsky!(:([Letter '_'] [Letter d '_']*) %), [Identifier(VariableOrConstant)]),
+                    simple(pomsky!(:([Letter '_'] [Letter d '_']*) %), [IdentifierDeclaration(FnVariableArgDecl)]),
                 ]
             }
         },

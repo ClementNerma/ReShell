@@ -1,8 +1,8 @@
 use reshell_syntax_highlighter::{
     SyntaxItem,
     elements::{
-        IdentifierType, InvalidType, ItemType, OperatorType, SymbolType, SyntaxErrorType,
-        ValueType, WrapperType,
+        IdentifierDeclarationType, IdentifierType, InvalidType, ItemType, OperatorType, SymbolType,
+        SyntaxErrorType, ValueType, WrapperType,
     },
 };
 use wasm_bindgen::prelude::*;
@@ -90,94 +90,112 @@ pub fn highlight(input: &str) -> Vec<Token> {
                 col: start.col + len,
             };
 
-            Token {
-                start,
-                end,
-                nature: match item {
-                    ItemType::Identifier(identifier_type) => match identifier_type {
-                        IdentifierType::Variable => TokenType::Variable,
-                        IdentifierType::Constant => TokenType::Variable,
-                        IdentifierType::VariableOrConstant => TokenType::Variable,
-                        IdentifierType::Function => TokenType::Function,
-                        IdentifierType::FunctionOrMethod => TokenType::Function,
-                        IdentifierType::Method => TokenType::Method,
-                        IdentifierType::CmdNameOrPath => TokenType::Function,
-                        IdentifierType::StructMember => TokenType::Property,
-                        IdentifierType::FnArgument => TokenType::Parameter,
-                        IdentifierType::FlagName => TokenType::Parameter,
-                        IdentifierType::Type => TokenType::Keyword,
-                    },
+            let mut modifier = None;
 
-                    ItemType::Value(value_type) => match value_type {
-                        ValueType::Null => TokenType::ConstantValue,
-                        ValueType::Boolean => TokenType::ConstantValue,
-                        ValueType::Number => TokenType::Number,
-                        ValueType::RawCharacter => TokenType::String,
-                        ValueType::EscapedCharacter => TokenType::String,
-                        ValueType::LiteralCharacter => TokenType::String,
-                        ValueType::NamedFunction => TokenType::Function,
-                    },
+            let nature = match item {
+                ItemType::IdentifierDeclaration(identifier_declaration_type) => {
+                    modifier = Some(TokenModifier::Declaration);
 
-                    ItemType::Operator(operator_type) => match operator_type {
-                        OperatorType::Arithmetic => TokenType::Operator,
-                        OperatorType::Logic => TokenType::Operator,
-                        OperatorType::Comparison => TokenType::Operator,
-                        OperatorType::Assignment => TokenType::Operator,
-                        OperatorType::Spread => TokenType::Operator,
-                    },
+                    match identifier_declaration_type {
+                        IdentifierDeclarationType::VariableDecl => TokenType::Variable,
+                        IdentifierDeclarationType::ConstantDecl => TokenType::Variable,
+                        IdentifierDeclarationType::FunctionDecl => TokenType::Function,
+                        IdentifierDeclarationType::FunctionOrMethodDecl => TokenType::Function,
+                        IdentifierDeclarationType::FnVariableArgDecl => TokenType::Parameter,
+                        IdentifierDeclarationType::FnFlagArgDecl => TokenType::Variable,
+                        IdentifierDeclarationType::TypeDecl => TokenType::Keyword,
+                        IdentifierDeclarationType::AliasDecl => TokenType::Function,
+                    }
+                }
 
-                    ItemType::Symbol(symbol_type) => match symbol_type {
-                        SymbolType::MethodDotPrefix => TokenType::Operator,
-                        SymbolType::CommentsMarker => TokenType::Comment,
-                        SymbolType::FlagDashes => TokenType::Parameter,
-                        SymbolType::CmdPipe => TokenType::Operator,
-                        SymbolType::FnReturnTypePrefix => TokenType::Operator,
-                        SymbolType::Parenthesis => TokenType::Operator, // TODO
-                        SymbolType::Bracket => TokenType::Operator,     // TODO
-                        SymbolType::Brace => TokenType::Operator,       // TODO
-                        SymbolType::SpreadingBraceOrBracket => TokenType::Operator, // TODO
-                        SymbolType::CmdSeparator => TokenType::Operator,
-                        SymbolType::ArgSeparator => TokenType::Operator,
-                        SymbolType::Colon => TokenType::Operator,
-                        SymbolType::OptionalArgMarker => TokenType::Operator,
-                        SymbolType::ExternalCmdMarker => TokenType::Keyword,
-                        SymbolType::StructMemberDotPrefix => TokenType::Operator,
-                        SymbolType::FnArgumentTypeOrValueSpecifier => TokenType::Operator,
-                        SymbolType::BindInSpreading => TokenType::Operator,
-                    },
+                ItemType::Identifier(identifier_type) => match identifier_type {
+                    IdentifierType::Variable => TokenType::Variable,
+                    IdentifierType::Constant => TokenType::Variable,
+                    IdentifierType::VariableOrConstant => TokenType::Variable,
+                    IdentifierType::Function => TokenType::Function,
+                    IdentifierType::FunctionOrMethod => TokenType::Function,
+                    IdentifierType::Method => TokenType::Method,
+                    IdentifierType::CmdNameOrPath => TokenType::Function,
+                    IdentifierType::StructMember => TokenType::Property,
+                    IdentifierType::FnArgument => TokenType::Parameter,
+                    IdentifierType::FlagName => TokenType::Parameter,
+                    IdentifierType::Type => TokenType::Keyword,
+                    IdentifierType::StructOrTupleMemberDestructuring => TokenType::Variable,
+                },
 
-                    // TODO
-                    ItemType::Wrapper(wrapper_type) => match wrapper_type {
-                        WrapperType::Block(_) => TokenType::Operator,
-                        WrapperType::List(_) => TokenType::Operator,
-                        WrapperType::VarSpreading(_) => TokenType::Operator,
-                        WrapperType::ExpressionParen(_) => TokenType::Operator,
-                        WrapperType::LiteralString(_) => TokenType::String,
-                        WrapperType::ComputedString(_) => TokenType::String,
-                        WrapperType::ExprInString(_) => TokenType::Operator,
-                        WrapperType::CmdOutput(_) => TokenType::Operator,
-                        WrapperType::CmdCall(_) => TokenType::Operator,
-                        WrapperType::Lambda(_) => TokenType::Operator,
-                        WrapperType::FnArgs(_) => TokenType::Operator,
-                    },
+                ItemType::Value(value_type) => match value_type {
+                    ValueType::Null => TokenType::ConstantValue,
+                    ValueType::Boolean => TokenType::ConstantValue,
+                    ValueType::Number => TokenType::Number,
+                    ValueType::RawCharacter => TokenType::String,
+                    ValueType::EscapedCharacter => TokenType::String,
+                    ValueType::LiteralCharacter => TokenType::String,
+                    ValueType::NamedFunction => TokenType::Function,
+                },
 
-                    ItemType::Invalid(invalid_type) => match invalid_type {
-                        InvalidType::FunctionNotFound => todo!(),
-                        InvalidType::MethodNotFound => todo!(),
-                        InvalidType::CmdPathNotFound => todo!(),
-                    },
+                ItemType::Operator(operator_type) => match operator_type {
+                    OperatorType::Arithmetic => TokenType::Operator,
+                    OperatorType::Logic => TokenType::Operator,
+                    OperatorType::Comparison => TokenType::Operator,
+                    OperatorType::Assignment => TokenType::Operator,
+                    OperatorType::Spread => TokenType::Operator,
+                },
 
-                    ItemType::SyntaxError(syntax_error_type) => match syntax_error_type {
-                        SyntaxErrorType::ClosingWithoutOpening => todo!(),
-                        SyntaxErrorType::UnclosedOpening => todo!(),
-                    },
-
-                    ItemType::Keyword => TokenType::Keyword,
-                    ItemType::Comment => TokenType::Comment,
+                ItemType::Symbol(symbol_type) => match symbol_type {
+                    SymbolType::MethodDotPrefix => TokenType::Operator,
+                    SymbolType::CommentsMarker => TokenType::Comment,
+                    SymbolType::FlagDashes => TokenType::Parameter,
+                    SymbolType::CmdPipe => TokenType::Operator,
+                    SymbolType::FnReturnTypePrefix => TokenType::Operator,
+                    SymbolType::Parenthesis => TokenType::Operator, // TODO
+                    SymbolType::Bracket => TokenType::Operator,     // TODO
+                    SymbolType::Brace => TokenType::Operator,       // TODO
+                    SymbolType::SpreadingBraceOrBracket => TokenType::Operator, // TODO
+                    SymbolType::CmdSeparator => TokenType::Operator,
+                    SymbolType::ArgSeparator => TokenType::Operator,
+                    SymbolType::Colon => TokenType::Operator,
+                    SymbolType::OptionalArgMarker => TokenType::Operator,
+                    SymbolType::ExternalCmdMarker => TokenType::Keyword,
+                    SymbolType::StructMemberDotPrefix => TokenType::Operator,
+                    SymbolType::FnArgumentTypeOrValueSpecifier => TokenType::Operator,
+                    SymbolType::BindInSpreading => TokenType::Operator,
                 },
 
                 // TODO
-                modifier: None,
+                ItemType::Wrapper(wrapper_type) => match wrapper_type {
+                    WrapperType::Block(_) => TokenType::Operator,
+                    WrapperType::List(_) => TokenType::Operator,
+                    WrapperType::VarSpreading(_) => TokenType::Operator,
+                    WrapperType::ExpressionParen(_) => TokenType::Operator,
+                    WrapperType::LiteralString(_) => TokenType::String,
+                    WrapperType::ComputedString(_) => TokenType::String,
+                    WrapperType::ExprInString(_) => TokenType::Operator,
+                    WrapperType::CmdOutput(_) => TokenType::Operator,
+                    WrapperType::CmdCall(_) => TokenType::Operator,
+                    WrapperType::Lambda(_) => TokenType::Operator,
+                    WrapperType::FnArgs(_) => TokenType::Operator,
+                },
+
+                ItemType::Invalid(invalid_type) => match invalid_type {
+                    InvalidType::FunctionNotFound => todo!(),
+                    InvalidType::MethodNotFound => todo!(),
+                    InvalidType::CmdPathNotFound => todo!(),
+                },
+
+                ItemType::SyntaxError(syntax_error_type) => match syntax_error_type {
+                    SyntaxErrorType::ClosingWithoutOpening => todo!(),
+                    SyntaxErrorType::UnclosedOpening => todo!(),
+                },
+
+                ItemType::Keyword => TokenType::Keyword,
+                ItemType::Comment => TokenType::Comment,
+            };
+
+            Token {
+                start,
+                end,
+                nature,
+                modifier,
             }
         })
         .collect()
