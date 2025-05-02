@@ -542,6 +542,20 @@ let add = {|a, b| $a + $b }
 add 2 3 # 5
 ```
 
+As you write lambdas, you'll discover you'll probably very often to write functions which take only one argument and don't specify either its type or the function's return type:
+
+```reshell
+let values = ["a", "b", "cd"]
+
+$values.filter({|it| $it.len() <= 1})
+```
+
+For these use cases, you can use the special shortand syntax `:{` instead:
+
+```reshell
+$values.filter(:{ $it.len() <= 1 })
+```
+
 ### Error handling
 
 Error handling can be used through values _throwing_ and _catching_:

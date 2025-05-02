@@ -234,19 +234,25 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 '[' => open!(offset, 1, NestingOpeningType::List),
 
                 '{' => {
-                    let input_after = &input[offset + char.len_utf8()..];
-
-                    let is_lambda = input_after
-                        .chars()
-                        .position(|c| c == '|')
-                        .is_some_and(|pos| {
-                            input_after.chars().take(pos).all(|c| c.is_whitespace())
-                        });
-
-                    if is_lambda {
-                        open!(offset, 1, NestingOpeningType::Lambda);
+                    // 'it' lambda: `:{ ... }`
+                    if let Some((':', _)) = prev_char {
+                        open!(offset - 1, 2, NestingOpeningType::Lambda)
                     } else {
-                        open!(offset, 1, NestingOpeningType::Block);
+                        let input_after = &input[offset + char.len_utf8()..];
+
+                        let is_lambda =
+                            input_after
+                                .chars()
+                                .position(|c| c == '|')
+                                .is_some_and(|pos| {
+                                    input_after.chars().take(pos).all(|c| c.is_whitespace())
+                                });
+
+                        if is_lambda {
+                            open!(offset, 1, NestingOpeningType::Lambda);
+                        } else {
+                            open!(offset, 1, NestingOpeningType::Block);
+                        }
                     }
                 }
 

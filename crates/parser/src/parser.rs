@@ -199,46 +199,58 @@ pub fn program(
         .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
         .collect_string();
 
-    let fn_arg_short_flag_name_identifier = first_ident_char;
+    let fn_flag_arg_signature_names = {
+        let fn_arg_long_flag_name = just("--")
+            .ignore_then(
+                fn_arg_long_flag_name_identifier
+                    .validate_or_critical(
+                        |name| name != "it" && name != "self",
+                        "Cannot declare a flag with reserved name 'it' or 'self'",
+                    )
+                    .spanned()
+                    .critical("expected a flag name (identifier)"),
+            )
+            .followed_by(
+                not(possible_ident_char).critical("unexpected symbol after long flag name"),
+            );
 
-    let fn_arg_long_flag_name = just("--")
-        .ignore_then(
-            fn_arg_long_flag_name_identifier
-                .spanned()
-                .critical("expected a flag name (identifier)"),
-        )
-        .followed_by(not(possible_ident_char).critical("unexpected symbol after long flag name"));
+        let fn_arg_short_flag_name = char('-')
+            .ignore_then(
+                first_ident_char
+                    .spanned()
+                    .critical("expected a single-character identifier"),
+            )
+            .followed_by(
+                not(possible_ident_char).critical("expected a single-character identifier"),
+            );
 
-    let fn_arg_short_flag_name = char('-')
-        .ignore_then(
-            fn_arg_short_flag_name_identifier
-                .spanned()
-                .critical("expected a single-character identifier"),
-        )
-        .followed_by(not(possible_ident_char).critical("expected a single-character identifier"));
+        choice::<FnSignatureFlagArgNames, _>((
+            // Long *and* short flags
+            fn_arg_long_flag_name
+                .map(RuntimeSpan::from)
+                .then_ignore(ms)
+                .then_ignore(char('('))
+                .then(fn_arg_short_flag_name.map(RuntimeSpan::from))
+                .then_ignore(char(')').critical_auto_msg())
+                .map(|(long, short)| FnSignatureFlagArgNames::LongAndShortFlag { short, long }),
+            // Long flag only
+            fn_arg_long_flag_name
+                .map(RuntimeSpan::from)
+                .map(FnSignatureFlagArgNames::LongFlag),
+            // Long flag only
+            fn_arg_short_flag_name
+                .map(RuntimeSpan::from)
+                .map(FnSignatureFlagArgNames::ShortFlag),
+        ))
+    };
 
-    let fn_flag_arg_signature_names = choice::<FnSignatureFlagArgNames, _>((
-        // Long *and* short flags
-        fn_arg_long_flag_name
-            .map(RuntimeSpan::from)
-            .then_ignore(ms)
-            .then_ignore(char('('))
-            .then(fn_arg_short_flag_name.map(RuntimeSpan::from))
-            .then_ignore(char(')').critical_auto_msg())
-            .map(|(long, short)| FnSignatureFlagArgNames::LongAndShortFlag { short, long }),
-        // Long flag only
-        fn_arg_long_flag_name
-            .map(RuntimeSpan::from)
-            .map(FnSignatureFlagArgNames::LongFlag),
-        // Long flag only
-        fn_arg_short_flag_name
-            .map(RuntimeSpan::from)
-            .map(FnSignatureFlagArgNames::ShortFlag),
-    ));
-
-    let fn_arg_signature = choice::<FnSignatureArg, _>((
+    let fn_signature_arg = choice::<FnSignatureArg, _>((
         // Positional
         ident
+            .validate_or_critical(
+                |name| name != "it",
+                "Cannot declare an argument with reserved name 'it'",
+            )
             .spanned()
             .map(RuntimeSpan::from)
             .then_ignore(msnl)
@@ -308,7 +320,7 @@ pub fn program(
     fn_signature.define(
         char('(')
             .ignore_then(
-                fn_arg_signature
+                fn_signature_arg
                     .clone()
                     .separated_by_into_vec(char(',').padded_by(msnl))
                     .spanned()
@@ -344,7 +356,7 @@ pub fn program(
                 )
                 .map(FnFlagArgName::Long),
             char('-')
-                .ignore_then(fn_arg_short_flag_name_identifier)
+                .ignore_then(first_ident_char)
                 .map(FnFlagArgName::Short),
         ))
         .spanned()
@@ -464,13 +476,13 @@ pub fn program(
             .then_ignore(char('"').critical_auto_msg())
             .map(|pieces| ComputedString { pieces });
 
-    let lambda = char('{')
+    let normal_lambda = char('{')
         .ignore_then(msnl)
         .ignore_then(
             char('|')
                 .ignore_then(msnl)
                 .ignore_then(
-                    fn_arg_signature
+                    fn_signature_arg
                         .separated_by_into_vec(char(',').padded_by(msnl))
                         .spanned()
                         .map(RuntimeSpan::from)
@@ -490,9 +502,37 @@ pub fn program(
                 .critical("expected a body for the lambda")
                 .spanned(),
         )
-        .then_ignore(ms)
+        .then_ignore(msnl)
         .then_ignore(char('}').critical_auto_msg())
         .map(|(signature, body)| Function { signature, body });
+
+    let it_lambda = char(':')
+        .spanned()
+        .then_ignore(char('{'))
+        .then_ignore(msnl)
+        .then(
+            raw_block
+                .clone()
+                .critical("expected a body for the lambda")
+                .spanned(),
+        )
+        .then_ignore(msnl)
+        .then_ignore(char('}').critical_auto_msg())
+        .map(|(it, body)| Function {
+            signature: it.forge_here(FnSignature {
+                args: RuntimeSpan::from(it.forge_here(vec![FnSignatureArg::Positional(
+                    FnSignaturePositionalArg {
+                        name: RuntimeSpan::from(it.forge_here("it".to_owned())),
+                        is_optional: false,
+                        typ: None,
+                    },
+                )])),
+                ret_type: None,
+            }),
+            body,
+        });
+
+    let lambda = normal_lambda.or(it_lambda);
 
     let inline_cmd_call = just("@(")
         .ignore_then(msnl)
@@ -835,7 +875,15 @@ pub fn program(
                 .then_ignore(msnl)
                 .then_ignore(just("catch").critical_auto_msg())
                 .then_ignore(s.critical_auto_msg())
-                .then(ident.spanned().critical("expected a catch variable"))
+                .then(
+                    ident
+                        .validate_or_critical(
+                            |name| name != "it" && name != "self",
+                            "Cannot declare a variable with reserved name 'it' or 'self'",
+                        )
+                        .spanned()
+                        .critical("expected a catch variable"),
+                )
                 .then_ignore(msnl)
                 .then_ignore(char('{').critical_auto_msg())
                 .then_ignore(msnl)
@@ -1287,7 +1335,18 @@ pub fn program(
         .then_ignore(s.critical_auto_msg())
         .spanned()
         .or_not()
-        .then(ident.spanned())
+        .then(
+            ident
+                .validate_or_critical(
+                    |name| name != "it",
+                    "Cannot declare a variable with reserved name 'it'",
+                )
+                .validate_or_critical(
+                    |name| name != "self",
+                    "Cannot declare a variable with reserved name 'self'",
+                )
+                .spanned(),
+        )
         .then(
             ms.ignore_then(char(':'))
                 .ignore_then(ms)
@@ -1781,6 +1840,10 @@ pub fn program(
             .then_ignore(s.critical_auto_msg())
             .then(
                 ident
+                    .validate_or_critical(
+                        |name| name != "it" && name != "self",
+                        "Cannot declare a variable with reserved name 'it' or 'self'",
+                    )
                     .spanned()
                     .critical("expected a variable to catch the throw value in"),
             )
