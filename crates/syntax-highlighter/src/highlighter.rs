@@ -50,13 +50,13 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
     let method_call = || {
         Rule::Simple(SimpleRule {
             matches: Regex::new(pomsky!(
-                :('.') :([Letter '_'] [Letter d '_']*) %
+                :('.') :([Letter '_'] [Letter d '_']*) $
             ))
             .unwrap(),
             inside: None,
             preceded_by: None,
             followed_by: None,
-            followed_by_nesting: None,
+            followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                 let item_type = if cmd_checker
                     .as_ref()
@@ -289,7 +289,21 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :('$' ([Letter '_'] [Letter d '_']*)?) ), [Identifier(VariableOrConstant)]),
 
                 // Struct member access
-                simple(pomsky!( :('?'? '.') :([Letter '_'] [Letter d '_']*) ), [Symbol(StructMemberDotPrefix), Identifier(StructMember)]),
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        :('?'? '.') :([Letter '_'] [Letter d '_']*)
+                    )).unwrap(),
+                    inside: None,
+                    preceded_by: Some(Regex::new(pomsky!(
+                        ('$' [Letter '_'] [Letter d '_' ]* | [')' ']' '}']) $
+                    )).unwrap()),
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    style: RuleStylization::Static(vec![
+                        Symbol(StructMemberDotPrefix),
+                        Identifier(StructMember)
+                    ]) }
+                ),
 
                 // Functions as values
                 simple(pomsky!( :('@' ([Letter '_'] [Letter d '_']*)?) ), [Identifier(Function)]),
