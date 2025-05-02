@@ -986,7 +986,6 @@ pub fn program(
         .at_least(1)
         .collect_string()
         .validate_or_critical(|cmd_name| {
-            if 
             // Command name (no slashes)
             !cmd_name.contains(['/', '\\'])
                 || (
@@ -997,12 +996,9 @@ pub fn program(
                     // Relative command paths
                     cmd_name.starts_with("./") || cmd_name.starts_with("../") || cmd_name.starts_with(".\\") || cmd_name.starts_with("..\\")
                 )
-                {
-                    Ok(())
-                } else {
-                    Err("Relative command paths must start with a dot and a slash (e.g. './path/to/cmd' or '../path/to/cmd')".into())
-                }
-        });
+            },
+            "Relative command paths must start with a dot and a slash (e.g. './path/to/cmd' or '../path/to/cmd')"
+        );
 
     let cmd_path = choice::<CmdPath, _>((
         //

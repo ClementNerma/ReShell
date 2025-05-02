@@ -50,8 +50,8 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
 
     // Import all item types for easier use
     use crate::elements::{
-        IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*,
-        SymbolType::*, SyntaxErrorType::*, ValueType::*, WrapperType::*,
+        IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*, SymbolType::*,
+        SyntaxErrorType::*, ValueType::*, WrapperType::*,
     };
 
     // Match method calls
@@ -81,7 +81,10 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by: None,
             followed_by_nesting: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], CheckCmdType::Method)) {
+                let item_type = if cmd_checker
+                    .as_ref()
+                    .is_none_or(|cmd_checker| cmd_checker(&matched[2], CheckCmdType::Method))
+                {
                     Identifier(Method)
                 } else {
                     Invalid(MethodNotFound)
