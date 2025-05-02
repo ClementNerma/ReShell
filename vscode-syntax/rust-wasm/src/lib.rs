@@ -81,13 +81,14 @@ pub fn highlight(input: &str) -> Vec<Token> {
                 .rposition(|line_offset| start >= *line_offset)
                 .unwrap();
 
-            let col = start - line_offsets[line];
+            // let col = start - line_offsets[line];
+            let col = input[line_offsets[line]..start].chars().count();
 
             let start = Position { line, col };
 
             let end = Position {
-                line: start.line,
-                col: start.col + len,
+                line,
+                col: col + len,
             };
 
             let mut modifier = None;
