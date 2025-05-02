@@ -62,22 +62,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             ))
             .unwrap(),
             inside: None,
-            preceded_by: Some(
-                Regex::new(pomsky!(
-                (
-                    | ^             // Beginning of the statement
-                    | (
-                        | '$' '^'?  // Command output...
-                        | '@'       // ...or command call
-                    ) '('
-                    | ['|'          // After a command pipe
-                       n            // After a newline
-                       ';'          // After a ';' command separator
-                       '{'          // Beginning of a block
-                      ]
-                ) [s]* $))
-                .unwrap(),
-            ),
+            preceded_by: None,
             followed_by: None,
             followed_by_nesting: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
@@ -163,6 +148,33 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( [s] :(['[' ']']) ( [s] | $ ) ), [Symbol(Bracket)]),
                 simple(pomsky!( [s] :(['{' '}']) ( [s] | $ ) ), [Symbol(Brace)]),
                 simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
+
+                // Method called as commands
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        :('.') :([Letter '_'] [Letter d '_']*) %
+                    ))
+                    .unwrap(),
+                    inside: None,
+                    preceded_by: Some(
+                        Regex::new(pomsky!( (^ |  ['|' ';' n]) [s]* $) )
+                        .unwrap(),
+                    ),
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
+                        let item_type = if cmd_checker
+                            .as_ref()
+                            .is_none_or(|cmd_checker| cmd_checker(&matched[2], CheckCmdType::Method))
+                        {
+                            Identifier(Method)
+                        } else {
+                            Invalid(MethodNotFound)
+                        };
+        
+                        vec![Symbol(MethodDotPrefix), item_type]
+                    })),
+                }),
 
                 // Method calls
                 method_call(),
