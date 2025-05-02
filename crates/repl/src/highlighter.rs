@@ -80,12 +80,6 @@ fn color_match_item(item: ItemType) -> Style {
             IdentifierType::Type => Magenta,
         },
 
-        ItemType::Argument(argument_type) => match argument_type {
-            ArgumentType::LongFlag => Yellow,
-            ArgumentType::ShortFlag => Yellow,
-            ArgumentType::LongOrShortFlag => Yellow,
-        },
-
         ItemType::Value(value_type) => match value_type {
             ValueType::Null => Yellow,
             ValueType::Boolean => Yellow,

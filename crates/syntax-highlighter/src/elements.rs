@@ -41,12 +41,6 @@ define_item_types!(pub ItemType {
         Type,
     ),
 
-    Argument(
-        LongFlag,
-        ShortFlag,
-        LongOrShortFlag,
-    ),
-
     Value(
         Null,
         Boolean,

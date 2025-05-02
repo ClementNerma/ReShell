@@ -50,7 +50,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
 
     // Import all item types for easier use
     use crate::elements::{
-        ArgumentType::*, IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*,
+        IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*,
         SymbolType::*, SyntaxErrorType::*, ValueType::*, WrapperType::*,
     };
 
@@ -133,10 +133,10 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 // Markers
                 simple(pomsky!( ^ [s]* :("include") % ), [Keyword]),
 
-                // Normalized flags
+                // Flags
                 simple(
-                    pomsky!( (^ | ',' [s]*) :('-'{1,2}) :(([Letter] | ['_' '-' '+'])*) %),
-                    [Argument(LongOrShortFlag), Identifier(FlagName)]
+                    pomsky!( [s] :('-' [Letter d '_' '-' '+' ':']*) ($ | ![Letter d '_' '-' '+' ':'])),
+                    [Identifier(FlagName)]
                 ),
 
                 // Keywords
@@ -271,10 +271,10 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     }))
                 }),
 
-                // Normalized flags
+                // Flags
                 simple(
-                    pomsky!( (^ | ',' [s]*) :('-'{1,2}) :(([Letter] | ['_' '-' '+'])*) %),
-                    [Argument(LongOrShortFlag), Identifier(FlagName)],
+                    pomsky!( (^ | ',' [s]*) :('-' [Letter d '_' '-' '+' ':']*) ($ | ![Letter d '_' '-' '+' ':'])),
+                    [Identifier(FlagName)],
                 ),
 
                 // Types
@@ -415,16 +415,10 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 opening_style: |nesting_level| Wrapper(FnArgs(nesting_level)),
                 closing_style: |nesting_level| Wrapper(FnArgs(nesting_level)),
                 rules: vec![
-                    // Normalized flags
+                    // Flags
                     simple(
-                        pomsky!( (^ | ',' [s]*) :('-'{1,2}) :([Letter d '_']*) % ),
-                        [Argument(LongOrShortFlag), Identifier(FlagName)],
-                    ),
-
-                    // Dashes for flags
-                    simple(
-                        pomsky!( (^ | ',' [s]*) :('-'{1,2}) ),
-                        [Argument(LongOrShortFlag)],
+                        pomsky!( (^ | ',' [s]*) :('-' [Letter d '_']*) % ),
+                        [Identifier(FlagName)],
                     ),
 
                     // Types

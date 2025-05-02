@@ -1,8 +1,8 @@
 use reshell_syntax_highlighter::{
     SyntaxItem,
     elements::{
-        ArgumentType, IdentifierType, InvalidType, ItemType, OperatorType, SymbolType,
-        SyntaxErrorType, ValueType, WrapperType,
+        IdentifierType, InvalidType, ItemType, OperatorType, SymbolType, SyntaxErrorType,
+        ValueType, WrapperType,
     },
 };
 use wasm_bindgen::prelude::*;
@@ -106,12 +106,6 @@ pub fn highlight(input: &str) -> Vec<Token> {
                         IdentifierType::FnArgument => TokenType::Parameter,
                         IdentifierType::FlagName => TokenType::Parameter,
                         IdentifierType::Type => TokenType::Keyword,
-                    },
-
-                    ItemType::Argument(argument_type) => match argument_type {
-                        ArgumentType::LongFlag => TokenType::Parameter,
-                        ArgumentType::ShortFlag => TokenType::Parameter,
-                        ArgumentType::LongOrShortFlag => TokenType::Parameter,
                     },
 
                     ItemType::Value(value_type) => match value_type {
