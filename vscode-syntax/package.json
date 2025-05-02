@@ -26,6 +26,7 @@
 	"scripts": {
 		"vscode:prepublish": "pnpm run compile",
 		"compile": "pnpm run compile:rust && pnpm run compile:ts",
+		"compile:quick": "pnpm run compile:rust --no-opt && pnpm run compile:ts",
 		"compile:ts": "tsc -p ./",
 		"compile:rust": "wasm-pack build rust-wasm/ --out-dir target/rust-wasm --target nodejs",
 		"watch": "tsc -watch -p ./",
