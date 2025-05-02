@@ -176,9 +176,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( [s] :(';') ( [s] | $ ) ), [Symbol(CmdSeparator)]),
                 simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
                 simple(pomsky!( [s] :(':') ( [s] | $ ) ), [Symbol(Colon)]),
-                simple(pomsky!( [s] :(['(' ')']) ( [s] | $ ) ), [Symbol(Parenthesis)]),
-                simple(pomsky!( [s] :(['[' ']']) ( [s] | $ ) ), [Symbol(Bracket)]),
-                simple(pomsky!( [s] :(['{' '}']) ( [s] | $ ) ), [Symbol(Brace)]),
                 simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
 
                 // Method called as commands
@@ -325,9 +322,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( [s] :(';') ( [s] | $ ) ), [Symbol(CmdSeparator)]),
                 simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
                 simple(pomsky!( [s] :(':') ( [s] | $ ) ), [Symbol(Colon)]),
-                simple(pomsky!( [s] :(['(' ')']) ( [s] | $ ) ), [Symbol(Parenthesis)]),
-                simple(pomsky!( [s] :(['[' ']']) ( [s] | $ ) ), [Symbol(Bracket)]),
-                simple(pomsky!( [s] :(['{' '}']) ( [s] | $ ) ), [Symbol(Brace)]),
                 simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
                 // 'typeis' operator
                 simple(pomsky!( % :("typeis") % ), [Keyword]),

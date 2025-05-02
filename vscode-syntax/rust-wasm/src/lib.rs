@@ -147,10 +147,6 @@ pub fn highlight(input: &str) -> Vec<Token> {
                     SymbolType::FlagDashes => TokenType::Parameter,
                     SymbolType::CmdPipe => TokenType::Operator,
                     SymbolType::FnReturnTypePrefix => TokenType::Operator,
-                    SymbolType::Parenthesis => TokenType::Operator, // TODO
-                    SymbolType::Bracket => TokenType::Operator,     // TODO
-                    SymbolType::Brace => TokenType::Operator,       // TODO
-                    SymbolType::SpreadingBraceOrBracket => TokenType::Operator, // TODO
                     SymbolType::CmdSeparator => TokenType::Operator,
                     SymbolType::ArgSeparator => TokenType::Operator,
                     SymbolType::Colon => TokenType::Operator,
