@@ -23,24 +23,16 @@ pub type CmdChecker = Box<dyn Fn(&str, CheckCmdType) -> bool + Send + Sync>;
 type SharedCmdChecker = Option<CmdChecker>;
 
 pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::new(|| {
-    /// Create a simple rule's inner content
-    fn simple_rule(
-        regex: &'static str,
-        item_types: impl Into<Vec<ItemType>>,
-    ) -> SimpleRule<SharedCmdChecker> {
-        SimpleRule {
+    /// Create a simple rule
+    fn simple(regex: &'static str, item_types: impl Into<Vec<ItemType>>) -> Rule<SharedCmdChecker> {
+        Rule::Simple(SimpleRule {
             matches: Regex::new(regex).unwrap(),
             inside: None,
             preceded_by: None,
             followed_by: None,
             followed_by_nesting: None,
             style: RuleStylization::Static(item_types.into()),
-        }
-    }
-
-    /// Create a simple rule
-    fn simple(regex: &'static str, item_types: impl Into<Vec<ItemType>>) -> Rule<SharedCmdChecker> {
-        Rule::Simple(simple_rule(regex, item_types))
+        })
     }
 
     /// Create a group inclusion rule
@@ -76,6 +68,32 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 };
 
                 vec![Symbol(MethodDotPrefix), item_type]
+            })),
+        })
+    };
+
+    // Match function calls
+    let fn_call = || {
+        Rule::Simple(SimpleRule {
+            matches: Regex::new(pomsky!(
+                (^ [s]* | %) :([Letter '_'] [Letter d '_']*) $
+            ))
+            .unwrap(),
+            inside: None,
+            followed_by: None,
+            followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+            preceded_by: None,
+            style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
+                let item_type = if cmd_checker
+                    .as_ref()
+                    .is_none_or(|cmd_checker| cmd_checker(&matched[1], CheckCmdType::Function))
+                {
+                    Identifier(Function)
+                } else {
+                    Invalid(FunctionNotFound)
+                };
+
+                vec![item_type]
             })),
         })
     };
@@ -214,24 +232,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 }),
 
                 // Function calls
-                Rule::Simple(SimpleRule {
-                    matches: Regex::new(pomsky!(
-                        (^ [s]* | %) :([Letter '_'] [Letter d '_']*) $
-                    )).unwrap(),
-                    inside: None,
-                    followed_by: None,
-                    followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
-                    preceded_by: None,
-                    style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[1], CheckCmdType::Function)) {
-                            Identifier(Function)
-                        } else {
-                            Invalid(FunctionNotFound)
-                        };
-
-                        vec![item_type]
-                    }))
-                }),
+                fn_call(),
 
                 // Variables
                 simple(pomsky!( :('$' ([Letter '_'] [Letter d '_']*)?) % ), [Identifier(VariableOrConstant)]),
@@ -267,24 +268,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 method_call(),
 
                 // Function calls
-                Rule::Simple(SimpleRule {
-                    matches: Regex::new(pomsky!(
-                        (^ [s]* | %) :([Letter '_'] [Letter d '_']*) $
-                    )).unwrap(),
-                    inside: None,
-                    followed_by: None,
-                    followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
-                    preceded_by: None,
-                    style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[1], CheckCmdType::Function)) {
-                            Identifier(Function)
-                        } else {
-                            Invalid(FunctionNotFound)
-                        };
-
-                        vec![item_type]
-                    }))
-                }),
+                fn_call(),
 
                 // Flags
                 simple(
