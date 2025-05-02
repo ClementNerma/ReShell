@@ -146,7 +146,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( % :("self") %), [Keyword]),
 
                 // Numbers
-                simple(pomsky!( :([d]+ ('.' [d]+)?) %), [Value(Number)]),
+                simple(pomsky!( % :([d]+ ('.' [d]+)?) %), [Value(Number)]),
 
                 // Symbols and operators
                 simple(pomsky!( [s] :("&&" | "||" | "!") ( [s] | $ ) ), [Operator(Logic)]),
