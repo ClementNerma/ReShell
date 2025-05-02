@@ -51,7 +51,7 @@ fn method_name_style(name: &str, cmd_checker: &SharedCmdChecker) -> ItemType {
 fn fn_name_style(name: &str, cmd_checker: &SharedCmdChecker) -> ItemType {
     if cmd_checker
         .as_ref()
-        .is_none_or(|cmd_checker| cmd_checker(name, CheckCmdType::Method))
+        .is_none_or(|cmd_checker| cmd_checker(name, CheckCmdType::Function))
     {
         Identifier(Function)
     } else {
