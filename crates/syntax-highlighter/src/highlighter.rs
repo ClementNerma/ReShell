@@ -149,17 +149,17 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :([d]+ ('.' [d]+)?) %), [Value(Number)]),
 
                 // Symbols and operators
-                simple(pomsky!( (^ | [s] | >) :("&&" | "||" | "!") (< | [s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( (^ | [s] | >) :("==" | "!=" | ['<' '>']) (< | [s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( (^ | [s] | >) :(['+' '-' '*' '/' '%' '&' '|'] | "??") (< | [s] | $) ), [Operator(Arithmetic)]),
-                simple(pomsky!( (^ | [s] | >) :('=') (< | [s] | $) ), [Operator(Assignment)]),
-                simple(pomsky!( (^ | [s] | >) :(';') (< | [s] | $) ), [Symbol(CmdSeparator)]),
-                simple(pomsky!( (^ | [s] | >) :(',') (< | [s] | $) ), [Symbol(ArgSeparator)]),
-                simple(pomsky!( (^ | [s] | >) :(':') (< | [s] | $) ), [Symbol(Colon)]),
-                simple(pomsky!( (^ | [s] | >) :(['(' ')']) (< | [s] | $) ), [Symbol(Parenthesis)]),
-                simple(pomsky!( (^ | [s] | >) :(['[' ']']) (< | [s] | $) ), [Symbol(Bracket)]),
-                simple(pomsky!( (^ | [s] | >) :(['{' '}']) (< | [s] | $) ), [Symbol(Brace)]),
-                simple(pomsky!( (^ | [s] | >) :('?') (< | [s] | $) ), [Symbol(OptionalArgMarker)]),
+                simple(pomsky!( [s] :("&&" | "||" | "!") ( [s] | $ ) ), [Operator(Logic)]),
+                simple(pomsky!( [s] :("==" | "!=" | ['<' '>']) ( [s] | $ ) ), [Operator(Logic)]),
+                simple(pomsky!( [s] :(['+' '-' '*' '/' '%' '&' '|'] | "??") ( [s] | $ ) ), [Operator(Arithmetic)]),
+                simple(pomsky!( [s] :('=') ( [s] | $ ) ), [Operator(Assignment)]),
+                simple(pomsky!( [s] :(';') ( [s] | $ ) ), [Symbol(CmdSeparator)]),
+                simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
+                simple(pomsky!( [s] :(':') ( [s] | $ ) ), [Symbol(Colon)]),
+                simple(pomsky!( [s] :(['(' ')']) ( [s] | $ ) ), [Symbol(Parenthesis)]),
+                simple(pomsky!( [s] :(['[' ']']) ( [s] | $ ) ), [Symbol(Bracket)]),
+                simple(pomsky!( [s] :(['{' '}']) ( [s] | $ ) ), [Symbol(Brace)]),
+                simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
 
                 // Method calls
                 method_call(),
@@ -300,17 +300,17 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
 
                 // Symbols and operators
                 // TODO: deduplicate from above
-                simple(pomsky!( (^ | [s] | >) :("&&" | "||" | "!") (< | [s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( (^ | [s] | >) :("==" | "!=" | ['<' '>']) (< | [s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( (^ | [s] | >) :(['+' '-' '*' '/' '%' '&' '|'] | "??") (< | [s] | $) ), [Operator(Arithmetic)]),
-                simple(pomsky!( (^ | [s] | >) :('=') (< | [s] | $) ), [Operator(Assignment)]),
-                simple(pomsky!( (^ | [s] | >) :(';') (< | [s] | $) ), [Symbol(CmdSeparator)]),
-                simple(pomsky!( (^ | [s] | >) :(',') (< | [s] | $) ), [Symbol(ArgSeparator)]),
-                simple(pomsky!( (^ | [s] | >) :(':') (< | [s] | $) ), [Symbol(Colon)]),
-                simple(pomsky!( (^ | [s] | >) :(['(' ')']) (< | [s] | $) ), [Symbol(Parenthesis)]),
-                simple(pomsky!( (^ | [s] | >) :(['[' ']']) (< | [s] | $) ), [Symbol(Bracket)]),
-                simple(pomsky!( (^ | [s] | >) :(['{' '}']) (< | [s] | $) ), [Symbol(Brace)]),
-                simple(pomsky!( (^ | [s] | >) :('?') (< | [s] | $) ), [Symbol(OptionalArgMarker)]),
+                simple(pomsky!( [s] :("&&" | "||" | "!") ( [s] | $ ) ), [Operator(Logic)]),
+                simple(pomsky!( [s] :("==" | "!=" | ['<' '>']) ( [s] | $ ) ), [Operator(Logic)]),
+                simple(pomsky!( [s] :(['+' '-' '*' '/' '%' '&' '|'] | "??") ( [s] | $ ) ), [Operator(Arithmetic)]),
+                simple(pomsky!( [s] :('=') ( [s] | $ ) ), [Operator(Assignment)]),
+                simple(pomsky!( [s] :(';') ( [s] | $ ) ), [Symbol(CmdSeparator)]),
+                simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
+                simple(pomsky!( [s] :(':') ( [s] | $ ) ), [Symbol(Colon)]),
+                simple(pomsky!( [s] :(['(' ')']) ( [s] | $ ) ), [Symbol(Parenthesis)]),
+                simple(pomsky!( [s] :(['[' ']']) ( [s] | $ ) ), [Symbol(Bracket)]),
+                simple(pomsky!( [s] :(['{' '}']) ( [s] | $ ) ), [Symbol(Brace)]),
+                simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
                 // 'typeis' operator
                 simple(pomsky!( % :("typeis") % ), [Keyword]),
 
