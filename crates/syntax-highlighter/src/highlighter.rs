@@ -18,9 +18,39 @@ use crate::{
     },
 };
 
+// Import all item types for easier use
+use crate::elements::{
+    IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*, SymbolType::*,
+    SyntaxErrorType::*, ValueType::*, WrapperType::*,
+};
+
 pub type CmdChecker = Box<dyn Fn(&str, CheckCmdType) -> bool + Send + Sync>;
 
 type SharedCmdChecker = Option<CmdChecker>;
+
+// Style for valid method names
+fn method_name_style(name: &str, cmd_checker: &SharedCmdChecker) -> ItemType {
+    if cmd_checker
+        .as_ref()
+        .is_none_or(|cmd_checker| cmd_checker(name, CheckCmdType::Method))
+    {
+        Identifier(Method)
+    } else {
+        Invalid(MethodNotFound)
+    }
+}
+
+// Style for function names
+fn fn_name_style(name: &str, cmd_checker: &SharedCmdChecker) -> ItemType {
+    if cmd_checker
+        .as_ref()
+        .is_none_or(|cmd_checker| cmd_checker(name, CheckCmdType::Method))
+    {
+        Identifier(Function)
+    } else {
+        Invalid(FunctionNotFound)
+    }
+}
 
 pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::new(|| {
     /// Create a simple rule
@@ -40,11 +70,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         Rule::Group(name.to_owned())
     }
 
-    // Import all item types for easier use
-    use crate::elements::{
-        IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*, SymbolType::*,
-        SyntaxErrorType::*, ValueType::*, WrapperType::*,
-    };
 
     // Match method calls
     let method_call = || {
@@ -58,16 +83,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by: None,
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                let item_type = if cmd_checker
-                    .as_ref()
-                    .is_none_or(|cmd_checker| cmd_checker(&matched[2], CheckCmdType::Method))
-                {
-                    Identifier(Method)
-                } else {
-                    Invalid(MethodNotFound)
-                };
-
-                vec![Symbol(MethodDotPrefix), item_type]
+                vec![Symbol(MethodDotPrefix), method_name_style(&matched[2], cmd_checker)]
             })),
         })
     };
@@ -84,16 +100,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             preceded_by: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                let item_type = if cmd_checker
-                    .as_ref()
-                    .is_none_or(|cmd_checker| cmd_checker(&matched[1], CheckCmdType::Function))
-                {
-                    Identifier(Function)
-                } else {
-                    Invalid(FunctionNotFound)
-                };
-
-                vec![item_type]
+                vec![fn_name_style(&matched[2], cmd_checker)]
             })),
         })
     };
@@ -181,16 +188,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     followed_by: None,
                     followed_by_nesting: None,
                     style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        let item_type = if cmd_checker
-                            .as_ref()
-                            .is_none_or(|cmd_checker| cmd_checker(&matched[2], CheckCmdType::Method))
-                        {
-                            Identifier(Method)
-                        } else {
-                            Invalid(MethodNotFound)
-                        };
-        
-                        vec![Symbol(MethodDotPrefix), item_type]
+                        vec![Symbol(MethodDotPrefix), method_name_style(&matched[2], cmd_checker)]
                     })),
                 }),
 
