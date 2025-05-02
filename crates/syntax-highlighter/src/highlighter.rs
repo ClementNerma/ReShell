@@ -292,7 +292,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :('?'? '.') :([Letter '_'] [Letter d '_']*) ), [Symbol(StructMemberDotPrefix), Identifier(StructMember)]),
 
                 // Functions as values
-                simple(pomsky!( :('@' ([Letter '_'] [Letter d '_']*)?) ), [Keyword]),
+                simple(pomsky!( :('@' ([Letter '_'] [Letter d '_']*)?) ), [Identifier(Function)]),
 
                 // Numbers
                 simple(pomsky!( % :([d]+ ('.' [d]+)?) % ), [Value(Number)]),
