@@ -69,7 +69,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
     let method_call = || {
         Rule::Simple(SimpleRule {
             matches: Regex::new(pomsky!(
-                :('.') :([Letter '_'] [Letter d '_']*) $
+                :('.') :([Letter '_'] [Letter d '_']*)
             ))
             .unwrap(),
             inside: None,
