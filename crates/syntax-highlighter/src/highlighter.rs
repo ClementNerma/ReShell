@@ -107,7 +107,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             preceded_by: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                vec![fn_name_style(&matched[2], cmd_checker)]
+                vec![fn_name_style(&matched[1], cmd_checker)]
             })),
         })
     };
