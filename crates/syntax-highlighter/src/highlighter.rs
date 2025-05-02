@@ -43,17 +43,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         Rule::Simple(simple_rule(regex, item_types))
     }
 
-    /// Create a simple rule that must be followed by a given pattern
-    fn simple_followed_by(
-        regex: &'static str,
-        item_types: impl Into<Vec<ItemType>>,
-        followed_by: &'static str,
-    ) -> Rule<SharedCmdChecker> {
-        let mut rule = simple_rule(regex, item_types);
-        rule.followed_by = Some(Regex::new(followed_by).unwrap());
-        Rule::Simple(rule)
-    }
-
     /// Create a group inclusion rule
     fn include_group(name: &'static str) -> Rule<SharedCmdChecker> {
         Rule::Group(name.to_owned())
@@ -69,7 +58,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
     let method_call = || {
         Rule::Simple(SimpleRule {
             matches: Regex::new(pomsky!(
-                :('.') :([Letter '_'] [Letter d '_']*)
+                :('.') :([Letter '_'] [Letter d '_']*) %
             ))
             .unwrap(),
             inside: None,
@@ -89,7 +78,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 ) [s]* $))
                 .unwrap(),
             ),
-            followed_by: Some(Regex::new(pomsky!( [s] | $ )).unwrap()),
+            followed_by: None,
             followed_by_nesting: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                 let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], CheckCmdType::Method)) {
@@ -142,46 +131,35 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :('!'? '|') ), [Symbol(CmdPipe)]),
 
                 // Markers
-                simple(pomsky!( ^ [s]* :("include") ([s] | $) ), [Keyword]),
+                simple(pomsky!( ^ [s]* :("include") % ), [Keyword]),
 
                 // Normalized flags
-                simple_followed_by(
-                    pomsky!( [s] :('-'{1,2}) :(([Letter] | ['_' '-' '+'])*)),
-                    [Argument(LongOrShortFlag), Identifier(FlagName)],
-                    pomsky!(
-                        let delimiter = ['(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
-
-                        [s] | delimiter | $
-                    )
+                simple(
+                    pomsky!( (^ | ',' [s]*) :('-'{1,2}) :(([Letter] | ['_' '-' '+'])*) %),
+                    [Argument(LongOrShortFlag), Identifier(FlagName)]
                 ),
 
                 // Keywords
-                simple(pomsky!( % :("alias" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") ([s] | $) ), [Keyword]),
+                simple(pomsky!( % :("alias" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") % ), [Keyword]),
 
                 // 'self' keyword
-                simple(pomsky!( % :("self") ('.' | $)), [Keyword]),
+                simple(pomsky!( % :("self") %), [Keyword]),
 
                 // Numbers
-                simple(pomsky! {
-                    let delimiter = ['(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
-
-                    [s '(' '[' '{' '<' '>' '=' ';' '|']
-                    :([d]+ ('.' [d]+)?)
-                    ([s] | delimiter | $)
-                }, [Value(Number)]),
+                simple(pomsky!( :([d]+ ('.' [d]+)?) %), [Value(Number)]),
 
                 // Symbols and operators
-                simple(pomsky!( [s] :("&&" | "||" | "!") ([s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( [s] :("==" | "!=" | ['<' '>']) ([s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( [s] :(['+' '-' '*' '/' '%' '&' '|'] | "??") ([s] | $) ), [Operator(Arithmetic)]),
-                simple(pomsky!( [s] :('=') ([s] | $) ), [Operator(Assignment)]),
-                simple(pomsky!( [s] :(';') ([s] | $) ), [Symbol(CmdSeparator)]),
-                simple(pomsky!( [s] :(',') ([s] | $) ), [Symbol(ArgSeparator)]),
-                simple(pomsky!( [s] :(':') ([s] | $) ), [Symbol(Colon)]),
-                simple(pomsky!( [s] :(['(' ')']) ([s] | $) ), [Symbol(Parenthesis)]),
-                simple(pomsky!( [s] :(['[' ']']) ([s] | $) ), [Symbol(Bracket)]),
-                simple(pomsky!( [s] :(['{' '}']) ([s] | $) ), [Symbol(Brace)]),
-                simple(pomsky!( [s] :('?') ([s] | $) ), [Symbol(OptionalArgMarker)]),
+                simple(pomsky!( (^ | [s] | >) :("&&" | "||" | "!") (< | [s] | $) ), [Operator(Logic)]),
+                simple(pomsky!( (^ | [s] | >) :("==" | "!=" | ['<' '>']) (< | [s] | $) ), [Operator(Logic)]),
+                simple(pomsky!( (^ | [s] | >) :(['+' '-' '*' '/' '%' '&' '|'] | "??") (< | [s] | $) ), [Operator(Arithmetic)]),
+                simple(pomsky!( (^ | [s] | >) :('=') (< | [s] | $) ), [Operator(Assignment)]),
+                simple(pomsky!( (^ | [s] | >) :(';') (< | [s] | $) ), [Symbol(CmdSeparator)]),
+                simple(pomsky!( (^ | [s] | >) :(',') (< | [s] | $) ), [Symbol(ArgSeparator)]),
+                simple(pomsky!( (^ | [s] | >) :(':') (< | [s] | $) ), [Symbol(Colon)]),
+                simple(pomsky!( (^ | [s] | >) :(['(' ')']) (< | [s] | $) ), [Symbol(Parenthesis)]),
+                simple(pomsky!( (^ | [s] | >) :(['[' ']']) (< | [s] | $) ), [Symbol(Bracket)]),
+                simple(pomsky!( (^ | [s] | >) :(['{' '}']) (< | [s] | $) ), [Symbol(Brace)]),
+                simple(pomsky!( (^ | [s] | >) :('?') (< | [s] | $) ), [Symbol(OptionalArgMarker)]),
 
                 // Method calls
                 method_call(),
@@ -247,7 +225,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( % :("true" | "false") % ), [Value(Boolean)]),
 
                 // Expansions
-                simple(pomsky!( [s ','] :("...") ($ | ['$' '(']) ), [Operator(Spread)]),
+                simple(pomsky!( [s ','] :("...") (% | ['$' '(']) ), [Operator(Spread)]),
                 
                 // Any other character
                 simple(pomsky!( :(.) ), [Value(RawCharacter)]),
@@ -293,6 +271,12 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     }))
                 }),
 
+                // Normalized flags
+                simple(
+                    pomsky!( (^ | ',' [s]*) :('-'{1,2}) :(([Letter] | ['_' '-' '+'])*) %),
+                    [Argument(LongOrShortFlag), Identifier(FlagName)],
+                ),
+
                 // Types
                 simple(pomsky!(% :("any" | "bool" | "int" | "float" | "string" | "list" | "map" | "error" | "struct" | "fn" | "cmdcall") %), [Keyword]),
 
@@ -316,18 +300,17 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
 
                 // Symbols and operators
                 // TODO: deduplicate from above
-                simple(pomsky!( [s] :("&&" | "||" | "!") ([s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( [s] :("==" | "!=" | ['<' '>']) ([s] | $) ), [Operator(Logic)]),
-                simple(pomsky!( [s] :(['+' '-' '*' '/' '%' '&' '|'] | "??") ([s] | $) ), [Operator(Arithmetic)]),
-                simple(pomsky!( [s] :('=') ([s] | $) ), [Operator(Assignment)]),
-                simple(pomsky!( [s] :(';') ([s] | $) ), [Symbol(CmdSeparator)]),
-                simple(pomsky!( [s] :(',') ([s] | $) ), [Symbol(ArgSeparator)]),
-                simple(pomsky!( [s] :(':') ([s] | $) ), [Symbol(Colon)]),
-                simple(pomsky!( [s] :(['(' ')']) ([s] | $) ), [Symbol(Parenthesis)]),
-                simple(pomsky!( [s] :(['[' ']']) ([s] | $) ), [Symbol(Bracket)]),
-                simple(pomsky!( [s] :(['{' '}']) ([s] | $) ), [Symbol(Brace)]),
-                simple(pomsky!( [s] :('?') ([s] | $) ), [Symbol(OptionalArgMarker)]),
-
+                simple(pomsky!( (^ | [s] | >) :("&&" | "||" | "!") (< | [s] | $) ), [Operator(Logic)]),
+                simple(pomsky!( (^ | [s] | >) :("==" | "!=" | ['<' '>']) (< | [s] | $) ), [Operator(Logic)]),
+                simple(pomsky!( (^ | [s] | >) :(['+' '-' '*' '/' '%' '&' '|'] | "??") (< | [s] | $) ), [Operator(Arithmetic)]),
+                simple(pomsky!( (^ | [s] | >) :('=') (< | [s] | $) ), [Operator(Assignment)]),
+                simple(pomsky!( (^ | [s] | >) :(';') (< | [s] | $) ), [Symbol(CmdSeparator)]),
+                simple(pomsky!( (^ | [s] | >) :(',') (< | [s] | $) ), [Symbol(ArgSeparator)]),
+                simple(pomsky!( (^ | [s] | >) :(':') (< | [s] | $) ), [Symbol(Colon)]),
+                simple(pomsky!( (^ | [s] | >) :(['(' ')']) (< | [s] | $) ), [Symbol(Parenthesis)]),
+                simple(pomsky!( (^ | [s] | >) :(['[' ']']) (< | [s] | $) ), [Symbol(Bracket)]),
+                simple(pomsky!( (^ | [s] | >) :(['{' '}']) (< | [s] | $) ), [Symbol(Brace)]),
+                simple(pomsky!( (^ | [s] | >) :('?') (< | [s] | $) ), [Symbol(OptionalArgMarker)]),
                 // 'typeis' operator
                 simple(pomsky!( % :("typeis") % ), [Keyword]),
 
@@ -433,15 +416,14 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 closing_style: |nesting_level| Wrapper(FnArgs(nesting_level)),
                 rules: vec![
                     // Normalized flags
-                    simple_followed_by(
-                        pomsky!( :('-'{1,2}) :([Letter d '_']*) '='? ),
+                    simple(
+                        pomsky!( (^ | ',' [s]*) :('-'{1,2}) :([Letter d '_']*) % ),
                         [Argument(LongOrShortFlag), Identifier(FlagName)],
-                        pomsky!( [s ')' ']' '}' '<' '>' ';' '?' '|' "'" '"' '$'] | $ )
                     ),
 
                     // Dashes for flags
                     simple(
-                        pomsky!( :('-'{1,2}) ),
+                        pomsky!( (^ | ',' [s]*) :('-'{1,2}) ),
                         [Argument(LongOrShortFlag)],
                     ),
 

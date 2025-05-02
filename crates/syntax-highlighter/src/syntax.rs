@@ -474,9 +474,9 @@ pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
         }
 
         if followed_by_nesting.is_some() && !matches.to_string().ends_with('$') {
-            return Err(
-                "Regex that requires a nesting following it should end with a '$'".to_owned(),
-            );
+            return Err(format!(
+                "Regex '{matches}' that requires a nesting following it should end with a '$'"
+            ));
         }
 
         let mut static_len = matches.static_captures_len().ok_or_else(|| {
