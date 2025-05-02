@@ -127,7 +127,7 @@ fn color_match_item(item: ItemType) -> Style {
             SymbolType::Colon => DarkGray,
             SymbolType::OptionalArgMarker => DarkGray,
             SymbolType::ExternalCmdMarker => Magenta,
-            SymbolType::StructMemberDotPrefix => Red,
+            SymbolType::StructMemberDotPrefix => DarkGray,
             SymbolType::FnArgumentTypeOrValueSpecifier => DarkGray,
             SymbolType::BindInSpreading => DarkGray,
         },
