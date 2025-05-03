@@ -25,7 +25,7 @@ pub struct CheckerOutput {
     /// Then associates item's content (e.g. a command alias' content or a function's body)
     /// with a set of dependency, which will be captured when encountering this item at runtime
     ///
-    /// This is filled by the [`State::register_usage`] method
+    /// This is filled by the [`crate::State::register_single_usage`] method
     ///
     /// Capture is required in order to drop scopes safely without losing a reference to the original value
     /// from other values (e.g. functions) when they are returned to an outer scope
