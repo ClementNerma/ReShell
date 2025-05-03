@@ -8,6 +8,11 @@ use std::{collections::HashSet, sync::LazyLock};
 use pomsky_macro::pomsky;
 use regex::Regex;
 
+// Import all item types for easier use
+use crate::elements::{
+    IdentifierDeclarationType::*, IdentifierType::*, InvalidType::*, ItemType::*, OperatorType::*,
+    SymbolType::*, SyntaxErrorType::*, ValueType::*, WrapperType::*,
+};
 use crate::{
     CheckCmdType,
     elements::ItemType,
@@ -16,19 +21,6 @@ use crate::{
         NestedContentRules, Rule, RuleSet, RuleStylization, RulesForNesting, SimpleRule,
         ValidatedRuleSet,
     },
-};
-
-// Import all item types for easier use
-use crate::elements::{
-    IdentifierDeclarationType::*,
-    IdentifierType::*,
-    InvalidType::*,
-    ItemType::*,
-    OperatorType::*,
-    SymbolType::*,
-    SyntaxErrorType::*,
-    ValueType::*,
-    WrapperType::*,
 };
 
 pub type CmdChecker = Box<dyn Fn(&str, CheckCmdType) -> bool + Send + Sync>;
@@ -77,7 +69,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         Rule::Group(name.to_owned())
     }
 
-
     // Match method calls
     let method_call = || {
         Rule::Simple(SimpleRule {
@@ -90,7 +81,10 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by: None,
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                vec![Symbol(MethodDotPrefix), method_name_style(&matched[2], cmd_checker)]
+                vec![
+                    Symbol(MethodDotPrefix),
+                    method_name_style(&matched[2], cmd_checker),
+                ]
             })),
         })
     };
@@ -197,7 +191,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
-                    style: RuleStylization::Dynamic(Box::new( |matched, cmd_checker: &SharedCmdChecker| {
+                    style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                         let is_external = !matched[1].is_empty();
 
                         let cmd_type = if is_external {
