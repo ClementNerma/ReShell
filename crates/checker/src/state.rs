@@ -64,10 +64,11 @@ impl<'a> State<'a> {
     /// Used to check if a variable was declared inside that scope or not,
     /// and so if it will require a capture at runtime or not.
     fn current_deps_collecting_scope(&self) -> Option<&CheckerScope> {
-        self.scopes
-            .iter()
-            .rev()
-            .find(|scope| scope.special_scope_type.is_some_and(|typ| typ.captures()))
+        self.scopes.iter().rev().find(|scope| {
+            scope
+                .special_scope_type
+                .is_some_and(|typ| typ.requires_deps_capture())
+        })
     }
 
     /// Get the list of all scopes
@@ -103,13 +104,8 @@ impl<'a> State<'a> {
             .find_map(|scope| scope.vars.get(&var_usage.data))
             .ok_or_else(|| CheckerError::new(var_usage.at, "variable was not found"))?;
 
-        if let RuntimeCodeRange::Parsed(item_decl_at) = var.decl_at {
-            self.register_single_usage(
-                var.scope_id,
-                item_decl_at,
-                &var_usage.data,
-                DependencyType::Variable,
-            )?;
+        if let RuntimeCodeRange::Parsed(_) = var.decl_at {
+            self.register_single_usage(var.scope_id, &var_usage.data, DependencyType::Variable)?;
         }
 
         Ok(())
@@ -128,13 +124,8 @@ impl<'a> State<'a> {
             .find_map(|scope| scope.fns.get(&fn_usage.data))
             .ok_or_else(|| CheckerError::new(fn_usage.at, "function was not found"))?;
 
-        if let RuntimeCodeRange::Parsed(item_decl_at) = func.decl_at {
-            self.register_single_usage(
-                func.scope_id,
-                item_decl_at,
-                &fn_usage.data,
-                DependencyType::Function,
-            )?;
+        if let RuntimeCodeRange::Parsed(_) = func.decl_at {
+            self.register_single_usage(func.scope_id, &fn_usage.data, DependencyType::Function)?;
         }
 
         Ok(())
@@ -162,10 +153,9 @@ impl<'a> State<'a> {
         for method in methods {
             match method.decl_at {
                 RuntimeCodeRange::Internal(_) => {}
-                RuntimeCodeRange::Parsed(item_decl_at) => {
+                RuntimeCodeRange::Parsed(_) => {
                     self.register_single_usage(
                         method.scope_id,
-                        item_decl_at,
                         &method_usage.data,
                         DependencyType::Method,
                     )?;
@@ -198,7 +188,6 @@ impl<'a> State<'a> {
 
         self.register_single_usage(
             cmd_alias.scope_id,
-            cmd_alias.decl_at,
             &cmd_alias_usage.data,
             DependencyType::CmdAlias,
         )
@@ -207,7 +196,6 @@ impl<'a> State<'a> {
     fn register_single_usage(
         &mut self,
         item_declared_in: AstScopeId,
-        item_decl_at: CodeRange,
         name: &str,
         dep_type: DependencyType,
     ) -> CheckerResult {
@@ -228,31 +216,52 @@ impl<'a> State<'a> {
             .position(|scope| scope.id == deps_scope.id)
             .unwrap();
 
-        let var_declared_in_deps_scope = self
+        // If so, don't capture it
+        if self
             .scopes
             .iter()
             .skip(deps_scope_index)
-            .rev()
-            .any(|scope| scope.id == item_declared_in);
-
-        // If so, don't capture it
-        if var_declared_in_deps_scope {
+            .any(|scope| scope.id == item_declared_in)
+        {
             return Ok(());
         }
 
         // Otherwise, mark the item as a dependency (= will require a capture at runtime)
-        let deps_scope_id = deps_scope.id;
+        // Registered in the deps-collecting scope + all its deps-collecting parent (up to the declaration scope)
+        let deps_scope_ids = self
+            .scopes
+            .iter()
+            .take(deps_scope_index + 1)
+            .skip_while(|scope| scope.id != item_declared_in)
+            .skip(1)
+            .filter(|scope| {
+                scope
+                    .special_scope_type
+                    .is_some_and(|typ| typ.requires_deps_capture())
+            })
+            .map(|scope| scope.id)
+            .collect::<Vec<_>>();
 
-        self.collected
-            .deps
-            .get_mut(&deps_scope_id)
-            .unwrap()
-            .insert(Dependency {
-                decl_at: item_decl_at,
-                name: name.to_owned(),
-                declared_in: item_declared_in,
-                dep_type,
-            });
+        let mut prev_parent = item_declared_in;
+
+        for (i, deps_scope_id) in deps_scope_ids.iter().enumerate() {
+            self.collected
+                .deps
+                .get_mut(deps_scope_id)
+                .unwrap()
+                .insert(Dependency {
+                    name: name.to_owned(),
+                    declared_in: if i > 0 {
+                        DependencyLocation::DependencyScopeOf(prev_parent)
+                    } else {
+                        assert_eq!(prev_parent, item_declared_in);
+                        DependencyLocation::Scope(prev_parent)
+                    },
+                    dep_type,
+                });
+
+            prev_parent = *deps_scope_id;
+        }
 
         Ok(())
     }
@@ -416,7 +425,7 @@ pub enum SpecialScopeType {
 }
 
 impl SpecialScopeType {
-    pub fn captures(&self) -> bool {
+    pub fn requires_deps_capture(&self) -> bool {
         match self {
             SpecialScopeType::Function | SpecialScopeType::CmdAlias => true,
             SpecialScopeType::Loop => false,

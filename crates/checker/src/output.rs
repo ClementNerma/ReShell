@@ -123,21 +123,27 @@ pub struct DevelopedCmdAliasCall {
 /// Description of an item that will require capture at runtime
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Dependency {
-    /// Declaration name of the item
-    pub decl_at: CodeRange,
-
     /// Name of the item
     pub name: String,
 
     /// Scope the item was declared in
-    pub declared_in: AstScopeId,
+    pub declared_in: DependencyLocation,
 
     /// Type of dependency
     pub dep_type: DependencyType,
 }
 
-/// Type of dependency
+/// Where a dependency is located
+///
+/// This is where the dependency will be looked for during capture
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum DependencyLocation {
+    Scope(AstScopeId),
+    DependencyScopeOf(AstScopeId),
+}
+
+/// Type of dependency
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum DependencyType {
     Variable,
     Function,

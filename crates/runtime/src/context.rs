@@ -6,7 +6,8 @@ use reshell_checker::{
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
     long_flag_var_name,
     output::{
-        CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
+        CheckerOutput, Dependency, DependencyLocation, DependencyType, DevelopedCmdAliasCall,
+        DevelopedSingleCmdCall,
     },
 };
 use reshell_parser::{
@@ -560,9 +561,9 @@ impl Context {
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
 
-        current_scope
-            .deps_scope
-            .map(|scope_id| self.deps_scopes.remove(&scope_id).unwrap());
+        if let Some(deps_scope_id) = current_scope.deps_scope {
+            self.deps_scopes.remove(&deps_scope_id).unwrap();
+        }
 
         // assert!(ENSURE scopes with stack entry (= fn calls) have a deps scope);
 
@@ -743,25 +744,50 @@ impl Context {
 
         for dep in deps_list {
             let Dependency {
-                decl_at: _,
                 name,
                 declared_in,
                 dep_type,
             } = dep;
 
-            let Some(decl_scope) = self
-                .visible_scopes()
-                .find(|scope| scope.ast_scope_id == *declared_in)
-            else {
-                self.panic(
-                    body_content_at,
-                    format!("cannot find {dep_type} '{name}' to capture"),
-                );
+            let (main_decl_scope, decl_scope_content) = match declared_in {
+                DependencyLocation::Scope(declared_in) => {
+                    let scope = self
+                        .visible_scopes()
+                        .find(|scope| scope.ast_scope_id == *declared_in)
+                        .unwrap_or_else(|| {
+                            self.panic(
+                                body_content_at,
+                                format!(
+                                    "cannot find scope containing {dep_type} '{name}' to capture"
+                                ),
+                            )
+                        });
+
+                    (scope, &scope.content)
+                }
+
+                DependencyLocation::DependencyScopeOf(main_scope_id) => {
+                    let main_scope = self
+                    .visible_scopes()
+                    .find(|scope| scope.ast_scope_id == *main_scope_id)
+                    .unwrap_or_else(|| {
+                        self.panic(
+                            body_content_at,
+                            format!("cannot find scope whose dependency scope contains {dep_type} '{name}' to capture"),
+                        )
+                    });
+
+                    let Some(deps_scope_id) = main_scope.deps_scope else {
+                        self.panic(body_content_at, format!("main scope does not have a dependency scope which should have contained {dep_type} '{name}' to capture"));
+                    };
+
+                    (main_scope, self.deps_scopes.get(&deps_scope_id).unwrap())
+                }
             };
 
             match dep_type {
                 DependencyType::Variable => {
-                    let var = decl_scope.content.vars.get(name).unwrap_or_else(|| {
+                    let var = decl_scope_content.vars.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
                             format!("cannot find variable '{name}' to capture"),
@@ -772,7 +798,7 @@ impl Context {
                 }
 
                 DependencyType::Function => {
-                    let func = decl_scope.content.fns.get(name).unwrap_or_else(|| {
+                    let func = decl_scope_content.fns.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
                             format!("cannot find function '{name}' to capture"),
@@ -783,18 +809,19 @@ impl Context {
                 }
 
                 DependencyType::Method => {
-                    for scope in self.visible_scopes_for(decl_scope) {
+                    for scope in self.visible_scopes_for(main_decl_scope) {
                         for (method_name, methods) in scope.content.methods.iter() {
                             for method in methods {
                                 if name == method_name {
                                     match method.name_at {
                                         RuntimeCodeRange::Internal(_) => unreachable!(),
-                                        RuntimeCodeRange::Parsed(decl_at) => {
+                                        RuntimeCodeRange::Parsed(_) => {
                                             captured_deps.methods.insert(
                                                 Dependency {
-                                                    decl_at,
                                                     name: name.clone(),
-                                                    declared_in: method.decl_scope_id,
+                                                    declared_in: DependencyLocation::Scope(
+                                                        method.decl_scope_id,
+                                                    ),
                                                     dep_type: DependencyType::Method,
                                                 },
                                                 method.clone(),
@@ -808,7 +835,7 @@ impl Context {
                 }
 
                 DependencyType::CmdAlias => {
-                    let cmd_alias = decl_scope.content.cmd_aliases.get(name).unwrap_or_else(|| {
+                    let cmd_alias = decl_scope_content.cmd_aliases.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
                             format!("cannot find command alias '{name}' to capture"),
