@@ -219,6 +219,23 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 // Expansions
                 simple(pomsky!( [s ','] :("...") (% | ['$' '(']) ), [Operator(Spread)]),
 
+                // Struct member access
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        :('?'? '.') :([Letter '_'] [Letter d '_']*)
+                    )).unwrap(),
+                    inside: None,
+                    preceded_by: Some(Regex::new(pomsky!(
+                        ^ ('$' [Letter '_'] [Letter d '_' ]* | [')' ']' '}']) $
+                    )).unwrap()),
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    style: RuleStylization::Static(vec![
+                        Symbol(StructMemberDotPrefix),
+                        Identifier(StructMember)
+                    ]) }
+                ),
+
                 // Raw strings
                 Rule::Simple(SimpleRule {
                     matches: Regex::new(pomsky!(
