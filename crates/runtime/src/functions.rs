@@ -14,7 +14,7 @@ use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::{CallStackEntry, Context, ScopeContent, ScopeMethod, ScopeVar},
     errors::{ExecInfoType, ExecResult},
-    exec::{InstrRet, run_body_with_deps},
+    exec::{InstrRet, run_block_detailed},
     expr::eval_expr,
     gc::{GcCell, GcReadOnlyCell},
     typechecking::check_if_value_fits_type,
@@ -137,11 +137,14 @@ pub fn call_fn_value(
                 return Err(ctx.error(call_at, "function called before its declaration"));
             };
 
-            let instr_ret = run_body_with_deps(
+            scope_content.extend(captured_deps).unwrap_or_else(|err| {
+                ctx.panic(call_at, err);
+            });
+
+            let instr_ret = run_block_detailed(
                 body,
-                captured_deps.clone(),
                 ctx,
-                Some(scope_content),
+                scope_content,
                 func.parent_scopes.clone(),
                 Some(CallStackEntry {
                     fn_called_at: call_at,

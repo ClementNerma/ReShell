@@ -10,10 +10,7 @@ use reshell_parser::{
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeMethod, ScopeVar},
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
-    values::{
-        CapturedDependencies, LocatedValue, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
-        RuntimeValue,
-    },
+    values::{LocatedValue, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue},
 };
 
 use crate::{
@@ -66,7 +63,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
-                            captured_deps: GcOnceCell::new_init(CapturedDependencies::default()),
+                            captured_deps: GcOnceCell::new_init(ScopeContent::new()),
                         }),
                     },
                 )
@@ -99,7 +96,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         }),
                         body: RuntimeFnBody::Internal(run),
                         parent_scopes: IndexSet::new(),
-                        captured_deps: GcOnceCell::new_init(CapturedDependencies::default()),
+                        captured_deps: GcOnceCell::new_init(ScopeContent::new()),
                     }),
                 });
 

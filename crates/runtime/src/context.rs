@@ -6,8 +6,7 @@ use reshell_checker::{
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
     long_flag_var_name,
     output::{
-        CheckerOutput, Dependency, DependencyLocation, DependencyType, DevelopedCmdAliasCall,
-        DevelopedSingleCmdCall,
+        CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
 };
 use reshell_parser::{
@@ -26,7 +25,7 @@ use crate::{
     errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
     gc::{GcCell, GcReadOnlyCell},
     typechecking::check_if_value_fits_type,
-    values::{CapturedDependencies, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
+    values::{LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
 
 /// Scope ID of the native library
@@ -56,12 +55,6 @@ pub struct Context {
     /// When a scope ends, it is removed from this map,
     /// except for the very first user scope as well as the native library
     scopes: HashMap<u64, Scope>,
-
-    /// Dependency scopes
-    /// Contains all items a scope depends on in order to run
-    /// Example: variables referenced by a function returned by its initial scope
-    /// For more informations, see [`Context::capture_deps`]
-    deps_scopes: HashMap<u64, ScopeContent>,
 
     /// ID of the current scope
     current_scope: u64,
@@ -94,7 +87,6 @@ impl Context {
             content: native_lib_content,
             parent_scopes: IndexSet::new(),
             previous_scope: None,
-            deps_scope: None,
         }];
 
         let mut scopes = HashMap::new();
@@ -107,7 +99,6 @@ impl Context {
             scopes_id_counter: NATIVE_LIB_SCOPE_ID,
             scopes,
             bin_resolver,
-            deps_scopes: HashMap::new(),
             current_scope: NATIVE_LIB_SCOPE_ID,
             program_main_scope: None,
             collected: CheckerOutput::empty(),
@@ -205,19 +196,7 @@ impl Context {
     /// Get the  list of all scopes' content visible by the current one
     /// Iterating in visibility order
     pub fn visible_scopes_content(&self) -> impl DoubleEndedIterator<Item = &ScopeContent> {
-        self.visible_scopes()
-            // Inject scope dependencies
-            .flat_map(|scope| {
-                [
-                    // Scope content
-                    Some(&scope.content),
-                    // Scope's dependencies
-                    scope
-                        .deps_scope
-                        .map(|deps_scope_id| self.deps_scopes.get(&deps_scope_id).unwrap()),
-                ]
-            })
-            .flatten()
+        self.visible_scopes().map(|scope| &scope.content)
     }
 
     /// Generate checker scopes from current runtime scope hierarchy
@@ -425,6 +404,7 @@ impl Context {
     }
 
     /// Create and push a new scope above the current one
+    /// // TODO: factorize
     pub(crate) fn create_and_push_scope(
         &mut self,
         ast_scope_id: AstScopeId,
@@ -439,7 +419,6 @@ impl Context {
             content,
             call_stack: self.current_scope().call_stack.clone(),
             previous_scope: Some(self.current_scope),
-            deps_scope: None,
         };
 
         self.push_scope(scope);
@@ -447,57 +426,14 @@ impl Context {
         id
     }
 
-    /// Create and push a new scope with dependencies above the current one
-    pub(crate) fn create_and_push_scope_with_deps(
+    /// Create and push a new scope with initialized scope above the current one
+    pub(crate) fn create_and_push_scope_detailed(
         &mut self,
         ast_scope_id: AstScopeId,
-        creation_data: DepsScopeCreationData,
-        content: Option<ScopeContent>,
+        content: ScopeContent,
         parent_scopes: IndexSet<u64>,
         call_stack_entry: Option<CallStackEntry>,
     ) {
-        // Fetch all dependencies and build the dependency scope's content
-        let deps_scope_content = match creation_data {
-            DepsScopeCreationData::Retrieved(content) => content,
-            DepsScopeCreationData::CapturedDeps(captured_deps) => {
-                let CapturedDependencies {
-                    vars,
-                    fns,
-                    methods,
-                    cmd_aliases,
-                } = captured_deps;
-
-                ScopeContent {
-                    vars: vars
-                        .iter()
-                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
-                        .collect(),
-
-                    fns: fns
-                        .iter()
-                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
-                        .collect(),
-
-                    methods: methods.iter().fold(
-                        HashMap::with_capacity(methods.len()),
-                        |mut map, (dep, value)| {
-                            map.entry(dep.name.clone()).or_default().push(value.clone());
-                            map
-                        },
-                    ),
-                    cmd_aliases: cmd_aliases
-                        .iter()
-                        .map(|(dep, value)| (dep.name.clone(), value.clone()))
-                        .collect(),
-                }
-            }
-        };
-
-        let deps_scope_id = self.generate_scope_id();
-
-        // Insert the dependency scope
-        self.deps_scopes.insert(deps_scope_id, deps_scope_content);
-
         // Update the call stack if necessary
         let mut call_stack = self.current_scope().call_stack.clone();
 
@@ -510,10 +446,9 @@ impl Context {
             id: self.generate_scope_id(),
             ast_scope_id,
             parent_scopes,
-            content: content.unwrap_or_else(ScopeContent::new),
+            content,
             call_stack,
             previous_scope: Some(self.current_scope),
-            deps_scope: Some(deps_scope_id),
         };
 
         self.push_scope(scope);
@@ -560,10 +495,6 @@ impl Context {
         assert!(self.current_scope > self.program_main_scope.unwrap());
 
         let current_scope = self.scopes.remove(&self.current_scope).unwrap();
-
-        if let Some(deps_scope_id) = current_scope.deps_scope {
-            self.deps_scopes.remove(&deps_scope_id).unwrap();
-        }
 
         // assert!(ENSURE scopes with stack entry (= fn calls) have a deps scope);
 
@@ -735,8 +666,8 @@ impl Context {
         &self,
         body_content_at: CodeRange,
         body_ast_scope_id: AstScopeId,
-    ) -> CapturedDependencies {
-        let mut captured_deps = CapturedDependencies::default();
+    ) -> ScopeContent {
+        let mut captured_deps = ScopeContent::new();
 
         let deps_list = self.collected.deps.get(&body_ast_scope_id).unwrap_or_else(||
             self.panic(body_content_at, "dependencies informations not found while constructing value (this is a bug in the checker)")
@@ -749,83 +680,52 @@ impl Context {
                 dep_type,
             } = dep;
 
-            let (main_decl_scope, decl_scope_content) = match declared_in {
-                DependencyLocation::Scope(declared_in) => {
-                    let scope = self
-                        .visible_scopes()
-                        .find(|scope| scope.ast_scope_id == *declared_in)
-                        .unwrap_or_else(|| {
-                            self.panic(
-                                body_content_at,
-                                format!(
-                                    "cannot find scope containing {dep_type} '{name}' to capture"
-                                ),
-                            )
-                        });
-
-                    (scope, &scope.content)
-                }
-
-                DependencyLocation::DependencyScopeOf(main_scope_id) => {
-                    let main_scope = self
-                    .visible_scopes()
-                    .find(|scope| scope.ast_scope_id == *main_scope_id)
-                    .unwrap_or_else(|| {
-                        self.panic(
-                            body_content_at,
-                            format!("cannot find scope whose dependency scope contains {dep_type} '{name}' to capture"),
-                        )
-                    });
-
-                    let Some(deps_scope_id) = main_scope.deps_scope else {
-                        self.panic(body_content_at, format!("main scope does not have a dependency scope which should have contained {dep_type} '{name}' to capture"));
-                    };
-
-                    (main_scope, self.deps_scopes.get(&deps_scope_id).unwrap())
-                }
+            let Some(decl_scope) = self
+                .visible_scopes()
+                .find(|scope| scope.ast_scope_id == *declared_in)
+            else {
+                self.panic(
+                    body_content_at,
+                    format!("cannot find scope containing {dep_type} '{name}' to capture"),
+                );
             };
 
             match dep_type {
                 DependencyType::Variable => {
-                    let var = decl_scope_content.vars.get(name).unwrap_or_else(|| {
+                    let var = decl_scope.content.vars.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
                             format!("cannot find variable '{name}' to capture"),
                         )
                     });
 
-                    captured_deps.vars.insert(dep.clone(), var.clone());
+                    captured_deps.vars.insert(dep.name.clone(), var.clone());
                 }
 
                 DependencyType::Function => {
-                    let func = decl_scope_content.fns.get(name).unwrap_or_else(|| {
+                    let func = decl_scope.content.fns.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
                             format!("cannot find function '{name}' to capture"),
                         )
                     });
 
-                    captured_deps.fns.insert(dep.clone(), func.clone());
+                    captured_deps.fns.insert(dep.name.clone(), func.clone());
                 }
 
                 DependencyType::Method => {
-                    for scope in self.visible_scopes_for(main_decl_scope) {
+                    for scope in self.visible_scopes_for(decl_scope) {
                         for (method_name, methods) in scope.content.methods.iter() {
                             for method in methods {
                                 if name == method_name {
                                     match method.name_at {
                                         RuntimeCodeRange::Internal(_) => unreachable!(),
                                         RuntimeCodeRange::Parsed(_) => {
-                                            captured_deps.methods.insert(
-                                                Dependency {
-                                                    name: name.clone(),
-                                                    declared_in: DependencyLocation::Scope(
-                                                        method.decl_scope_id,
-                                                    ),
-                                                    dep_type: DependencyType::Method,
-                                                },
-                                                method.clone(),
-                                            );
+                                            captured_deps
+                                                .methods
+                                                .entry(name.clone())
+                                                .or_default()
+                                                .push(method.clone());
                                         }
                                     }
                                 }
@@ -835,7 +735,7 @@ impl Context {
                 }
 
                 DependencyType::CmdAlias => {
-                    let cmd_alias = decl_scope_content.cmd_aliases.get(name).unwrap_or_else(|| {
+                    let cmd_alias = decl_scope.content.cmd_aliases.get(name).unwrap_or_else(|| {
                         self.panic(
                             body_content_at,
                             format!("cannot find command alias '{name}' to capture"),
@@ -844,7 +744,7 @@ impl Context {
 
                     captured_deps
                         .cmd_aliases
-                        .insert(dep.clone(), cmd_alias.clone());
+                        .insert(name.clone(), cmd_alias.clone());
                 }
             };
         }
@@ -867,10 +767,6 @@ pub struct Scope {
 
     /// List of parent scopes, from farthest to the nearest
     pub parent_scopes: IndexSet<u64>,
-
-    /// Dependencies scope (if any)
-    /// See [`Context::capture_deps`] for more informations
-    pub deps_scope: Option<u64>,
 
     /// Previous scope
     /// Used e.g. when calling a function, the function's body will
@@ -930,6 +826,54 @@ impl ScopeContent {
             methods: HashMap::new(),
             cmd_aliases: HashMap::new(),
         }
+    }
+
+    pub fn extend(&mut self, other: ScopeContent) -> Result<(), String> {
+        let ScopeContent {
+            vars,
+            fns,
+            methods,
+            cmd_aliases,
+        } = other;
+
+        for var_name in vars.keys() {
+            if self.vars.contains_key(var_name) {
+                return Err(format!(
+                    "Variable '{var_name}' exists in both base scope and to-merge scope"
+                ));
+            }
+        }
+
+        for fn_name in fns.keys() {
+            if self.fns.contains_key(fn_name) {
+                return Err(format!(
+                    "Function '{fn_name}' exists in both base scope and to-merge scope"
+                ));
+            }
+        }
+
+        for method_name in methods.keys() {
+            if self.methods.contains_key(method_name) {
+                return Err(format!(
+                    "Method '{method_name}' exists in both base scope and to-merge scope"
+                ));
+            }
+        }
+
+        for cmd_alias_name in cmd_aliases.keys() {
+            if self.cmd_aliases.contains_key(cmd_alias_name) {
+                return Err(format!(
+                    "Command alias '{cmd_alias_name}' exists in both base scope and to-merge scope"
+                ));
+            }
+        }
+
+        self.vars.extend(vars);
+        self.fns.extend(fns);
+        self.methods.extend(methods);
+        self.cmd_aliases.extend(cmd_aliases);
+
+        Ok(())
     }
 }
 
@@ -1029,13 +973,4 @@ impl CallStack {
 pub struct CallStackEntry {
     /// Location of a function call
     pub fn_called_at: RuntimeCodeRange,
-}
-
-/// Dependency scope creation data
-pub enum DepsScopeCreationData {
-    /// Use already-captured dependencies
-    CapturedDeps(CapturedDependencies),
-
-    /// Use already-built dependency scope
-    Retrieved(ScopeContent),
 }

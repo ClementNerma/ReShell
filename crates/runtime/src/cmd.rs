@@ -17,7 +17,7 @@ use reshell_parser::ast::{
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    context::{Context, DepsScopeCreationData},
+    context::Context,
     errors::{ExecErrorNature, ExecResult},
     expr::{
         eval_computed_string, eval_expr, eval_list_spread_value, eval_literal_value,
@@ -382,10 +382,9 @@ fn build_cmd_data<'a>(
             captured_deps,
         } = &*runtime_alias.value;
 
-        ctx.create_and_push_scope_with_deps(
+        ctx.create_and_push_scope_detailed(
             *content_scope_id,
-            DepsScopeCreationData::CapturedDeps(captured_deps.clone()),
-            None,
+            captured_deps.clone(),
             parent_scopes.clone(),
             None,
         );

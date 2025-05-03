@@ -9,7 +9,6 @@ use std::{
 use dyn_clone::DynClone;
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Span};
-use reshell_checker::output::Dependency;
 use reshell_parser::{
     ast::{
         Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
@@ -21,7 +20,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     cmd::FlagArgValueResult,
-    context::{Context, ScopeCmdAlias, ScopeFn, ScopeMethod, ScopeVar},
+    context::{Context, ScopeContent},
     errors::{ExecInfoType, ExecResult},
     functions::ValidatedFnCallArg,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
@@ -37,7 +36,9 @@ pub struct RuntimeFnValue {
 
     /// Function's captured dependencies
     /// Uninit before the function's actual declaration point
-    pub captured_deps: GcOnceCell<CapturedDependencies>,
+    ///
+    /// TODO: Use an `Option` to avoid allocating if no dependency to capture
+    pub captured_deps: GcOnceCell<ScopeContent>,
 }
 
 /// Runtime function signature
@@ -110,23 +111,7 @@ pub struct RuntimeCmdAlias {
     pub parent_scopes: IndexSet<u64>,
 
     /// Captured depenencies for evaluation
-    pub captured_deps: CapturedDependencies,
-}
-
-/// Captured dependencies for a given item
-#[derive(Default, Debug, Clone)]
-pub struct CapturedDependencies {
-    /// Scoped variables
-    pub vars: IndexMap<Dependency, ScopeVar>,
-
-    /// Scoped functions
-    pub fns: IndexMap<Dependency, ScopeFn>,
-
-    /// Scoped methods
-    pub methods: IndexMap<Dependency, ScopeMethod>,
-
-    /// Scoped command aliases
-    pub cmd_aliases: IndexMap<Dependency, ScopeCmdAlias>,
+    pub captured_deps: ScopeContent,
 }
 
 /// Content of a command argument

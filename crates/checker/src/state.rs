@@ -244,23 +244,18 @@ impl<'a> State<'a> {
 
         let mut prev_parent = item_declared_in;
 
-        for (i, deps_scope_id) in deps_scope_ids.iter().enumerate() {
+        for deps_scope_id in deps_scope_ids {
             self.collected
                 .deps
-                .get_mut(deps_scope_id)
+                .get_mut(&deps_scope_id)
                 .unwrap()
                 .insert(Dependency {
                     name: name.to_owned(),
-                    declared_in: if i > 0 {
-                        DependencyLocation::DependencyScopeOf(prev_parent)
-                    } else {
-                        assert_eq!(prev_parent, item_declared_in);
-                        DependencyLocation::Scope(prev_parent)
-                    },
+                    declared_in: prev_parent,
                     dep_type,
                 });
 
-            prev_parent = *deps_scope_id;
+            prev_parent = deps_scope_id;
         }
 
         Ok(())

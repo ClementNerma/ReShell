@@ -12,8 +12,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use crate::{
     cmd::{CmdExecParams, run_cmd},
     context::{
-        CallStackEntry, Context, DepsScopeCreationData, ScopeCmdAlias, ScopeContent, ScopeFn,
-        ScopeMethod, ScopeVar,
+        CallStackEntry, Context, ScopeCmdAlias, ScopeContent, ScopeFn, ScopeMethod, ScopeVar,
     },
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult},
     expr::{eval_expr, eval_range_bound},
@@ -21,8 +20,8 @@ use crate::{
     props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
-        CapturedDependencies, LocatedValue, NotComparableTypesErr, RuntimeCmdAlias, RuntimeFnBody,
-        RuntimeFnSignature, RuntimeFnValue, RuntimeValue, are_values_equal,
+        LocatedValue, NotComparableTypesErr, RuntimeCmdAlias, RuntimeFnBody, RuntimeFnSignature,
+        RuntimeFnValue, RuntimeValue, are_values_equal,
     },
 };
 
@@ -78,6 +77,30 @@ fn run_block(
     ctx.create_and_push_scope(
         block.data.scope_id,
         content.unwrap_or_else(ScopeContent::new),
+    );
+
+    let result = run_block_in_current_scope(&block.data, ctx);
+
+    ctx.pop_scope();
+
+    result
+}
+
+pub(crate) fn run_block_detailed(
+    block: &Span<Block>,
+    ctx: &mut Context,
+    scope_content: ScopeContent,
+    parent_scopes: IndexSet<u64>,
+    call_stack_entry: Option<CallStackEntry>,
+) -> ExecResult<Option<InstrRet>> {
+    // Handle any Ctrl+C press
+    ctx.ensure_no_ctrl_c_press(block.at)?;
+
+    ctx.create_and_push_scope_detailed(
+        block.data.scope_id,
+        scope_content,
+        parent_scopes,
+        call_stack_entry,
     );
 
     let result = run_block_in_current_scope(&block.data, ctx);
@@ -208,29 +231,6 @@ fn block_first_pass(
     }
 
     Ok(())
-}
-
-pub(crate) fn run_body_with_deps(
-    body: &Span<Block>,
-    captured_deps: CapturedDependencies,
-    ctx: &mut Context,
-    scope_content: Option<ScopeContent>,
-    parent_scopes: IndexSet<u64>,
-    call_stack_entry: Option<CallStackEntry>,
-) -> ExecResult<Option<InstrRet>> {
-    ctx.create_and_push_scope_with_deps(
-        body.data.scope_id,
-        DepsScopeCreationData::CapturedDeps(captured_deps),
-        scope_content,
-        parent_scopes,
-        call_stack_entry,
-    );
-
-    let result = run_block_in_current_scope(&body.data, ctx);
-
-    ctx.pop_scope();
-
-    result
 }
 
 fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {

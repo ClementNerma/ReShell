@@ -127,19 +127,10 @@ pub struct Dependency {
     pub name: String,
 
     /// Scope the item was declared in
-    pub declared_in: DependencyLocation,
+    pub declared_in: AstScopeId,
 
     /// Type of dependency
     pub dep_type: DependencyType,
-}
-
-/// Where a dependency is located
-///
-/// This is where the dependency will be looked for during capture
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum DependencyLocation {
-    Scope(AstScopeId),
-    DependencyScopeOf(AstScopeId),
 }
 
 /// Type of dependency
