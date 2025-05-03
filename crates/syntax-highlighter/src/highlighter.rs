@@ -220,6 +220,30 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( [s ','] :("...") (% | ['$' '(']) ), [Operator(Spread)]),
 
                 // Raw strings
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        :(![s '|' ';' ':' '#' '"' "'" '^']+)
+                    )).unwrap(),
+                    inside: None,
+                    preceded_by: None,
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    style: RuleStylization::Dynamic(Box::new(|matches, _| {
+                        // TODO: cache
+                        let keywords = HashSet::from(["alias", "include", "fn", "for", "while", "if", "else", "continue", "typematch", "match", "break", "throw", "try", "catch", "return", "do"]);
+
+                        let item_type = if keywords.contains(matches[1].as_str()) {
+                            Keyword
+                        } else if matches[1].chars().enumerate().all(|(i, c)| c.is_ascii_digit() || (c == '.' && i > 0)) {
+                            Value(Number)
+                        } else {
+                            Value(RawCharacters)
+                        };
+
+                        vec![item_type]
+                    }))
+                }),
+
                 simple(pomsky!( :(![s '|' ';' ':' '#' '"' "'" '^']+) ), [Value(RawCharacters)]),
 
                 // Keywords
@@ -239,10 +263,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( [s] :('=') ( [s] | $ ) ), [Operator(Assignment)]),
 
                 // Booleans
-                simple(pomsky!( % :("true" | "false") % ), [Value(Boolean)]),
-                
-                // Any other character
-                simple(pomsky!( :(.) ), [Value(RawCharacters)]),
+                simple(pomsky!( % :("true" | "false") % ), [Value(Boolean)])                
             ]),
             ("literal-strings", vec![
                 // Escaped characters
