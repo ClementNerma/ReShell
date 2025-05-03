@@ -128,7 +128,7 @@ pub fn highlight(input: &str) -> Vec<Token> {
                     ValueType::Null => TokenType::ConstantValue,
                     ValueType::Boolean => TokenType::ConstantValue,
                     ValueType::Number => TokenType::Number,
-                    ValueType::RawCharacter => TokenType::String,
+                    ValueType::RawCharacters => TokenType::String,
                     ValueType::EscapedCharacter => TokenType::String,
                     ValueType::LiteralCharacter => TokenType::String,
                     ValueType::NamedFunction => TokenType::Function,

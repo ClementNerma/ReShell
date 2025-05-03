@@ -102,7 +102,7 @@ fn color_match_item(item: ItemType) -> Style {
             ValueType::Null => Yellow,
             ValueType::Boolean => Yellow,
             ValueType::Number => Yellow,
-            ValueType::RawCharacter => Green,
+            ValueType::RawCharacters => Green,
             ValueType::EscapedCharacter => Blue,
             ValueType::LiteralCharacter => Green,
             ValueType::NamedFunction => Magenta,

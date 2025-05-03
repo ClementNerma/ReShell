@@ -150,31 +150,14 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 // Pipes
                 simple(pomsky!( :('!'? '|') ), [Symbol(CmdPipe)]),
 
-                // Markers
-                simple(pomsky!( ^ [s]* :("include") % ), [Keyword]),
-
                 // Flags
                 simple(
                     pomsky!( [s] :('-' [Letter d '_' '-' '+' ':']*) ($ | ![Letter d '_' '-' '+' ':'])),
                     [Identifier(FlagName)]
                 ),
 
-                // Keywords
-                simple(pomsky!( % :("alias" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") % ), [Keyword]),
-
-                // 'self' keyword
-                simple(pomsky!( % :("self") %), [Keyword]),
-
-                // Numbers
-                simple(pomsky!( % :([d]+ ('.' [d]+)?) %), [Value(Number)]),
-
                 // Symbols and operators
-                simple(pomsky!( [s] :("&&" | "||" | "!") ( [s] | $ ) ), [Operator(Logic)]),
-                simple(pomsky!( [s] :("==" | "!=" | ['<' '>']) ( [s] | $ ) ), [Operator(Logic)]),
-                simple(pomsky!( [s] :(['+' '-' '*' '/' '%' '&' '|'] | "??") ( [s] | $ ) ), [Operator(Arithmetic)]),
-                simple(pomsky!( [s] :('=') ( [s] | $ ) ), [Operator(Assignment)]),
                 simple(pomsky!( [s] :(';') ( [s] | $ ) ), [Symbol(CmdSeparator)]),
-                simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
                 simple(pomsky!( [s] :(':') ( [s] | $ ) ), [Symbol(Colon)]),
                 simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
 
@@ -239,14 +222,33 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 // Variables
                 simple(pomsky!( :('$' ([Letter '_'] [Letter d '_']*)?) % ), [Identifier(VariableOrConstant)]),
 
-                // Booleans
-                simple(pomsky!( % :("true" | "false") % ), [Value(Boolean)]),
-
                 // Expansions
                 simple(pomsky!( [s ','] :("...") (% | ['$' '(']) ), [Operator(Spread)]),
+
+                // Raw strings
+                simple(pomsky!( :(![s '|' ';' ':' '#' '"' "'" '^']+) ), [Value(RawCharacters)]),
+
+                // Keywords
+                simple(pomsky!( % :("alias" | "include" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") % ), [Keyword]),
+
+                // 'self' keyword
+                simple(pomsky!( % :("self") %), [Keyword]),
+
+                // Numbers
+                simple(pomsky!( % :([d]+ ('.' [d]+)?) %), [Value(Number)]),
+
+                // Symbols and operators (suite)
+                simple(pomsky!( [s] :("&&" | "||" | "!") ( [s] | $ ) ), [Operator(Logic)]),
+                simple(pomsky!( [s] :("==" | "!=" | ['<' '>']) ( [s] | $ ) ), [Operator(Logic)]),
+                simple(pomsky!( [s] :(['+' '-' '*' '/' '%' '&' '|'] | "??") ( [s] | $ ) ), [Operator(Arithmetic)]),
+                simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
+                simple(pomsky!( [s] :('=') ( [s] | $ ) ), [Operator(Assignment)]),
+
+                // Booleans
+                simple(pomsky!( % :("true" | "false") % ), [Value(Boolean)]),
                 
                 // Any other character
-                simple(pomsky!( :(.) ), [Value(RawCharacter)]),
+                simple(pomsky!( :(.) ), [Value(RawCharacters)]),
             ]),
             ("literal-strings", vec![
                 // Escaped characters

@@ -57,7 +57,7 @@ define_item_types!(pub ItemType {
         Null,
         Boolean,
         Number,
-        RawCharacter,
+        RawCharacters,
         EscapedCharacter,
         LiteralCharacter,
         NamedFunction,
