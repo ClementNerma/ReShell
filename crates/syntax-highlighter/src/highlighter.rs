@@ -245,7 +245,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 // Raw strings
                 Rule::Simple(SimpleRule {
                     matches: Regex::new(pomsky!(
-                        :(![s '|' ';' ':' '#' '"' "'" '^']+)
+                        :(![s '|' ';' '"' "'"]+)
                     )).unwrap(),
                     inside: None,
                     preceded_by: None,
