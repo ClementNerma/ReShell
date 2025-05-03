@@ -60,6 +60,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             preceded_by: None,
             followed_by: None,
             followed_by_nesting: None,
+            validate: None,
             style: RuleStylization::Static(item_types.into()),
         })
     }
@@ -80,6 +81,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             preceded_by: None,
             followed_by: None,
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
+            validate: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                 vec![
                     Symbol(MethodDotPrefix),
@@ -100,14 +102,12 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             followed_by: None,
             followed_by_nesting: Some(HashSet::from([NestingOpeningType::ExprWithParen])),
             preceded_by: None,
+            validate: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                 vec![fn_name_style(&matched[1], cmd_checker)]
             })),
         })
     };
-
-    let keywords = HashSet::from(["alias", "include", "fn", "for", "while", "if", "else", "continue", "typematch", "match", "break", "throw", "try", "catch", "return", "do"]);
-    let keywords_bis = keywords.clone();
 
     // Build the rule set
     let rule_set = RuleSet {
@@ -171,6 +171,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     ),
                     followed_by: None,
                     followed_by_nesting: None,
+                    validate: None,
                     style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                         vec![Symbol(MethodDotPrefix), method_name_style(&matched[2], cmd_checker)]
                     })),
@@ -194,6 +195,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
+                    validate: Some(|matched| !matched[1].is_empty() || !KEYWORDS.contains(matched[2].as_str())),
                     style: RuleStylization::Dynamic(Box::new(move |matched, cmd_checker: &SharedCmdChecker| {
                         let is_external = !matched[1].is_empty();
 
@@ -203,9 +205,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                             CheckCmdType::BroadCmd
                         };
 
-                        let item_type = if !is_external && keywords.contains(matched[2].as_str()) {
-                            Keyword
-                        } else if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
+                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
                             Identifier(CmdNameOrPath)
                         } else {
                             Invalid(CmdPathNotFound)
@@ -235,6 +235,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
+                    validate: None,
                     style: RuleStylization::Static(vec![
                         Symbol(StructMemberDotPrefix),
                         Identifier(StructMember)
@@ -250,8 +251,9 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     preceded_by: None,
                     followed_by: None,
                     followed_by_nesting: None,
+                    validate: None,
                     style: RuleStylization::Dynamic(Box::new(move |matches, _| {
-                        let item_type = if keywords_bis.contains(matches[1].as_str()) {
+                        let item_type = if KEYWORDS.contains(matches[1].as_str()) {
                             Keyword
                         } else if matches[1].chars().enumerate().all(|(i, c)| c.is_ascii_digit() || (c == '.' && i > 0)) {
                             Value(Number)
@@ -262,9 +264,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                         vec![item_type]
                     }))
                 }),
-
-                // 'self' keyword
-                simple(pomsky!( % :("self") %), [Keyword]),
 
                 // Numbers
                 simple(pomsky!( % :([d]+ ('.' [d]+)?) %), [Value(Number)]),
@@ -332,6 +331,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
+                    validate: None,
                     style: RuleStylization::Static(vec![
                         Symbol(StructMemberDotPrefix),
                         Identifier(StructMember)
@@ -354,8 +354,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( [s] :(',') ( [s] | $ ) ), [Symbol(ArgSeparator)]),
                 simple(pomsky!( [s] :(':') ( [s] | $ ) ), [Symbol(Colon)]),
                 simple(pomsky!( [s] :('?') ( [s] | $ ) ), [Symbol(OptionalArgMarker)]),
-                // 'typeis' operator
-                simple(pomsky!( % :("typeis") % ), [Keyword]),
 
                 // Function argument name (TODO: hacky, should not be in "expressions" but in "fn args" or something)
                 simple(pomsky!( (% | ',') :([Letter '_'] [Letter d '_']*) [s]* :('?'? ':' | '=') ), [Identifier(FnArgument), Symbol(FnArgumentTypeOrValueSpecifier)]),
@@ -492,3 +490,5 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
 
     ValidatedRuleSet::validate(rule_set).unwrap()
 });
+
+static KEYWORDS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| HashSet::from(["alias", "include", "fn", "for", "while", "if", "else", "continue", "typematch", "match", "break", "throw", "try", "catch", "return", "do", "self", "typeis"]));

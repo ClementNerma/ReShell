@@ -87,6 +87,7 @@ pub struct SimpleRule<T> {
     pub preceded_by: Option<Regex>,
     pub followed_by: Option<Regex>,
     pub followed_by_nesting: Option<HashSet<NestingOpeningType>>,
+    pub validate: Option<fn(&[String]) -> bool>,
     pub style: RuleStylization<T>,
 }
 
@@ -292,6 +293,7 @@ fn highlight_piece<T>(
     let style = match &matched.rule.style {
         RuleStylization::Static(style) => style.clone(),
         RuleStylization::Dynamic(stylizer) => stylizer(
+            // TODO: don't allocate
             matched
                 ._captured
                 .iter()
@@ -374,6 +376,19 @@ impl<'h, 'str, T> Match<'h, 'str, T> {
                     },
                 )
             })?;
+
+        if rule.validate.is_some_and(|validate| {
+            !validate(
+                // TODO: don't allocate
+                cap._captured
+                    .iter()
+                    .map(|cap| cap.unwrap().as_str().to_owned())
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
+        }) {
+            return None;
+        }
 
         if cap.end > range.from + range.len {
             return None;
@@ -462,6 +477,7 @@ pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
             preceded_by,
             followed_by: _,
             followed_by_nesting,
+            validate: _,
             style,
         } = rule;
 
