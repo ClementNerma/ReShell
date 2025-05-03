@@ -20,6 +20,6 @@ terminal_size = "0.4.2"
 toml = "0.8.22"
 rand = { version = "0.9.1" }
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
-jiff = "0.2.10"
+jiff = "0.2.12"
 identconv = "0.2.0"
-globby = "0.1.13"
+globby = "0.1.14"
