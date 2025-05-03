@@ -261,8 +261,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     }))
                 }),
 
-                simple(pomsky!( :(![s '|' ';' ':' '#' '"' "'" '^']+) ), [Value(RawCharacters)]),
-
                 // Keywords
                 simple(pomsky!( % :("alias" | "include" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") % ), [Keyword]),
 
