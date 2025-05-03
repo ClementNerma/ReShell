@@ -106,6 +106,9 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
         })
     };
 
+    let keywords = HashSet::from(["alias", "include", "fn", "for", "while", "if", "else", "continue", "typematch", "match", "break", "throw", "try", "catch", "return", "do"]);
+    let keywords_bis = keywords.clone();
+
     // Build the rule set
     let rule_set = RuleSet {
         groups: [
@@ -181,7 +184,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     matches: Regex::new(pomsky!(
                         let delimiter = [s '(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
 
-                        :('^' | "")
+                        :('^'?)
                         :(!delimiter+)
                     )).unwrap(),
                     inside: None,
@@ -191,7 +194,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
-                    style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
+                    style: RuleStylization::Dynamic(Box::new(move |matched, cmd_checker: &SharedCmdChecker| {
                         let is_external = !matched[1].is_empty();
 
                         let cmd_type = if is_external {
@@ -200,7 +203,9 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                             CheckCmdType::BroadCmd
                         };
 
-                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
+                        let item_type = if !is_external && keywords.contains(matched[2].as_str()) {
+                            Keyword
+                        } else if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
                             Identifier(CmdNameOrPath)
                         } else {
                             Invalid(CmdPathNotFound)
@@ -245,11 +250,8 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     preceded_by: None,
                     followed_by: None,
                     followed_by_nesting: None,
-                    style: RuleStylization::Dynamic(Box::new(|matches, _| {
-                        // TODO: cache
-                        let keywords = HashSet::from(["alias", "include", "fn", "for", "while", "if", "else", "continue", "typematch", "match", "break", "throw", "try", "catch", "return", "do"]);
-
-                        let item_type = if keywords.contains(matches[1].as_str()) {
+                    style: RuleStylization::Dynamic(Box::new(move |matches, _| {
+                        let item_type = if keywords_bis.contains(matches[1].as_str()) {
                             Keyword
                         } else if matches[1].chars().enumerate().all(|(i, c)| c.is_ascii_digit() || (c == '.' && i > 0)) {
                             Value(Number)
@@ -260,9 +262,6 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                         vec![item_type]
                     }))
                 }),
-
-                // Keywords
-                simple(pomsky!( % :("alias" | "include" | "fn" | "for" | "while" | "if" | "else" | "continue" | "typematch" | "match" | "break" | "throw" | "try" | "catch" | "return" | "do") % ), [Keyword]),
 
                 // 'self' keyword
                 simple(pomsky!( % :("self") %), [Keyword]),
