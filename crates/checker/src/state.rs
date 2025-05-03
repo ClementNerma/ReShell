@@ -411,6 +411,7 @@ pub enum SpecialScopeType {
     CmdAlias,
 
     /// Inside the body of a loop
+    /// Will allow using 'break' and 'continue' inside it
     Loop,
 }
 
