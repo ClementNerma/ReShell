@@ -233,8 +233,8 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     style: RuleStylization::Static(vec![
                         Symbol(StructMemberDotPrefix),
                         Identifier(StructMember)
-                    ]) }
-                ),
+                    ])
+                }),
 
                 // Raw strings
                 Rule::Simple(SimpleRule {
