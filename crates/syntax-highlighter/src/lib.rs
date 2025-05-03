@@ -42,11 +42,3 @@ pub fn syntax_highlight(input: &str, cmd_checker: Option<CmdChecker>) -> Vec<Syn
 pub fn preinit_lazy_syntax_highlighter() {
     let _ = &self::highlighter::RULE_SET;
 }
-
-#[test]
-fn tmp() {
-    println!(
-        "{:?}",
-        syntax_highlight("$values.filter(:{ $it.len() <= 1 })", None)
-    )
-}
