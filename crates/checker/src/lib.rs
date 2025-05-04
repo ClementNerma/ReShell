@@ -59,24 +59,24 @@ pub fn check(
         state.push_scope(scope);
     }
 
-    check_block(content, &mut state)?;
+    check_block(&content.data, &mut state)?;
 
     Ok(())
 }
 
-fn check_block(block: &Span<Block>, state: &mut State) -> CheckerResult {
+fn check_block(block: &Block, state: &mut State) -> CheckerResult {
     check_block_with(block, state, |_| {})
 }
 
 fn check_block_with(
-    block: &Span<Block>,
+    block: &Block,
     state: &mut State,
     fill_scope: impl FnOnce(&mut CheckerScope),
 ) -> CheckerResult {
     let Block {
         scope_id,
         instructions,
-    } = &block.data;
+    } = block;
 
     let mut scope = CheckerScope {
         id: *scope_id,
@@ -110,7 +110,7 @@ fn check_block_with(
 
 fn block_first_pass(
     instructions: &[Span<Instruction>],
-    block: &Span<Block>,
+    block: &Block,
     state: &mut State,
 ) -> CheckerResult {
     for instr in instructions {
@@ -429,7 +429,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             check_block(body, state)?;
 
             for elsif in elsif {
-                let ElsIf { cond, body } = &elsif.data;
+                let ElsIf { cond, body } = elsif;
 
                 check_expr(&cond.data, state)?;
                 check_block(body, state)?;
@@ -1523,7 +1523,7 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
         }
     };
 
-    check_block_with(body, state, fill_scope)
+    check_block_with(&body.data, state, fill_scope)
 }
 
 fn check_fn_arg(arg: &FnSignatureArg, state: &mut State) -> CheckerResult<CheckedFnArg> {

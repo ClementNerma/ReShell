@@ -1516,12 +1516,7 @@ pub fn program(
             .ignore_then(s)
             .ignore_then(expr.clone().spanned().critical("expected a condition"))
             .then_ignore(ms)
-            .then(
-                block
-                    .clone()
-                    .spanned()
-                    .critical("expected a body for the condition"),
-            )
+            .then(block.clone().critical("expected a body for the condition"))
             .then(
                 msnl.ignore_then(just("else"))
                     .ignore_then(s)
@@ -1533,9 +1528,8 @@ pub fn program(
                             .critical("expected a condition for the 'else if' statement"),
                     )
                     .then_ignore(ms)
-                    .then(block.clone().spanned())
+                    .then(block.clone())
                     .map(|(cond, body)| ElsIf { cond, body })
-                    .spanned()
                     .repeated_into_vec()
                     .then(
                         msnl.ignore_then(just("else"))
@@ -1543,7 +1537,6 @@ pub fn program(
                             .ignore_then(
                                 block
                                     .clone()
-                                    .spanned()
                                     .critical("expected a body for the 'else' block"),
                             )
                             .or_not(),
@@ -1569,12 +1562,7 @@ pub fn program(
             .then(char('=').or_not().map(|c| c.is_some()))
             .then(range_bound.spanned().critical("expected a range end value"))
             .then_ignore(ms)
-            .then(
-                block
-                    .clone()
-                    .spanned()
-                    .critical("expected a body for the 'for' loop"),
-            )
+            .then(block.clone().critical("expected a body for the 'for' loop"))
             .map(|((((iter_var, iter_from), inclusive), iter_to), body)| {
                 Instruction::ForLoopRanged {
                     iter_var,
@@ -1599,12 +1587,7 @@ pub fn program(
                     .critical("expected an expression to iterate on"),
             )
             .then_ignore(ms)
-            .then(
-                block
-                    .clone()
-                    .spanned()
-                    .critical("expected a body for the 'for' loop"),
-            )
+            .then(block.clone().critical("expected a body for the 'for' loop"))
             .map(|((iter_var, iter_on), body)| Instruction::ForLoop {
                 iter_var,
                 iter_on,
@@ -1629,12 +1612,7 @@ pub fn program(
                     .critical("expected an expression to iterate on"),
             )
             .then_ignore(ms)
-            .then(
-                block
-                    .clone()
-                    .spanned()
-                    .critical("expected a body for the 'for' loop"),
-            )
+            .then(block.clone().critical("expected a body for the 'for' loop"))
             .map(
                 |(((key_iter_var, value_iter_var), iter_on), body)| Instruction::ForLoopKeyed {
                     key_iter_var,
@@ -1653,7 +1631,6 @@ pub fn program(
             .then(
                 block
                     .clone()
-                    .spanned()
                     .critical("expected a body for the 'while' loop"),
             )
             .map(|(cond, body)| Instruction::WhileLoop { cond, body }),
@@ -1696,14 +1673,14 @@ pub fn program(
                             .critical("expected an expression to match"),
                     )
                     .then_ignore(ms)
-                    .then(block.clone().spanned().critical("expected a block"))
+                    .then(block.clone().critical("expected a block"))
                     .map(|(matches, body)| MatchCase { matches, body })
                     .repeated_into_vec(),
             )
             .then(
                 msnl.ignore_then(just("else"))
                     .ignore_then(ms)
-                    .ignore_then(block.clone().spanned().critical("expected a block"))
+                    .ignore_then(block.clone().critical("expected a block"))
                     .or_not(),
             )
             .then_ignore(msnl)
@@ -1726,14 +1703,14 @@ pub fn program(
                     .ignore_then(ms)
                     .ignore_then(value_type.clone().critical("expected a type to match"))
                     .then_ignore(ms)
-                    .then(block.clone().spanned().critical("expected a block"))
+                    .then(block.clone().critical("expected a block"))
                     .map(|(matches, body)| TypeMatchCase { matches, body })
                     .repeated_into_vec(),
             )
             .then(
                 msnl.ignore_then(just("else"))
                     .ignore_then(ms)
-                    .ignore_then(block.clone().spanned().critical("expected a block"))
+                    .ignore_then(block.clone().critical("expected a block"))
                     .or_not(),
             )
             .then_ignore(msnl)
@@ -1848,7 +1825,7 @@ pub fn program(
                     .critical("expected a variable to catch the throw value in"),
             )
             .then_ignore(s.critical_auto_msg())
-            .then(block.clone().spanned().critical("expected a block"))
+            .then(block.clone().critical("expected a block"))
             .map(
                 move |((try_expr, catch_var), catch_body)| Instruction::Try {
                     try_expr,
@@ -1900,7 +1877,7 @@ pub fn program(
         //
         just("do")
             .ignore_then(s)
-            .ignore_then(block.spanned().critical("expected a block"))
+            .ignore_then(block.critical("expected a block"))
             .map(Instruction::DoBlock),
         //
         // Include statement

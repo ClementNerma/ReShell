@@ -67,19 +67,13 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 }
 
 fn run_block(
-    block: &Span<Block>,
+    block: &Block,
     ctx: &mut Context,
     content: Option<ScopeContent>,
 ) -> ExecResult<Option<InstrRet>> {
-    // Handle any Ctrl+C press
-    ctx.ensure_no_ctrl_c_press(block.at)?;
+    ctx.create_and_push_scope(block.scope_id, content.unwrap_or_else(ScopeContent::new));
 
-    ctx.create_and_push_scope(
-        block.data.scope_id,
-        content.unwrap_or_else(ScopeContent::new),
-    );
-
-    let result = run_block_in_current_scope(&block.data, ctx);
+    let result = run_block_in_current_scope(block, ctx);
 
     ctx.pop_scope();
 
@@ -87,23 +81,20 @@ fn run_block(
 }
 
 pub(crate) fn run_block_detailed(
-    block: &Span<Block>,
+    block: &Block,
     ctx: &mut Context,
     scope_content: ScopeContent,
     parent_scopes: IndexSet<u64>,
     call_stack_entry: Option<CallStackEntry>,
 ) -> ExecResult<Option<InstrRet>> {
-    // Handle any Ctrl+C press
-    ctx.ensure_no_ctrl_c_press(block.at)?;
-
     ctx.create_and_push_scope_detailed(
-        block.data.scope_id,
+        block.scope_id,
         scope_content,
         parent_scopes,
         call_stack_entry,
     );
 
-    let result = run_block_in_current_scope(&block.data, ctx);
+    let result = run_block_in_current_scope(block, ctx);
 
     ctx.pop_scope();
 
@@ -152,9 +143,6 @@ fn block_first_pass(
     ctx: &mut Context,
 ) -> ExecResult<()> {
     for instr in instructions {
-        // Handle any Ctrl+C press
-        ctx.ensure_no_ctrl_c_press(instr.at)?;
-
         // Run the instruction
         match &instr.data {
             Instruction::FnDecl { name, content } => {
@@ -234,6 +222,9 @@ fn block_first_pass(
 }
 
 fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
+    // Handle any Ctrl+C press
+    ctx.ensure_no_ctrl_c_press(instr.at)?;
+
     let instr_ret = match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             let init_value = eval_expr(&init_expr.data, ctx)?;
@@ -360,7 +351,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 ret = Some(run_block(body, ctx, None)?);
             } else {
                 for branch in elsif {
-                    let ElsIf { cond, body } = &branch.data;
+                    let ElsIf { cond, body } = branch;
 
                     let cond_val = eval_expr(&cond.data, ctx)?;
 
@@ -398,7 +389,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             iter_var.data.clone(),
                             ScopeVar {
                                 name_at: RuntimeCodeRange::Parsed(iter_var.at),
-                                decl_scope_id: body.data.scope_id,
+                                decl_scope_id: body.scope_id,
                                 is_mut: false,
                                 enforced_type: None,
                                 value: GcCell::new(LocatedValue::new(
@@ -485,7 +476,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     iter_var.data.clone(),
                     ScopeVar {
                         name_at: RuntimeCodeRange::Parsed(iter_var.at),
-                        decl_scope_id: body.data.scope_id,
+                        decl_scope_id: body.scope_id,
                         is_mut: false,
                         enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
@@ -558,7 +549,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     key_iter_var.data.clone(),
                     ScopeVar {
                         name_at: RuntimeCodeRange::Parsed(key_iter_var.at),
-                        decl_scope_id: body.data.scope_id,
+                        decl_scope_id: body.scope_id,
                         is_mut: false,
                         enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
@@ -572,7 +563,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     value_iter_var.data.clone(),
                     ScopeVar {
                         name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
-                        decl_scope_id: body.data.scope_id,
+                        decl_scope_id: body.scope_id,
                         is_mut: false,
                         enforced_type: None,
                         value: GcCell::new(LocatedValue::new(
@@ -831,7 +822,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         catch_var.data.clone(),
                         ScopeVar {
                             name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                            decl_scope_id: catch_body.data.scope_id,
+                            decl_scope_id: catch_body.scope_id,
                             is_mut: false,
                             enforced_type: None,
                             value: GcCell::new(LocatedValue::new(

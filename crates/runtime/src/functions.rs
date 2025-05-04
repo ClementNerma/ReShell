@@ -143,7 +143,7 @@ pub fn call_fn_value(
             });
 
             let instr_ret = run_block_detailed(
-                body,
+                &body.data,
                 ctx,
                 scope_content,
                 func.parent_scopes.clone(),

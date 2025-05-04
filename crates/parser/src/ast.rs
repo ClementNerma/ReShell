@@ -34,16 +34,16 @@ pub enum Instruction {
     /// 'if' conditional
     IfCond {
         cond: Span<Expr>,
-        body: Span<Block>,
-        elsif: Vec<Span<ElsIf>>,
-        els: Option<Span<Block>>,
+        body: Block,
+        elsif: Vec<ElsIf>,
+        els: Option<Block>,
     },
 
     /// 'for' loop
     ForLoop {
         iter_var: Span<String>,
         iter_on: Span<Expr>,
-        body: Span<Block>,
+        body: Block,
     },
 
     /// Ranged 'for' loop
@@ -52,7 +52,7 @@ pub enum Instruction {
         iter_from: Span<RangeBound>,
         iter_to: Span<RangeBound>,
         inclusive: bool,
-        body: Span<Block>,
+        body: Block,
     },
 
     /// Keyed 'for' loop
@@ -60,11 +60,11 @@ pub enum Instruction {
         key_iter_var: Span<String>,
         value_iter_var: Span<String>,
         iter_on: Span<Expr>,
-        body: Span<Block>,
+        body: Block,
     },
 
     /// 'while' loop
-    WhileLoop { cond: Span<Expr>, body: Span<Block> },
+    WhileLoop { cond: Span<Expr>, body: Block },
 
     /// 'continue' in a loop
     LoopContinue,
@@ -76,14 +76,14 @@ pub enum Instruction {
     Match {
         expr: Span<Expr>,
         cases: Vec<MatchCase>,
-        els: Option<Span<Block>>,
+        els: Option<Block>,
     },
 
     /// 'typematch' statement
     TypeMatch {
         expr: Span<Expr>,
         cases: Vec<TypeMatchCase>,
-        els: Option<Span<Block>>,
+        els: Option<Block>,
     },
 
     /// Function declaration
@@ -109,7 +109,7 @@ pub enum Instruction {
     Try {
         try_expr: Span<Expr>,
         catch_var: Span<String>,
-        catch_body: Span<Block>,
+        catch_body: Block,
     },
 
     /// Command alias declaration
@@ -126,7 +126,7 @@ pub enum Instruction {
     },
 
     /// 'do' block
-    DoBlock(Span<Block>),
+    DoBlock(Block),
 
     /// Command call
     CmdCall(Span<CmdCall>),
@@ -181,19 +181,19 @@ pub struct SingleVarDecl {
 #[derive(Debug, Clone)]
 pub struct ElsIf {
     pub cond: Span<Expr>,
-    pub body: Span<Block>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone)]
 pub struct MatchCase {
     pub matches: Span<Expr>,
-    pub body: Span<Block>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone)]
 pub struct TypeMatchCase {
     pub matches: ValueType,
-    pub body: Span<Block>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone)]

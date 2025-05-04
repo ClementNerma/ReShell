@@ -266,7 +266,7 @@ impl<'a> State<'a> {
         &mut self,
         name: &Span<String>,
         content: &Span<ValueType>,
-        inside_block: &Span<Block>,
+        inside_block: &Block,
     ) {
         let content = shared(content.clone());
 
@@ -276,7 +276,7 @@ impl<'a> State<'a> {
 
         self.collected
             .type_aliases_decl_by_scope
-            .entry(inside_block.data.scope_id)
+            .entry(inside_block.scope_id)
             .or_default()
             .insert(name.data.clone(), content);
     }
