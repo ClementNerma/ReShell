@@ -25,7 +25,13 @@ pub struct Args {
     )]
     pub skip_init_script: bool,
 
-    #[clap(short, long, help = "Display timings")]
+    #[clap(
+        short,
+        long,
+        help = "Display timings",
+        conflicts_with = "eval",
+        conflicts_with = "exec_file"
+    )]
     pub timings: bool,
 
     #[clap(flatten)]
