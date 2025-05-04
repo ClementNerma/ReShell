@@ -219,8 +219,6 @@ pub fn call_fn_value(
         }
     }
 
-    ctx.ensure_no_ctrl_c_press(call_at)?;
-
     Ok(returned)
 }
 

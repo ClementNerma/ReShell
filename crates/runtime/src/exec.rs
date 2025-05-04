@@ -123,6 +123,9 @@ fn run_instructions_in_current_scope(
     for instr in instructions {
         wandering_value = None;
 
+        // Handle any Ctrl+C press
+        ctx.ensure_no_ctrl_c_press(instr.at)?;
+
         match run_instr(instr, ctx)? {
             Some(InstrRet::WanderingValue(value)) => {
                 wandering_value = Some(value);
@@ -222,9 +225,6 @@ fn block_first_pass(
 }
 
 fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
-    // Handle any Ctrl+C press
-    ctx.ensure_no_ctrl_c_press(instr.at)?;
-
     let instr_ret = match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
             let init_value = eval_expr(&init_expr.data, ctx)?;
