@@ -4,16 +4,12 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Span};
 use reshell_checker::{
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
-    long_flag_var_name,
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
 };
 use reshell_parser::{
-    ast::{
-        Block, CmdCall, FnSignature, Program, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
-        ValueType,
-    },
+    ast::{Block, CmdCall, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
     files::FilesMap,
     scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
 };
@@ -65,11 +61,6 @@ pub struct Context {
     /// Data collected from the checker
     /// Whenever a new program is run, the new program's data is merged with the existing one
     collected: CheckerOutput,
-
-    /// Converted long flag names
-    ///
-    /// Used to avoid having to compute camel case version of each long flag at runtime
-    long_flags_var_name: HashMap<String, String>,
 }
 
 impl Context {
@@ -102,7 +93,6 @@ impl Context {
             current_scope: NATIVE_LIB_SCOPE_ID,
             program_main_scope: None,
             collected: CheckerOutput::empty(),
-            long_flags_var_name: HashMap::new(),
             conf,
         }
     }
@@ -638,14 +628,6 @@ impl Context {
             Some(cmd_call) => Arc::clone(cmd_call),
             None => self.panic(at, "command call data is missing"),
         }
-    }
-
-    /// Get (ideally cached) variable name for the given long flag
-    pub(crate) fn get_long_flag_var_name(&mut self, from: &RuntimeSpan<String>) -> String {
-        self.long_flags_var_name
-            .entry(from.data.clone())
-            .or_insert_with(|| long_flag_var_name(&from.data))
-            .clone()
     }
 
     /// Capture all dependencies for an item used at a point in time

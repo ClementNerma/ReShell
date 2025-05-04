@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use colored::Colorize;
 use parsy::{CodeRange, Span};
+use reshell_checker::long_flag_var_name;
 use reshell_parser::ast::{
     CmdFlagArgName, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnSignatureArg,
     FnSignatureFlagArgNames, FnSignatureNormalFlagArg, FnSignaturePositionalArg,
@@ -243,7 +244,7 @@ fn fill_fn_args(
     let mut rest_args = Some(rest_args);
 
     for arg in fn_args {
-        let arg_var_name = fn_arg_var_name(arg, ctx);
+        let arg_var_name = fn_arg_var_name(arg);
 
         if parsed_args.contains_key(&arg_var_name) {
             continue;
@@ -499,7 +500,7 @@ fn parse_single_fn_call_arg<'a>(
                     FnSignatureArg::Positional(_) | FnSignatureArg::Rest(_) => continue,
 
                     FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => {
-                        let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
+                        let Some(var_name) = get_matching_var_name(&name.data, names) else {
                             continue;
                         };
 
@@ -552,7 +553,7 @@ fn parse_single_fn_call_arg<'a>(
                         is_optional,
                         typ,
                     }) => {
-                        let Some(var_name) = get_matching_var_name(&name.data, names, ctx) else {
+                        let Some(var_name) = get_matching_var_name(&name.data, names) else {
                             continue;
                         };
 
@@ -863,7 +864,7 @@ fn fn_arg_human_name(arg: &FnSignatureArg) -> String {
     }
 }
 
-fn fn_arg_var_name(arg: &FnSignatureArg, ctx: &mut Context) -> String {
+fn fn_arg_var_name(arg: &FnSignatureArg) -> String {
     match &arg {
         FnSignatureArg::Positional(FnSignaturePositionalArg {
             name,
@@ -873,9 +874,9 @@ fn fn_arg_var_name(arg: &FnSignatureArg, ctx: &mut Context) -> String {
 
         FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => match names {
             FnSignatureFlagArgNames::ShortFlag(short) => short.data.to_string(),
-            FnSignatureFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
+            FnSignatureFlagArgNames::LongFlag(long) => long_flag_var_name(&long.data),
             FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
-                ctx.get_long_flag_var_name(long)
+                long_flag_var_name(&long.data)
             }
         },
 
@@ -885,9 +886,9 @@ fn fn_arg_var_name(arg: &FnSignatureArg, ctx: &mut Context) -> String {
             typ: _,
         }) => match names {
             FnSignatureFlagArgNames::ShortFlag(short) => short.data.to_string(),
-            FnSignatureFlagArgNames::LongFlag(long) => ctx.get_long_flag_var_name(long),
+            FnSignatureFlagArgNames::LongFlag(long) => long_flag_var_name(&long.data),
             FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
-                ctx.get_long_flag_var_name(long)
+                long_flag_var_name(&long.data)
             }
         },
 
@@ -923,11 +924,7 @@ fn fn_arg_var_at(arg: &FnSignatureArg) -> RuntimeCodeRange {
     }
 }
 
-fn get_matching_var_name(
-    name: &CmdFlagArgName,
-    into: &FnSignatureFlagArgNames,
-    ctx: &mut Context,
-) -> Option<String> {
+fn get_matching_var_name(name: &CmdFlagArgName, into: &FnSignatureFlagArgNames) -> Option<String> {
     match name {
         CmdFlagArgName::Short(name) => match into {
             FnSignatureFlagArgNames::ShortFlag(short) => {
@@ -942,7 +939,7 @@ fn get_matching_var_name(
 
             FnSignatureFlagArgNames::LongAndShortFlag { long, short } => {
                 if *name == short.data {
-                    Some(ctx.get_long_flag_var_name(long))
+                    Some(long_flag_var_name(&long.data))
                 } else {
                     None
                 }
@@ -955,7 +952,7 @@ fn get_matching_var_name(
             FnSignatureFlagArgNames::LongFlag(long)
             | FnSignatureFlagArgNames::LongAndShortFlag { long, short: _ } => {
                 if *name == long.data {
-                    Some(ctx.get_long_flag_var_name(long))
+                    Some(long_flag_var_name(&long.data))
                 } else {
                     None
                 }
