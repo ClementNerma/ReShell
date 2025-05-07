@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-parsy = "0.13.1"
+parsy = "0.14.5"

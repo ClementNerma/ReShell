@@ -1,11 +1,6 @@
 use std::{borrow::Cow, collections::HashSet, sync::LazyLock};
 
-use parsy::{
-    FileId, Parser, ParsingError,
-    atoms::{alphanumeric, digits},
-    char, choice, empty, end, filter, just, lookahead, newline, not, recursive, silent_choice,
-    to_define, whitespaces,
-};
+use parsy::{FileId, Parser, ParsingError, chars::alphanumeric, helpers::*};
 
 use crate::{
     ast::{
@@ -412,7 +407,7 @@ pub fn program(
 
     let int_literal = char('-')
         .or_not()
-        .then(digits(10))
+        .then(digit(10))
         .not_followed_by(possible_ident_char)
         .map_str(|num| str::parse::<i64>(num).unwrap());
 
@@ -433,9 +428,14 @@ pub fn program(
         // Floats
         char('-')
             .or_not()
-            .then(digits(10))
+            .then(digit(10).repeated().at_least(1))
             .then(char('.'))
-            .then(digits(10).critical("expected digits after the dot separator"))
+            .then(
+                digit(10)
+                    .repeated()
+                    .at_least(1)
+                    .critical("expected digits after the dot separator"),
+            )
             .not_followed_by(possible_ident_char)
             .map_str(|num| LiteralValue::Float(str::parse::<f64>(num).unwrap())),
         // Integers
