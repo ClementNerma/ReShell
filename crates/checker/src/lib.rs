@@ -19,21 +19,18 @@ pub mod typechecking;
 use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Span};
-use reshell_parser::{
-    ast::{
-        Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
-        CmdFlagArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
-        CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece,
-        ElsIf, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg,
-        FnCall, FnCallNature, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
-        FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
-        FnSignatureRestArg, Function, Instruction, ListItem, LiteralValue, MapItem, MapKey,
-        MatchCase, MatchExprCase, ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType,
-        Program, PropAccess, PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall,
-        SingleOp, SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember,
-        TypeMatchCase, TypeMatchExprCase, Value, ValueType, VarSpreading,
-    },
-    scope::AstScopeId,
+use reshell_parser::ast::{
+    AstScopeId, Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
+    CmdFlagArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
+    CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, ComputedString, ComputedStringPiece, ElsIf,
+    ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, FnArg, FnCall,
+    FnCallNature, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
+    FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, Function,
+    Instruction, ListItem, LiteralValue, MapItem, MapKey, MatchCase, MatchExprCase,
+    ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess,
+    PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
+    SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase,
+    Value, ValueType, VarSpreading,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 

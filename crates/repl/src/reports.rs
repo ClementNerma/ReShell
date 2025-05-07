@@ -15,7 +15,7 @@ use parsy::{CodeRange, FileId, ParserExpectation, ParsingError, SourceFileID, Sp
 use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
-    files::{FilesMap, SourceFile, SourceFileLocation},
+    files_map::{FilesMap, SourceFile, SourceFileLocation},
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{

@@ -9,9 +9,12 @@ use reshell_checker::{
     },
 };
 use reshell_parser::{
-    ast::{Block, CmdCall, FnSignature, Program, RuntimeCodeRange, SingleCmdCall, ValueType},
-    files::FilesMap,
-    scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
+    NATIVE_LIB_AST_SCOPE_ID,
+    ast::{
+        AstScopeId, Block, CmdCall, FnSignature, Program, RuntimeCodeRange, SingleCmdCall,
+        ValueType,
+    },
+    files_map::FilesMap,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore};
 

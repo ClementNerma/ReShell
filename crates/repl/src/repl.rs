@@ -14,16 +14,12 @@ use std::{
 };
 
 use colored::Colorize;
-use parsy::Parser;
 use reedline::{Reedline, Signal};
 use reshell_builtins::repl::{
     completer::{CompletionStringSegment, generate_completions},
     prompt::{LastCmdStatus, PromptRendering, render_prompt},
 };
-use reshell_parser::{
-    ast::{Instruction, Program},
-    files::SourceFileLocation,
-};
+use reshell_parser::{ast::Instruction, files_map::SourceFileLocation};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::Context,
@@ -47,7 +43,6 @@ use crate::{
 
 pub fn start(
     mut ctx: Context,
-    parser: impl Parser<Program>,
     exec_args: ExecArgs,
     timings: Timings,
     show_timings: bool,
@@ -140,7 +135,6 @@ pub fn start(
         let ret = run_script(
             &input,
             SourceFileLocation::CustomName(format!("repl[{counter}]")),
-            &parser,
             exec_args,
             &mut ctx,
         );

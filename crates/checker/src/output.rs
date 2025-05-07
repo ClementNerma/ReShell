@@ -4,10 +4,7 @@ use std::{
 };
 
 use parsy::{CodeRange, Span};
-use reshell_parser::{
-    ast::{Block, CmdCall, FnSignature, SingleCmdCall, ValueType},
-    scope::AstScopeId,
-};
+use reshell_parser::ast::{AstScopeId, Block, CmdCall, FnSignature, SingleCmdCall, ValueType};
 
 /// Sharing type used to avoid cloning in the runtime
 pub type SharingType<T> = Arc<T>;

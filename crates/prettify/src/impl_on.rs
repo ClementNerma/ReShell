@@ -12,7 +12,7 @@ use reshell_parser::{
         FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
         FnSignatureRestArg, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
     },
-    files::{FilesMap, SourceFileLocation},
+    files_map::{FilesMap, SourceFileLocation},
 };
 
 use crate::{PrettyPrintable, PrettyPrintablePiece, Styled};

@@ -1,5 +1,5 @@
 use parsy::FileId;
-use reshell_parser::files::SourceFileLocation;
+use reshell_parser::files_map::SourceFileLocation;
 
 crate::define_internal_fn!(
     "currentScriptPath",

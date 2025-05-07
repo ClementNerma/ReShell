@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use parsy::{CodeRange, Span};
 use reshell_parser::{
-    ast::{Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
-    scope::{AstScopeId, NATIVE_LIB_AST_SCOPE_ID},
+    NATIVE_LIB_AST_SCOPE_ID,
+    ast::{AstScopeId, Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
 };
 use reshell_prettify::TypeAliasStore;
 

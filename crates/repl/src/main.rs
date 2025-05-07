@@ -2,19 +2,19 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
-use std::{fs, path::PathBuf, process::ExitCode, time::Instant};
+use std::{any::Any, fs, path::PathBuf, process::ExitCode, sync::LazyLock, time::Instant};
 
 use clap::Parser as _;
 use colored::Colorize;
-use parsy::FileId;
+use parsy::{FileId, Parser, ParserInput, ParserResult};
 use reshell_builtins::{
     builder::{NativeLibParams, build_native_lib_content},
     repl::on_dir_jump::trigger_directory_jump_event,
 };
 use reshell_parser::{
-    ast::RuntimeCodeRange,
-    files::{FilesMap, SourceFileLocation},
-    program,
+    PROGRAM, ParserContext,
+    ast::{Program, RuntimeCodeRange},
+    files_map::{FilesMap, SourceFileLocation},
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
@@ -101,39 +101,6 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         }
     }
 
-    // Create a files map
-    let files_map = FilesMap::new(Box::new(|path, relative_to, files_map| {
-        let mut path = PathBuf::from(path);
-
-        if !path.is_absolute() {
-            match relative_to {
-                FileId::None | FileId::Internal | FileId::Custom(_) => {}
-                FileId::SourceFile(id) => match files_map.get_file(id).unwrap().location {
-                    SourceFileLocation::CustomName(_) => {}
-                    SourceFileLocation::RealFile(relative_to) => {
-                        path = relative_to.parent().unwrap().join(path);
-                    }
-                },
-            }
-        };
-
-        let canon = dunce::canonicalize(&path)
-            .map_err(|err| format!("failed to include file at path '{}': {err}", path.display()))?;
-
-        let content = fs::read_to_string(&path).map_err(|err| match std::env::current_dir() {
-            Err(_) => format!("failed to include file at path: '{}'", path.display()),
-            Ok(curr_dir) => {
-                format!(
-                    "failed to include file at path '{}' from directory '{}': {err}",
-                    path.display(),
-                    curr_dir.display()
-                )
-            }
-        })?;
-
-        Ok((SourceFileLocation::RealFile(canon), content))
-    }));
-
     match &*HOME_DIR {
         Some(home_dir) => {
             if !home_dir.is_dir() {
@@ -157,7 +124,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     let mut ctx = Context::new(
         ContextCreationParams {
             runtime_conf: convert_runtime_conf(runtime_conf_args),
-            files_map: files_map.clone(),
+            files_map: FILES_MAP.clone(),
             take_ctrl_c_indicator: take_pending_ctrl_c_request,
             home_dir: HOME_DIR.clone(),
             on_dir_jump,
@@ -169,8 +136,6 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             script_args: script_args.to_vec(),
         }),
     );
-
-    let parser = program(move |path, relative| files_map.load_file(&path, relative));
 
     if let Some(file_path) = exec_file {
         if !file_path.exists() {
@@ -188,7 +153,6 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         let result = run_script(
             &content,
             SourceFileLocation::RealFile(file_path),
-            &parser,
             exec_args,
             &mut ctx,
         );
@@ -208,7 +172,6 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         return match run_script(
             &input,
             SourceFileLocation::CustomName("eval".to_owned()),
-            &parser,
             exec_args,
             &mut ctx,
         ) {
@@ -260,7 +223,6 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                             let init_script_result = run_script(
                                 &source,
                                 SourceFileLocation::RealFile(init_file.clone()),
-                                &parser,
                                 exec_args,
                                 &mut ctx,
                             );
@@ -287,7 +249,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         before_repl: Instant::now(),
     };
 
-    repl::start(ctx, parser, exec_args, timings, show_timings)
+    repl::start(ctx, exec_args, timings, show_timings)
         .map(|code| code.unwrap_or(ExitCode::SUCCESS))
         .map_err(|err| format!("REPL crashed: {err:?}"))
 }
@@ -346,3 +308,51 @@ fn on_dir_jump(ctx: &mut Context, at: RuntimeCodeRange) -> ExecResult<()> {
 
     trigger_directory_jump_event(ctx, &current_dir)
 }
+
+fn parse_program(source: &str, file_id: FileId) -> ParserResult<Program> {
+    PROGRAM.parse(&mut ParserInput::new_with_ctx(
+        source,
+        file_id,
+        get_parser_ctx,
+    ))
+}
+
+fn get_parser_ctx() -> Box<dyn Any> {
+    Box::new(ParserContext {
+        load_file: Box::new(|path, relative| FILES_MAP.load_file(&path, relative)),
+    })
+}
+
+static FILES_MAP: LazyLock<FilesMap> = LazyLock::new(|| {
+    FilesMap::new(Box::new(|path, relative_to, files_map| {
+        let mut path = PathBuf::from(path);
+
+        if !path.is_absolute() {
+            match relative_to {
+                FileId::None | FileId::Internal | FileId::Custom(_) => {}
+                FileId::SourceFile(id) => match files_map.get_file(id).unwrap().location {
+                    SourceFileLocation::CustomName(_) => {}
+                    SourceFileLocation::RealFile(relative_to) => {
+                        path = relative_to.parent().unwrap().join(path);
+                    }
+                },
+            }
+        };
+
+        let canon = dunce::canonicalize(&path)
+            .map_err(|err| format!("failed to include file at path '{}': {err}", path.display()))?;
+
+        let content = fs::read_to_string(&path).map_err(|err| match std::env::current_dir() {
+            Err(_) => format!("failed to include file at path: '{}'", path.display()),
+            Ok(curr_dir) => {
+                format!(
+                    "failed to include file at path '{}' from directory '{}': {err}",
+                    path.display(),
+                    curr_dir.display()
+                )
+            }
+        })?;
+
+        Ok((SourceFileLocation::RealFile(canon), content))
+    }))
+});

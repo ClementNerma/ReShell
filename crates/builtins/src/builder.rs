@@ -4,8 +4,8 @@ use std::{collections::HashMap, ffi::OsString, path::PathBuf};
 
 use indexmap::IndexSet;
 use reshell_parser::{
+    NATIVE_LIB_AST_SCOPE_ID,
     ast::{FnSignature, ValueType},
-    scope::NATIVE_LIB_AST_SCOPE_ID,
 };
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeMethod, ScopeVar},

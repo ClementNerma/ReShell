@@ -9,12 +9,9 @@ use std::{
 use dyn_clone::DynClone;
 use indexmap::{IndexMap, IndexSet};
 use parsy::{CodeRange, Span};
-use reshell_parser::{
-    ast::{
-        Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
-        SingleValueType, StructTypeMember, ValueType,
-    },
-    scope::AstScopeId,
+use reshell_parser::ast::{
+    AstScopeId, Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
+    SingleValueType, StructTypeMember, ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 

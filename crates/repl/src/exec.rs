@@ -1,14 +1,13 @@
-use parsy::{FileId, Parser};
-use reshell_parser::{ast::Program, files::SourceFileLocation};
+use parsy::FileId;
+use reshell_parser::files_map::SourceFileLocation;
 use reshell_runtime::{context::Context, exec::run_program, values::LocatedValue};
 
-use crate::{args::ExecArgs, reports::ReportableError};
+use crate::{args::ExecArgs, parse_program, reports::ReportableError};
 
 /// Run a ReShell script
 pub fn run_script(
     input: &str,
     file_loc: SourceFileLocation,
-    parser: &impl Parser<Program>,
     exec_args: ExecArgs,
     ctx: &mut Context,
 ) -> Result<Option<LocatedValue>, ReportableError> {
@@ -19,9 +18,8 @@ pub fn run_script(
 
     let file_id = ctx.files_map().register_file(file_loc, input.to_string());
 
-    let parsed = parser
-        .parse_str_with_file_id(input, FileId::SourceFile(file_id))
-        .map_err(ReportableError::Parsing)?;
+    let parsed =
+        parse_program(input, FileId::SourceFile(file_id)).map_err(ReportableError::Parsing)?;
 
     if print_ast {
         println!("AST: {parsed:#?}");

@@ -1,6 +1,8 @@
 use parsy::{CodeRange, Span};
 
-use crate::scope::AstScopeId;
+/// A scope ID
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct AstScopeId(pub(crate) u64);
 
 /// A complete parsed program
 #[derive(Debug, Clone)]
