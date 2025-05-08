@@ -369,9 +369,9 @@ dependencies = [
 
 [[package]]
 name = "globby"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16a223e7a7c89c64b3215f0fbe1a2d7c933f27b15162f58c8eb8957aa9fec618"
+checksum = "d94abc13c279d60a25a752d7dbd7cca2fdfab41636d370b5d3a5a51693d31182"
 dependencies = [
  "parsy 0.13.2",
  "regex",
