@@ -102,6 +102,10 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
 }
 
 fn globify(input: &str) -> String {
+    if input.is_empty() {
+        return "*".to_owned();
+    }
+
     let mut globified_segments: Vec<String> = vec![];
 
     let segments = input.split(['/', '\\']).collect::<Vec<_>>();
