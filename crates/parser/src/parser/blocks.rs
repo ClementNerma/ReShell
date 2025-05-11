@@ -22,31 +22,29 @@ pub(crate) fn generate_scope_id() -> AstScopeId {
 pub static RAW_BLOCK: LazilyDefined<Block> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl);
 
-    Box::new(
-        INSTRUCTION
-            .static_ref()
-            .padded_by(msnl)
-            .repeated_into_vec()
-            .map(move |instructions| Block {
-                scope_id: generate_scope_id(), // TODO: scope_id_gen.next(),
-                instructions,
-            })
-            .followed_by(
-                msnl.then(silent_choice((end(), char('}'))))
-                    .critical("expected an instruction"),
-            ),
-    )
+    INSTRUCTION
+        .static_ref()
+        .padded_by(msnl)
+        .repeated_into_vec()
+        .map(move |instructions| Block {
+            scope_id: generate_scope_id(), // TODO: scope_id_gen.next(),
+            instructions,
+        })
+        .followed_by(
+            msnl.then(silent_choice((end(), char('}'))))
+                .critical("expected an instruction"),
+        )
+        .erase_type()
 });
 
 pub static BLOCK: LazilyDefined<Block> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl);
 
-    Box::new(
-        char('{')
-            .critical_auto_msg()
-            .ignore_then(msnl)
-            .ignore_then(RAW_BLOCK.static_ref())
-            .then_ignore(msnl)
-            .then_ignore(char('}').critical_auto_msg()),
-    )
+    char('{')
+        .critical_auto_msg()
+        .ignore_then(msnl)
+        .ignore_then(RAW_BLOCK.static_ref())
+        .then_ignore(msnl)
+        .then_ignore(char('}').critical_auto_msg())
+        .erase_type()
 });

@@ -5,5 +5,5 @@ edition = "2024"
 
 [dependencies]
 colored = "3.0.0"
-parsy = "0.15.0"
+parsy = "0.15.2"
 reshell-parser = { version = "0.1.0", path = "../parser" }

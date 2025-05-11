@@ -24,7 +24,7 @@ use crate::{
 pub static PROP_ACCESS_NATURE: LazilyDefined<PropAccessNature> = LazilyDefined::new(|| {
     use_basic_parsers!(ident, msnl);
 
-    Box::new(choice::<PropAccessNature, _>((
+    choice::<PropAccessNature, _>((
         char('.')
             .ignore_then(ident.spanned().critical("expected a property name"))
             .not_followed_by(char('('))
@@ -40,13 +40,14 @@ pub static PROP_ACCESS_NATURE: LazilyDefined<PropAccessNature> = LazilyDefined::
             .map(Box::new)
             .then_ignore(char(']').critical_auto_msg())
             .map(PropAccessNature::Key),
-    )))
+    ))
+    .erase_type()
 });
 
 pub static EXPR: LazilyDefined<Expr> = LazilyDefined::new(|| {
     use_basic_parsers!(s, msnl, ms, ident);
 
-    Box::new(recursive_shared::<Expr, _>(|expr| {
+    recursive_shared::<Expr, _>(|expr| {
         let single_op = choice::<SingleOp, _>((char('!').to(SingleOp::Neg),));
 
         let double_op = not(just("->")).ignore_then(choice::<DoubleOp, _>((
@@ -377,5 +378,6 @@ pub static EXPR: LazilyDefined<Expr> = LazilyDefined::new(|| {
             .spanned()
             .then(expr_op.repeated_into_vec())
             .map(|(inner, right_ops)| Expr { inner, right_ops })
-    }))
+    })
+    .erase_type()
 });

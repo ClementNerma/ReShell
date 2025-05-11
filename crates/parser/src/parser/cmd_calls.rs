@@ -219,93 +219,92 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
         cmd_value_making_arg.spanned().map(CmdArg::ValueMaking),
     ));
 
-    Box::new(
-        cmd_env_var
-            .spanned()
-            .then_ignore(s.critical("expected a space after the variable's value"))
+    cmd_env_var
+        .spanned()
+        .then_ignore(s.critical("expected a space after the variable's value"))
+        .repeated_into_vec()
+        .spanned()
+        .then(cmd_path.spanned().followed_by(silent_choice((
+            end(),
+            filter(|c| {
+                c.is_whitespace() || c == ';' || c == '|' || c == '#' || c == ')' || c == '}'
+            }),
+        ))))
+        .then(
+            s.ignore_then(
+                char('\\')
+                    .then(ms)
+                    .then(newline())
+                    .then(
+                        s.critical("expected at least one space for identation after the newline"),
+                    )
+                    .or_not(),
+            )
+            .ignore_then(cmd_arg.spanned())
             .repeated_into_vec()
-            .spanned()
-            .then(cmd_path.spanned().followed_by(silent_choice((
-                end(),
-                filter(|c| {
-                    c.is_whitespace() || c == ';' || c == '|' || c == '#' || c == ')' || c == '}'
-                }),
-            ))))
-            .then(
-                s.ignore_then(
-                    char('\\')
-                        .then(ms)
-                        .then(newline())
-                        .then(s.critical(
-                            "expected at least one space for identation after the newline",
-                        ))
-                        .or_not(),
-                )
-                .ignore_then(cmd_arg.spanned())
-                .repeated_into_vec()
+            .spanned(),
+        )
+        .then(
+            s.ignore_then(
+                choice::<CmdRedirects, _>((
+                    // Redirect both STDOUT and STDERR to a file
+                    silent_choice((just("out+err>"), just("err+out>")))
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .map(CmdRedirects::StdoutAndStderrToFile),
+                    // Redirect STDOUT to a file and STDERR to another
+                    just(">")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .then_ignore(s)
+                        .then_ignore(just("err>"))
+                        .then_ignore(s)
+                        .then(cmd_raw_string.spanned())
+                        .map(|(path_for_stdout, path_for_stderr)| {
+                            CmdRedirects::StdoutToFileAndStderrToFile {
+                                path_for_stdout,
+                                path_for_stderr,
+                            }
+                        }),
+                    just("err>")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .then_ignore(s)
+                        .then_ignore(just(">"))
+                        .then_ignore(s)
+                        .then(cmd_raw_string.spanned())
+                        .map(|(path_for_stderr, path_for_stdout)| {
+                            CmdRedirects::StdoutToFileAndStderrToFile {
+                                path_for_stdout,
+                                path_for_stderr,
+                            }
+                        }),
+                    // Redirect STDERR to a file
+                    just("err>")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .map(CmdRedirects::StdoutToFile),
+                    // Redirect STDERR to STDOUT
+                    just("err>").map(|_| CmdRedirects::StderrToStdout),
+                    // Redirect STDOUT to SDTERR
+                    just(">err").map(|_| CmdRedirects::StdoutToStderr),
+                    // Redirect STDOUT to a file
+                    just(">")
+                        .ignore_then(s)
+                        .ignore_then(cmd_raw_string.spanned())
+                        .map(CmdRedirects::StdoutToFile),
+                ))
                 .spanned(),
             )
-            .then(
-                s.ignore_then(
-                    choice::<CmdRedirects, _>((
-                        // Redirect both STDOUT and STDERR to a file
-                        silent_choice((just("out+err>"), just("err+out>")))
-                            .ignore_then(s)
-                            .ignore_then(cmd_raw_string.spanned())
-                            .map(CmdRedirects::StdoutAndStderrToFile),
-                        // Redirect STDOUT to a file and STDERR to another
-                        just(">")
-                            .ignore_then(s)
-                            .ignore_then(cmd_raw_string.spanned())
-                            .then_ignore(s)
-                            .then_ignore(just("err>"))
-                            .then_ignore(s)
-                            .then(cmd_raw_string.spanned())
-                            .map(|(path_for_stdout, path_for_stderr)| {
-                                CmdRedirects::StdoutToFileAndStderrToFile {
-                                    path_for_stdout,
-                                    path_for_stderr,
-                                }
-                            }),
-                        just("err>")
-                            .ignore_then(s)
-                            .ignore_then(cmd_raw_string.spanned())
-                            .then_ignore(s)
-                            .then_ignore(just(">"))
-                            .then_ignore(s)
-                            .then(cmd_raw_string.spanned())
-                            .map(|(path_for_stderr, path_for_stdout)| {
-                                CmdRedirects::StdoutToFileAndStderrToFile {
-                                    path_for_stdout,
-                                    path_for_stderr,
-                                }
-                            }),
-                        // Redirect STDERR to a file
-                        just("err>")
-                            .ignore_then(s)
-                            .ignore_then(cmd_raw_string.spanned())
-                            .map(CmdRedirects::StdoutToFile),
-                        // Redirect STDERR to STDOUT
-                        just("err>").map(|_| CmdRedirects::StderrToStdout),
-                        // Redirect STDOUT to SDTERR
-                        just(">err").map(|_| CmdRedirects::StdoutToStderr),
-                        // Redirect STDOUT to a file
-                        just(">")
-                            .ignore_then(s)
-                            .ignore_then(cmd_raw_string.spanned())
-                            .map(CmdRedirects::StdoutToFile),
-                    ))
-                    .spanned(),
-                )
-                .or_not(),
-            )
-            .map(|(((env_vars, path), args), redirects)| SingleCmdCall {
-                env_vars,
-                path,
-                args,
-                redirects,
-            }),
-    )
+            .or_not(),
+        )
+        .map(|(((env_vars, path), args), redirects)| SingleCmdCall {
+            env_vars,
+            path,
+            args,
+            redirects,
+        })
+        .erase_type()
 });
 
 pub static CMD_CALL: LazilyDefined<CmdCall> = LazilyDefined::new(|| {
@@ -335,26 +334,25 @@ pub static CMD_CALL: LazilyDefined<CmdCall> = LazilyDefined::new(|| {
             .map(CmdCallBase::SingleCmdCall),
     ));
 
-    Box::new(
-        cmd_call_base
-            .then(
-                msnl.ignore_then(
-                    choice::<CmdPipeType, _>((
-                        just("^|").to(CmdPipeType::Stderr),
-                        char('|').to(CmdPipeType::ValueOrStdout),
-                    ))
-                    .spanned(),
-                )
-                .then_ignore(msnl)
-                .then(
-                    SINGLE_CMD_CALL
-                        .static_ref()
-                        .spanned()
-                        .critical("expected a command call after the pipe"),
-                )
-                .map(|(pipe_type, cmd)| CmdPipe { cmd, pipe_type })
-                .repeated_into_vec(),
+    cmd_call_base
+        .then(
+            msnl.ignore_then(
+                choice::<CmdPipeType, _>((
+                    just("^|").to(CmdPipeType::Stderr),
+                    char('|').to(CmdPipeType::ValueOrStdout),
+                ))
+                .spanned(),
             )
-            .map(|(base, pipes)| CmdCall { base, pipes }),
-    )
+            .then_ignore(msnl)
+            .then(
+                SINGLE_CMD_CALL
+                    .static_ref()
+                    .spanned()
+                    .critical("expected a command call after the pipe"),
+            )
+            .map(|(pipe_type, cmd)| CmdPipe { cmd, pipe_type })
+            .repeated_into_vec(),
+        )
+        .map(|(base, pipes)| CmdCall { base, pipes })
+        .erase_type()
 });

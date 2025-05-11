@@ -21,8 +21,8 @@ pub struct ParserContext {
 pub static PROGRAM: LazilyDefined<Program> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl);
 
-    Box::new(
-        get_context::<ParserContext>().ignore_then(
+    get_context::<ParserContext>()
+        .ignore_then(
             RAW_BLOCK
                 .static_ref()
                 .spanned()
@@ -30,8 +30,8 @@ pub static PROGRAM: LazilyDefined<Program> = LazilyDefined::new(|| {
                 .full()
                 .critical("unexpected symbol")
                 .map(|content| Program { content }),
-        ),
-    )
+        )
+        .erase_type()
 });
 
 pub static DELIMITER_CHARS: LazyLock<HashSet<char>> = LazyLock::new(|| {

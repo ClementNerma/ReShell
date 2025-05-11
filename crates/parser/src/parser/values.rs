@@ -22,8 +22,8 @@ use crate::{
 };
 
 pub static ESCAPABLE_CHAR: LazilyDefined<EscapableChar> = LazilyDefined::new(|| {
-    Box::new(
-        char('\\').ignore_then(
+    char('\\')
+        .ignore_then(
             choice((
                 char('n').to(EscapableChar::Newline),
                 char('r').to(EscapableChar::CarriageReturn),
@@ -36,42 +36,40 @@ pub static ESCAPABLE_CHAR: LazilyDefined<EscapableChar> = LazilyDefined::new(|| 
                 char('^').to(EscapableChar::Caret),
             ))
             .critical("this character is not escapable"),
-        ),
-    )
+        )
+        .erase_type()
 });
 
 pub static LITERAL_STRING: LazilyDefined<String> = LazilyDefined::new(|| {
-    Box::new(
-        char('\'')
-            .ignore_then(
-                choice((
-                    ESCAPABLE_CHAR
-                        .static_ref()
-                        .map(EscapableChar::original_char),
-                    filter(|c| c != '\''),
-                ))
-                .repeated_into_container::<String>(),
-            )
-            .then_ignore(char('\'')),
-    )
+    char('\'')
+        .ignore_then(
+            choice((
+                ESCAPABLE_CHAR
+                    .static_ref()
+                    .map(EscapableChar::original_char),
+                filter(|c| c != '\''),
+            ))
+            .repeated_into_container::<String>(),
+        )
+        .then_ignore(char('\''))
+        .erase_type()
 });
 
 pub static LITERAL_INT: LazilyDefined<i64> = LazilyDefined::new(|| {
     use_basic_parsers!(possible_ident_char);
 
-    Box::new(
-        char('-')
-            .or_not()
-            .then(digit(10).repeated().at_least(1))
-            .not_followed_by(possible_ident_char)
-            .map_str(|num| str::parse::<i64>(num).unwrap()),
-    )
+    char('-')
+        .or_not()
+        .then(digit(10).repeated().at_least(1))
+        .not_followed_by(possible_ident_char)
+        .map_str(|num| str::parse::<i64>(num).unwrap())
+        .erase_type()
 });
 
 pub static LITERAL_VALUE: LazilyDefined<LiteralValue> = LazilyDefined::new(|| {
     use_basic_parsers!(possible_ident_char);
 
-    Box::new(choice::<LiteralValue, _>((
+    choice::<LiteralValue, _>((
         // Strings
         LITERAL_STRING
             .static_ref()
@@ -103,13 +101,14 @@ pub static LITERAL_VALUE: LazilyDefined<LiteralValue> = LazilyDefined::new(|| {
             .map_str(|num| LiteralValue::Float(str::parse::<f64>(num).unwrap())),
         // Integers
         LITERAL_INT.static_ref().map(LiteralValue::Integer),
-    )))
+    ))
+    .erase_type()
 });
 
 pub static COMPUTED_STRING: LazilyDefined<ComputedString> = LazilyDefined::new(|| {
     use_basic_parsers!(ident, msnl);
 
-    Box::new(char('"')
+    char('"')
     .ignore_then(
         choice::<ComputedStringPiece, _>((
             // Escaped
@@ -141,7 +140,7 @@ pub static COMPUTED_STRING: LazilyDefined<ComputedString> = LazilyDefined::new(|
         .repeated_into_vec(),
     )
     .then_ignore(char('"').critical_auto_msg())
-    .map(|pieces| ComputedString { pieces }))
+    .map(|pieces| ComputedString { pieces }).erase_type()
 });
 
 pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
@@ -204,53 +203,51 @@ pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
             body,
         });
 
-    Box::new(normal_lambda.or(it_lambda))
+    normal_lambda.or(it_lambda).erase_type()
 });
 
 pub static CMD_CAPTURE: LazilyDefined<CmdOutputCapture> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl);
 
-    Box::new(
-        choice::<CmdCaptureType, _>((
-            just("$(").to(CmdCaptureType::Stdout),
-            just("$^(").to(CmdCaptureType::Stderr),
-        ))
-        .spanned()
-        .then_ignore(msnl)
-        .then(
-            CMD_CALL
-                .static_ref()
-                .spanned()
-                .critical("expected a command call to capture"),
-        )
-        .then_ignore(msnl)
-        .then_ignore(char(')').critical_auto_msg())
-        .map(|(capture, cmd_call)| CmdOutputCapture { capture, cmd_call }),
+    choice::<CmdCaptureType, _>((
+        just("$(").to(CmdCaptureType::Stdout),
+        just("$^(").to(CmdCaptureType::Stderr),
+    ))
+    .spanned()
+    .then_ignore(msnl)
+    .then(
+        CMD_CALL
+            .static_ref()
+            .spanned()
+            .critical("expected a command call to capture"),
     )
+    .then_ignore(msnl)
+    .then_ignore(char(')').critical_auto_msg())
+    .map(|(capture, cmd_call)| CmdOutputCapture { capture, cmd_call })
+    .erase_type()
 });
 
 pub static INLINE_CMD_CALL: LazilyDefined<Span<CmdCall>> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl);
 
-    Box::new(
-        just("@(")
-            .ignore_then(msnl)
-            .ignore_then(
-                CMD_CALL
-                    .static_ref()
-                    .spanned()
-                    .critical("expected a command call"),
-            )
-            .then_ignore(msnl)
-            .then_ignore(char(')').critical_auto_msg()),
-    )
+    just("@(")
+        .ignore_then(msnl)
+        .ignore_then(
+            CMD_CALL
+                .static_ref()
+                .spanned()
+                .critical("expected a command call"),
+        )
+        .then_ignore(msnl)
+        .then_ignore(char(')').critical_auto_msg())
+        .erase_type()
 });
 
 pub static SPREAD_VALUE: LazilyDefined<SpreadValue> = LazilyDefined::new(|| {
     use_basic_parsers!(ident, msnl);
 
-    Box::new(
-        just("...").ignore_then(
+    just("...")
+        .ignore_then(
             choice::<SpreadValue, _>((
                 char('$')
                     .ignore_then(ident.critical("expected a variable name to spread"))
@@ -267,8 +264,8 @@ pub static SPREAD_VALUE: LazilyDefined<SpreadValue> = LazilyDefined::new(|| {
                     .map(SpreadValue::Expr),
             ))
             .critical("expected a value to spread"),
-        ),
-    )
+        )
+        .erase_type()
 });
 
 pub static FN_CALL: LazilyDefined<FnCall> = LazilyDefined::new(|| {
@@ -307,29 +304,28 @@ pub static FN_CALL: LazilyDefined<FnCall> = LazilyDefined::new(|| {
         EXPR.static_ref().spanned().map(FnArg::Expr),
     ));
 
-    Box::new({
-        choice::<FnCallNature, _>((
-            char('$').to(FnCallNature::Variable),
-            char('.').to(FnCallNature::Method),
-            empty().to(FnCallNature::NamedFunction),
-        ))
-        .then(ident.spanned())
-        .then_ignore(char('('))
-        .then(
-            fn_arg
-                .spanned()
-                .padded_by(msnl)
-                // TODO: here and in some other places, make a critical error if no match after first repetition
-                .separated_by_into_vec(char(','))
-                .spanned(),
-        )
-        .then_ignore(char(')').critical("unexpected symbol"))
-        .map(|((nature, name), call_args)| FnCall {
-            nature,
-            name,
-            call_args,
-        })
+    choice::<FnCallNature, _>((
+        char('$').to(FnCallNature::Variable),
+        char('.').to(FnCallNature::Method),
+        empty().to(FnCallNature::NamedFunction),
+    ))
+    .then(ident.spanned())
+    .then_ignore(char('('))
+    .then(
+        fn_arg
+            .spanned()
+            .padded_by(msnl)
+            // TODO: here and in some other places, make a critical error if no match after first repetition
+            .separated_by_into_vec(char(','))
+            .spanned(),
+    )
+    .then_ignore(char(')').critical("unexpected symbol"))
+    .map(|((nature, name), call_args)| FnCall {
+        nature,
+        name,
+        call_args,
     })
+    .erase_type()
 });
 
 pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
@@ -347,7 +343,7 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
             .map(MapKey::Expr),
     ));
 
-    Box::new(choice::<Value, _>((
+    choice::<Value, _>((
         just("null").map(|_| Value::Null),
         // Literals
         LITERAL_VALUE.static_ref().map(Value::Literal),
@@ -440,5 +436,6 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
             .ignore_then(ident.critical("expected a function name"))
             .spanned()
             .map(Value::FnAsValue),
-    )))
+    ))
+    .erase_type()
 });

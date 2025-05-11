@@ -491,4 +491,25 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
     ValidatedRuleSet::validate(rule_set).unwrap()
 });
 
-static KEYWORDS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| HashSet::from(["alias", "include", "fn", "for", "while", "if", "else", "continue", "typematch", "match", "break", "throw", "try", "catch", "return", "do", "self", "typeis"]));
+static KEYWORDS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    HashSet::from([
+        "alias",
+        "include",
+        "fn",
+        "for",
+        "while",
+        "if",
+        "else",
+        "continue",
+        "typematch",
+        "match",
+        "break",
+        "throw",
+        "try",
+        "catch",
+        "return",
+        "do",
+        "self",
+        "typeis",
+    ])
+});

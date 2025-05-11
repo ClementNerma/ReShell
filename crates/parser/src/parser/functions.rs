@@ -16,11 +16,10 @@ use crate::{
 pub static FN_ARG_LONG_FLAG_NAME_IDENTIFIER: LazilyDefined<String> = LazilyDefined::new(|| {
     use_basic_parsers!(first_ident_char);
 
-    Box::new(
-        first_ident_char
-            .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
-            .collect_string(),
-    )
+    first_ident_char
+        .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
+        .collect_string()
+        .erase_type()
 });
 
 pub static FN_FLAG_ARG_SIGNATURE_NAMES: LazilyDefined<FnSignatureFlagArgNames> =
@@ -52,7 +51,7 @@ pub static FN_FLAG_ARG_SIGNATURE_NAMES: LazilyDefined<FnSignatureFlagArgNames> =
                 not(possible_ident_char).critical("expected a single-character identifier"),
             );
 
-        Box::new(choice::<FnSignatureFlagArgNames, _>((
+        choice::<FnSignatureFlagArgNames, _>((
             // Long *and* short flags
             fn_arg_long_flag_name
                 .map(RuntimeSpan::from)
@@ -69,13 +68,14 @@ pub static FN_FLAG_ARG_SIGNATURE_NAMES: LazilyDefined<FnSignatureFlagArgNames> =
             fn_arg_short_flag_name
                 .map(RuntimeSpan::from)
                 .map(FnSignatureFlagArgNames::ShortFlag),
-        )))
+        ))
+        .erase_type()
     });
 
 pub static FN_SIGNATURE_ARG: LazilyDefined<FnSignatureArg> = LazilyDefined::new(|| {
     use_basic_parsers!(ident, msnl);
 
-    Box::new(choice::<FnSignatureArg, _>((
+    choice::<FnSignatureArg, _>((
         // Positional
         ident
             .validate_or_critical(
@@ -148,37 +148,37 @@ pub static FN_SIGNATURE_ARG: LazilyDefined<FnSignatureArg> = LazilyDefined::new(
                     .or_not(),
             )
             .map(|(name, typ)| FnSignatureArg::Rest(FnSignatureRestArg { name, typ })),
-    )))
+    ))
+    .erase_type()
 });
 
 pub static FN_SIGNATURE: LazilyDefined<FnSignature> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl, ms);
 
-    Box::new(
-        char('(')
-            .ignore_then(
-                FN_SIGNATURE_ARG
-                    .static_ref()
-                    .separated_by_into_vec(char(',').padded_by(msnl))
-                    .spanned()
-                    .map(RuntimeSpan::from),
-            )
-            .then_ignore(msnl)
-            .then_ignore(char(')').critical_auto_msg())
-            .then(
-                msnl.ignore_then(just("->"))
-                    .ignore_then(ms)
-                    .ignore_then(
-                        VALUE_TYPE
-                            .static_ref()
-                            .map(Box::new)
-                            .spanned()
-                            .map(RuntimeSpan::from)
-                            .critical("expected a type"),
-                    )
-                    .then_ignore(ms)
-                    .or_not(),
-            )
-            .map(|(args, ret_type)| FnSignature { args, ret_type }),
-    )
+    char('(')
+        .ignore_then(
+            FN_SIGNATURE_ARG
+                .static_ref()
+                .separated_by_into_vec(char(',').padded_by(msnl))
+                .spanned()
+                .map(RuntimeSpan::from),
+        )
+        .then_ignore(msnl)
+        .then_ignore(char(')').critical_auto_msg())
+        .then(
+            msnl.ignore_then(just("->"))
+                .ignore_then(ms)
+                .ignore_then(
+                    VALUE_TYPE
+                        .static_ref()
+                        .map(Box::new)
+                        .spanned()
+                        .map(RuntimeSpan::from)
+                        .critical("expected a type"),
+                )
+                .then_ignore(ms)
+                .or_not(),
+        )
+        .map(|(args, ret_type)| FnSignature { args, ret_type })
+        .erase_type()
 });
