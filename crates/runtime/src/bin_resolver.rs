@@ -107,7 +107,7 @@ impl BinariesResolver {
                 let resolved = self
                     .path_dirs
                     .iter()
-                    .find_map(|dir| find_exe_in_dir(name, Path::new(dir)).transpose())
+                    .find_map(|dir| find_bin_in_dir(name, Path::new(dir)).transpose())
                     .ok_or_else(|| format!("command '{name}' was not found"))??;
 
                 self.entries.insert(name.to_owned(), resolved.clone());
@@ -118,7 +118,7 @@ impl BinariesResolver {
     }
 }
 
-fn find_exe_in_dir(name: &str, dir: &Path) -> Result<Option<PathBuf>, String> {
+fn find_bin_in_dir(name: &str, dir: &Path) -> Result<Option<PathBuf>, String> {
     match TARGET_FAMILY {
         TargetFamily::Windows => {
             let path = dir.join(name);
