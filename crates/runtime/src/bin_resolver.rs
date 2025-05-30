@@ -121,20 +121,26 @@ impl BinariesResolver {
 fn find_bin_in_dir(name: &str, dir: &Path) -> Result<Option<PathBuf>, String> {
     match TARGET_FAMILY {
         TargetFamily::Windows => {
-            let path = dir.join(name);
+            #[cfg(not(target_family = "windows"))]
+            unreachable!();
 
-            Ok(if path.is_file() {
-                Some(path)
-            } else {
-                [
-                    dir.join(name),
-                    dir.join(format!("{name}.exe")),
-                    dir.join(format!("{name}.cmd")),
-                    dir.join(format!("{name}.bat")),
-                ]
-                .into_iter()
-                .find(|path| path.is_file())
-            })
+            #[cfg(target_family = "windows")]
+            {
+                let path = dir.join(name);
+
+                Ok(if path.is_file() {
+                    Some(path)
+                } else {
+                    [
+                        dir.join(name),
+                        dir.join(format!("{name}.exe")),
+                        dir.join(format!("{name}.cmd")),
+                        dir.join(format!("{name}.bat")),
+                    ]
+                    .into_iter()
+                    .find(|path| path.is_file())
+                })
+            }
         }
 
         TargetFamily::Unix => {
