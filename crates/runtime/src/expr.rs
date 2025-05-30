@@ -42,23 +42,21 @@ fn eval_expr_ref(
             continue;
         };
 
-        if precedence == 1 {
-            if let Some((p, _)) = right_ops
+        if precedence == 1
+            && let Some((p, _)) = right_ops
                 .iter()
                 .enumerate()
                 .find(|(_, c)| operator_precedence(c) == 0)
-            {
-                if p != pos {
-                    let op_at = match expr_op {
-                        ExprOp::DoubleOp { op, right_op: _ } => op.at,
+            && p != pos
+        {
+            let op_at = match expr_op {
+                ExprOp::DoubleOp { op, right_op: _ } => op.at,
 
-                        // Precedence 0 and 1 is only for arithmetic (double) operators
-                        ExprOp::TypeIs { right_op: _ } => unreachable!(),
-                    };
+                // Precedence 0 and 1 is only for arithmetic (double) operators
+                ExprOp::TypeIs { right_op: _ } => unreachable!(),
+            };
 
-                    return Err(ctx.error(op_at, "to avoid confusions, mixing some operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
-                }
-            }
+            return Err(ctx.error(op_at, "to avoid confusions, mixing some operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
         }
 
         let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;

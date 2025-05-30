@@ -275,12 +275,12 @@ impl RlHistory for History {
     fn clear(&mut self) -> reedline::Result<()> {
         self.entries.clear();
 
-        if let Some(file) = &self.file {
-            if file.is_file() {
-                fs::remove_file(file)
-                    .map_err(ReedlineErrorVariants::IOError)
-                    .map_err(ReedlineError)?
-            }
+        if let Some(file) = &self.file
+            && file.is_file()
+        {
+            fs::remove_file(file)
+                .map_err(ReedlineErrorVariants::IOError)
+                .map_err(ReedlineError)?
         }
 
         Ok(())

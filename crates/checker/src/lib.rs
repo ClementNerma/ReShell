@@ -1260,13 +1260,11 @@ fn check_single_cmd_call(
         CmdPathTargetType::ExternalCommand => false,
     };
 
-    if is_function {
-        if let Some(env_var) = env_vars.data.first() {
-            return Err(CheckerError::new(
-                env_var.at,
-                "environment variables are not supported for function calls",
-            ));
-        }
+    if is_function && let Some(env_var) = env_vars.data.first() {
+        return Err(CheckerError::new(
+            env_var.at,
+            "environment variables are not supported for function calls",
+        ));
     }
 
     if let Some(redirects) = redirects {
@@ -1759,13 +1757,13 @@ fn check_fn_signature(
             has_explicit_type: _,
         } = &checked_arg;
 
-        if let Some(rest_arg) = &rest_arg {
-            if !rest_arg.has_explicit_type {
-                return Err(CheckerError::new(
-                    rest_arg.name_at,
-                    "a rest argument must the last of the function unless it has an explicit type",
-                ));
-            }
+        if let Some(rest_arg) = &rest_arg
+            && !rest_arg.has_explicit_type
+        {
+            return Err(CheckerError::new(
+                rest_arg.name_at,
+                "a rest argument must the last of the function unless it has an explicit type",
+            ));
         }
 
         if let FnSignatureArg::Positional(FnSignaturePositionalArg {

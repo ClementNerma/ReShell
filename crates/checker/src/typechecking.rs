@@ -169,10 +169,10 @@ pub fn check_if_fn_signature_fits_another(
     ctx: &TypeAliasStore,
 ) -> bool {
     // Compare return types
-    if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type) {
-        if !check_if_type_fits_type(&ret_type.data, &cmp_ret_type.data, ctx) {
-            return false;
-        }
+    if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type)
+        && !check_if_type_fits_type(&ret_type.data, &cmp_ret_type.data, ctx)
+    {
+        return false;
     }
 
     // Categorize arguments for easier comparison
@@ -196,13 +196,11 @@ pub fn check_if_fn_signature_fits_another(
     }
 
     // Compare rest arguments' type
-    if let (Some(rest_arg), Some(into_rest_arg)) = (rest_arg, into_rest_arg) {
-        if let (Some(rest_arg_type), Some(into_rest_arg_type)) = (&rest_arg.typ, &into_rest_arg.typ)
-        {
-            if !check_if_type_fits_type(&rest_arg_type.data, &into_rest_arg_type.data, ctx) {
-                return false;
-            }
-        }
+    if let (Some(rest_arg), Some(into_rest_arg)) = (rest_arg, into_rest_arg)
+        && let (Some(rest_arg_type), Some(into_rest_arg_type)) = (&rest_arg.typ, &into_rest_arg.typ)
+        && !check_if_type_fits_type(&rest_arg_type.data, &into_rest_arg_type.data, ctx)
+    {
+        return false;
     }
 
     // Iterate over all positional arguments

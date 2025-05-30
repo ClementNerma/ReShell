@@ -274,8 +274,8 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                 },
 
                 ')' | ']' | '}' => {
-                    if let Some((opening_str, opening_offset)) = opened.last().copied() {
-                        if matches!(
+                    if let Some((opening_str, opening_offset)) = opened.last().copied()
+                        && matches!(
                             (opening_str, char),
                             (
                                 NestingOpeningType::ExprWithParen
@@ -286,10 +286,10 @@ pub fn detect_nesting_actions(input: &str, insert_args_separator: bool) -> Vec<N
                                 ')'
                             ) | (NestingOpeningType::List, ']')
                                 | (NestingOpeningType::Block | NestingOpeningType::Lambda, '}')
-                        ) {
-                            close!(offset, 1, opening_offset);
-                            continue;
-                        }
+                        )
+                    {
+                        close!(offset, 1, opening_offset);
+                        continue;
                     }
 
                     push!(

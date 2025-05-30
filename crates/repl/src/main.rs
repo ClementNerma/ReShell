@@ -78,27 +78,25 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
     setup_ctrl_c_handler().map_err(|err| format!("Failed to setup Ctrl+C handler: {err}"))?;
 
     // Create shell's config directory
-    if let Some(dir) = &*SHELL_CONFIG_DIR {
-        if !dir.exists() {
-            if let Err(err) = fs::create_dir_all(dir) {
-                print_err(format!(
-                    "Failed to create config directory for the shell at path '{}': {err}",
-                    dir.display()
-                ));
-            }
-        }
+    if let Some(dir) = &*SHELL_CONFIG_DIR
+        && !dir.exists()
+        && let Err(err) = fs::create_dir_all(dir)
+    {
+        print_err(format!(
+            "Failed to create config directory for the shell at path '{}': {err}",
+            dir.display()
+        ));
     }
 
     // Create shell's local data directory
-    if let Some(dir) = &*SHELL_LOCAL_DATA_DIR {
-        if !dir.exists() {
-            if let Err(err) = fs::create_dir_all(dir) {
-                print_err(format!(
-                    "Failed to create local data directory for the shell at path '{}': {err}",
-                    dir.display()
-                ));
-            }
-        }
+    if let Some(dir) = &*SHELL_LOCAL_DATA_DIR
+        && !dir.exists()
+        && let Err(err) = fs::create_dir_all(dir)
+    {
+        print_err(format!(
+            "Failed to create local data directory for the shell at path '{}': {err}",
+            dir.display()
+        ));
     }
 
     match &*HOME_DIR {

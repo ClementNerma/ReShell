@@ -352,10 +352,10 @@ impl<'h, 'str, T> Match<'h, 'str, T> {
         inside: Option<(usize, NestingOpeningType)>,
         next_nesting: Option<NestingOpeningType>,
     ) -> Option<Self> {
-        if let Some(must_be_in) = &rule.inside {
-            if !must_be_in.contains(&inside?.1) {
-                return None;
-            }
+        if let Some(must_be_in) = &rule.inside
+            && !must_be_in.contains(&inside?.1)
+        {
+            return None;
         }
 
         let nesting_at = inside.map(|(at, _)| at).unwrap_or(0);
@@ -394,10 +394,10 @@ impl<'h, 'str, T> Match<'h, 'str, T> {
             return None;
         }
 
-        if let Some(preceded_by) = &rule.preceded_by {
-            if !preceded_by.is_match(&input[..full_match_start]) {
-                return None;
-            }
+        if let Some(preceded_by) = &rule.preceded_by
+            && !preceded_by.is_match(&input[..full_match_start])
+        {
+            return None;
         }
 
         if let Some(followed_by) = &rule.followed_by {
@@ -408,10 +408,10 @@ impl<'h, 'str, T> Match<'h, 'str, T> {
             }
         }
 
-        if let Some(followed_by_nesting) = &rule.followed_by_nesting {
-            if !followed_by_nesting.contains(&next_nesting?) {
-                return None;
-            }
+        if let Some(followed_by_nesting) = &rule.followed_by_nesting
+            && !followed_by_nesting.contains(&next_nesting?)
+        {
+            return None;
         }
 
         Some(cap)
@@ -481,12 +481,12 @@ pub fn validate_rule_set<T>(rule_set: &RuleSet<T>) -> Result<(), String> {
             style,
         } = rule;
 
-        if let Some(preceded_by) = &preceded_by {
-            if !preceded_by.to_string().ends_with('$') {
-                return Err(format!(
-                    "Precedence regex '{preceded_by}' should end with a '$'"
-                ));
-            }
+        if let Some(preceded_by) = &preceded_by
+            && !preceded_by.to_string().ends_with('$')
+        {
+            return Err(format!(
+                "Precedence regex '{preceded_by}' should end with a '$'"
+            ));
         }
 
         if followed_by_nesting.is_some() && !matches.to_string().ends_with('$') {

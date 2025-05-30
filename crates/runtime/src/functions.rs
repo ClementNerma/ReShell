@@ -696,29 +696,28 @@ fn parse_single_fn_call_arg<'a>(
                 typ,
             } = positional_fn_arg;
 
-            if !is_optional || !matches!(loc_val.value, RuntimeValue::Null) {
-                if let Some(typ) = typ {
-                    if !check_if_value_fits_type(&loc_val.value, typ, ctx) {
-                        let is_method_self_arg = func.is_method && name.data == "self";
+            if (!is_optional || !matches!(loc_val.value, RuntimeValue::Null))
+                && let Some(typ) = typ
+                && !check_if_value_fits_type(&loc_val.value, typ, ctx)
+            {
+                let is_method_self_arg = func.is_method && name.data == "self";
 
-                        return Err(ctx.error(
-                            loc_val.from,
-                            format!(
-                                "type mismatch: {} {}, found {}",
-                                if is_method_self_arg {
-                                    "method can only be applied on type".to_owned()
-                                } else {
-                                    format!("argument {} expected type", name.data.bright_yellow())
-                                },
-                                typ.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                                loc_val
-                                    .value
-                                    .compute_type()
-                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                            ),
-                        ));
-                    }
-                }
+                return Err(ctx.error(
+                    loc_val.from,
+                    format!(
+                        "type mismatch: {} {}, found {}",
+                        if is_method_self_arg {
+                            "method can only be applied on type".to_owned()
+                        } else {
+                            format!("argument {} expected type", name.data.bright_yellow())
+                        },
+                        typ.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                        loc_val
+                            .value
+                            .compute_type()
+                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    ),
+                ));
             }
 
             Ok(ParsedSingleFnCallArg::Variable {

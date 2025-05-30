@@ -156,13 +156,13 @@ pub fn start(
         match &ret {
             // If the program succeeded and has a wandering value, pretty-print it
             Ok(wandering_value) => {
-                if let Some(loc_val) = wandering_value {
-                    if !matches!(loc_val.value, RuntimeValue::Void) {
-                        println!(
-                            "{}",
-                            loc_val.value.display(&ctx, PrettyPrintOptions::multiline())
-                        );
-                    }
+                if let Some(loc_val) = wandering_value
+                    && !matches!(loc_val.value, RuntimeValue::Void)
+                {
+                    println!(
+                        "{}",
+                        loc_val.value.display(&ctx, PrettyPrintOptions::multiline())
+                    );
                 }
             }
 

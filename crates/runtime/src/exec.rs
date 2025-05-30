@@ -255,21 +255,21 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 return Err(ctx.error(expr.at, "cannot assign a void value"));
             }
 
-            if prop_acc.is_empty() && list_push.is_none() {
-                if let Some(enforced_type) = &var.enforced_type {
-                    if !check_if_value_fits_type(&assign_value, enforced_type, ctx) {
-                        return Err(
-                            ctx.error(
-                                expr.at,
-                                format!(
-                                    "variable has enforced type {}, but tried to assign a value of type: {}",
-                                    enforced_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                                    assign_value.compute_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                                )
-                            )
-                        );
-                    }
-                }
+            if prop_acc.is_empty()
+                && list_push.is_none()
+                && let Some(enforced_type) = &var.enforced_type
+                && !check_if_value_fits_type(&assign_value, enforced_type, ctx)
+            {
+                return Err(ctx.error(
+                    expr.at,
+                    format!(
+                        "variable has enforced type {}, but tried to assign a value of type: {}",
+                        enforced_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                        assign_value
+                            .compute_type()
+                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    ),
+                ));
             }
 
             eval_props_access(
@@ -365,10 +365,10 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     }
                 }
 
-                if ret.is_none() {
-                    if let Some(els) = els {
-                        ret = Some(run_block(els, ctx, None)?);
-                    }
+                if ret.is_none()
+                    && let Some(els) = els
+                {
+                    ret = Some(run_block(els, ctx, None)?);
                 }
             }
 
@@ -1085,19 +1085,19 @@ fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> 
         enforced_type,
     } = data;
 
-    if let Some(enforced_type) = &enforced_type {
-        if !check_if_value_fits_type(&value, enforced_type, ctx) {
-            return Err(ctx.error(
-                value_at,
-                format!(
-                    "variable has enforced type {}, but tried to assign a value of type: {}",
-                    enforced_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                    value
-                        .compute_type()
-                        .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                ),
-            ));
-        }
+    if let Some(enforced_type) = &enforced_type
+        && !check_if_value_fits_type(&value, enforced_type, ctx)
+    {
+        return Err(ctx.error(
+            value_at,
+            format!(
+                "variable has enforced type {}, but tried to assign a value of type: {}",
+                enforced_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                value
+                    .compute_type()
+                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+            ),
+        ));
     }
 
     let decl_scope_id = ctx.current_scope().ast_scope_id;

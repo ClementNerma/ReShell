@@ -1055,38 +1055,38 @@ fn wait_for_commands_ending(
             ));
         }
 
-        if i == 0 {
-            if let Some(capture) = capture {
-                final_output = Some(match capture {
-                    CmdCaptureType::Stdout => match spawned.stdout.take() {
-                        Some(mut stdout) => {
-                            let mut buf = vec![];
+        if i == 0
+            && let Some(capture) = capture
+        {
+            final_output = Some(match capture {
+                CmdCaptureType::Stdout => match spawned.stdout.take() {
+                    Some(mut stdout) => {
+                        let mut buf = vec![];
 
-                            stdout.read_to_end(&mut buf).map_err(|err| {
-                                ctx.error(at, format!("failed to read command's STDOUT: {err}"))
-                            })?;
+                        stdout.read_to_end(&mut buf).map_err(|err| {
+                            ctx.error(at, format!("failed to read command's STDOUT: {err}"))
+                        })?;
 
-                            buf
-                        }
+                        buf
+                    }
 
-                        None => output.stdout,
-                    },
+                    None => output.stdout,
+                },
 
-                    CmdCaptureType::Stderr => match spawned.stderr.take() {
-                        Some(mut stderr) => {
-                            let mut buf = vec![];
+                CmdCaptureType::Stderr => match spawned.stderr.take() {
+                    Some(mut stderr) => {
+                        let mut buf = vec![];
 
-                            stderr.read_to_end(&mut buf).map_err(|err| {
-                                ctx.error(at, format!("failed to read command's STDERR: {err}"))
-                            })?;
+                        stderr.read_to_end(&mut buf).map_err(|err| {
+                            ctx.error(at, format!("failed to read command's STDERR: {err}"))
+                        })?;
 
-                            buf
-                        }
+                        buf
+                    }
 
-                        None => output.stderr,
-                    },
-                });
-            }
+                    None => output.stderr,
+                },
+            });
         }
     }
 

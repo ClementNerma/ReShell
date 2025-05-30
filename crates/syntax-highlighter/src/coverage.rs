@@ -64,13 +64,13 @@ impl InputCoverage {
             });
         }
 
-        if let Some(first) = self.covered.first() {
-            if first.from > 0 {
-                return Some(InputRange {
-                    from: 0,
-                    len: first.from,
-                });
-            }
+        if let Some(first) = self.covered.first()
+            && first.from > 0
+        {
+            return Some(InputRange {
+                from: 0,
+                len: first.from,
+            });
         }
 
         self.covered.iter().enumerate().find_map(|(i, covered)| {
