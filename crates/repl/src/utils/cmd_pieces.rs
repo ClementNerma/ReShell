@@ -22,7 +22,7 @@ pub struct CmdPiece<'a> {
     pub content: &'a str,
 }
 
-pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
+pub fn compute_command_pieces(input: &'_ str) -> Vec<CmdPiece<'_>> {
     let nesting_actions = detect_nesting_actions(input, true);
 
     let cmd_start = nesting_actions.iter().enumerate().rfind(|(_, action)| {
@@ -39,7 +39,7 @@ pub fn compute_command_pieces(input: &str) -> Vec<CmdPiece> {
 
     let mut segments = vec![];
 
-    fn make_piece(extract: &str, start: usize) -> CmdPiece {
+    fn make_piece(extract: &'_ str, start: usize) -> CmdPiece<'_> {
         let trimmed = extract.len() - extract.trim().len();
 
         CmdPiece {

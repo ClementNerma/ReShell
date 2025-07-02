@@ -19,7 +19,7 @@ impl Prompt {
 }
 
 impl RlPrompt for Prompt {
-    fn render_prompt_left(&self) -> Cow<str> {
+    fn render_prompt_left(&'_ self) -> Cow<'_, str> {
         if let Some(str) = &self.rendering.prompt_left {
             return str.into();
         }
@@ -35,7 +35,7 @@ impl RlPrompt for Prompt {
         }
     }
 
-    fn render_prompt_right(&self) -> Cow<str> {
+    fn render_prompt_right(&'_ self) -> Cow<'_, str> {
         if let Some(str) = &self.rendering.prompt_right {
             return str.into();
         }
@@ -43,7 +43,7 @@ impl RlPrompt for Prompt {
         "".into()
     }
 
-    fn render_prompt_indicator(&self, prompt_mode: PromptEditMode) -> Cow<str> {
+    fn render_prompt_indicator(&'_ self, prompt_mode: PromptEditMode) -> Cow<'_, str> {
         assert!(matches!(prompt_mode, PromptEditMode::Custom(_)));
 
         if let Some(str) = &self.rendering.prompt_indicator {
@@ -53,7 +53,7 @@ impl RlPrompt for Prompt {
         "〉".into()
     }
 
-    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+    fn render_prompt_multiline_indicator(&'_ self) -> Cow<'_, str> {
         if let Some(str) = &self.rendering.prompt_multiline_indicator {
             return str.into();
         }
@@ -62,9 +62,9 @@ impl RlPrompt for Prompt {
     }
 
     fn render_prompt_history_search_indicator(
-        &self,
+        &'_ self,
         history_search: PromptHistorySearch,
-    ) -> Cow<str> {
+    ) -> Cow<'_, str> {
         let prefix = match history_search.status {
             PromptHistorySearchStatus::Passing => "",
             PromptHistorySearchStatus::Failing => "failing ",

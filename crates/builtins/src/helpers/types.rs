@@ -434,53 +434,6 @@ impl<C: CustomValueType> TypedValueParser for CustomType<C> {
     }
 }
 
-/// Type handler for a list made of 2 elements
-pub struct Tuple2Type<A: TypedValueParser, B: TypedValueParser> {
-    _ab: PhantomData<(A, B)>,
-}
-
-impl<A: TypedValueParser, B: TypedValueParser> TypedValueParser for Tuple2Type<A, B> {
-    fn value_type() -> ValueType {
-        ValueType::Single(SingleValueType::UntypedList)
-    }
-
-    type Parsed = (A::Parsed, B::Parsed);
-
-    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
-        let items = match value {
-            RuntimeValue::List(items) => items,
-            _ => return Err("expected a tuple (list)".to_owned()),
-        };
-
-        let items = items.read_promise_no_write();
-
-        if items.len() != 2 {
-            return Err(format!(
-                "tuple is expected to contain exactly 2 elements, contains {}",
-                items.len()
-            ));
-        }
-
-        let a = A::parse(items[0].clone())
-            .map_err(|err| format!("error in tuple's first element: {err}"))?;
-
-        let b = B::parse(items[1].clone())
-            .map_err(|err| format!("error in tuple's second element: {err}"))?;
-
-        Ok((a, b))
-    }
-}
-
-impl<A: TypedValueParser + TypedValueEncoder, B: TypedValueParser + TypedValueEncoder>
-    TypedValueEncoder for Tuple2Type<A, B>
-{
-    type Encodable = (A::Encodable, B::Encodable);
-
-    fn encode((a, b): Self::Encodable) -> RuntimeValue {
-        RuntimeValue::List(GcCell::new(vec![A::encode(a), B::encode(b)]))
-    }
-}
-
 /// Macro to implement a type handler for a union type
 macro_rules! generic_type_union_handler {
     ($handler_struct: ident ($($generic: ident),+) => $result_struct: ident) => {
@@ -537,8 +490,8 @@ macro_rules! generic_type_union_handler {
 
 // Create union type handlers
 generic_type_union_handler!(Union2Type (A, B) => Union2Result);
-generic_type_union_handler!(Union3Type (A, B, C) => Union3Result);
-generic_type_union_handler!(Union4Type (A, B, C, D) => Union4Result);
+// generic_type_union_handler!(Union3Type (A, B, C) => Union3Result);
+// generic_type_union_handler!(Union4Type (A, B, C, D) => Union4Result);
 
 #[macro_export]
 macro_rules! declare_typed_union_handler {

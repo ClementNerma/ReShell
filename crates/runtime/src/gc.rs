@@ -23,7 +23,7 @@ impl<T> GcCell<T> {
         }
     }
 
-    pub fn read(&self, at: impl Into<RuntimeCodeRange>) -> GcRef<T> {
+    pub fn read(&'_ self, at: impl Into<RuntimeCodeRange>) -> GcRef<'_, T> {
         GcRef::new(
             self.value.read().unwrap(),
             Arc::clone(&self.read_lock),
@@ -31,15 +31,15 @@ impl<T> GcCell<T> {
         )
     }
 
-    pub fn read_promise_no_write(&self) -> RwLockReadGuard<T> {
+    pub fn read_promise_no_write(&'_ self) -> RwLockReadGuard<'_, T> {
         self.value.read().unwrap()
     }
 
     pub fn write(
-        &self,
+        &'_ self,
         at: impl Into<RuntimeCodeRange>,
         ctx: &Context,
-    ) -> ExecResult<RwLockWriteGuard<T>> {
+    ) -> ExecResult<RwLockWriteGuard<'_, T>> {
         self.value.write().map_err(|_| {
             let at = at.into();
 
@@ -145,7 +145,7 @@ impl<T> GcOnceCell<T> {
         Ok(())
     }
 
-    pub fn get(&self) -> RwLockReadGuard<Option<T>> {
+    pub fn get(&'_ self) -> RwLockReadGuard<'_, Option<T>> {
         self.inner.read().unwrap()
     }
 
