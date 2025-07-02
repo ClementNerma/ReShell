@@ -1,1 +1,9 @@
 pub mod to_string;
+pub mod tomorrow;
+pub mod with_day;
+pub mod with_hours;
+pub mod with_minutes;
+pub mod with_month;
+pub mod with_seconds;
+pub mod with_year;
+pub mod yesterday;

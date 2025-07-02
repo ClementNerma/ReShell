@@ -39,6 +39,14 @@ pub fn native_methods() -> Vec<InternalFunction> {
         // Date-times
         //
         self::datetime::to_string::build_fn(),
+        self::datetime::tomorrow::build_fn(),
+        self::datetime::with_day::build_fn(),
+        self::datetime::with_hours::build_fn(),
+        self::datetime::with_minutes::build_fn(),
+        self::datetime::with_month::build_fn(),
+        self::datetime::with_seconds::build_fn(),
+        self::datetime::with_year::build_fn(),
+        self::datetime::yesterday::build_fn(),
         //
         // Durations
         //
