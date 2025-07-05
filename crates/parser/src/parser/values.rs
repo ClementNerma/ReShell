@@ -315,8 +315,8 @@ pub static FN_CALL: LazilyDefined<FnCall> = LazilyDefined::new(|| {
         fn_arg
             .spanned()
             .padded_by(msnl)
-            // TODO: here and in some other places, make a critical error if no match after first repetition
             .separated_by_into_vec(char(','))
+            .critical_if_fails_after_sep("expected a valid argument after separator")
             .spanned(),
     )
     .then_ignore(char(')').critical("unexpected symbol"))
