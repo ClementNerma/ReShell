@@ -48,10 +48,12 @@ pub struct Context {
     bin_resolver: BinariesResolver,
 
     /// Auto-incremented scopes ID counter
+    ///
     /// When a counter is created, this is increased and assigned to the new scope
     scopes_id_counter: u64,
 
     /// All alive scopes
+    ///
     /// When a scope ends, it is removed from this map,
     /// except for the very first user scope as well as the native library
     scopes: HashMap<u64, Scope>,
@@ -63,6 +65,7 @@ pub struct Context {
     program_main_scope: Option<u64>,
 
     /// Data collected from the checker
+    ///
     /// Whenever a new program is run, the new program's data is merged with the existing one
     collected: CheckerOutput,
 }
