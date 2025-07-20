@@ -52,7 +52,7 @@ pub fn render_prompt(
     ctx: &mut Context,
     last_cmd_status: Option<LastCmdStatus>,
 ) -> ExecResult<Option<PromptRendering>> {
-    let Some(prompt_renderer) = get_repl_config(ctx).generate_prompt else {
+    let Some(prompt_renderer) = get_repl_config(ctx)?.generate_prompt else {
         return Ok(None);
     };
 

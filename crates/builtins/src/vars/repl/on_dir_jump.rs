@@ -32,7 +32,7 @@ pub fn trigger_directory_jump_event(ctx: &mut Context, new_current_dir: &Path) -
         return Ok(());
     };
 
-    let Some(on_dir_jump) = get_repl_config(ctx).on_dir_jump else {
+    let Some(on_dir_jump) = get_repl_config(ctx)?.on_dir_jump else {
         return Ok(());
     };
 

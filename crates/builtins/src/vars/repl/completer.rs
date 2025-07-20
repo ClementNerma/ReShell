@@ -48,7 +48,7 @@ pub fn generate_completions(
     cmd_pieces: &[Vec<CompletionStringSegment>],
     ctx: &mut Context,
 ) -> ExecResult<Option<Vec<GeneratedCompletion>>> {
-    let Some(completer_fn) = get_repl_config(ctx).generate_completions else {
+    let Some(completer_fn) = get_repl_config(ctx)?.generate_completions else {
         return Ok(None);
     };
 
