@@ -6,7 +6,6 @@ mod any;
 mod cmdcall;
 mod datetime;
 mod duration;
-mod function;
 mod instant;
 mod list;
 mod map;
@@ -55,10 +54,6 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::duration::subsec_micros::build_fn(),
         self::duration::subsec_millis::build_fn(),
         self::duration::subsec_nanos::build_fn(),
-        //
-        // Functions
-        //
-        self::function::is_parallalizable::build_fn(),
         //
         // Instants
         //

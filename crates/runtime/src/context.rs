@@ -39,6 +39,7 @@ pub static FIRST_SCOPE_ID: u64 = 1;
 ///
 ///  It is designed to be reusable in order to run multiple programs in the same base scope
 /// (e.g. REPL scenario)
+#[derive(Clone)]
 pub struct Context {
     /// Context configuration
     conf: ContextCreationParams,
@@ -763,6 +764,7 @@ pub struct Scope {
 }
 
 /// Context creation parameters
+#[derive(Clone)]
 pub struct ContextCreationParams {
     /// Runtime configuration
     pub runtime_conf: RuntimeConf,

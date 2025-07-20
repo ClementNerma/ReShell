@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 /// Runtime configuration
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RuntimeConf {
     /// Maximum call recursion
     pub call_stack_limit: usize,

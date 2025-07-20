@@ -16,6 +16,7 @@ use std::{
 
 use crate::compat::{PATH_VAR_SEP, TARGET_FAMILY, TargetFamily};
 
+#[derive(Clone)]
 pub struct BinariesResolver {
     path_dirs: Vec<String>,
     entries: HashMap<String, PathBuf>,
