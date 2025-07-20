@@ -26,7 +26,7 @@ fn run() -> Runner {
     Runner::new(|_, Args { func }, _, ctx| {
         let count = func.len();
 
-        let tasks = func
+        let results = func
             .into_par_iter()
             .map(|func| {
                 let mut ctx_clone = ctx.clone();
@@ -37,29 +37,9 @@ fn run() -> Runner {
                     vec![],
                     &mut ctx_clone,
                 )
+                .map(|ret_val| ret_val.map_or(RuntimeValue::Null, |loc_val| loc_val.value))
             })
-            .collect::<Vec<_>>();
-
-        let mut results = Vec::<RuntimeValue>::with_capacity(tasks.len());
-        let mut error = None;
-
-        for task in tasks {
-            match task {
-                Ok(result) => results.push(match result {
-                    Some(loc_val) => loc_val.value,
-                    None => RuntimeValue::Null,
-                }),
-
-                Err(err) => {
-                    error = Some(err);
-                    break;
-                }
-            }
-        }
-
-        if let Some(err) = error {
-            return Err(err);
-        }
+            .collect::<Result<Vec<_>, _>>()?;
 
         assert_eq!(count, results.len());
 
