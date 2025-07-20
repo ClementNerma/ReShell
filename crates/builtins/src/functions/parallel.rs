@@ -1,3 +1,4 @@
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use reshell_runtime::gc::GcCell;
 
 use crate::{
@@ -22,22 +23,20 @@ crate::define_internal_fn!(
 declare_typed_fn_handler!(BasicFunc() -> AnyType);
 
 fn run() -> Runner {
-    Runner::new(|_, Args { func }, args_at, ctx| {
+    Runner::new(|_, Args { func }, _, ctx| {
         let count = func.len();
 
         let tasks = func
-            .into_iter()
+            .into_par_iter()
             .map(|func| {
                 let mut ctx_clone = ctx.clone();
 
-                std::thread::spawn(move || {
-                    call_fn_checked(
-                        &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(func)),
-                        &BasicFunc::signature(),
-                        vec![],
-                        &mut ctx_clone,
-                    )
-                })
+                call_fn_checked(
+                    &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(func)),
+                    &BasicFunc::signature(),
+                    vec![],
+                    &mut ctx_clone,
+                )
             })
             .collect::<Vec<_>>();
 
@@ -45,19 +44,7 @@ fn run() -> Runner {
         let mut error = None;
 
         for task in tasks {
-            let result = task.join().unwrap_or_else(|err| {
-                let panic_msg = if let Some(str) = err.downcast_ref::<&'static str>() {
-                    str
-                } else if let Some(string) = err.downcast_ref::<String>() {
-                    string.as_str()
-                } else {
-                    "Thread panicked with invalid message"
-                };
-
-                ctx.panic(args_at.func, panic_msg)
-            });
-
-            match result {
+            match task {
                 Ok(result) => results.push(match result {
                     Some(loc_val) => loc_val.value,
                     None => RuntimeValue::Null,
