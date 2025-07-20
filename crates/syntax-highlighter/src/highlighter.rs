@@ -339,7 +339,20 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 ),
 
                 // Functions as values
-                simple(pomsky!( :('@' ([Letter '_'] [Letter d '_']*)?) ), [Identifier(Function)]),
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        :('@') :( ([Letter '_'] [Letter d '_']*)?)
+                    ))
+                    .unwrap(),
+                    inside: None,
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    preceded_by: None,
+                    validate: None,
+                    style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
+                        vec![Keyword, fn_name_style(&matched[2], cmd_checker)]
+                    })),
+                }),
 
                 // Numbers
                 simple(pomsky!( % :([d]+ ('.' [d]+)?) % ), [Value(Number)]),
