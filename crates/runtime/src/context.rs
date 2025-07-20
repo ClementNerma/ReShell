@@ -813,6 +813,17 @@ impl ScopeContent {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        let Self {
+            vars,
+            fns,
+            methods,
+            cmd_aliases,
+        } = &self;
+
+        vars.is_empty() && fns.is_empty() && methods.is_empty() && cmd_aliases.is_empty()
+    }
+
     pub fn extend(&mut self, other: ScopeContent) -> Result<(), String> {
         let ScopeContent {
             vars,
