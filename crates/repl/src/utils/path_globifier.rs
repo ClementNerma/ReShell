@@ -6,7 +6,10 @@
 //! Used for auto-completion of paths.
 //!
 
-use std::path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR};
+use std::{
+    borrow::Cow,
+    path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
+};
 
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{context::Context, values::RuntimeValue};
@@ -29,7 +32,7 @@ pub enum GlobPathStartsWith {
 pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<GlobPathOut, String> {
     let mut starts_with = None;
 
-    let glob_pattern = segments
+    let path = segments
         .iter()
         .enumerate()
         .map(|(i, segment)| match &segment {
@@ -47,7 +50,7 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
 
                         starts_with = Some(GlobPathStartsWith::HomeDirTilde(home_dir.to_owned()));
 
-                        return Ok(format!("{home_dir}{MAIN_SEPARATOR}{}", globify(stripped)));
+                        return Ok(format!("{home_dir}{MAIN_SEPARATOR}{stripped}"));
                     }
 
                     if input.starts_with("./") || input.starts_with(".\\") {
@@ -55,7 +58,7 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
                     }
                 }
 
-                Ok(globify(input))
+                Ok(input.to_owned())
             }
 
             &UnescapedSegment::VariableName(var_name) => {
@@ -89,54 +92,31 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
         })
         .collect::<Result<Vec<String>, String>>()?;
 
-    let glob_pattern = glob_pattern.join(MAIN_SEPARATOR_STR);
-
     Ok(GlobPathOut {
-        glob_pattern: if glob_pattern.is_empty() {
-            "*".to_owned()
-        } else {
-            glob_pattern
-        },
+        glob_pattern: globify_finalized_path(&path.join(MAIN_SEPARATOR_STR)),
         starts_with,
     })
 }
 
-fn globify(input: &str) -> String {
-    if input.is_empty() {
+fn globify_finalized_path(path: &str) -> String {
+    let mut path = path
+        .split(['/', '\\'])
+        .map(Cow::Borrowed)
+        .collect::<Vec<_>>();
+
+    let Some(last_part) = path.pop() else {
         return "*".to_owned();
-    }
+    };
 
-    let mut globified_segments: Vec<String> = vec![];
+    path.push(if last_part.is_empty() {
+        Cow::Borrowed("*")
+    } else if last_part == "." {
+        Cow::Borrowed(".*")
+    } else if last_part.contains('*') {
+        last_part
+    } else {
+        Cow::Owned(format!("*{last_part}*"))
+    });
 
-    let segments = input.split(['/', '\\']).collect::<Vec<_>>();
-
-    for (i, segment) in segments.iter().copied().enumerate() {
-        if segment.is_empty() {
-            if globified_segments.is_empty() {
-                globified_segments.push(String::new());
-            } else if i + 1 == segments.len() {
-                globified_segments.push(String::from('*'))
-            }
-        } else if segment == "." && i + 1 == segments.len() {
-            globified_segments.push(".*".to_owned());
-        } else if segment == "." || segment == ".." || segment.contains(':') {
-            globified_segments.push(segment.to_owned());
-        } else {
-            let mut globified = String::with_capacity(segment.len());
-
-            if !segment.starts_with('*') {
-                globified.push('*');
-            }
-
-            globified.push_str(segment);
-
-            if !segment.ends_with('*') {
-                globified.push('*');
-            }
-
-            globified_segments.push(globified);
-        }
-    }
-
-    globified_segments.join(MAIN_SEPARATOR_STR)
+    path.join(MAIN_SEPARATOR_STR)
 }
