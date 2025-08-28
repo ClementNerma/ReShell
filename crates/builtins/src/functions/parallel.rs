@@ -14,7 +14,7 @@ crate::define_internal_fn!(
     "parallel",
 
     (
-        func: RequiredArg<DetachedListType<BasicFunc>> = Arg::method_self()
+        func: RequiredArg<DetachedListType<BasicFunc>> = Arg::positional("func")
     )
 
     -> DetachedListType<AnyType>
