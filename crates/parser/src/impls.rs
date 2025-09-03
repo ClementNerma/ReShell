@@ -111,7 +111,7 @@ impl CmdRawString {
 
         match &only_piece.data {
             CmdRawStringPiece::Literal(lit) => Some(lit),
-            CmdRawStringPiece::Variable(_) => None,
+            CmdRawStringPiece::Variable(_) | CmdRawStringPiece::CmdCapturedOutput(_) => None,
         }
     }
 }

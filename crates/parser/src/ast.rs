@@ -318,7 +318,7 @@ pub enum Value {
     Variable(Span<String>),
     FnCall(Box<Span<FnCall>>),
     CmdOutput(Box<CmdOutputCapture>),
-    CmdCall(Box<Span<CmdCall>>),
+    CmdCall(Span<CmdCall>),
     FnAsValue(Span<String>),
     Lambda(Box<Function>),
 }
@@ -471,7 +471,7 @@ pub enum EscapableChar {
 
 #[derive(Debug, Clone)]
 pub struct CmdCall {
-    pub base: CmdCallBase,
+    pub base: Box<CmdCallBase>,
     pub pipes: Vec<CmdPipe>,
 }
 
@@ -533,6 +533,7 @@ pub struct CmdRawString {
 pub enum CmdRawStringPiece {
     Literal(String),
     Variable(Span<String>),
+    CmdCapturedOutput(CmdOutputCapture),
 }
 
 #[derive(Debug, Clone)]
@@ -547,7 +548,6 @@ pub enum CmdValueMakingArg {
     LiteralValue(LiteralValue),
     ComputedString(ComputedString),
     InlineCmdCall(Span<CmdCall>),
-    CmdCapturedOutput(CmdOutputCapture),
     ParenExpr(Span<Expr>),
     CmdRawString(Span<CmdRawString>),
     Variable(Span<String>),

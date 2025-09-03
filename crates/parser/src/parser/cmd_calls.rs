@@ -36,6 +36,10 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
         choice::<CmdRawStringPiece, _>((
             // Variables
             var_name.spanned().map(CmdRawStringPiece::Variable),
+            // Command output capture
+            CMD_CAPTURE
+                .static_ref()
+                .map(CmdRawStringPiece::CmdCapturedOutput),
             // Literal character suites
             filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
                 .repeated()
@@ -132,10 +136,6 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
         COMPUTED_STRING
             .static_ref()
             .map(CmdValueMakingArg::ComputedString),
-        // Command output captures
-        CMD_CAPTURE
-            .static_ref()
-            .map(CmdValueMakingArg::CmdCapturedOutput),
         // Parenthesis-wrapped expressions
         char('(')
             .ignore_then(
@@ -335,6 +335,7 @@ pub static CMD_CALL: LazilyDefined<CmdCall> = LazilyDefined::new(|| {
     ));
 
     cmd_call_base
+        .map(Box::new)
         .then(
             msnl.ignore_then(
                 choice::<CmdPipeType, _>((

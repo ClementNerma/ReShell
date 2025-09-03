@@ -427,10 +427,7 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
         // Variables
         var_name.spanned().map(Value::Variable),
         // Command calls
-        INLINE_CMD_CALL
-            .static_ref()
-            .map(Box::new)
-            .map(Value::CmdCall),
+        INLINE_CMD_CALL.static_ref().map(Value::CmdCall),
         // Function as value
         char('@')
             .ignore_then(ident.critical("expected a function name"))

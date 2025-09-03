@@ -53,7 +53,7 @@ pub fn run_cmd(
     // Prepare a uniform command chain for easier processing
     let CmdCall { base, pipes } = &call.data;
 
-    let (base, from_value) = match base {
+    let (base, from_value) = match &**base {
         CmdCallBase::Expr(expr) => {
             let value = eval_expr(&expr.data, ctx)?;
 
@@ -953,10 +953,6 @@ fn eval_cmd_value_making_arg(
         CmdValueMakingArg::InlineCmdCall(call) => RuntimeValue::CmdCall {
             content_at: call.at,
         },
-
-        CmdValueMakingArg::CmdCapturedOutput(capture) => {
-            RuntimeValue::String(capture_cmd_output(capture, ctx)?)
-        }
     };
 
     Ok(LocatedValue::new(RuntimeCodeRange::Parsed(arg.at), value))
@@ -992,6 +988,8 @@ fn eval_cmd_raw_string_piece(
             "only stringifyable variables can be used inside computable strings",
             ctx,
         ),
+
+        CmdRawStringPiece::CmdCapturedOutput(capture) => capture_cmd_output(capture, ctx),
     }
 }
 

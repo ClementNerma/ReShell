@@ -1073,7 +1073,7 @@ fn check_cmd_call(cmd_call: &Span<CmdCall>, state: &mut State) -> CheckerResult 
         ActualCall(CmdPathTargetType),
     }
 
-    let mut prev_call_type = match base {
+    let mut prev_call_type = match &**base {
         CmdCallBase::Expr(expr) => {
             check_expr(&expr.data, state)?;
             PrevCallType::Expr
@@ -1397,8 +1397,6 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
             check_computed_string(computed_string, state)
         }
 
-        CmdValueMakingArg::CmdCapturedOutput(cmd_call) => check_cmd_capture(cmd_call, state),
-
         CmdValueMakingArg::InlineCmdCall(cmd_call) => {
             state.register_cmd_call_value(cmd_call);
             check_cmd_call(cmd_call, state)
@@ -1421,6 +1419,9 @@ fn check_cmd_raw_string(cc_str: &CmdRawString, state: &mut State) -> CheckerResu
             CmdRawStringPiece::Variable(var) => {
                 state.register_var_usage(var)?;
             }
+            CmdRawStringPiece::CmdCapturedOutput(cmd_call) => {
+                check_cmd_capture(cmd_call, state)?;
+            }
         }
     }
 
@@ -1434,7 +1435,7 @@ fn check_cmd_capture(capture: &CmdOutputCapture, state: &mut State) -> CheckerRe
 
     let final_redirects = match cmd_call.data.pipes.last() {
         Some(last_pipe) => last_pipe.cmd.data.redirects.as_ref(),
-        None => match &cmd_call.data.base {
+        None => match &*cmd_call.data.base {
             CmdCallBase::Expr(_) => None,
             CmdCallBase::SingleCmdCall(cmd) => cmd.data.redirects.as_ref(),
         },
