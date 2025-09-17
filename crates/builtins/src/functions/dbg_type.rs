@@ -44,7 +44,8 @@ fn run() -> Runner {
                         max_line_size: max_line_size
                             .or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width)))
                             .unwrap_or(30),
-                        tab_size: tab_size.unwrap_or(4)
+                        tab_size: tab_size.unwrap_or(4),
+                        long_cut_off: true
                     }
                 )
             );

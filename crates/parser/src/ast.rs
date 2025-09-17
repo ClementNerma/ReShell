@@ -370,6 +370,7 @@ pub enum CmdCaptureType {
 #[derive(Debug, Clone, Hash)]
 pub enum ValueType {
     Single(SingleValueType),
+    // TODO: BTreeSet
     Union(Vec<SingleValueType>),
 }
 

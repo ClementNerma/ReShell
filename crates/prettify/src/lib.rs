@@ -150,7 +150,11 @@ pub struct PrettyPrintOptions {
     /// Some lines may be larger than this limit, consider it a "best-effort"
     pub max_line_size: usize,
 
+    /// Add the provided number of spaces at the beginning of each rendered line
     pub line_prefix_size: usize,
+
+    /// Strip the output if it becomes unreasonably long (e.g. dozens of thousands of characters)
+    pub long_cut_off: bool,
 }
 
 impl PrettyPrintOptions {
@@ -161,6 +165,7 @@ impl PrettyPrintOptions {
             tab_size: 0,
             max_line_size: 0,
             line_prefix_size: 0,
+            long_cut_off: true,
         }
     }
 
@@ -171,6 +176,7 @@ impl PrettyPrintOptions {
             tab_size: 4,
             max_line_size: 80,
             line_prefix_size: 0,
+            long_cut_off: false,
         }
     }
 }
@@ -243,6 +249,7 @@ impl PrettyPrintablePiece {
             tab_size,
             max_line_size,
             line_prefix_size,
+            long_cut_off,
         } = opts;
 
         match self {
@@ -261,12 +268,18 @@ impl PrettyPrintablePiece {
                 end,
                 suffix,
             } => {
+                let (items, remaining_cut_off) = if !long_cut_off || items.len() <= 100 {
+                    (items.as_slice(), None)
+                } else {
+                    (&items[0..100], Some(items.len() - 100))
+                };
+
+                for styled in begin {
+                    w(styled);
+                }
+
                 if !pretty || self.fits_in_line(max_line_size, current_ident + line_prefix_size) {
                     let space = Styled::colorless(" ");
-
-                    for styled in begin {
-                        w(styled);
-                    }
 
                     for (i, item) in items.iter().enumerate() {
                         item.render_inner(opts, w, current_ident);
@@ -279,14 +292,7 @@ impl PrettyPrintablePiece {
                             w(&space);
                         }
                     }
-
-                    for styled in end {
-                        w(styled);
-                    }
                 } else {
-                    for styled in begin {
-                        w(styled);
-                    }
                     let spacing =
                         Styled::colorless(format!("\n{}", " ".repeat(current_ident + tab_size)));
 
@@ -306,10 +312,20 @@ impl PrettyPrintablePiece {
                         "\n{}",
                         " ".repeat(current_ident)
                     )));
+                }
 
-                    for styled in end {
-                        w(styled);
-                    }
+                if let Some(remaining) = remaining_cut_off {
+                    w(&Styled(
+                        format!(
+                            " <and {remaining} other item{}>",
+                            if remaining > 1 { "s" } else { "" }
+                        )
+                        .bright_black(),
+                    ));
+                }
+
+                for styled in end {
+                    w(styled);
                 }
 
                 if let Some(suffix) = suffix {
