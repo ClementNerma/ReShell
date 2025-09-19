@@ -14,7 +14,7 @@ use crate::{
     ast::{
         ElsIf, FnSignatureArg, FnSignaturePositionalArg, Function, Instruction, MatchCase,
         ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, RangeBound, SingleVarDecl,
-        TypeMatchCase, ValueType, VarSpreading,
+        TypeMatchCase, ValueDestructuring, ValueType,
     },
     parser::{
         PROGRAM, ParserContext,
@@ -61,7 +61,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             enforced_type,
         });
 
-    let var_decl_type = recursive_shared(|var_decl_type| {
+    let value_destructuring = recursive_shared(|var_decl_type| {
         let obj_destructuring_item_binding = choice::<ObjPropSpreadingBinding, _>((
             just("mut")
                 .then(s)
@@ -115,7 +115,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                 ),
         ));
 
-        choice::<VarSpreading, _>((
+        choice::<ValueDestructuring, _>((
             //
             // Lists
             //
@@ -129,7 +129,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                 )
                 .then_ignore(msnl)
                 .then_ignore(char(']'))
-                .map(VarSpreading::Tuple),
+                .map(ValueDestructuring::Tuple),
             //
             // Maps and structs
             //
@@ -148,11 +148,11 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                 )
                 .then_ignore(msnl)
                 .then_ignore(char('}').critical_auto_msg())
-                .map(VarSpreading::MapOrStruct),
+                .map(ValueDestructuring::MapOrStruct),
             //
             // Single variables
             //
-            single_var_decl.map(VarSpreading::Single),
+            single_var_decl.map(ValueDestructuring::Single),
         ))
     });
 
@@ -173,7 +173,8 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
         just("let")
             .then_ignore(s)
             .ignore_then(
-                var_decl_type
+                value_destructuring
+                    .clone()
                     .spanned()
                     .critical("expected a valid variable declaration"),
             )
@@ -293,7 +294,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
         //
         just("for")
             .ignore_then(s)
-            .ignore_then(ident.spanned())
+            .ignore_then(value_destructuring.clone().spanned())
             .then_ignore(s)
             .then_ignore(just("in"))
             .then_ignore(s)
@@ -308,8 +309,8 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                     .static_ref()
                     .critical("expected a body for the 'for' loop"),
             )
-            .map(|((iter_var, iter_on), body)| Instruction::ForLoop {
-                iter_var,
+            .map(|((destructure_as, iter_on), body)| Instruction::ForLoop {
+                destructure_as,
                 iter_on,
                 body,
             }),
@@ -322,7 +323,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then_ignore(ms)
             .then_ignore(char(','))
             .then_ignore(ms)
-            .then(ident.spanned())
+            .then(value_destructuring.spanned())
             .then_ignore(s)
             .then_ignore(just("in"))
             .then_ignore(s)
@@ -338,9 +339,9 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                     .critical("expected a body for the 'for' loop"),
             )
             .map(
-                |(((key_iter_var, value_iter_var), iter_on), body)| Instruction::ForLoopKeyed {
+                |(((key_iter_var, destructure_as), iter_on), body)| Instruction::ForLoopKeyed {
                     key_iter_var,
-                    value_iter_var,
+                    destructure_as,
                     iter_on,
                     body,
                 },

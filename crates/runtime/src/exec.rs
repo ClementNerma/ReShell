@@ -3,9 +3,9 @@ use std::fmt::Debug;
 use indexmap::IndexSet;
 use parsy::{CodeRange, FileId, Span};
 use reshell_parser::ast::{
-    Block, ElsIf, Instruction, MatchCase, ObjPropSpreading, ObjPropSpreadingBinding,
-    ObjPropSpreadingType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase, ValueType,
-    VarSpreading,
+    AstScopeId, Block, ElsIf, Instruction, MatchCase, ObjPropSpreading, ObjPropSpreadingBinding,
+    ObjPropSpreadingType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase,
+    ValueDestructuring, ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
@@ -233,7 +233,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 return Err(ctx.error(init_expr.at, "cannot assign a void value"));
             }
 
-            declare_vars(names, init_value, init_expr.at, ctx)?;
+            declare_vars(names, init_value, init_expr.at, None, ctx)?;
 
             None
         }
@@ -376,7 +376,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         }
 
         Instruction::ForLoop {
-            iter_var,
+            destructure_as,
             iter_on,
             body,
         } => {
@@ -385,19 +385,13 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     for item in list.read(iter_on.at).iter() {
                         let mut loop_scope = ScopeContent::new();
 
-                        loop_scope.vars.insert(
-                            iter_var.data.clone(),
-                            ScopeVar {
-                                name_at: RuntimeCodeRange::Parsed(iter_var.at),
-                                decl_scope_id: body.scope_id,
-                                is_mut: false,
-                                enforced_type: None,
-                                value: GcCell::new(LocatedValue::new(
-                                    RuntimeCodeRange::Parsed(iter_var.at),
-                                    item.clone(),
-                                )),
-                            },
-                        );
+                        declare_vars(
+                            destructure_as,
+                            item.clone(),
+                            iter_on.at,
+                            Some((body.scope_id, &mut loop_scope)),
+                            ctx,
+                        )?;
 
                         // TODO: deduplicate
                         //
@@ -523,7 +517,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
         Instruction::ForLoopKeyed {
             key_iter_var,
-            value_iter_var,
+            destructure_as,
             iter_on,
             body,
         } => {
@@ -559,19 +553,13 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     },
                 );
 
-                loop_scope.vars.insert(
-                    value_iter_var.data.clone(),
-                    ScopeVar {
-                        name_at: RuntimeCodeRange::Parsed(value_iter_var.at),
-                        decl_scope_id: body.scope_id,
-                        is_mut: false,
-                        enforced_type: None,
-                        value: GcCell::new(LocatedValue::new(
-                            RuntimeCodeRange::Parsed(value_iter_var.at),
-                            value.clone(),
-                        )),
-                    },
-                );
+                declare_vars(
+                    destructure_as,
+                    value.clone(),
+                    iter_on.at,
+                    Some((body.scope_id, &mut loop_scope)),
+                    ctx,
+                )?;
 
                 // TODO: deduplicate
                 //
@@ -923,13 +911,14 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 }
 
 fn declare_vars(
-    names: &Span<VarSpreading>,
+    names: &Span<ValueDestructuring>,
     value: RuntimeValue,
     value_at: CodeRange,
+    mut scope: Option<(AstScopeId, &mut ScopeContent)>,
     ctx: &mut Context,
 ) -> ExecResult<()> {
     match &names.data {
-        VarSpreading::Single(single) => {
+        ValueDestructuring::Single(single) => {
             let SingleVarDecl {
                 name,
                 is_mut,
@@ -944,11 +933,12 @@ fn declare_vars(
                     value_at,
                     enforced_type: enforced_type.clone(),
                 },
+                scope.as_mut().map(|(id, content)| (*id, &mut **content)),
                 ctx,
             )?;
         }
 
-        VarSpreading::Tuple(members) => {
+        ValueDestructuring::Tuple(members) => {
             let list = match value {
                 RuntimeValue::List(list) => list,
 
@@ -979,11 +969,17 @@ fn declare_vars(
             }
 
             for (names, value) in members.iter().zip(list.iter().cloned()) {
-                declare_vars(names, value, value_at, ctx)?;
+                declare_vars(
+                    names,
+                    value,
+                    value_at,
+                    scope.as_mut().map(|(id, content)| (*id, &mut **content)),
+                    ctx,
+                )?;
             }
         }
 
-        VarSpreading::MapOrStruct(members) => {
+        ValueDestructuring::MapOrStruct(members) => {
             let map = match value {
                 RuntimeValue::Map(map) => map,
 
@@ -1043,11 +1039,18 @@ fn declare_vars(
                             value_at,
                             enforced_type: None,
                         },
+                        scope.as_mut().map(|(id, content)| (*id, &mut **content)),
                         ctx,
                     )?,
 
                     Some(ObjPropSpreadingBinding::Deconstruct(deconstruct)) => {
-                        declare_vars(deconstruct, value, value_at, ctx)?;
+                        declare_vars(
+                            deconstruct,
+                            value,
+                            value_at,
+                            scope.as_mut().map(|(id, content)| (*id, &mut **content)),
+                            ctx,
+                        )?;
                     }
 
                     None => {
@@ -1059,6 +1062,7 @@ fn declare_vars(
                                 value_at,
                                 enforced_type: None,
                             },
+                            scope.as_mut().map(|(id, content)| (*id, &mut **content)),
                             ctx,
                         )?;
                     }
@@ -1077,7 +1081,12 @@ struct DeclareVarData {
     enforced_type: Option<ValueType>,
 }
 
-fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> ExecResult<()> {
+fn declare_var(
+    name: &Span<String>,
+    data: DeclareVarData,
+    scope: Option<(AstScopeId, &mut ScopeContent)>,
+    ctx: &mut Context,
+) -> ExecResult<()> {
     let DeclareVarData {
         is_mut,
         value,
@@ -1100,9 +1109,14 @@ fn declare_var(name: &Span<String>, data: DeclareVarData, ctx: &mut Context) -> 
         ));
     }
 
-    let decl_scope_id = ctx.current_scope().ast_scope_id;
+    let (decl_scope_id, scope_content) = scope.unwrap_or_else(|| {
+        (
+            ctx.current_scope().ast_scope_id,
+            ctx.current_scope_content_mut(),
+        )
+    });
 
-    ctx.current_scope_content_mut().vars.insert(
+    scope_content.vars.insert(
         name.data.clone(),
         ScopeVar {
             name_at: RuntimeCodeRange::Parsed(name.at),

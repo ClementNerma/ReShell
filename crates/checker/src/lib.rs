@@ -30,7 +30,7 @@ use reshell_parser::ast::{
     ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess,
     PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
     SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase,
-    Value, ValueType, VarSpreading,
+    Value, ValueDestructuring, ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
@@ -62,13 +62,13 @@ pub fn check(
 }
 
 fn check_block(block: &Block, state: &mut State) -> CheckerResult {
-    check_block_with(block, state, |_| {})
+    check_block_with(block, state, |_, _| Ok(()))
 }
 
 fn check_block_with(
     block: &Block,
     state: &mut State,
-    fill_scope: impl FnOnce(&mut CheckerScope),
+    fill_scope: impl FnOnce(&mut CheckerScope, &mut State) -> CheckerResult,
 ) -> CheckerResult {
     let Block {
         scope_id,
@@ -85,7 +85,7 @@ fn check_block_with(
         type_aliases: HashMap::new(),
     };
 
-    fill_scope(&mut scope);
+    fill_scope(&mut scope, state)?;
 
     state.push_scope(scope);
 
@@ -251,142 +251,9 @@ fn block_first_pass(
 fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
     match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
-            // if state.curr_scope().vars.contains_key(&name.data) {
-            //     return Err(CheckerError::new(name.at, "duplicate variable declaration"));
-            // }
-
             check_expr(&init_expr.data, state)?;
 
-            fn insert_var(
-                decl: &SingleVarDecl,
-                idents: &mut HashSet<String>,
-                state: &mut State,
-            ) -> CheckerResult {
-                let SingleVarDecl {
-                    name,
-                    enforced_type,
-                    is_mut,
-                } = decl;
-
-                if let Some(enforced_type) = enforced_type {
-                    check_value_type(enforced_type, state)?;
-                }
-
-                if !idents.insert(name.data.clone()) {
-                    return Err(CheckerError::new(
-                        name.at,
-                        "duplicate identifier in declaration",
-                    ));
-                }
-
-                let scope_id = state.curr_scope().id;
-
-                state.curr_scope_mut().vars.insert(
-                    name.data.clone(),
-                    DeclaredVar {
-                        decl_at: RuntimeCodeRange::Parsed(name.at),
-                        scope_id,
-                        is_mut: *is_mut,
-                    },
-                );
-
-                Ok(())
-            }
-
-            fn insert_vars(
-                names: &VarSpreading,
-                idents: &mut HashSet<String>,
-                state: &mut State,
-            ) -> CheckerResult {
-                match names {
-                    VarSpreading::Single(single) => {
-                        insert_var(single, idents, state)?;
-                    }
-
-                    VarSpreading::Tuple(vars) => {
-                        for vars in vars {
-                            insert_vars(&vars.data, idents, state)?;
-                        }
-                    }
-
-                    VarSpreading::MapOrStruct(vars) => {
-                        for var in vars {
-                            let ObjPropSpreading { typ, default_value } = var;
-
-                            match typ {
-                                ObjPropSpreadingType::RawKeyToConst { name, binding } => {
-                                    match binding {
-                                        Some(binding) => {
-                                            insert_binding(binding, idents, state)?;
-                                        }
-
-                                        None => {
-                                            insert_var(
-                                                &SingleVarDecl {
-                                                    name: name.clone(),
-                                                    is_mut: false,
-                                                    enforced_type: None,
-                                                },
-                                                idents,
-                                                state,
-                                            )?;
-                                        }
-                                    }
-                                }
-
-                                ObjPropSpreadingType::RawKeyToMut { name } => {
-                                    insert_var(
-                                        &SingleVarDecl {
-                                            name: name.clone(),
-                                            is_mut: true,
-                                            enforced_type: None,
-                                        },
-                                        idents,
-                                        state,
-                                    )?;
-                                }
-
-                                ObjPropSpreadingType::LiteralKeyToConst {
-                                    literal_name: _,
-                                    binding,
-                                } => {
-                                    insert_binding(binding, idents, state)?;
-                                }
-                            }
-
-                            if let Some(default_value) = default_value {
-                                check_expr(default_value, state)?;
-                            }
-                        }
-                    }
-                }
-
-                Ok(())
-            }
-
-            fn insert_binding(
-                binding: &ObjPropSpreadingBinding,
-                idents: &mut HashSet<String>,
-                state: &mut State,
-            ) -> CheckerResult {
-                match binding {
-                    ObjPropSpreadingBinding::BindTo { alias, is_mut } => insert_var(
-                        &SingleVarDecl {
-                            name: alias.clone(),
-                            is_mut: *is_mut,
-                            enforced_type: None,
-                        },
-                        idents,
-                        state,
-                    ),
-
-                    ObjPropSpreadingBinding::Deconstruct(span) => {
-                        insert_vars(&span.data, idents, state)
-                    }
-                }
-            }
-
-            insert_vars(&names.data, &mut HashSet::new(), state)?;
+            register_destructuring(&names.data, None, state)?;
         }
 
         Instruction::AssignVar {
@@ -438,23 +305,15 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::ForLoop {
-            iter_var,
+            destructure_as,
             iter_on,
             body,
         } => {
             check_expr(&iter_on.data, state)?;
 
-            check_block_with(body, state, |scope| {
+            check_block_with(body, state, |scope, state| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
-
-                scope.vars.insert(
-                    iter_var.data.clone(),
-                    DeclaredVar {
-                        decl_at: RuntimeCodeRange::Parsed(iter_var.at),
-                        scope_id: scope.id,
-                        is_mut: false,
-                    },
-                );
+                register_destructuring(&destructure_as.data, Some(scope), state)
             })?;
         }
 
@@ -468,7 +327,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             check_range_bound(&iter_from.data, state)?;
             check_range_bound(&iter_to.data, state)?;
 
-            check_block_with(body, state, |scope| {
+            check_block_with(body, state, |scope, _| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
 
                 scope.vars.insert(
@@ -479,18 +338,20 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                         is_mut: false,
                     },
                 );
+
+                Ok(())
             })?;
         }
 
         Instruction::ForLoopKeyed {
             key_iter_var,
-            value_iter_var,
+            destructure_as,
             iter_on,
             body,
         } => {
             check_expr(&iter_on.data, state)?;
 
-            check_block_with(body, state, |scope| {
+            check_block_with(body, state, |scope, state| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
 
                 scope.vars.insert(
@@ -502,21 +363,17 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                     },
                 );
 
-                scope.vars.insert(
-                    value_iter_var.data.clone(),
-                    DeclaredVar {
-                        decl_at: RuntimeCodeRange::Parsed(value_iter_var.at),
-                        scope_id: scope.id,
-                        is_mut: false,
-                    },
-                );
+                // TODO: ensure "key_iter_var" is not in the list
+                register_destructuring(&destructure_as.data, Some(scope), state)
             })?;
         }
 
         Instruction::WhileLoop { cond, body } => {
             check_expr(&cond.data, state)?;
-            check_block_with(body, state, |scope| {
+
+            check_block_with(body, state, |scope, _| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
+                Ok(())
             })?;
         }
 
@@ -617,7 +474,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
         } => {
             check_expr(&try_expr.data, state)?;
 
-            check_block_with(catch_body, state, |scope| {
+            check_block_with(catch_body, state, |scope, _| {
                 scope.vars.insert(
                     catch_var.data.clone(),
                     DeclaredVar {
@@ -626,6 +483,8 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                         is_mut: false,
                     },
                 );
+
+                Ok(())
             })?;
         }
 
@@ -680,6 +539,149 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
     }
 
     Ok(())
+}
+
+fn register_destructuring(
+    names: &ValueDestructuring,
+    scope: Option<&mut CheckerScope>,
+    state: &mut State,
+) -> CheckerResult {
+    return insert_vars(names, scope, &mut HashSet::new(), state);
+
+    fn insert_vars(
+        names: &ValueDestructuring,
+        mut scope: Option<&mut CheckerScope>,
+        idents: &mut HashSet<String>,
+        state: &mut State,
+    ) -> CheckerResult {
+        match names {
+            ValueDestructuring::Single(single) => {
+                insert_var(single, scope.as_deref_mut(), idents, state)?;
+            }
+
+            ValueDestructuring::Tuple(vars) => {
+                for vars in vars {
+                    insert_vars(&vars.data, scope.as_deref_mut(), idents, state)?;
+                }
+            }
+
+            ValueDestructuring::MapOrStruct(vars) => {
+                for var in vars {
+                    let ObjPropSpreading { typ, default_value } = var;
+
+                    match typ {
+                        ObjPropSpreadingType::RawKeyToConst { name, binding } => match binding {
+                            Some(binding) => {
+                                insert_binding(binding, scope.as_deref_mut(), idents, state)?;
+                            }
+
+                            None => {
+                                insert_var(
+                                    &SingleVarDecl {
+                                        name: name.clone(),
+                                        is_mut: false,
+                                        enforced_type: None,
+                                    },
+                                    scope.as_deref_mut(),
+                                    idents,
+                                    state,
+                                )?;
+                            }
+                        },
+
+                        ObjPropSpreadingType::RawKeyToMut { name } => {
+                            insert_var(
+                                &SingleVarDecl {
+                                    name: name.clone(),
+                                    is_mut: true,
+                                    enforced_type: None,
+                                },
+                                scope.as_deref_mut(),
+                                idents,
+                                state,
+                            )?;
+                        }
+
+                        ObjPropSpreadingType::LiteralKeyToConst {
+                            literal_name: _,
+                            binding,
+                        } => {
+                            insert_binding(binding, scope.as_deref_mut(), idents, state)?;
+                        }
+                    }
+
+                    if let Some(default_value) = default_value {
+                        check_expr(default_value, state)?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn insert_binding(
+        binding: &ObjPropSpreadingBinding,
+        scope: Option<&mut CheckerScope>,
+        idents: &mut HashSet<String>,
+        state: &mut State,
+    ) -> CheckerResult {
+        match binding {
+            ObjPropSpreadingBinding::BindTo { alias, is_mut } => insert_var(
+                &SingleVarDecl {
+                    name: alias.clone(),
+                    is_mut: *is_mut,
+                    enforced_type: None,
+                },
+                scope,
+                idents,
+                state,
+            ),
+
+            ObjPropSpreadingBinding::Deconstruct(span) => {
+                insert_vars(&span.data, scope, idents, state)
+            }
+        }
+    }
+
+    fn insert_var(
+        decl: &SingleVarDecl,
+        scope: Option<&mut CheckerScope>,
+        idents: &mut HashSet<String>,
+        state: &mut State,
+    ) -> CheckerResult {
+        let SingleVarDecl {
+            name,
+            enforced_type,
+            is_mut,
+        } = decl;
+
+        if let Some(enforced_type) = enforced_type {
+            check_value_type(enforced_type, state)?;
+        }
+
+        if !idents.insert(name.data.clone()) {
+            return Err(CheckerError::new(
+                name.at,
+                "duplicate identifier in declaration",
+            ));
+        }
+
+        let scope = scope.unwrap_or_else(|| state.curr_scope_mut());
+
+        let scope_id = scope.id;
+
+        scope.vars.insert(
+            name.data.clone(),
+            DeclaredVar {
+                decl_at: RuntimeCodeRange::Parsed(name.at),
+                scope_id,
+                is_mut: *is_mut,
+            },
+        );
+
+        Ok(())
+    }
 }
 
 fn check_range_bound(range_bound: &RangeBound, state: &mut State) -> CheckerResult {
@@ -1511,15 +1513,15 @@ fn check_function(func: &Function, state: &mut State) -> CheckerResult {
 
     state.prepare_deps(body.data.scope_id);
 
-    let fill_scope = |scope: &mut CheckerScope| {
+    check_block_with(&body.data, state, |scope: &mut CheckerScope, _| {
         scope.special_scope_type = Some(SpecialScopeType::Function);
 
         for (name, var) in vars {
             scope.vars.insert(name, var);
         }
-    };
 
-    check_block_with(&body.data, state, fill_scope)
+        Ok(())
+    })
 }
 
 fn check_fn_arg(arg: &FnSignatureArg, state: &mut State) -> CheckerResult<CheckedFnArg> {

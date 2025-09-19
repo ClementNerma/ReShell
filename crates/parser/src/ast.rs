@@ -21,7 +21,7 @@ pub struct Block {
 pub enum Instruction {
     /// Variable declaration
     DeclareVar {
-        names: Span<VarSpreading>,
+        names: Span<ValueDestructuring>,
         init_expr: Span<Expr>,
     },
 
@@ -43,7 +43,7 @@ pub enum Instruction {
 
     /// 'for' loop
     ForLoop {
-        iter_var: Span<String>,
+        destructure_as: Span<ValueDestructuring>,
         iter_on: Span<Expr>,
         body: Block,
     },
@@ -60,7 +60,7 @@ pub enum Instruction {
     /// Keyed 'for' loop
     ForLoopKeyed {
         key_iter_var: Span<String>,
-        value_iter_var: Span<String>,
+        destructure_as: Span<ValueDestructuring>,
         iter_on: Span<Expr>,
         body: Block,
     },
@@ -138,9 +138,9 @@ pub enum Instruction {
 }
 
 #[derive(Debug, Clone)]
-pub enum VarSpreading {
+pub enum ValueDestructuring {
     Single(SingleVarDecl),
-    Tuple(Vec<Span<VarSpreading>>),
+    Tuple(Vec<Span<ValueDestructuring>>),
     MapOrStruct(Vec<ObjPropSpreading>),
 }
 
@@ -168,7 +168,7 @@ pub enum ObjPropSpreadingType {
 #[derive(Debug, Clone)]
 pub enum ObjPropSpreadingBinding {
     BindTo { alias: Span<String>, is_mut: bool },
-    Deconstruct(Box<Span<VarSpreading>>),
+    Deconstruct(Box<Span<ValueDestructuring>>),
 }
 
 #[derive(Debug, Clone)]
