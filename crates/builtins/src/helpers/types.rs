@@ -3,7 +3,7 @@
 //! allow to convert and parse some of the scripting language's native types.
 //!
 
-use std::{any::Any, collections::HashMap, fmt::Display, marker::PhantomData};
+use std::{any::Any, borrow::Cow, collections::HashMap, fmt::Display, marker::PhantomData};
 
 use indexmap::IndexMap;
 use parsy::CodeRange;
@@ -562,7 +562,7 @@ macro_rules! declare_typed_struct_handler {
                         ::reshell_parser::ast::StructTypeMember {
                             name: ::reshell_parser::ast::RuntimeSpan::internal(
                                 "native library's type generator",
-                                ::identconv::camel_strify!($name).to_owned()
+                                $crate::helpers::types::camel_case(stringify!($name)).into_owned()
                             ),
                             typ: <$parser as $crate::helpers::args::TypedValueParser>::value_type(),
                             optional: false
@@ -584,10 +584,10 @@ macro_rules! declare_typed_struct_handler {
 
                 Ok(Self {
                     $($name: {
-                        let name = ::identconv::camel_strify!($name);
+                        let name = $crate::helpers::types::camel_case(stringify!($name));
 
                         let value = members
-                            .get(name)
+                            .get(name.as_ref())
                             .ok_or_else(|| format!("property '{name}' is missing"))?;
 
                         <$parser>::parse(value.clone())
@@ -604,7 +604,7 @@ macro_rules! declare_typed_struct_handler {
                 let mut members = ::indexmap::IndexMap::new();
 
                 $(
-                    members.insert(::identconv::camel_strify!($name).to_owned(), <$parser as $crate::helpers::args::TypedValueEncoder>::encode(value.$name));
+                    members.insert($crate::helpers::types::camel_case(stringify!($name)).into_owned(), <$parser as $crate::helpers::args::TypedValueEncoder>::encode(value.$name));
                 )+
 
                 ::reshell_runtime::values::RuntimeValue::Struct(::reshell_runtime::gc::GcCell::new(members))
@@ -687,4 +687,38 @@ impl<T: TypedValueParser> TypedValueEncoder for NonEncodableWrapper<T> {
     fn encode(_: Self::Encodable) -> RuntimeValue {
         unreachable!("Cannot encode the currently wrapped type")
     }
+}
+
+pub fn camel_case<'a>(input: &'a str) -> Cow<'a, str> {
+    if !input.contains('-') && !input.contains('_') {
+        return Cow::Borrowed(input);
+    }
+
+    let mut out = String::with_capacity(input.len());
+
+    let mut chars = input.chars();
+    let mut next_chars = input.chars().skip(1);
+
+    while let Some(c) = chars.next() {
+        let next_c = next_chars.next();
+
+        match c {
+            '-' | '_' => match next_c {
+                Some(next_c) => {
+                    chars.next();
+                    next_chars.next();
+
+                    for char in next_c.to_uppercase() {
+                        out.push(char);
+                    }
+                }
+
+                None => break,
+            },
+
+            _ => out.push(c),
+        }
+    }
+
+    Cow::Owned(out)
 }
