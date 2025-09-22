@@ -9,7 +9,7 @@
 
 use std::borrow::Cow;
 
-use annotate_snippets::{Level, Renderer, Snippet};
+use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
 use colored::Colorize;
 use parsy::{CodeRange, FileId, ParserExpectation, ParsingError, SourceFileID, Span};
 use reshell_checker::CheckerError;
@@ -285,13 +285,13 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     // which doesn't support color nesting like `colored`
     let msg = msg.bright_red().bold().to_string();
 
-    let snippet = Level::Error.title(&nature).snippet(
+    let report = Level::ERROR.secondary_title(&nature).element(
         Snippet::source(&extract)
             .line_start(extract_start_line)
-            .origin(&display_file)
+            .path(&display_file)
             .fold(false)
             .annotation(
-                Level::Error
+                AnnotationKind::Primary
                     .span(
                         offset - extract_start_offset
                             ..offset - extract_start_offset + range_chars_len,
@@ -300,7 +300,12 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             ),
     );
 
-    eprintln!("{}", Renderer::styled().render(snippet));
+    eprintln!(
+        "{}",
+        Renderer::styled()
+            .decor_style(DecorStyle::Unicode)
+            .render(&[report])
+    );
 
     let infos = match err {
         ReportableError::Parsing(_) => vec![],

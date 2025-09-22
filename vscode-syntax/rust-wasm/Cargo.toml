@@ -7,5 +7,5 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-wasm-bindgen = "0.2.100"
+wasm-bindgen = "0.2.103"
 reshell-syntax-highlighter = { path = "../../crates/syntax-highlighter" }
