@@ -137,7 +137,38 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                 simple(pomsky!( :("->") [s]* :([Letter '_'] [Letter d '_']*) % ), [Symbol(FnReturnTypePrefix), IdentifierDeclaration(TypeDecl)]),
 
                 // Command aliases
-                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]+ :('=') ), [Keyword, IdentifierDeclaration(AliasDecl), Operator(Assignment)]),
+                Rule::Simple(SimpleRule {
+                    matches: Regex::new(pomsky!(
+                        let delimiter = [s '(' ')' '[' ']' '{' '}' '<' '>' ';' '|' "'" '"' '`' '$' '#' '^'];
+                        
+                        // TODO: factorize?
+                        % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') [s]* :('^'?) :(!delimiter+)
+                    )).unwrap(),
+                    inside: None,
+                    preceded_by: None,
+                    followed_by: None,
+                    followed_by_nesting: None,
+                    validate: None,
+                    style: RuleStylization::Dynamic(Box::new(move |matched, cmd_checker: &SharedCmdChecker| {
+                        let is_external = !matched[1].is_empty();
+
+                        let cmd_type = if is_external {
+                            CheckCmdType::ExternalCmd
+                        } else {
+                            CheckCmdType::BroadCmd
+                        };
+
+                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
+                            Identifier(CmdNameOrPath)
+                        } else {
+                            Invalid(CmdPathNotFound)
+                        };
+
+                        vec![Keyword, Identifier(CmdNameOrPath), Operator(Assignment), Symbol(ExternalCmdMarker), item_type]
+                    }))
+                }),
+
+                simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) [s]* :('=') ), [Keyword, IdentifierDeclaration(AliasDecl), Operator(Assignment)]),
                 simple(pomsky!( % :("alias") [s]+ :([Letter '_'] [Letter d '_']*) % ), [Keyword, IdentifierDeclaration(AliasDecl)]),
 
                 // Commands
