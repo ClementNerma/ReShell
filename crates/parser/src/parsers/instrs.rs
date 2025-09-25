@@ -16,7 +16,7 @@ use crate::{
         ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, RangeBound, SingleVarDecl,
         TypeMatchCase, ValueDestructuring, ValueType,
     },
-    parser::{
+    parsers::{
         PROGRAM, ParserContext,
         blocks::{BLOCK, generate_scope_id},
         cmd_calls::{CMD_CALL, SINGLE_CMD_CALL},

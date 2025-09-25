@@ -11,7 +11,7 @@ use crate::{
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
         CmdRedirects, CmdValueMakingArg, FlagValueSeparator, SingleCmdCall,
     },
-    parser::{
+    parsers::{
         exprs::EXPR,
         values::{
             CMD_CAPTURE, COMPUTED_STRING, INLINE_CMD_CALL, LAMBDA, LITERAL_STRING, LITERAL_VALUE,

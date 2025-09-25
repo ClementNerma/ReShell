@@ -6,7 +6,7 @@ use parsy::{
 
 use crate::{
     ast::{RuntimeSpan, SingleValueType, StructTypeMember, ValueType},
-    parser::{functions::FN_SIGNATURE, values::LITERAL_STRING},
+    parsers::{functions::FN_SIGNATURE, values::LITERAL_STRING},
     use_basic_parsers,
 };
 

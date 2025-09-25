@@ -14,7 +14,7 @@ use crate::{
         DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
         MatchExprCase, PropAccess, PropAccessNature, SingleOp, TypeMatchExprCase,
     },
-    parser::{
+    parsers::{
         blocks::generate_scope_id,
         values::{FN_CALL, VALUE},
     },

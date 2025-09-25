@@ -50,6 +50,6 @@ pub fn var_name() -> impl Parser<String> + Copy {
 #[macro_export]
 macro_rules! use_basic_parsers {
     ($($idents: ident),+) => {
-        $( let $idents = $crate::parser::basics::$idents(); )+
+        $( let $idents = $crate::parsers::basics::$idents(); )+
     }
 }

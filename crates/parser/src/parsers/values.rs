@@ -12,7 +12,7 @@ use crate::{
         FnSignaturePositionalArg, Function, ListItem, LiteralValue, MapItem, MapKey, RuntimeSpan,
         SpreadValue, StructItem, Value,
     },
-    parser::{
+    parsers::{
         blocks::RAW_BLOCK,
         cmd_calls::CMD_CALL,
         exprs::EXPR,

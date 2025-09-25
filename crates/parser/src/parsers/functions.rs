@@ -9,7 +9,7 @@ use crate::{
         FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
         FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, RuntimeSpan,
     },
-    parser::types::VALUE_TYPE,
+    parsers::types::VALUE_TYPE,
     use_basic_parsers,
 };
 
