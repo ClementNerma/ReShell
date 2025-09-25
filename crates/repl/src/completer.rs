@@ -265,11 +265,12 @@ pub fn generate_completions(
         // If everything else failed, try to complete the current word as a path
         CompletionMode::Any => complete_path(&unescape_str(word), span, ctx),
 
+        CompletionMode::Expr => Ok(vec![]),
+
         CompletionMode::None
         | CompletionMode::Single(_)
-        | CompletionMode::Expr
         | CompletionMode::CmdName
-        | CompletionMode::ExternalCmdName => unreachable!(),
+        | CompletionMode::ExternalCmdName => unreachable!("{mode:?}"),
     }
 }
 
