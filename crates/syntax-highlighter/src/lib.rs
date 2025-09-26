@@ -2,6 +2,8 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
+use std::sync::LazyLock;
+
 pub use self::syntax::SyntaxItem;
 use self::{elements::ItemType, highlighter::CmdChecker};
 
@@ -40,5 +42,5 @@ pub fn syntax_highlight(input: &str, cmd_checker: Option<CmdChecker>) -> Vec<Syn
 ///
 /// Note that this function may take several dozens of milliseconds to complete.
 pub fn preinit_lazy_syntax_highlighter() {
-    let _ = &self::highlighter::RULE_SET;
+    LazyLock::force(&self::highlighter::RULE_SET);
 }
