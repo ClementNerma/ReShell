@@ -1,6 +1,6 @@
 use std::{
     ops::Deref,
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use reshell_parser::ast::RuntimeCodeRange;
@@ -117,41 +117,31 @@ impl<'a, T> Deref for GcRef<'a, T> {
 // Garbage-collectable once-assignable cell
 #[derive(Debug)]
 pub struct GcOnceCell<T> {
-    inner: Arc<RwLock<Option<T>>>,
+    inner: Arc<OnceLock<T>>,
 }
 
 impl<T> GcOnceCell<T> {
     pub fn new_uninit() -> Self {
         Self {
-            inner: Arc::new(RwLock::new(None)),
+            inner: Arc::new(OnceLock::new()),
         }
     }
 
     pub fn new_init(value: T) -> Self {
+        let lock = OnceLock::new();
+        let _ = lock.set(value);
+
         Self {
-            inner: Arc::new(RwLock::new(Some(value))),
+            inner: Arc::new(lock),
         }
     }
 
     pub fn init(&self, data: T) -> Result<(), GcOnceCellAlreadyInitErr> {
-        let mut inner = self.inner.write().unwrap();
-
-        if inner.is_some() {
-            return Err(GcOnceCellAlreadyInitErr);
-        }
-
-        *inner = Some(data);
-
-        Ok(())
+        self.inner.set(data).map_err(|_| GcOnceCellAlreadyInitErr)
     }
 
-    pub fn get(&'_ self) -> RwLockReadGuard<'_, Option<T>> {
-        self.inner.read().unwrap()
-    }
-
-    pub fn get_or_init(&self, create: impl FnOnce() -> T) {
-        let created = create();
-        *self.inner.write().unwrap() = Some(created);
+    pub fn get(&'_ self) -> Option<&T> {
+        self.inner.get()
     }
 }
 

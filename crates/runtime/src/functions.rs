@@ -134,7 +134,7 @@ pub fn call_fn_value(
                 );
             }
 
-            let Some(captured_deps) = func.captured_deps.get().as_ref().cloned() else {
+            let Some(captured_deps) = func.captured_deps.get().cloned() else {
                 return Err(ctx.error(call_at, "function called before its declaration"));
             };
 
