@@ -31,7 +31,7 @@ pub fn human_size(size: u64, precision: Option<u8>) -> String {
         .find_map(|(i, unit)| {
             let base = 1024_u64.pow(i.try_into().unwrap());
 
-            if size >= base {
+            if size >= base || base == 1 {
                 Some((unit, base))
             } else {
                 None
