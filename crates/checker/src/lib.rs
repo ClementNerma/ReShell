@@ -253,7 +253,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
         Instruction::DeclareVar { names, init_expr } => {
             check_expr(&init_expr.data, state)?;
 
-            register_destructuring(&names.data, None, state)?;
+            register_destructuring(&names.data, None, state, None)?;
         }
 
         Instruction::AssignVar {
@@ -313,7 +313,7 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
 
             check_block_with(body, state, |scope, state| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
-                register_destructuring(&destructure_as.data, Some(scope), state)
+                register_destructuring(&destructure_as.data, Some(scope), state, None)
             })?;
         }
 
@@ -363,8 +363,12 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
                     },
                 );
 
-                // TODO: ensure "key_iter_var" is not in the list
-                register_destructuring(&destructure_as.data, Some(scope), state)
+                register_destructuring(
+                    &destructure_as.data,
+                    Some(scope),
+                    state,
+                    Some(HashSet::from([key_iter_var.data.clone()])),
+                )
             })?;
         }
 
@@ -545,8 +549,9 @@ fn register_destructuring(
     names: &ValueDestructuring,
     scope: Option<&mut CheckerScope>,
     state: &mut State,
+    used_idents: Option<HashSet<String>>,
 ) -> CheckerResult {
-    return insert_vars(names, scope, &mut HashSet::new(), state);
+    return insert_vars(names, scope, &mut used_idents.unwrap_or_default(), state);
 
     fn insert_vars(
         names: &ValueDestructuring,
