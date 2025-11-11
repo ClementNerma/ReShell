@@ -1,7 +1,7 @@
 use colored::Colorize;
 use parsy::FileId;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::context::ScopeContent;
+use reshell_runtime::{context::ScopeContent, values::RuntimeFnBody};
 
 use crate::define_internal_fn;
 
@@ -64,8 +64,23 @@ fn run() -> Runner {
                                 format!("internal location: {str}").italic()
                             }
                         },
-                        func.value.display(ctx, PrettyPrintOptions::inline())
+                        func.value
+                            .signature
+                            .inner()
+                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                     );
+
+                    if let RuntimeFnBody::Block(block) = &func.value.body
+                        && let FileId::SourceFile(id) = block.at.start.file_id
+                    {
+                        let source = ctx.files_map().get_file(id).unwrap().content;
+
+                        println!(
+                            "\n{}",
+                            source[block.at.start.offset..block.at.start.offset + block.at.len]
+                                .italic()
+                        );
+                    }
 
                     return Ok(None);
                 } else if let Some(cmd_alias) = cmd_aliases.get(&command) {
