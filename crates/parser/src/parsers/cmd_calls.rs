@@ -283,7 +283,7 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
                     just("err>")
                         .ignore_then(s)
                         .ignore_then(cmd_raw_string.spanned())
-                        .map(CmdRedirects::StdoutToFile),
+                        .map(CmdRedirects::StderrToFile),
                     // Redirect STDERR to STDOUT
                     just("err>").map(|_| CmdRedirects::StderrToStdout),
                     // Redirect STDOUT to SDTERR
