@@ -162,6 +162,7 @@ pub fn generate_completions(
                 extra: None,
                 span,
                 append_whitespace: true,
+                match_indices: None, // TODO?
             }]);
         }
 
@@ -254,6 +255,7 @@ pub fn generate_completions(
                             extra: None,
                             span,
                             append_whitespace: true,
+                            match_indices: None, // TODO?
                         }
                     })
                     .collect());
@@ -343,6 +345,7 @@ fn build_fn_completions<'a>(
                     extra: None,
                     span,
                     append_whitespace,
+                    match_indices: None, // TODO?
                 },
             )
         })
@@ -387,6 +390,7 @@ fn build_method_completions<'a>(
                         extra: None,
                         span,
                         append_whitespace,
+                        match_indices: None, // TODO?
                     },
                 )
             })
@@ -477,6 +481,7 @@ fn build_external_cmd_completions(
                     extra: None,
                     span,
                     append_whitespace,
+                    match_indices: None, // TODO?
                 },
             ))
         }
@@ -520,6 +525,7 @@ fn complete_var_name(
                     extra: None,
                     span,
                     append_whitespace: false,
+                    match_indices: None, // TODO?
                 },
             )
         })
@@ -617,6 +623,7 @@ fn complete_path(
                 extra: None,
                 span,
                 append_whitespace: !is_dir,
+                match_indices: None, // TODO?
             },
         ));
     }

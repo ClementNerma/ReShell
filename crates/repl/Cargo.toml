@@ -13,16 +13,16 @@ reshell-checker = { path = "../checker" }
 reshell-runtime = { path = "../runtime" }
 reshell-builtins = { path = "../builtins" }
 parsy = "0.15.8"
-clap = { version = "4.5.48", features = ["derive"] }
-nu-ansi-term = "0.50.1"
+clap = { version = "4.5.54", features = ["derive"] }
+nu-ansi-term = "0.50.3"
 colored = "3.0.0"
 dirs = "6.0.0"
-crossterm = { version = "0.28.1", features = [], default-features = false }
-annotate-snippets = { version = "0.12.4" }
-ctrlc = "3.5.0"
-indexmap = "2.11.4"
+crossterm = { version = "0.29.0", features = [], default-features = false }
+annotate-snippets = { version = "0.12.10" }
+ctrlc = "3.5.1"
+indexmap = "2.12.1"
 dunce = "1.0.5"
-reedline = "0.42.0"
+reedline = "0.44.0"
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
 globby = "0.2.4"
 reshell-syntax-highlighter = { path = "../syntax-highlighter" }
