@@ -12,7 +12,11 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { string, pattern }, _, _| {
         Ok(Some(match string.find(&pattern) {
-            Some(pos) => RuntimeValue::Int(pos.try_into().unwrap()),
+            Some(pos) => {
+                let chars = string[..pos].chars().count();
+                RuntimeValue::Int(chars.try_into().unwrap())
+            }
+
             None => RuntimeValue::Null,
         }))
     })
