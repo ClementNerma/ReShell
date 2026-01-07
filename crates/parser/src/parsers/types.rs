@@ -33,6 +33,9 @@ pub static VALUE_TYPE: LazilyDefined<ValueType> = LazilyDefined::new(|| {
             just("string")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::String),
+            just("range")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Range),
             just("error")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::Error),

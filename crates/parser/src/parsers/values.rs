@@ -9,8 +9,8 @@ use crate::{
     ast::{
         CmdCall, CmdCaptureType, CmdOutputCapture, ComputedString, ComputedStringPiece,
         EscapableChar, FnArg, FnCall, FnCallNature, FnFlagArgName, FnSignature, FnSignatureArg,
-        FnSignaturePositionalArg, Function, ListItem, LiteralValue, MapItem, MapKey, RuntimeSpan,
-        SpreadValue, StructItem, Value,
+        FnSignaturePositionalArg, Function, ListItem, LiteralValue, MapItem, MapKey, Range,
+        RangeBound, RuntimeSpan, SpreadValue, StructItem, Value,
     },
     parsers::{
         blocks::RAW_BLOCK,
@@ -91,6 +91,7 @@ pub static LITERAL_VALUE: LazilyDefined<LiteralValue> = LazilyDefined::new(|| {
             .or_not()
             .then(digit(10).repeated().at_least(1))
             .then(char('.'))
+            .not_followed_by(char('.')) // don't mix up with ranges
             .then(
                 digit(10)
                     .repeated()
@@ -141,6 +142,31 @@ pub static COMPUTED_STRING: LazilyDefined<ComputedString> = LazilyDefined::new(|
     )
     .then_ignore(char('"').critical_auto_msg())
     .map(|pieces| ComputedString { pieces }).erase_type()
+});
+
+pub static RANGE_BOUND: LazilyDefined<Range> = LazilyDefined::new(|| {
+    use_basic_parsers!(var_name);
+
+    let range_bound = choice::<RangeBound, _>((
+        LITERAL_INT.static_ref().map(RangeBound::Literal),
+        var_name.spanned().map(RangeBound::Variable),
+        char('(')
+            .ignore_then(EXPR.static_ref().critical("expected an expression"))
+            .then_ignore(char(')').critical_auto_msg())
+            .spanned()
+            .map(RangeBound::Expr),
+    ));
+
+    range_bound
+        .then_ignore(just(".."))
+        .then(char('=').or_not().map(|eq| eq.is_some()))
+        .then(range_bound)
+        .map(|((from, include_last_value), to)| Range {
+            from,
+            to,
+            include_last_value,
+        })
+        .erase_type()
 });
 
 pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
@@ -345,6 +371,8 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
 
     choice::<Value, _>((
         just("null").map(|_| Value::Null),
+        // Range bounds
+        RANGE_BOUND.static_ref().map(Box::new).map(Value::Range),
         // Literals
         LITERAL_VALUE.static_ref().map(Value::Literal),
         // Computed strings

@@ -15,13 +15,13 @@ use crate::{
         CallStackEntry, Context, ScopeCmdAlias, ScopeContent, ScopeFn, ScopeMethod, ScopeVar,
     },
     errors::{ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult},
-    expr::{eval_expr, eval_range_bound},
+    expr::eval_expr,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
-        LocatedValue, NotComparableTypesErr, RuntimeCmdAlias, RuntimeFnBody, RuntimeFnSignature,
-        RuntimeFnValue, RuntimeValue, are_values_equal,
+        LocatedValue, NotComparableTypesErr, RangeValue, RuntimeCmdAlias, RuntimeFnBody,
+        RuntimeFnSignature, RuntimeFnValue, RuntimeValue, are_values_equal,
     },
 };
 
@@ -381,6 +381,59 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             body,
         } => {
             match eval_expr(&iter_on.data, ctx)? {
+                RuntimeValue::Range(range) => {
+                    let RangeValue {
+                        from,
+                        to,
+                        include_last_value,
+                    } = range;
+
+                    let range = from..(to + if include_last_value { 1 } else { 0 });
+
+                    for value in range {
+                        let mut loop_scope = ScopeContent::new();
+
+                        declare_vars(
+                            destructure_as,
+                            RuntimeValue::Int(value),
+                            iter_on.at,
+                            Some((body.scope_id, &mut loop_scope)),
+                            ctx,
+                        )?;
+
+                        // TODO: deduplicate
+                        //
+                        // Check block's execution result
+                        match run_block(body, ctx, Some(loop_scope)) {
+                            // Nothing to note
+                            Ok(None) => {}
+
+                            // Wandering values can be dropped
+                            Ok(Some(InstrRet::WanderingValue(_))) => {}
+
+                            // Propagate functions' return statements
+                            Ok(Some(InstrRet::FnReturn(value))) => {
+                                return Ok(Some(InstrRet::FnReturn(value)));
+                            }
+
+                            Err(err) => match err.nature {
+                                ExecErrorNature::InternalPropagation(propagation) => {
+                                    match propagation {
+                                        // Loop continuation (do nothing)
+                                        ExecInternalPropagation::LoopContinuation => {}
+
+                                        // Loop breakage
+                                        ExecInternalPropagation::LoopBreakage => break,
+                                    }
+                                }
+
+                                // Propagate other error types
+                                _ => return Err(err),
+                            },
+                        }
+                    }
+                }
+
                 RuntimeValue::List(list) => {
                     for item in list.read(iter_on.at).iter() {
                         let mut loop_scope = ScopeContent::new();
@@ -436,79 +489,6 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                         ),
                     ));
-                }
-            }
-
-            None
-        }
-
-        Instruction::ForLoopRanged {
-            iter_var,
-            iter_from,
-            iter_to,
-            inclusive,
-            body,
-        } => {
-            let iter_from = eval_range_bound(iter_from, ctx)?;
-            let iter_to = eval_range_bound(iter_to, ctx)?;
-
-            let range = if *inclusive {
-                iter_from..=iter_to
-            } else if iter_to == i64::MIN {
-                #[allow(clippy::reversed_empty_ranges)]
-                {
-                    0..=-1
-                }
-            } else {
-                iter_from..=iter_to - 1
-            };
-
-            for num in range {
-                let mut loop_scope = ScopeContent::new();
-
-                loop_scope.vars.insert(
-                    iter_var.data.clone(),
-                    ScopeVar {
-                        name_at: RuntimeCodeRange::Parsed(iter_var.at),
-                        decl_scope_id: body.scope_id,
-                        is_mut: false,
-                        enforced_type: None,
-                        value: GcCell::new(LocatedValue::new(
-                            RuntimeCodeRange::Parsed(iter_var.at),
-                            RuntimeValue::Int(num),
-                        )),
-                    },
-                );
-
-                // TODO: deduplicate
-                //
-                // Check block's execution result
-                match run_block(body, ctx, Some(loop_scope)) {
-                    // Nothing to note
-                    Ok(None) => {}
-
-                    // Wandering values can be dropped
-                    Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                    // Propagate functions' return statements
-                    Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)));
-                    }
-
-                    Err(err) => match err.nature {
-                        ExecErrorNature::InternalPropagation(propagation) => {
-                            match propagation {
-                                // Loop continuation (do nothing)
-                                ExecInternalPropagation::LoopContinuation => {}
-
-                                // Loop breakage
-                                ExecInternalPropagation::LoopBreakage => break,
-                            }
-                        }
-
-                        // Propagate other error types
-                        _ => return Err(err),
-                    },
                 }
             }
 

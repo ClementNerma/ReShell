@@ -125,6 +125,14 @@ pub struct CmdFlagValue {
     pub value: Option<FlagArgValueResult>,
 }
 
+/// Content of a range value
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RangeValue {
+    pub from: i64,
+    pub to: i64,
+    pub include_last_value: bool,
+}
+
 #[derive(Debug, Clone)]
 pub enum RuntimeValue {
     // Primitives
@@ -135,6 +143,7 @@ pub enum RuntimeValue {
     Int(i64),
     Float(f64),
     String(String),
+    Range(RangeValue),
     Error(Box<ErrorValueContent>),
     CmdCall { content_at: CodeRange },
     CmdArg(Box<CmdArgValue>),
@@ -162,6 +171,7 @@ impl RuntimeValue {
             RuntimeValue::Int(_) => SingleValueType::Int,
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
+            RuntimeValue::Range(_) => SingleValueType::Range,
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
             RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
             RuntimeValue::Error(_) => SingleValueType::Error,
@@ -215,6 +225,7 @@ impl RuntimeValue {
             | RuntimeValue::Int(_)
             | RuntimeValue::Float(_)
             | RuntimeValue::String(_)
+            | RuntimeValue::Range(_)
             | RuntimeValue::Error(_)
             | RuntimeValue::CmdCall { content_at: _ }
             | RuntimeValue::CmdArg(_)
@@ -313,6 +324,9 @@ pub fn are_values_equal(
         (RuntimeValue::String(a), RuntimeValue::String(b)) => Ok(a == b),
         (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Ok(false),
 
+        (RuntimeValue::Range(a), RuntimeValue::Range(b)) => Ok(a == b),
+        (RuntimeValue::Range(_), _) | (_, RuntimeValue::Range(_)) => Ok(false),
+
         (RuntimeValue::List(a), RuntimeValue::List(b)) => {
             let a = a.read_promise_no_write();
             let b = b.read_promise_no_write();
@@ -405,6 +419,7 @@ pub fn value_to_str(
         RuntimeValue::String(str) => Ok(str.clone()),
         RuntimeValue::Void
         | RuntimeValue::Null
+        | RuntimeValue::Range(_)
         | RuntimeValue::List(_)
         | RuntimeValue::Map(_)
         | RuntimeValue::Struct(_)

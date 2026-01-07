@@ -13,7 +13,7 @@ use crate::{
     DELIMITER_CHARS,
     ast::{
         ElsIf, FnSignatureArg, FnSignaturePositionalArg, Function, Instruction, MatchCase,
-        ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, RangeBound, SingleVarDecl,
+        ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, SingleVarDecl,
         TypeMatchCase, ValueDestructuring, ValueType,
     },
     parsers::{
@@ -23,7 +23,7 @@ use crate::{
         exprs::{EXPR, PROP_ACCESS_NATURE},
         functions::FN_SIGNATURE,
         types::VALUE_TYPE,
-        values::{LITERAL_INT, LITERAL_STRING},
+        values::LITERAL_STRING,
     },
     use_basic_parsers,
 };
@@ -156,16 +156,6 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
         ))
     });
 
-    let range_bound = choice::<RangeBound, _>((
-        LITERAL_INT.static_ref().map(RangeBound::Literal),
-        var_name.spanned().map(RangeBound::Variable),
-        char('(')
-            .ignore_then(EXPR.static_ref().critical("expected an expression"))
-            .then_ignore(char(')').critical_auto_msg())
-            .spanned()
-            .map(RangeBound::Expr),
-    ));
-
     choice::<Instruction, _>((
         //
         // Variables declaration
@@ -260,34 +250,6 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                 body,
                 elsif,
                 els,
-            }),
-        //
-        // ranged 'for' loops
-        //
-        just("for")
-            .ignore_then(s)
-            .ignore_then(ident.spanned())
-            .then_ignore(s)
-            .then_ignore(just("in"))
-            .then_ignore(s)
-            .then(range_bound.spanned())
-            .then_ignore(just(".."))
-            .then(char('=').or_not().map(|c| c.is_some()))
-            .then(range_bound.spanned().critical("expected a range end value"))
-            .then_ignore(ms)
-            .then(
-                BLOCK
-                    .static_ref()
-                    .critical("expected a body for the 'for' loop"),
-            )
-            .map(|((((iter_var, iter_from), inclusive), iter_to), body)| {
-                Instruction::ForLoopRanged {
-                    iter_var,
-                    iter_from,
-                    iter_to,
-                    inclusive,
-                    body,
-                }
             }),
         //
         // 'for' loops

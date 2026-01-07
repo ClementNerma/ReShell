@@ -21,6 +21,7 @@ fn run() -> Runner {
             RuntimeValue::Int(_) => "int",
             RuntimeValue::Float(_) => "float",
             RuntimeValue::String(_) => "string",
+            RuntimeValue::Range(_) => "range",
             RuntimeValue::Error(_) => "error",
             RuntimeValue::CmdCall { content_at: _ } => "cmdcall",
             RuntimeValue::CmdArg(_) => "cmdarg",

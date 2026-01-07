@@ -48,15 +48,6 @@ pub enum Instruction {
         body: Block,
     },
 
-    /// Ranged 'for' loop
-    ForLoopRanged {
-        iter_var: Span<String>,
-        iter_from: Span<RangeBound>,
-        iter_to: Span<RangeBound>,
-        inclusive: bool,
-        body: Block,
-    },
-
     /// Keyed 'for' loop
     ForLoopKeyed {
         key_iter_var: Span<String>,
@@ -205,6 +196,13 @@ pub struct Function {
 }
 
 #[derive(Debug, Clone)]
+pub struct Range {
+    pub from: RangeBound,
+    pub to: RangeBound,
+    pub include_last_value: bool,
+}
+
+#[derive(Debug, Clone)]
 pub enum RangeBound {
     Literal(i64),
     Variable(Span<String>),
@@ -312,6 +310,7 @@ pub enum Value {
     Null,
     Literal(LiteralValue),
     ComputedString(ComputedString),
+    Range(Box<Range>),
     List(Vec<ListItem>),
     Map(Vec<MapItem>),
     Struct(Vec<StructItem>),
@@ -384,6 +383,7 @@ pub enum SingleValueType {
     Float,
     String,
     StringLiteral(String),
+    Range,
     Error,
     UntypedList,
     TypedList(Box<ValueType>),

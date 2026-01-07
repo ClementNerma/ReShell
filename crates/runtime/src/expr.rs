@@ -3,8 +3,8 @@ use parsy::Span;
 use reshell_parser::ast::{
     ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
     ExprInnerContent, ExprOp, Function, ListItem, LiteralValue, MapItem, MapKey, MatchExprCase,
-    PropAccess, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem, TypeMatchExprCase,
-    Value,
+    PropAccess, Range, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem,
+    TypeMatchExprCase, Value,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, pretty_printable_string};
 
@@ -17,8 +17,8 @@ use crate::{
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
-        LocatedValue, NotComparableTypesErr, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue,
-        RuntimeValue, are_values_equal, value_to_str,
+        LocatedValue, NotComparableTypesErr, RangeValue, RuntimeFnBody, RuntimeFnSignature,
+        RuntimeFnValue, RuntimeValue, are_values_equal, value_to_str,
     },
 };
 
@@ -584,6 +584,20 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
             eval_computed_string(computed_str, ctx).map(RuntimeValue::String)?
         }
 
+        Value::Range(range) => {
+            let Range {
+                from,
+                to,
+                include_last_value,
+            } = &**range;
+
+            RuntimeValue::Range(RangeValue {
+                from: eval_range_bound(from, ctx)?,
+                to: eval_range_bound(to, ctx)?,
+                include_last_value: *include_last_value,
+            })
+        }
+
         Value::List(values) => {
             let mut list = Vec::with_capacity(values.len());
 
@@ -819,22 +833,25 @@ pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
     }))
 }
 
-pub fn eval_range_bound(range_bound: &Span<RangeBound>, ctx: &mut Context) -> ExecResult<i64> {
-    let value = match &range_bound.data {
-        RangeBound::Literal(literal) => RuntimeValue::Int(*literal),
-        RangeBound::Variable(var) => ctx
-            .get_visible_var(var)
-            .value
-            .read_promise_no_write()
-            .value
-            .clone(),
-        RangeBound::Expr(expr) => eval_expr(&expr.data, ctx)?,
+pub fn eval_range_bound(range_bound: &RangeBound, ctx: &mut Context) -> ExecResult<i64> {
+    let (value_at, value) = match range_bound {
+        RangeBound::Literal(literal) => return Ok(*literal),
+        RangeBound::Variable(var) => (
+            var.at,
+            ctx.get_visible_var(var)
+                .value
+                .read_promise_no_write()
+                .value
+                .clone(),
+        ),
+        RangeBound::Expr(expr) => (expr.at, eval_expr(&expr.data, ctx)?),
     };
 
     match value {
         RuntimeValue::Int(literal) => Ok(literal),
+
         _ => Err(ctx.error(
-            range_bound.at,
+            value_at,
             format!(
                 "expected an integer, found a: {}",
                 value.display(ctx, PrettyPrintOptions::inline())

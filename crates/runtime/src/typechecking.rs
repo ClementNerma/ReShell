@@ -26,6 +26,7 @@ pub fn check_if_value_fits_single_type(
         SingleValueType::Int => matches!(value, RuntimeValue::Int(_)),
         SingleValueType::Float => matches!(value, RuntimeValue::Float(_)),
         SingleValueType::String => matches!(value, RuntimeValue::String(_)),
+        SingleValueType::Range => matches!(value, RuntimeValue::Range(_)),
         SingleValueType::Error => matches!(value, RuntimeValue::Error(_)),
         SingleValueType::CmdCall => matches!(value, RuntimeValue::CmdCall { content_at: _ }),
         SingleValueType::CmdArg => matches!(value, RuntimeValue::CmdArg(_)),

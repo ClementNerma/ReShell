@@ -36,6 +36,7 @@ fn value_to_serde_json(value: RuntimeValue) -> Result<Value, &'static str> {
             Number::from_f64(float).ok_or("cannot convert NaN or Infinity numbers to JSON")?,
         )),
         RuntimeValue::String(string) => Ok(Value::String(string)),
+        RuntimeValue::Range(_) => Err("cannot convert a range to JSON"),
         RuntimeValue::Error(_) => Err("cannot convert an error to JSON"),
         RuntimeValue::CmdCall { content_at: _ } => Err("cannot convert a command call to JSON"),
         RuntimeValue::List(list) => list

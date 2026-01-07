@@ -28,9 +28,9 @@ use reshell_parser::ast::{
     FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, Function,
     Instruction, ListItem, LiteralValue, MapItem, MapKey, MatchCase, MatchExprCase,
     ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, Program, PropAccess,
-    PropAccessNature, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp, SingleValueType,
-    SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase, TypeMatchExprCase,
-    Value, ValueDestructuring, ValueType,
+    PropAccessNature, Range, RangeBound, RuntimeCodeRange, SingleCmdCall, SingleOp,
+    SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase,
+    TypeMatchExprCase, Value, ValueDestructuring, ValueType,
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
@@ -314,32 +314,6 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             check_block_with(body, state, |scope, state| {
                 scope.special_scope_type = Some(SpecialScopeType::Loop);
                 register_destructuring(&destructure_as.data, Some(scope), state, None)
-            })?;
-        }
-
-        Instruction::ForLoopRanged {
-            iter_var,
-            iter_from,
-            iter_to,
-            inclusive: _,
-            body,
-        } => {
-            check_range_bound(&iter_from.data, state)?;
-            check_range_bound(&iter_to.data, state)?;
-
-            check_block_with(body, state, |scope, _| {
-                scope.special_scope_type = Some(SpecialScopeType::Loop);
-
-                scope.vars.insert(
-                    iter_var.data.clone(),
-                    DeclaredVar {
-                        decl_at: RuntimeCodeRange::Parsed(iter_var.at),
-                        scope_id: scope.id,
-                        is_mut: false,
-                    },
-                );
-
-                Ok(())
             })?;
         }
 
@@ -689,14 +663,6 @@ fn register_destructuring(
     }
 }
 
-fn check_range_bound(range_bound: &RangeBound, state: &mut State) -> CheckerResult {
-    match range_bound {
-        RangeBound::Literal(_) => Ok(()),
-        RangeBound::Variable(var) => state.register_var_usage(var),
-        RangeBound::Expr(expr) => check_expr(&expr.data, state),
-    }
-}
-
 fn check_expr_with(
     expr: &Expr,
     scope_id: AstScopeId,
@@ -918,6 +884,8 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
 
         Value::ComputedString(computed_string) => check_computed_string(computed_string, state),
 
+        Value::Range(range) => check_range(range, state),
+
         Value::List(list) => {
             for item in list {
                 match item {
@@ -1023,6 +991,27 @@ fn check_computed_string_piece(piece: &ComputedStringPiece, state: &mut State) -
         }
         ComputedStringPiece::Expr(expr) => check_expr(&expr.data, state),
         ComputedStringPiece::CmdOutput(capture) => check_cmd_capture(capture, state),
+    }
+}
+
+fn check_range(range: &Range, state: &mut State) -> CheckerResult {
+    let Range {
+        from,
+        to,
+        include_last_value: _,
+    } = range;
+
+    check_range_bound(from, state)?;
+    check_range_bound(to, state)?;
+
+    Ok(())
+}
+
+fn check_range_bound(range_bound: &RangeBound, state: &mut State) -> CheckerResult {
+    match range_bound {
+        RangeBound::Literal(_) => Ok(()),
+        RangeBound::Variable(var) => state.register_var_usage(var),
+        RangeBound::Expr(expr) => check_expr(&expr.data, state),
     }
 }
 
@@ -1691,6 +1680,7 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Int
         | SingleValueType::Float
         | SingleValueType::String
+        | SingleValueType::Range
         | SingleValueType::Error
         | SingleValueType::CmdCall
         | SingleValueType::CmdArg

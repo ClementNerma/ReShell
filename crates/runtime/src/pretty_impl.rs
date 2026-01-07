@@ -10,7 +10,8 @@ use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     context::Context,
     values::{
-        CmdArgValue, CmdFlagValue, ErrorValueContent, RuntimeFnBody, RuntimeFnValue, RuntimeValue,
+        CmdArgValue, CmdFlagValue, ErrorValueContent, RangeValue, RuntimeFnBody, RuntimeFnValue,
+        RuntimeValue,
     },
 };
 
@@ -38,6 +39,19 @@ impl PrettyPrintable for RuntimeValue {
             }
 
             RuntimeValue::String(string) => pretty_printable_string(string),
+
+            RuntimeValue::Range(RangeValue {
+                from,
+                to,
+                include_last_value,
+            }) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic(from.to_string(), Color::BrightYellow),
+                PrettyPrintablePiece::colored_atomic(
+                    if *include_last_value { "..=" } else { ".." },
+                    Color::BrightYellow,
+                ),
+                PrettyPrintablePiece::colored_atomic(to.to_string(), Color::BrightYellow),
+            ]),
 
             RuntimeValue::Error(err) => {
                 let ErrorValueContent { at, data } = &**err;
