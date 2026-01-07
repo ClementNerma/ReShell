@@ -19,7 +19,7 @@ fn run() -> Runner {
         }
 
         if !path.is_file() {
-            return Err(ctx.throw(args_at.path, "Provided path is not a file"));
+            return Err(ctx.throw(args_at.path, "Provided file does not exist"));
         }
 
         let stat = path.metadata().map_err(|err| {
