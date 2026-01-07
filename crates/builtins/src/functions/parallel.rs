@@ -14,7 +14,8 @@ crate::define_internal_fn!(
     "parallel",
 
     (
-        func: RequiredArg<DetachedListType<BasicFunc>> = Arg::positional("func")
+        func: RequiredArg<DetachedListType<BasicFunc>> = Arg::positional("func"),
+        max_threads: OptionalArg<ExactIntType<usize>> = Arg::long_and_short_flag("max_threads", 't')
     )
 
     -> DetachedListType<AnyType>
@@ -23,23 +24,36 @@ crate::define_internal_fn!(
 declare_typed_fn_handler!(BasicFunc() -> AnyType);
 
 fn run() -> Runner {
-    Runner::new(|_, Args { func }, _, ctx| {
+    Runner::new(|_, Args { func, max_threads }, _, ctx| {
         let count = func.len();
 
-        let results = func
-            .into_par_iter()
-            .map(|func| {
-                let mut ctx_clone = ctx.clone();
+        let task = || {
+            func.into_par_iter()
+                .map(|func| {
+                    let mut ctx_clone = ctx.clone();
 
-                call_fn_checked(
-                    &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(func)),
-                    &BasicFunc::signature(),
-                    vec![],
-                    &mut ctx_clone,
-                )
-                .map(|ret_val| ret_val.map_or(RuntimeValue::Null, |loc_val| loc_val.value))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+                    call_fn_checked(
+                        &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(func)),
+                        &BasicFunc::signature(),
+                        vec![],
+                        &mut ctx_clone,
+                    )
+                    .map(|ret_val| ret_val.map_or(RuntimeValue::Null, |loc_val| loc_val.value))
+                })
+                .collect::<Result<Vec<_>, _>>()
+        };
+
+        let results = match max_threads {
+            None => task(),
+            Some(max_threads) => {
+                let pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(max_threads)
+                    .build()
+                    .unwrap();
+
+                pool.install(task)
+            }
+        }?;
 
         assert_eq!(count, results.len());
 
