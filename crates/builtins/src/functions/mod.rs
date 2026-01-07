@@ -33,7 +33,6 @@ mod in_dir;
 mod instant;
 mod mkdir;
 mod mtime;
-mod parallel;
 mod parent_dir;
 mod path_exists;
 mod pomsky;
@@ -86,7 +85,6 @@ pub fn native_functions() -> Vec<InternalFunction> {
         self::instant::build_fn(),
         self::mkdir::build_fn(),
         self::mtime::build_fn(),
-        self::parallel::build_fn(),
         self::parent_dir::build_fn(),
         self::path_exists::build_fn(),
         self::pomsky::build_fn(),
