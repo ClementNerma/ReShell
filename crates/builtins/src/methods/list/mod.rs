@@ -4,6 +4,7 @@ pub mod append;
 pub mod at;
 pub mod concat;
 pub mod contains;
+pub mod deduped;
 pub mod each;
 pub mod filter;
 pub mod filter_map;
