@@ -10,6 +10,7 @@ mod instant;
 mod list;
 mod map;
 mod progress_bar;
+mod range;
 mod regex;
 mod string;
 mod stringifyable;
@@ -110,6 +111,10 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::progress_bar::clear::build_fn(),
         self::progress_bar::finish::build_fn(),
         self::progress_bar::inc::build_fn(),
+        //
+        // Ranges
+        //
+        self::range::to_list::build_fn(),
         //
         // Regexes
         //

@@ -10,7 +10,7 @@ use parsy::CodeRange;
 use reshell_parser::ast::{SingleValueType, ValueType};
 use reshell_runtime::{
     gc::GcCell,
-    values::{CmdArgValue, CustomValueType, ErrorValueContent, RuntimeValue},
+    values::{CmdArgValue, CustomValueType, ErrorValueContent, RangeValue, RuntimeValue},
 };
 
 use super::args::{TypedValueEncoder, TypedValueParser};
@@ -110,6 +110,17 @@ declare_basic_type_handlers!(
         }
 
         fn encode(value: String) { RuntimeValue::String(value) }
+    },
+
+    RangeType (Range) = RangeValue {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Range(inner) => Ok(inner),
+                _ => Err("expected a range".to_owned())
+            }
+        }
+
+        fn encode(value: RangeValue) { RuntimeValue::Range(value) }
     },
 
     ErrorType (Error) = (CodeRange, RuntimeValue) {
