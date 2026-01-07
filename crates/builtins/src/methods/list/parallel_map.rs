@@ -17,7 +17,7 @@ crate::define_internal_fn!(
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
         mapper_fn: RequiredArg<MapperFn> = Arg::positional("mapper_fn"),
-        max_threads: OptionalArg<ExactIntType<usize>> = Arg::long_and_short_flag("max_threads", 't')
+        max_threads: OptionalArg<ExactIntType<usize>> = Arg::long_and_short_flag("max-threads", 't')
     )
 
     -> UntypedListType

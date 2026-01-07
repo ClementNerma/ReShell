@@ -12,7 +12,7 @@ crate::define_internal_fn!(
     (
         list: RequiredArg<UntypedListType> = Arg::method_self(),
         for_each_fn: RequiredArg<ForEachFn> = Arg::positional("for_each_fn"),
-        max_threads: OptionalArg<ExactIntType<usize>> = Arg::long_and_short_flag("max_threads", 't')
+        max_threads: OptionalArg<ExactIntType<usize>> = Arg::long_and_short_flag("max-threads", 't')
     )
 
     -> VoidType
