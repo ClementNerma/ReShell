@@ -4,7 +4,7 @@ use crate::{declare_typed_fn_handler, utils::call_fn_checked};
 
 crate::define_internal_fn!(
     //
-    // map over a list running the provided function in parallel
+    // iterate over a list running the provided function in parallel
     //
 
     "parallelEach",

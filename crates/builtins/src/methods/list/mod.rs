@@ -18,6 +18,7 @@ pub mod last;
 pub mod len;
 pub mod map;
 pub mod parallel_each;
+pub mod parallel_map;
 pub mod pop;
 pub mod prepend;
 pub mod push;

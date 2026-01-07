@@ -3,6 +3,7 @@ use reshell_runtime::gc::GcCell;
 
 use crate::{
     declare_typed_fn_handler,
+    helpers::runner::run_parallel,
     utils::{INTERNAL_CODE_RANGE, call_fn_checked},
 };
 
@@ -27,33 +28,24 @@ fn run() -> Runner {
     Runner::new(|_, Args { func, max_threads }, _, ctx| {
         let count = func.len();
 
-        let task = || {
-            func.into_par_iter()
-                .map(|func| {
-                    let mut ctx_clone = ctx.clone();
+        let results = run_parallel(
+            || {
+                func.into_par_iter()
+                    .map(|func| {
+                        let mut ctx_clone = ctx.clone();
 
-                    call_fn_checked(
-                        &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(func)),
-                        &BasicFunc::signature(),
-                        vec![],
-                        &mut ctx_clone,
-                    )
-                    .map(|ret_val| ret_val.map_or(RuntimeValue::Null, |loc_val| loc_val.value))
-                })
-                .collect::<Result<Vec<_>, _>>()
-        };
-
-        let results = match max_threads {
-            None => task(),
-            Some(max_threads) => {
-                let pool = rayon::ThreadPoolBuilder::new()
-                    .num_threads(max_threads)
-                    .build()
-                    .unwrap();
-
-                pool.install(task)
-            }
-        }?;
+                        call_fn_checked(
+                            &LocatedValue::new(INTERNAL_CODE_RANGE, RuntimeValue::Function(func)),
+                            &BasicFunc::signature(),
+                            vec![],
+                            &mut ctx_clone,
+                        )
+                        .map(|ret_val| ret_val.map_or(RuntimeValue::Null, |loc_val| loc_val.value))
+                    })
+                    .collect::<Result<Vec<_>, _>>()
+            },
+            max_threads,
+        )?;
 
         assert_eq!(count, results.len());
 
