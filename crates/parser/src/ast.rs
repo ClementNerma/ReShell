@@ -100,7 +100,7 @@ pub enum Instruction {
 
     /// Try block
     Try {
-        try_expr: Span<Expr>,
+        try_body: Span<Block>,
         catch_var: Span<String>,
         catch_body: Block,
     },

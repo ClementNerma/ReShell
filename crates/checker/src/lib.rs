@@ -446,11 +446,11 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
         }
 
         Instruction::Try {
-            try_expr,
+            try_body,
             catch_var,
             catch_body,
         } => {
-            check_expr(&try_expr.data, state)?;
+            check_block(&try_body.data, state)?;
 
             check_block_with(catch_body, state, |scope, _| {
                 scope.vars.insert(

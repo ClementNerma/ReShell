@@ -498,13 +498,13 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
         // Try/Catch
         //
         just("try")
-            .ignore_then(char('{').padded_by(msnl))
             .ignore_then(
-                EXPR.static_ref()
+                BLOCK
+                    .static_ref()
                     .spanned()
+                    .padded_by(msnl)
                     .critical("expected an expression"),
             )
-            .then_ignore(char('}').padded_by(msnl))
             .then_ignore(just("catch").critical_auto_msg())
             .then_ignore(s.critical_auto_msg())
             .then(
@@ -519,8 +519,8 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then_ignore(s.critical_auto_msg())
             .then(BLOCK.static_ref().critical("expected a block"))
             .map(
-                move |((try_expr, catch_var), catch_body)| Instruction::Try {
-                    try_expr,
+                move |((try_body, catch_var), catch_body)| Instruction::Try {
+                    try_body,
                     catch_var,
                     catch_body,
                 },

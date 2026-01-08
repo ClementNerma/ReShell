@@ -773,39 +773,38 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         }
 
         Instruction::Try {
-            try_expr,
+            try_body,
             catch_var,
             catch_body,
-        } => match eval_expr(&try_expr.data, ctx) {
-            Ok(result) => Some(InstrRet::WanderingValue(LocatedValue::new(
-                RuntimeCodeRange::Parsed(try_expr.at),
-                result,
-            ))),
+        } => {
+            if let Err(err) = run_block(&try_body.data, ctx, None) {
+                match err.nature {
+                    ExecErrorNature::Thrown { at, message } => {
+                        let mut scope = ScopeContent::new();
 
-            Err(err) => match err.nature {
-                ExecErrorNature::Thrown { at, message } => {
-                    let mut scope = ScopeContent::new();
+                        scope.vars.insert(
+                            catch_var.data.clone(),
+                            ScopeVar {
+                                name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                                decl_scope_id: catch_body.scope_id,
+                                is_mut: false,
+                                enforced_type: None,
+                                value: GcCell::new(LocatedValue::new(
+                                    at,
+                                    RuntimeValue::String(message),
+                                )),
+                            },
+                        );
 
-                    scope.vars.insert(
-                        catch_var.data.clone(),
-                        ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                            decl_scope_id: catch_body.scope_id,
-                            is_mut: false,
-                            enforced_type: None,
-                            value: GcCell::new(LocatedValue::new(
-                                at,
-                                RuntimeValue::String(message),
-                            )),
-                        },
-                    );
+                        run_block(catch_body, ctx, Some(scope))?;
+                    }
 
-                    run_block(catch_body, ctx, Some(scope))?
+                    _ => return Err(err),
                 }
+            }
 
-                _ => return Err(err),
-            },
-        },
+            None
+        }
 
         Instruction::CmdAliasDecl {
             name,
