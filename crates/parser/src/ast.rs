@@ -419,20 +419,40 @@ pub enum SingleOp {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DoubleOp {
-    Add,          // +
-    Sub,          // -
-    Mul,          // *
-    Div,          // /
-    Mod,          // %
-    And,          // &&
-    Or,           // ||
-    Eq,           // ==
-    Neq,          // !=
-    Lt,           // <
-    Lte,          // <=
-    Gt,           // >
-    Gte,          // <=
+    Arithmetic(ArithmeticDoubleOp),
+    EqualityCmp(EqualityCmpDoubleOp),
+    OrderingCmp(OrderingCmpDoubleOp),
+    Logic(LogicDoubleOp),
     NullFallback, // ??
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArithmeticDoubleOp {
+    Add, // +
+    Sub, // -
+    Mul, // *
+    Div, // /
+    Mod, // %
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EqualityCmpDoubleOp {
+    Eq,  // ==
+    Neq, // !=
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrderingCmpDoubleOp {
+    Lt,  // <
+    Lte, // <=
+    Gt,  // >
+    Gte, // <=
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LogicDoubleOp {
+    And, // &&
+    Or,  // ||
 }
 
 #[derive(Debug, Clone)]

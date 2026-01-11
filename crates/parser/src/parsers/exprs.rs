@@ -11,8 +11,9 @@ use super::types::VALUE_TYPE;
 use crate::{
     DELIMITER_CHARS,
     ast::{
-        DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp,
-        MatchExprCase, PropAccess, PropAccessNature, SingleOp, TypeMatchExprCase,
+        ArithmeticDoubleOp, DoubleOp, ElsIfExpr, EqualityCmpDoubleOp, Expr, ExprInner,
+        ExprInnerChaining, ExprInnerContent, ExprOp, LogicDoubleOp, MatchExprCase,
+        OrderingCmpDoubleOp, PropAccess, PropAccessNature, SingleOp, TypeMatchExprCase,
     },
     parsers::{
         blocks::generate_scope_id,
@@ -48,22 +49,36 @@ pub static EXPR: LazilyDefined<Expr> = LazilyDefined::new(|| {
     use_basic_parsers!(s, msnl, ms, ident);
 
     recursive_shared::<Expr, _>(|expr| {
-        let single_op = choice::<SingleOp, _>((char('!').to(SingleOp::Neg),));
+        let arithmetic_double_op = choice::<ArithmeticDoubleOp, _>((
+            char('+').to(ArithmeticDoubleOp::Add),
+            char('-').to(ArithmeticDoubleOp::Sub),
+            char('*').to(ArithmeticDoubleOp::Mul),
+            char('/').to(ArithmeticDoubleOp::Div),
+            char('%').to(ArithmeticDoubleOp::Mod),
+        ));
+
+        let equality_cmp_double_op = choice::<EqualityCmpDoubleOp, _>((
+            just("==").to(EqualityCmpDoubleOp::Eq),
+            just("!=").to(EqualityCmpDoubleOp::Neq),
+        ));
+
+        let ordering_cmp_double_op = choice::<OrderingCmpDoubleOp, _>((
+            just("<=").to(OrderingCmpDoubleOp::Lte),
+            just("<").to(OrderingCmpDoubleOp::Lt),
+            just(">=").to(OrderingCmpDoubleOp::Gte),
+            just(">").to(OrderingCmpDoubleOp::Gt),
+        ));
+
+        let logic_double_op = choice::<LogicDoubleOp, _>((
+            just("&&").to(LogicDoubleOp::And),
+            just("||").to(LogicDoubleOp::Or),
+        ));
 
         let double_op = not(just("->")).ignore_then(choice::<DoubleOp, _>((
-            char('+').to(DoubleOp::Add),
-            char('-').to(DoubleOp::Sub),
-            char('*').to(DoubleOp::Mul),
-            char('/').to(DoubleOp::Div),
-            char('%').to(DoubleOp::Mod),
-            just("&&").to(DoubleOp::And),
-            just("||").to(DoubleOp::Or),
-            just("==").to(DoubleOp::Eq),
-            just("!=").to(DoubleOp::Neq),
-            just("<=").to(DoubleOp::Lte),
-            just("<").to(DoubleOp::Lt),
-            just(">=").to(DoubleOp::Gte),
-            just(">").to(DoubleOp::Gt),
+            arithmetic_double_op.map(DoubleOp::Arithmetic),
+            equality_cmp_double_op.map(DoubleOp::EqualityCmp),
+            ordering_cmp_double_op.map(DoubleOp::OrderingCmp),
+            logic_double_op.map(DoubleOp::Logic),
             just("??").to(DoubleOp::NullFallback),
         )));
 
@@ -75,6 +90,8 @@ pub static EXPR: LazilyDefined<Expr> = LazilyDefined::new(|| {
             .then_ignore(char('}').critical_auto_msg());
 
         let expr_inner_chaining = to_define_shared::<ExprInnerChaining>();
+
+        let single_op = choice::<SingleOp, _>((char('!').to(SingleOp::Neg),));
 
         let expr_inner_content = recursive_shared(|expr_inner_content| {
             choice::<ExprInnerContent, _>((

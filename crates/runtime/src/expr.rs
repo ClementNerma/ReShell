@@ -1,8 +1,9 @@
 use indexmap::IndexMap;
 use parsy::Span;
 use reshell_parser::ast::{
-    ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr, Expr, ExprInner, ExprInnerChaining,
-    ExprInnerContent, ExprOp, Function, ListItem, LiteralValue, MapItem, MapKey, MatchExprCase,
+    ArithmeticDoubleOp, ComputedString, ComputedStringPiece, DoubleOp, ElsIfExpr,
+    EqualityCmpDoubleOp, Expr, ExprInner, ExprInnerChaining, ExprInnerContent, ExprOp, Function,
+    ListItem, LiteralValue, LogicDoubleOp, MapItem, MapKey, MatchExprCase, OrderingCmpDoubleOp,
     PropAccess, Range, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem,
     TypeMatchExprCase, Value,
 };
@@ -11,7 +12,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, pretty_printable_str
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecErrorNature, ExecInternalPropagation, ExecResult},
+    errors::{ExecError, ExecErrorNature, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
@@ -62,12 +63,12 @@ fn eval_expr_ref(
         let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
 
         let result = match expr_op {
-            ExprOp::DoubleOp { op, right_op } => {
-                let right =
-                    |ctx: &'_ mut Context| eval_expr_ref(right_op, &right_ops[pos + 1..], ctx);
-
-                apply_double_op(left, right, op, ctx)?
-            }
+            ExprOp::DoubleOp { op, right_op } => apply_double_op(
+                left,
+                |ctx| eval_expr_ref(right_op, &right_ops[pos + 1..], ctx),
+                *op,
+                ctx,
+            )?,
 
             ExprOp::TypeIs { right_op } => {
                 RuntimeValue::Bool(check_if_value_fits_type(&left, &right_op.data, ctx))
@@ -90,19 +91,11 @@ fn eval_expr_ref(
 fn apply_double_op(
     left: RuntimeValue,
     right: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
-    op: &Span<DoubleOp>,
+    op: Span<DoubleOp>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
     let result = match op.data {
-        DoubleOp::Add
-        | DoubleOp::Sub
-        | DoubleOp::Mul
-        | DoubleOp::Div
-        | DoubleOp::Mod
-        | DoubleOp::Lt
-        | DoubleOp::Lte
-        | DoubleOp::Gt
-        | DoubleOp::Gte => {
+        DoubleOp::Arithmetic(inner_op) => {
             let right = right(ctx)?;
 
             let got_overflow = || {
@@ -117,20 +110,20 @@ fn apply_double_op(
             };
 
             match (&left, &right) {
-                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match op.data {
-                    DoubleOp::Add => {
+                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
+                    ArithmeticDoubleOp::Add => {
                         RuntimeValue::Int(left.checked_add(*right).ok_or_else(got_overflow)?)
                     }
 
-                    DoubleOp::Sub => {
+                    ArithmeticDoubleOp::Sub => {
                         RuntimeValue::Int(left.checked_sub(*right).ok_or_else(got_overflow)?)
                     }
 
-                    DoubleOp::Mul => {
+                    ArithmeticDoubleOp::Mul => {
                         RuntimeValue::Int(left.checked_mul(*right).ok_or_else(got_overflow)?)
                     }
 
-                    DoubleOp::Div => {
+                    ArithmeticDoubleOp::Div => {
                         if *right == 0 {
                             return Err(ctx.error(op.at, "cannot divide by zero"));
                         }
@@ -138,17 +131,7 @@ fn apply_double_op(
                         RuntimeValue::Int(left.checked_div(*right).ok_or_else(got_overflow)?)
                     }
 
-                    DoubleOp::Mod => RuntimeValue::Int(left % right),
-                    DoubleOp::Lt => RuntimeValue::Bool(left < right),
-                    DoubleOp::Lte => RuntimeValue::Bool(left <= right),
-                    DoubleOp::Gt => RuntimeValue::Bool(left > right),
-                    DoubleOp::Gte => RuntimeValue::Bool(left >= right),
-
-                    DoubleOp::And
-                    | DoubleOp::Or
-                    | DoubleOp::Eq
-                    | DoubleOp::Neq
-                    | DoubleOp::NullFallback => unreachable!(),
+                    ArithmeticDoubleOp::Mod => RuntimeValue::Int(left % right),
                 },
 
                 (RuntimeValue::Float(left), RuntimeValue::Float(right)) => {
@@ -160,11 +143,11 @@ fn apply_double_op(
                         }
                     };
 
-                    match op.data {
-                        DoubleOp::Add => try_op(left + right)?,
-                        DoubleOp::Sub => try_op(left - right)?,
-                        DoubleOp::Mul => try_op(left * right)?,
-                        DoubleOp::Div => {
+                    match inner_op {
+                        ArithmeticDoubleOp::Add => try_op(left + right)?,
+                        ArithmeticDoubleOp::Sub => try_op(left - right)?,
+                        ArithmeticDoubleOp::Mul => try_op(left * right)?,
+                        ArithmeticDoubleOp::Div => {
                             if *right == 0.0 {
                                 return Err(ctx.error(op.at, "cannot divide by zero"));
                             }
@@ -172,17 +155,7 @@ fn apply_double_op(
                             try_op(left / right)?
                         }
 
-                        DoubleOp::Mod => RuntimeValue::Float(left % right),
-                        DoubleOp::Lt => RuntimeValue::Bool(left < right),
-                        DoubleOp::Lte => RuntimeValue::Bool(left <= right),
-                        DoubleOp::Gt => RuntimeValue::Bool(left > right),
-                        DoubleOp::Gte => RuntimeValue::Bool(left >= right),
-
-                        DoubleOp::And
-                        | DoubleOp::Or
-                        | DoubleOp::Eq
-                        | DoubleOp::Neq
-                        | DoubleOp::NullFallback => unreachable!(),
+                        ArithmeticDoubleOp::Mod => RuntimeValue::Float(left % right),
                     }
                 }
 
@@ -200,119 +173,100 @@ fn apply_double_op(
                     ));
                 }
 
-                (_, _) => {
-                    return Err(ctx.error(
-                        op.at,
-                        format!(
-                            "cannot apply this operator on a pair of {} and {}",
-                            left.compute_type()
-                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                            right
-                                .compute_type()
-                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                        ),
-                    ));
-                }
+                (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
             }
         }
 
-        DoubleOp::And => {
-            let RuntimeValue::Bool(left) = left else {
-                return Err(ctx.error(
-                    op.at,
-                    format!(
-                        "left operand is not a boolean but a {}",
-                        left.compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                ));
-            };
-
-            if !left {
-                return Ok(RuntimeValue::Bool(false));
-            }
-
+        DoubleOp::EqualityCmp(inner_op) => {
             let right = right(ctx)?;
 
-            let RuntimeValue::Bool(right) = right else {
-                return Err(ctx.error(
-                    op.at,
-                    format!(
-                        "right operand is not a boolean but a {}",
-                        right
-                            .compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                ));
+            let result = match (&left, &right) {
+                (RuntimeValue::Bool(left), RuntimeValue::Bool(right)) => match inner_op {
+                    EqualityCmpDoubleOp::Eq => left == right,
+                    EqualityCmpDoubleOp::Neq => left != right,
+                },
+
+                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
+                    EqualityCmpDoubleOp::Eq => left == right,
+                    EqualityCmpDoubleOp::Neq => left != right,
+                },
+
+                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match inner_op {
+                    EqualityCmpDoubleOp::Eq => left == right,
+                    EqualityCmpDoubleOp::Neq => left != right,
+                },
+
+                (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
             };
 
-            RuntimeValue::Bool(right)
+            RuntimeValue::Bool(result)
         }
 
-        DoubleOp::Or => {
-            let RuntimeValue::Bool(left) = left else {
-                return Err(ctx.error(
-                    op.at,
-                    format!(
-                        "left operand is not a boolean but a {}",
-                        left.compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                ));
-            };
-
-            if left {
-                return Ok(RuntimeValue::Bool(true));
-            }
-
+        DoubleOp::OrderingCmp(inner_op) => {
             let right = right(ctx)?;
 
-            let RuntimeValue::Bool(right) = right else {
-                return Err(ctx.error(
-                    op.at,
-                    format!(
-                        "right operand is not a boolean but a {}",
-                        right
-                            .compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                    ),
-                ));
+            let result = match (&left, &right) {
+                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
+                    OrderingCmpDoubleOp::Lt => left < right,
+                    OrderingCmpDoubleOp::Lte => left <= right,
+                    OrderingCmpDoubleOp::Gt => left > right,
+                    OrderingCmpDoubleOp::Gte => left >= right,
+                },
+
+                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match inner_op {
+                    OrderingCmpDoubleOp::Lt => left < right,
+                    OrderingCmpDoubleOp::Lte => left <= right,
+                    OrderingCmpDoubleOp::Gt => left > right,
+                    OrderingCmpDoubleOp::Gte => left >= right,
+                },
+
+                (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
             };
 
-            RuntimeValue::Bool(right)
+            RuntimeValue::Bool(result)
         }
 
-        DoubleOp::Eq | DoubleOp::Neq => {
+        DoubleOp::Logic(inner_op) => {
             let right = right(ctx)?;
 
-            let cmp =
-                are_values_equal(&left, &right).map_err(|NotComparableTypesErr { reason }| {
-                    ctx.error(
-                        op.at,
-                        format!(
-                            "cannot compare {} and {}: {reason}",
-                            left.compute_type()
-                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                            right
-                                .compute_type()
-                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                        ),
-                    )
-                })?;
+            let (RuntimeValue::Bool(left), RuntimeValue::Bool(right)) = (&left, &right) else {
+                return Err(not_applicable_err(&left, op, &right, ctx));
+            };
 
-            RuntimeValue::Bool(if op.data == DoubleOp::Eq { cmp } else { !cmp })
+            let result = match inner_op {
+                LogicDoubleOp::And => left == right,
+                LogicDoubleOp::Or => *left || *right,
+            };
+
+            RuntimeValue::Bool(result)
         }
 
-        DoubleOp::NullFallback => {
-            if matches!(left, RuntimeValue::Null) {
-                right(ctx)?
-            } else {
-                left
-            }
-        }
+        DoubleOp::NullFallback => match left {
+            RuntimeValue::Null => right(ctx)?,
+            _ => left,
+        },
     };
 
     Ok(result)
+}
+
+fn not_applicable_err(
+    left: &RuntimeValue,
+    op: Span<DoubleOp>,
+    right: &RuntimeValue,
+    ctx: &Context,
+) -> Box<ExecError> {
+    ctx.error(
+        op.at,
+        format!(
+            "cannot apply this operator on a pair of {} and {}",
+            left.compute_type()
+                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+            right
+                .compute_type()
+                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+        ),
+    )
 }
 
 fn eval_expr_inner(inner: &Span<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
@@ -863,18 +817,14 @@ pub fn eval_range_bound(range_bound: &RangeBound, ctx: &mut Context) -> ExecResu
 fn operator_precedence(op: &ExprOp) -> u8 {
     match op {
         ExprOp::DoubleOp { op, right_op: _ } => match op.data {
-            DoubleOp::Add | DoubleOp::Sub => 0,
-            DoubleOp::Mul | DoubleOp::Div | DoubleOp::Mod => 1,
+            DoubleOp::Arithmetic(op) => match op {
+                ArithmeticDoubleOp::Add | ArithmeticDoubleOp::Sub => 0,
+                ArithmeticDoubleOp::Mul | ArithmeticDoubleOp::Div | ArithmeticDoubleOp::Mod => 1,
+            },
+            DoubleOp::Logic(_) => 5,
+            DoubleOp::EqualityCmp(_) | DoubleOp::OrderingCmp(_) => 4,
             DoubleOp::NullFallback => 2,
-            DoubleOp::Eq
-            | DoubleOp::Neq
-            | DoubleOp::Lt
-            | DoubleOp::Lte
-            | DoubleOp::Gt
-            | DoubleOp::Gte => 4,
-            DoubleOp::And | DoubleOp::Or => 5,
         },
-
         ExprOp::TypeIs { right_op: _ } => 3,
     }
 }
