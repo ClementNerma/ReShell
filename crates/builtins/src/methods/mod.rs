@@ -39,6 +39,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         //
         // Date-times
         //
+        self::datetime::midnight::build_fn(),
         self::datetime::to_string::build_fn(),
         self::datetime::tomorrow::build_fn(),
         self::datetime::with_day::build_fn(),

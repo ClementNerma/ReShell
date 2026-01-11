@@ -1,3 +1,4 @@
+pub mod midnight;
 pub mod to_string;
 pub mod tomorrow;
 pub mod with_day;
