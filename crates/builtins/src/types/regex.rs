@@ -1,4 +1,4 @@
-use std::{ops::Deref, sync::Arc};
+use std::{cmp::Ordering, ops::Deref, sync::Arc};
 
 use colored::Color;
 use regex::Regex;
@@ -29,6 +29,22 @@ impl CustomValueType for RegexValue {
         Self: Sized,
     {
         "regex"
+    }
+
+    fn supports_ord(&self) -> bool {
+        false
+    }
+
+    fn ord(&self, _: &dyn CustomValueType) -> Ordering {
+        unreachable!()
+    }
+
+    fn supports_eq(&self) -> bool {
+        false
+    }
+
+    fn eq(&self, _: &dyn CustomValueType) -> bool {
+        unreachable!()
     }
 }
 

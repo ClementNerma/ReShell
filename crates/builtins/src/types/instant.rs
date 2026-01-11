@@ -1,8 +1,10 @@
-use std::{ops::Deref, time::Instant};
+use std::{cmp::Ordering, ops::Deref, time::Instant};
 
 use colored::Color;
 use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece};
 use reshell_runtime::values::CustomValueType;
+
+use crate::utils::downcast_custom_value;
 
 /// Time instant
 ///
@@ -28,6 +30,24 @@ impl CustomValueType for InstantValue {
         Self: Sized,
     {
         "instant"
+    }
+
+    fn supports_ord(&self) -> bool {
+        true
+    }
+
+    fn ord(&self, right: &dyn CustomValueType) -> Ordering {
+        let right = downcast_custom_value::<Self>(right).unwrap();
+        self.0.cmp(&right.0)
+    }
+
+    fn supports_eq(&self) -> bool {
+        true
+    }
+
+    fn eq(&self, right: &dyn CustomValueType) -> bool {
+        let right = downcast_custom_value::<Self>(right).unwrap();
+        self.0 == right.0
     }
 }
 

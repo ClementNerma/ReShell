@@ -1,8 +1,10 @@
-use std::{ops::Deref, time::Duration};
+use std::{cmp::Ordering, ops::Deref, time::Duration};
 
 use colored::Color;
 use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, pretty_printable_string};
 use reshell_runtime::values::CustomValueType;
+
+use crate::utils::downcast_custom_value;
 
 /// Time duration
 ///
@@ -28,6 +30,24 @@ impl CustomValueType for DurationValue {
         Self: Sized,
     {
         "duration"
+    }
+
+    fn supports_ord(&self) -> bool {
+        true
+    }
+
+    fn ord(&self, right: &dyn CustomValueType) -> Ordering {
+        let right = downcast_custom_value::<Self>(right).unwrap();
+        self.0.cmp(&right.0)
+    }
+
+    fn supports_eq(&self) -> bool {
+        true
+    }
+
+    fn eq(&self, right: &dyn CustomValueType) -> bool {
+        let right = downcast_custom_value::<Self>(right).unwrap();
+        self.0.eq(&right.0)
     }
 }
 

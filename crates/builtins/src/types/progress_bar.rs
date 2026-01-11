@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use std::{cmp::Ordering, ops::Deref};
 
 use colored::Color;
 use indicatif::ProgressBar;
@@ -27,6 +27,22 @@ impl CustomValueType for ProgressBarValue {
         Self: Sized,
     {
         "progressbar"
+    }
+
+    fn supports_ord(&self) -> bool {
+        false
+    }
+
+    fn ord(&self, _: &dyn CustomValueType) -> Ordering {
+        unreachable!()
+    }
+
+    fn supports_eq(&self) -> bool {
+        false
+    }
+
+    fn eq(&self, _: &dyn CustomValueType) -> bool {
+        unreachable!()
     }
 }
 

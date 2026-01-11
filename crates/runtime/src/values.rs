@@ -1,5 +1,6 @@
 use std::{
     any::Any,
+    cmp::Ordering,
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::{DefaultHasher, Hash, Hasher},
@@ -270,6 +271,12 @@ pub trait CustomValueType:
     fn typename_static() -> &'static str
     where
         Self: Sized;
+
+    fn supports_eq(&self) -> bool;
+    fn eq(&self, right: &dyn CustomValueType) -> bool;
+
+    fn supports_ord(&self) -> bool;
+    fn ord(&self, right: &dyn CustomValueType) -> Ordering;
 }
 
 /// Content of an error value

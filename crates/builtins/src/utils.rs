@@ -1,5 +1,7 @@
 //! This module contains various utilities to force internal spans, call function values or extract returned values
 
+use std::any::Any;
+
 use reshell_checker::typechecking::check_if_fn_signature_fits_another;
 use reshell_parser::ast::{
     FnCallNature, FnSignature, FnSignatureArg, FnSignaturePositionalArg, RuntimeCodeRange,
@@ -11,7 +13,7 @@ use reshell_runtime::{
     context::Context,
     errors::ExecResult,
     functions::{FnCallInfos, FnPossibleCallArgs, call_fn_value},
-    values::{LocatedValue, RuntimeFnSignature, RuntimeValue},
+    values::{CustomValueType, LocatedValue, RuntimeFnSignature, RuntimeValue},
 };
 
 use crate::helpers::args::TypedValueParser;
@@ -145,4 +147,16 @@ pub fn expect_returned_value<T, P: TypedValueParser<Parsed = T>>(
 
     P::parse(loc_val.value)
         .map_err(|err| ctx.error(at, format!("function returned wrong value type: {err}")))
+}
+
+/// Downcast a dynamic custom runtime value to a specific type
+pub fn downcast_custom_value<C: CustomValueType>(
+    value: &dyn CustomValueType,
+) -> Result<&C, String> {
+    (value as &dyn Any).downcast_ref::<C>().ok_or_else(|| {
+        format!(
+            "Failed to downcast value of type '{}'",
+            C::typename_static()
+        )
+    })
 }

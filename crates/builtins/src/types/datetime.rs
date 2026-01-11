@@ -1,9 +1,11 @@
-use std::ops::Deref;
+use std::{cmp::Ordering, ops::Deref};
 
 use colored::Color;
 use jiff::{Zoned, fmt::rfc2822};
 use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, pretty_printable_string};
 use reshell_runtime::values::CustomValueType;
+
+use crate::utils::downcast_custom_value;
 
 /// Date and time value
 ///
@@ -29,6 +31,24 @@ impl CustomValueType for DateTimeValue {
         Self: Sized,
     {
         "datetime"
+    }
+
+    fn supports_ord(&self) -> bool {
+        true
+    }
+
+    fn ord(&self, right: &dyn CustomValueType) -> Ordering {
+        let right = downcast_custom_value::<Self>(right).unwrap();
+        self.0.cmp(&right.0)
+    }
+
+    fn supports_eq(&self) -> bool {
+        true
+    }
+
+    fn eq(&self, right: &dyn CustomValueType) -> bool {
+        let right = downcast_custom_value::<Self>(right).unwrap();
+        self.0 == right.0
     }
 }
 

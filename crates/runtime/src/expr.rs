@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use indexmap::IndexMap;
 use parsy::Span;
 use reshell_parser::ast::{
@@ -89,27 +91,31 @@ fn eval_expr_ref(
 /// The 'right' value is lazily evaluated, which allows short-circuiting in some scenarios
 /// e.g. if the left operand of an AND operator is `false`, we can short-circuit the right value
 fn apply_double_op(
-    left: RuntimeValue,
-    right: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
+    left_val: RuntimeValue,
+    right_val: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
     op: Span<DoubleOp>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
+    if let RuntimeValue::Custom(_) = &left_val {
+        return apply_double_op_on_custom_value(left_val, right_val, op, ctx);
+    }
+
     let result = match op.data {
         DoubleOp::Arithmetic(inner_op) => {
-            let right = right(ctx)?;
+            let right = right_val(ctx)?;
 
             let got_overflow = || {
                 ctx.error(
                     op.at,
                     format!(
                         "overflow during arithmetic operation with operands: {} and {}",
-                        left.display(ctx, PrettyPrintOptions::inline()),
+                        left_val.display(ctx, PrettyPrintOptions::inline()),
                         right.display(ctx, PrettyPrintOptions::inline())
                     ),
                 )
             };
 
-            match (&left, &right) {
+            match (&left_val, &right) {
                 (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
                     ArithmeticDoubleOp::Add => {
                         RuntimeValue::Int(left.checked_add(*right).ok_or_else(got_overflow)?)
@@ -173,14 +179,24 @@ fn apply_double_op(
                     ));
                 }
 
-                (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
+                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
             }
         }
 
         DoubleOp::EqualityCmp(inner_op) => {
-            let right = right(ctx)?;
+            let right = right_val(ctx)?;
 
-            let result = match (&left, &right) {
+            let result = match (&left_val, &right) {
+                (RuntimeValue::Null, RuntimeValue::Null) => match inner_op {
+                    EqualityCmpDoubleOp::Eq => true,
+                    EqualityCmpDoubleOp::Neq => false,
+                },
+
+                (RuntimeValue::Null, _) | (_, RuntimeValue::Null) => match inner_op {
+                    EqualityCmpDoubleOp::Eq => false,
+                    EqualityCmpDoubleOp::Neq => true,
+                },
+
                 (RuntimeValue::Bool(left), RuntimeValue::Bool(right)) => match inner_op {
                     EqualityCmpDoubleOp::Eq => left == right,
                     EqualityCmpDoubleOp::Neq => left != right,
@@ -196,20 +212,21 @@ fn apply_double_op(
                     EqualityCmpDoubleOp::Neq => left != right,
                 },
 
-                (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
                 (RuntimeValue::String(left), RuntimeValue::String(right)) => match inner_op {
                     EqualityCmpDoubleOp::Eq => left == right,
                     EqualityCmpDoubleOp::Neq => left != right,
                 },
+
+                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
             };
 
             RuntimeValue::Bool(result)
         }
 
         DoubleOp::OrderingCmp(inner_op) => {
-            let right = right(ctx)?;
+            let right = right_val(ctx)?;
 
-            let result = match (&left, &right) {
+            let result = match (&left_val, &right) {
                 (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
                     OrderingCmpDoubleOp::Lt => left < right,
                     OrderingCmpDoubleOp::Lte => left <= right,
@@ -224,37 +241,124 @@ fn apply_double_op(
                     OrderingCmpDoubleOp::Gte => left >= right,
                 },
 
-                (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
+                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
             };
 
             RuntimeValue::Bool(result)
         }
 
         DoubleOp::Logic(inner_op) => {
-            let right = right(ctx)?;
+            let RuntimeValue::Bool(left) = &left_val else {
+                return Err(not_applicable_on_value_err(&left_val, op, ctx));
+            };
 
-            let (RuntimeValue::Bool(left), RuntimeValue::Bool(right)) = (&left, &right) else {
-                return Err(not_applicable_err(&left, op, &right, ctx));
+            let right = || {
+                let right_val = right_val(ctx)?;
+
+                let RuntimeValue::Bool(right) = right_val else {
+                    return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
+                };
+
+                Ok(right)
             };
 
             let result = match inner_op {
-                LogicDoubleOp::And => left == right,
-                LogicDoubleOp::Or => *left || *right,
+                LogicDoubleOp::And => *left && right()?,
+                LogicDoubleOp::Or => *left || right()?,
             };
 
             RuntimeValue::Bool(result)
         }
 
-        DoubleOp::NullFallback => match left {
-            RuntimeValue::Null => right(ctx)?,
-            _ => left,
+        DoubleOp::NullFallback => match left_val {
+            RuntimeValue::Null => right_val(ctx)?,
+            _ => left_val,
         },
     };
 
     Ok(result)
 }
 
-fn not_applicable_err(
+fn apply_double_op_on_custom_value(
+    left_val: RuntimeValue,
+    right_val: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
+    op: Span<DoubleOp>,
+    ctx: &mut Context,
+) -> ExecResult<RuntimeValue> {
+    let RuntimeValue::Custom(left) = &left_val else {
+        unreachable!()
+    };
+
+    if let DoubleOp::NullFallback = op.data {
+        return Ok(left_val);
+    }
+
+    let right_val = right_val(ctx)?;
+
+    let RuntimeValue::Custom(right) = &right_val else {
+        return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
+    };
+
+    if left.typename() != right.typename() {
+        return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
+    }
+
+    let result = match op.data {
+        DoubleOp::Arithmetic(_) | DoubleOp::Logic(_) => {
+            return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
+        }
+
+        DoubleOp::EqualityCmp(inner_op) => {
+            if !left.supports_eq() {
+                return Err(not_applicable_on_value_err(&left_val, op, ctx));
+            }
+
+            match inner_op {
+                EqualityCmpDoubleOp::Eq => left.eq(&***right),
+                EqualityCmpDoubleOp::Neq => !left.eq(&***right),
+            }
+        }
+
+        DoubleOp::OrderingCmp(inner_op) => {
+            if !left.supports_eq() {
+                return Err(not_applicable_on_value_err(&left_val, op, ctx));
+            }
+
+            // Just to be sure
+            assert!(left.supports_eq());
+
+            let ord = left.ord(&***right);
+
+            match inner_op {
+                OrderingCmpDoubleOp::Lt => matches!(ord, Ordering::Less),
+                OrderingCmpDoubleOp::Lte => matches!(ord, Ordering::Less | Ordering::Equal),
+                OrderingCmpDoubleOp::Gt => matches!(ord, Ordering::Greater),
+                OrderingCmpDoubleOp::Gte => matches!(ord, Ordering::Greater | Ordering::Equal),
+            }
+        }
+
+        DoubleOp::NullFallback => unreachable!(),
+    };
+
+    Ok(RuntimeValue::Bool(result))
+}
+
+fn not_applicable_on_value_err(
+    left: &RuntimeValue,
+    op: Span<DoubleOp>,
+    ctx: &Context,
+) -> Box<ExecError> {
+    ctx.error(
+        op.at,
+        format!(
+            "cannot apply this operator on a {}",
+            left.compute_type()
+                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+        ),
+    )
+}
+
+fn not_applicable_on_pair_err(
     left: &RuntimeValue,
     op: Span<DoubleOp>,
     right: &RuntimeValue,
