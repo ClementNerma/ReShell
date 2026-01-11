@@ -660,25 +660,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
             })
         }
 
-        Value::List(values) => {
-            let mut list = Vec::with_capacity(values.len());
-
-            for item in values {
-                match item {
-                    ListItem::Single(expr) => {
-                        let value = eval_expr(expr, ctx)?;
-                        list.push(value);
-                    }
-
-                    ListItem::Spread(spread_value) => {
-                        let values = eval_list_spread_value(spread_value, ctx)?;
-                        list.extend(values.read_promise_no_write().iter().cloned());
-                    }
-                }
-            }
-
-            RuntimeValue::List(GcCell::new(list))
-        }
+        Value::List(items) => eval_list(items, ctx)?,
 
         Value::Map(members) => {
             let mut map = IndexMap::with_capacity(members.len());
@@ -935,4 +917,24 @@ fn operator_precedence(op: &ExprOp) -> u8 {
         },
         ExprOp::TypeIs { right_op: _ } => 3,
     }
+}
+
+pub fn eval_list(items: &[ListItem], ctx: &mut Context) -> ExecResult<RuntimeValue> {
+    let mut list = Vec::with_capacity(items.len());
+
+    for item in items {
+        match item {
+            ListItem::Single(expr) => {
+                let value = eval_expr(expr, ctx)?;
+                list.push(value);
+            }
+
+            ListItem::Spread(spread_value) => {
+                let values = eval_list_spread_value(spread_value, ctx)?;
+                list.extend(values.read_promise_no_write().iter().cloned());
+            }
+        }
+    }
+
+    Ok(RuntimeValue::List(GcCell::new(list)))
 }

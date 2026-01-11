@@ -354,6 +354,23 @@ pub static FN_CALL: LazilyDefined<FnCall> = LazilyDefined::new(|| {
     .erase_type()
 });
 
+pub static LIST_VALUE: LazilyDefined<Vec<ListItem>> = LazilyDefined::new(|| {
+    use_basic_parsers!(msnl);
+
+    char('[')
+        .ignore_then(msnl)
+        .ignore_then(
+            choice::<ListItem, _>((
+                EXPR.static_ref().map(ListItem::Single),
+                SPREAD_VALUE.static_ref().spanned().map(ListItem::Spread),
+            ))
+            .separated_by_into_vec(char(',').padded_by(msnl)),
+        )
+        .then_ignore(msnl)
+        .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
+        .erase_type()
+});
+
 pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
     use_basic_parsers!(ident, msnl, ms, var_name);
 
@@ -378,18 +395,7 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
         // Computed strings
         COMPUTED_STRING.static_ref().map(Value::ComputedString),
         // Lists
-        char('[')
-            .ignore_then(msnl)
-            .ignore_then(
-                choice::<ListItem, _>((
-                    EXPR.static_ref().map(ListItem::Single),
-                    SPREAD_VALUE.static_ref().spanned().map(ListItem::Spread),
-                ))
-                .separated_by_into_vec(char(',').padded_by(msnl)),
-            )
-            .then_ignore(msnl)
-            .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
-            .map(Value::List),
+        LIST_VALUE.static_ref().map(Value::List),
         // Maps
         just("map")
             .ignore_then(msnl)

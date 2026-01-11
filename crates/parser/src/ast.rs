@@ -568,6 +568,7 @@ pub enum CmdArg {
 pub enum CmdValueMakingArg {
     LiteralValue(LiteralValue),
     ComputedString(ComputedString),
+    List(Vec<ListItem>),
     InlineCmdCall(Span<CmdCall>),
     ParenExpr(Span<Expr>),
     CmdRawString(Span<CmdRawString>),

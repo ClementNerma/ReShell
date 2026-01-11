@@ -886,18 +886,7 @@ fn check_value(value: &Value, state: &mut State) -> CheckerResult {
 
         Value::Range(range) => check_range(range, state),
 
-        Value::List(list) => {
-            for item in list {
-                match item {
-                    ListItem::Single(expr) => check_expr(expr, state)?,
-                    ListItem::Spread(spread_value) => {
-                        check_spread_value(&spread_value.data, state)?
-                    }
-                }
-            }
-
-            Ok(())
-        }
+        Value::List(list) => check_list(list, state),
 
         Value::Map(members) => {
             for item in members {
@@ -1022,6 +1011,17 @@ fn check_map_key(key: &MapKey, state: &mut State) -> CheckerResult {
         MapKey::ComputedString(c_str) => check_computed_string(c_str, state),
         MapKey::Expr(expr) => check_expr(expr, state),
     }
+}
+
+fn check_list(items: &[ListItem], state: &mut State) -> CheckerResult {
+    for item in items {
+        match item {
+            ListItem::Single(expr) => check_expr(expr, state)?,
+            ListItem::Spread(spread_value) => check_spread_value(&spread_value.data, state)?,
+        }
+    }
+
+    Ok(())
 }
 
 fn check_spread_value(spread_value: &SpreadValue, state: &mut State) -> CheckerResult {
@@ -1392,6 +1392,8 @@ fn check_cmd_value_making_arg(arg: &CmdValueMakingArg, state: &mut State) -> Che
         CmdValueMakingArg::ComputedString(computed_string) => {
             check_computed_string(computed_string, state)
         }
+
+        CmdValueMakingArg::List(items) => check_list(items, state),
 
         CmdValueMakingArg::InlineCmdCall(cmd_call) => {
             state.register_cmd_call_value(cmd_call);

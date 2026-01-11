@@ -14,8 +14,8 @@ use crate::{
     parsers::{
         exprs::EXPR,
         values::{
-            CMD_CAPTURE, COMPUTED_STRING, INLINE_CMD_CALL, LAMBDA, LITERAL_STRING, LITERAL_VALUE,
-            SPREAD_VALUE,
+            CMD_CAPTURE, COMPUTED_STRING, INLINE_CMD_CALL, LAMBDA, LIST_VALUE, LITERAL_STRING,
+            LITERAL_VALUE, SPREAD_VALUE,
         },
     },
     use_basic_parsers,
@@ -136,6 +136,8 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
         COMPUTED_STRING
             .static_ref()
             .map(CmdValueMakingArg::ComputedString),
+        // Lists
+        LIST_VALUE.static_ref().map(CmdValueMakingArg::List),
         // Parenthesis-wrapped expressions
         char('(')
             .ignore_then(

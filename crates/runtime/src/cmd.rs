@@ -20,7 +20,7 @@ use crate::{
     context::Context,
     errors::{ExecErrorNature, ExecResult},
     expr::{
-        eval_computed_string, eval_expr, eval_list_spread_value, eval_literal_value,
+        eval_computed_string, eval_expr, eval_list, eval_list_spread_value, eval_literal_value,
         lambda_to_value,
     },
     functions::{FnCallInfos, FnPossibleCallArgs, call_fn_value, find_applicable_method},
@@ -942,6 +942,8 @@ fn eval_cmd_value_making_arg(
         CmdValueMakingArg::ComputedString(computed_str) => {
             RuntimeValue::String(eval_computed_string(computed_str, ctx)?)
         }
+
+        CmdValueMakingArg::List(items) => eval_list(items, ctx)?,
 
         CmdValueMakingArg::CmdRawString(computed_str) => {
             RuntimeValue::String(eval_cmd_raw_string(computed_str, ctx)?)
