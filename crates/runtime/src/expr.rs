@@ -197,6 +197,10 @@ fn apply_double_op(
                 },
 
                 (_, _) => return Err(not_applicable_err(&left, op, &right, ctx)),
+                (RuntimeValue::String(left), RuntimeValue::String(right)) => match inner_op {
+                    EqualityCmpDoubleOp::Eq => left == right,
+                    EqualityCmpDoubleOp::Neq => left != right,
+                },
             };
 
             RuntimeValue::Bool(result)
