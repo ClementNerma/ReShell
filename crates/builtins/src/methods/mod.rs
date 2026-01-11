@@ -70,6 +70,7 @@ pub fn native_methods() -> Vec<InternalFunction> {
         self::list::contains::build_fn(),
         self::list::deduped::build_fn(),
         self::list::each::build_fn(),
+        self::list::expect_at::build_fn(),
         self::list::filter::build_fn(),
         self::list::filter_map::build_fn(),
         self::list::find::build_fn(),

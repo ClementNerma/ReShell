@@ -6,6 +6,7 @@ pub mod concat;
 pub mod contains;
 pub mod deduped;
 pub mod each;
+pub mod expect_at;
 pub mod filter;
 pub mod filter_map;
 pub mod find;
