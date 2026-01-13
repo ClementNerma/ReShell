@@ -5,7 +5,14 @@ functions_set! {
         mod midnight;
         mod to_string;
         mod tomorrow;
+        mod hour;
+        mod minute;
+        mod second;
+        mod day;
+        mod month;
+        mod year;
         mod with_day;
+        mod with_added_duration;
         mod with_hours;
         mod with_minutes;
         mod with_month;

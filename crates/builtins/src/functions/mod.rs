@@ -24,6 +24,7 @@ functions_set! {
         mod dbg;
         mod dbg_type;
         mod dir_exists;
+        mod duration;
         mod echo;
         mod env;
         mod error;
