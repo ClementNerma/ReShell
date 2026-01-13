@@ -1,24 +1,30 @@
-pub mod chars;
-pub mod contains;
-pub mod ends_with;
-pub mod find_str;
-pub mod is_empty;
-pub mod len;
-pub mod lines;
-pub mod pad_end;
-pub mod pad_start;
-pub mod parse_float;
-pub mod parse_int;
-pub mod parse_json;
-pub mod parse_toml;
-pub mod repeat;
-pub mod replace;
-pub mod reversed;
-pub mod split;
-pub mod starts_with;
-pub mod substr;
-pub mod to_lowercase;
-pub mod to_uppercase;
-pub mod trim;
-pub mod trim_end;
-pub mod trim_start;
+use crate::functions_set;
+
+functions_set! {
+    fn string_methods => {
+        mod chars;
+        mod contains;
+        mod ends_with;
+        mod find_str;
+        mod is_empty;
+        mod len;
+        mod lines;
+        mod pad_end;
+        mod pad_start;
+        mod parse_float;
+        mod parse_int;
+        mod parse_json;
+        mod parse_toml;
+        mod repeat;
+        mod replace;
+        mod reversed;
+        mod split;
+        mod starts_with;
+        mod substr;
+        mod to_lowercase;
+        mod to_uppercase;
+        mod trim;
+        mod trim_end;
+        mod trim_start;
+    }
+}

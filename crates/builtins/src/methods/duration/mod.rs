@@ -1,4 +1,10 @@
-pub mod seconds;
-pub mod subsec_micros;
-pub mod subsec_millis;
-pub mod subsec_nanos;
+use crate::functions_set;
+
+functions_set! {
+    fn duration => {
+        mod seconds;
+        mod subsec_micros;
+        mod subsec_millis;
+        mod subsec_nanos;
+    }
+}

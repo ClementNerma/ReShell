@@ -1,8 +1,14 @@
-pub mod get;
-pub mod has;
-pub mod is_empty;
-pub mod keys;
-pub mod len;
-pub mod remove;
-pub mod to_struct;
-pub mod values;
+use crate::functions_set;
+
+functions_set! {
+    fn map_methods => {
+        mod get;
+        mod has;
+        mod is_empty;
+        mod keys;
+        mod len;
+        mod remove;
+        mod to_struct;
+        mod values;
+    }
+}

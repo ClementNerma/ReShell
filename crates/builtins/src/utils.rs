@@ -160,3 +160,19 @@ pub fn downcast_custom_value<C: CustomValueType>(
         )
     })
 }
+
+/// Define runtime function modules
+#[macro_export]
+macro_rules! functions_set {
+    (fn $fn_name: ident => { $(mod $mod_name: ident;)+ }) => {
+        $( mod $mod_name; )+
+
+        pub fn $fn_name() -> [$crate::helpers::fns::InternalFunction; $crate::functions_set!(@count $($mod_name)+)] {
+            [ $( self::$mod_name::build_fn() ),+ ]
+        }
+    };
+
+    (@count) => (0usize);
+    (@count $x:tt $($xs:tt)* ) => (1usize + $crate::functions_set!(@count $($xs)*));
+
+}

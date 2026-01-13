@@ -1,10 +1,16 @@
-pub mod midnight;
-pub mod to_string;
-pub mod tomorrow;
-pub mod with_day;
-pub mod with_hours;
-pub mod with_minutes;
-pub mod with_month;
-pub mod with_seconds;
-pub mod with_year;
-pub mod yesterday;
+use crate::functions_set;
+
+functions_set! {
+    fn datetime_methods => {
+        mod midnight;
+        mod to_string;
+        mod tomorrow;
+        mod with_day;
+        mod with_hours;
+        mod with_minutes;
+        mod with_month;
+        mod with_seconds;
+        mod with_year;
+        mod yesterday;
+    }
+}

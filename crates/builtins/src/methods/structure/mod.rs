@@ -1,6 +1,12 @@
-pub mod fields;
-pub mod get;
-pub mod has;
-pub mod len;
-pub mod to_map;
-pub mod values;
+use crate::functions_set;
+
+functions_set! {
+    fn structure_methods => {
+        mod fields;
+        mod get;
+        mod has;
+        mod len;
+        mod to_map;
+        mod values;
+    }
+}

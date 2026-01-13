@@ -1,3 +1,9 @@
-pub mod capture;
-pub mod matches;
-pub mod replace;
+use crate::functions_set;
+
+functions_set! {
+    fn regex_methods => {
+        mod capture;
+        mod matches;
+        mod replace;
+    }
+}
