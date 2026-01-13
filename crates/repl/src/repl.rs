@@ -23,8 +23,7 @@ use reshell_parser::{ast::Instruction, files_map::SourceFileLocation};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::Context,
-    errors::{ExecErrorNature, ExecNotActualError},
-    values::RuntimeValue,
+    errors::{ExecActualErrorNature, ExecError, ExecTopPropagation},
 };
 
 use crate::{
@@ -32,7 +31,7 @@ use crate::{
     args::ExecArgs,
     completer::{self, ExternalCompletion, UnescapedSegment},
     edit_mode,
-    exec::run_script,
+    exec::{ProgramResult, run_script},
     highlighter::{self},
     hinter, history,
     prompt::Prompt,
@@ -80,16 +79,24 @@ pub fn start(
         let prompt_rendering = match render_prompt(&mut ctx, last_cmd_status.take()) {
             Ok(prompt) => prompt.unwrap_or_default(),
             Err(err) => {
+                let err = match err {
+                    ExecError::ActualError(err) => err,
+
+                    // TODO: forbid exiting from the prompt rendering function?
+                    ExecError::TopPropagation(err) => match err {
+                        ExecTopPropagation::SuccessfulExit => return Ok(Some(ExitCode::SUCCESS)),
+                    },
+
+                    ExecError::InternalPropagation(_) => unreachable!(),
+                };
+
                 let err = ReportableError::Runtime(err, None);
 
                 if let Some(code) = err.exit_code() {
                     return Ok(Some(ExitCode::from(code)));
                 }
 
-                if err.is_actual_error() {
-                    reports::print_error(&err, ctx.files_map());
-                }
-
+                reports::print_error(&err, ctx.files_map());
                 PromptRendering::default()
             }
         };
@@ -155,16 +162,20 @@ pub fn start(
 
         match &ret {
             // If the program succeeded and has a wandering value, pretty-print it
-            Ok(wandering_value) => {
-                if let Some(loc_val) = wandering_value
-                    && !matches!(loc_val.value, RuntimeValue::Void)
-                {
-                    println!(
-                        "{}",
-                        loc_val.value.display(&ctx, PrettyPrintOptions::multiline())
-                    );
+            Ok(result) => match result {
+                ProgramResult::Success(located_value) => {
+                    if let Some(located_value) = located_value {
+                        println!(
+                            "{}",
+                            located_value
+                                .value
+                                .display(&ctx, PrettyPrintOptions::multiline())
+                        );
+                    }
                 }
-            }
+
+                ProgramResult::GracefullyExit => return Ok(Some(ExitCode::SUCCESS)),
+            },
 
             // If the program failed, display the error
             Err(err) => {
@@ -172,14 +183,8 @@ pub fn start(
                     let program = program.as_ref().unwrap();
 
                     // Except in case of Exit request, which makes the REPL itself quit
-                    if let ExecErrorNature::FailureExit { code } = err.nature {
+                    if let ExecActualErrorNature::FailureExit { code } = err.nature {
                         return Ok(Some(ExitCode::from(code.get())));
-                    }
-
-                    if let ExecErrorNature::NotAnError(ExecNotActualError::SuccessfulExit) =
-                        err.nature
-                    {
-                        return Ok(Some(ExitCode::SUCCESS));
                     }
 
                     let program_content = &program.data.content.data.instructions;
@@ -193,31 +198,25 @@ pub fn start(
                     // display a simpler error.
                     if is_single_cmd_call {
                         match &err.nature {
-                            ExecErrorNature::CommandFailedToStart { message } => {
+                            ExecActualErrorNature::CommandFailedToStart { message } => {
                                 eprintln!("{}", format!("ERROR: {message}").bright_red());
                                 continue;
                             }
 
-                            ExecErrorNature::CommandFailed {
+                            ExecActualErrorNature::CommandFailed {
                                 message: _,
                                 exit_status: _,
                             } => {
                                 continue;
                             }
 
-                            ExecErrorNature::ParsingErr(_)
-                            | ExecErrorNature::CheckingErr(_)
-                            | ExecErrorNature::Thrown { at: _, message: _ }
-                            | ExecErrorNature::CtrlC
-                            | ExecErrorNature::Custom(_) => {}
+                            ExecActualErrorNature::ParsingErr(_)
+                            | ExecActualErrorNature::CheckingErr(_)
+                            | ExecActualErrorNature::Thrown { at: _, message: _ }
+                            | ExecActualErrorNature::CtrlC
+                            | ExecActualErrorNature::Custom(_) => {}
 
-                            ExecErrorNature::FailureExit { code: _ } => unreachable!(),
-
-                            ExecErrorNature::NotAnError(err) => match err {
-                                ExecNotActualError::SuccessfulExit => unreachable!(),
-                            },
-
-                            ExecErrorNature::InternalPropagation(_) => unreachable!(),
+                            ExecActualErrorNature::FailureExit { code: _ } => unreachable!(),
                         }
                     }
                 }
@@ -282,11 +281,23 @@ fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<External
             .collect(),
 
         Err(err) => {
-            crate::reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
-            panic!();
+            match err {
+                ExecError::ActualError(err) => {
+                    reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
 
-            // TODO: find a way to display error
-            // vec![]
+                    panic!();
+                    // TODO: find a way to display error
+                }
+
+                ExecError::TopPropagation(err) => match err {
+                    ExecTopPropagation::SuccessfulExit => {
+                        // TODO: report properly instead of panicking
+                        panic!("Cannot exit from completions generation function");
+                    }
+                },
+
+                ExecError::InternalPropagation(_) => unreachable!(),
+            }
         }
     }
 }

@@ -26,7 +26,7 @@ use reshell_runtime::{
 
 use self::{
     args::{Args, RuntimeConfArgs},
-    exec::run_script,
+    exec::{ProgramResult, run_script},
     paths::{HOME_DIR, INIT_SCRIPT_PATH, SHELL_CONFIG_DIR, SHELL_LOCAL_DATA_DIR},
     utils::ctrl_c::{setup_ctrl_c_handler, take_pending_ctrl_c_request},
 };
@@ -155,15 +155,13 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             &mut ctx,
         );
 
-        if let Err(err) = result {
-            if err.is_actual_error() {
+        return Ok(match result {
+            Ok(ProgramResult::GracefullyExit | ProgramResult::Success(_)) => ExitCode::SUCCESS,
+            Err(err) => {
                 reports::print_error(&err, ctx.files_map());
+                err.exit_code().map_or(ExitCode::FAILURE, ExitCode::from)
             }
-
-            return Ok(err.exit_code().map_or(ExitCode::FAILURE, ExitCode::from));
-        }
-
-        return Ok(ExitCode::SUCCESS);
+        });
     }
 
     if let Some(input) = eval {
@@ -173,21 +171,27 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             exec_args,
             &mut ctx,
         ) {
-            Ok(wandering_value) => {
-                if let Some(loc_val) = wandering_value {
-                    println!(
-                        "{}",
-                        loc_val.value.display(&ctx, PrettyPrintOptions::multiline())
-                    )
+            Ok(result) => {
+                match result {
+                    ProgramResult::Success(wandering_value) => {
+                        if let Some(wandering_value) = wandering_value {
+                            println!(
+                                "{}",
+                                wandering_value
+                                    .value
+                                    .display(&ctx, PrettyPrintOptions::multiline())
+                            )
+                        }
+                    }
+
+                    ProgramResult::GracefullyExit => todo!(),
                 }
 
                 Ok(ExitCode::SUCCESS)
             }
 
             Err(err) => {
-                if err.is_actual_error() {
-                    reports::print_error(&err, ctx.files_map());
-                }
+                reports::print_error(&err, ctx.files_map());
 
                 Ok(err
                     .exit_code()
@@ -225,11 +229,16 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                                 &mut ctx,
                             );
 
-                            if let Err(err) = init_script_result {
-                                if err.is_actual_error() {
+                            match init_script_result {
+                                Ok(ProgramResult::Success(_)) => {}
+
+                                // TODO: forbid exiting from init script?
+                                Ok(ProgramResult::GracefullyExit) => {
+                                    return Ok(ExitCode::SUCCESS);
+                                }
+
+                                Err(err) => {
                                     reports::print_error(&err, ctx.files_map());
-                                } else if let Some(code) = err.exit_code() {
-                                    return Ok(ExitCode::from(code));
                                 }
                             }
                         }

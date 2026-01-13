@@ -18,7 +18,7 @@ fn run() -> Runner {
     Runner::new(|at, Args { code }, _, ctx| {
         Err(match code.and_then(|code| NonZero::try_from(code).ok()) {
             Some(code) => ctx.failure_exit(at, code),
-            None => ctx.successful_exit(at),
+            None => ctx.successful_exit(),
         })
     })
 }

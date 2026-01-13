@@ -18,7 +18,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     context::Context,
-    errors::{ExecErrorNature, ExecResult},
+    errors::{ExecActualErrorNature, ExecResult},
     expr::{
         eval_computed_string, eval_expr, eval_list, eval_list_spread_value, eval_literal_value,
         lambda_to_value,
@@ -559,7 +559,7 @@ fn exec_cmd(
         .map_err(|err| {
             ctx.error(
                 name.at,
-                ExecErrorNature::CommandFailedToStart {
+                ExecActualErrorNature::CommandFailedToStart {
                     message: err.to_string(),
                 },
             )
@@ -626,7 +626,7 @@ fn exec_cmd(
         .map_err(|err| {
             ctx.error(
                 name.at,
-                ExecErrorNature::CommandFailedToStart {
+                ExecActualErrorNature::CommandFailedToStart {
                     message: format!("failed to start command '{}': {err}", name.data),
                 },
             )
@@ -1032,7 +1032,7 @@ fn wait_for_commands_ending(
         let output = output.map_err(|err| {
             ctx.error(
                 at,
-                ExecErrorNature::CommandFailed {
+                ExecActualErrorNature::CommandFailed {
                     message: format!("command failed: {err}"),
                     exit_status: None,
                 },
@@ -1042,7 +1042,7 @@ fn wait_for_commands_ending(
         if !output.status.success() {
             return Err(ctx.error(
                 at,
-                ExecErrorNature::CommandFailed {
+                ExecActualErrorNature::CommandFailed {
                     message: format!(
                         "command failed{}",
                         match output.status.code() {

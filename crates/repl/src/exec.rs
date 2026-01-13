@@ -1,6 +1,11 @@
-use parsy::FileId;
-use reshell_parser::files_map::SourceFileLocation;
-use reshell_runtime::{context::Context, exec::run_program, values::LocatedValue};
+use parsy::{FileId, Span};
+use reshell_parser::{ast::Program, files_map::SourceFileLocation};
+use reshell_runtime::{
+    context::Context,
+    errors::{ExecError, ExecResult, ExecTopPropagation},
+    exec::run_program,
+    values::LocatedValue,
+};
 
 use crate::{args::ExecArgs, parse_program, reports::ReportableError};
 
@@ -10,7 +15,7 @@ pub fn run_script(
     file_loc: SourceFileLocation,
     exec_args: ExecArgs,
     ctx: &mut Context,
-) -> Result<Option<LocatedValue>, ReportableError> {
+) -> Result<ProgramResult, ReportableError> {
     let ExecArgs {
         print_ast,
         only_check,
@@ -34,8 +39,29 @@ pub fn run_script(
         .map_err(ReportableError::Checking)?;
 
         println!("The provided program is valid (no error detected).");
-        return Ok(None);
+        return Ok(ProgramResult::Success(None));
     }
 
-    run_program(&parsed, ctx).map_err(|err| ReportableError::Runtime(err, Some(parsed)))
+    handle_ret_value(run_program(&parsed, ctx), Some(parsed))
+}
+
+pub fn handle_ret_value(
+    ret_value: ExecResult<Option<LocatedValue>>,
+    parsed: Option<Span<Program>>,
+) -> Result<ProgramResult, ReportableError> {
+    match ret_value {
+        Ok(ret_val) => Ok(ProgramResult::Success(ret_val)),
+        Err(err) => match err {
+            ExecError::ActualError(err) => Err(ReportableError::Runtime(err, parsed)),
+            ExecError::TopPropagation(err) => match err {
+                ExecTopPropagation::SuccessfulExit => Ok(ProgramResult::GracefullyExit),
+            },
+            ExecError::InternalPropagation(_) => unreachable!(),
+        },
+    }
+}
+
+pub enum ProgramResult {
+    Success(Option<LocatedValue>),
+    GracefullyExit,
 }

@@ -14,7 +14,7 @@ use crate::{
     context::{
         CallStackEntry, Context, ScopeCmdAlias, ScopeContent, ScopeFn, ScopeMethod, ScopeVar,
     },
-    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecInternalPropagation, ExecResult},
+    errors::{ExecActualErrorNature, ExecError, ExecInfoType, ExecInternalPropagation, ExecResult},
     expr::eval_expr,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
@@ -41,11 +41,12 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 
     // Check the program
     ctx.prepare_for_new_program(program).map_err(|err| {
-        ctx.error(program.at, ExecErrorNature::CheckingErr(err))
-            .with_info(
+        ctx.error_with(program.at, ExecActualErrorNature::CheckingErr(err), |err| {
+            err.add_info(
                 ExecInfoType::Note,
-                "Error was encountered before running the program".to_owned(),
-            )
+                "Error was encountered before running the program",
+            );
+        })
     })?;
 
     run_block_in_current_scope(&content.data, ctx).map(|result| match result {
@@ -416,20 +417,18 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 return Ok(Some(InstrRet::FnReturn(value)));
                             }
 
-                            Err(err) => match err.nature {
-                                ExecErrorNature::InternalPropagation(propagation) => {
-                                    match propagation {
-                                        // Loop continuation (do nothing)
-                                        ExecInternalPropagation::LoopContinuation => {}
+                            Err(ExecError::InternalPropagation(propagation)) => {
+                                match propagation {
+                                    // Loop continuation (do nothing)
+                                    ExecInternalPropagation::LoopContinuation => {}
 
-                                        // Loop breakage
-                                        ExecInternalPropagation::LoopBreakage => break,
-                                    }
+                                    // Loop breakage
+                                    ExecInternalPropagation::LoopBreakage => break,
                                 }
+                            }
 
-                                // Propagate other error types
-                                _ => return Err(err),
-                            },
+                            // Propagate other error types
+                            Err(err) => return Err(err),
                         }
                     }
                 }
@@ -461,20 +460,18 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 return Ok(Some(InstrRet::FnReturn(value)));
                             }
 
-                            Err(err) => match err.nature {
-                                ExecErrorNature::InternalPropagation(propagation) => {
-                                    match propagation {
-                                        // Loop continuation (do nothing)
-                                        ExecInternalPropagation::LoopContinuation => {}
+                            Err(ExecError::InternalPropagation(propagation)) => {
+                                match propagation {
+                                    // Loop continuation (do nothing)
+                                    ExecInternalPropagation::LoopContinuation => {}
 
-                                        // Loop breakage
-                                        ExecInternalPropagation::LoopBreakage => break,
-                                    }
+                                    // Loop breakage
+                                    ExecInternalPropagation::LoopBreakage => break,
                                 }
+                            }
 
-                                // Propagate other error types
-                                _ => return Err(err),
-                            },
+                            // Propagate other error types
+                            Err(err) => return Err(err),
                         }
                     }
                 }
@@ -556,20 +553,16 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         return Ok(Some(InstrRet::FnReturn(value)));
                     }
 
-                    Err(err) => match err.nature {
-                        ExecErrorNature::InternalPropagation(propagation) => {
-                            match propagation {
-                                // Loop continuation (do nothing)
-                                ExecInternalPropagation::LoopContinuation => {}
+                    Err(ExecError::InternalPropagation(propagation)) => match propagation {
+                        // Loop continuation (do nothing)
+                        ExecInternalPropagation::LoopContinuation => {}
 
-                                // Loop breakage
-                                ExecInternalPropagation::LoopBreakage => break,
-                            }
-                        }
-
-                        // Propagate other error types
-                        _ => return Err(err),
+                        // Loop breakage
+                        ExecInternalPropagation::LoopBreakage => break,
                     },
+
+                    // Propagate other error types
+                    Err(err) => return Err(err),
                 }
             }
 
@@ -610,20 +603,16 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         return Ok(Some(InstrRet::FnReturn(value)));
                     }
 
-                    Err(err) => match err.nature {
-                        ExecErrorNature::InternalPropagation(propagation) => {
-                            match propagation {
-                                // Loop continuation (do nothing)
-                                ExecInternalPropagation::LoopContinuation => {}
+                    Err(ExecError::InternalPropagation(propagation)) => match propagation {
+                        // Loop continuation (do nothing)
+                        ExecInternalPropagation::LoopContinuation => {}
 
-                                // Loop breakage
-                                ExecInternalPropagation::LoopBreakage => break,
-                            }
-                        }
-
-                        // Propagate other error types
-                        _ => return Err(err),
+                        // Loop breakage
+                        ExecInternalPropagation::LoopBreakage => break,
                     },
+
+                    // Propagate other error types
+                    Err(err) => return Err(err),
                 }
             }
 
@@ -631,16 +620,14 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         }
 
         Instruction::LoopContinue => {
-            return Err(ctx.error(
-                instr.at,
-                ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
+            return Err(ExecError::InternalPropagation(
+                ExecInternalPropagation::LoopContinuation,
             ));
         }
 
         Instruction::LoopBreak => {
-            return Err(ctx.error(
-                instr.at,
-                ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
+            return Err(ExecError::InternalPropagation(
+                ExecInternalPropagation::LoopBreakage,
             ));
         }
 
@@ -738,10 +725,8 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
         Instruction::FnReturn { expr } => Some(InstrRet::FnReturn(
             expr.as_ref()
                 .map(|expr| {
-                    Ok::<_, Box<ExecError>>(LocatedValue::new(
-                        RuntimeCodeRange::Parsed(expr.at),
-                        eval_expr(&expr.data, ctx)?,
-                    ))
+                    eval_expr(&expr.data, ctx)
+                        .map(|value| LocatedValue::new(RuntimeCodeRange::Parsed(expr.at), value))
                 })
                 .transpose()?,
         )),
@@ -765,7 +750,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
             return Err(ctx.error(
                 instr.at,
-                ExecErrorNature::Thrown {
+                ExecActualErrorNature::Thrown {
                     at: RuntimeCodeRange::Parsed(instr.at),
                     message,
                 },
@@ -778,28 +763,28 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             catch_body,
         } => {
             if let Err(err) = run_block(&try_body.data, ctx, None) {
-                match err.nature {
-                    ExecErrorNature::Thrown { at, message } => {
-                        let mut scope = ScopeContent::new();
+                if let ExecError::ActualError(err) = &err
+                    && let ExecActualErrorNature::Thrown { at, message } = &err.nature
+                {
+                    let mut scope = ScopeContent::new();
 
-                        scope.vars.insert(
-                            catch_var.data.clone(),
-                            ScopeVar {
-                                name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                                decl_scope_id: catch_body.scope_id,
-                                is_mut: false,
-                                enforced_type: None,
-                                value: GcCell::new(LocatedValue::new(
-                                    at,
-                                    RuntimeValue::String(message),
-                                )),
-                            },
-                        );
+                    scope.vars.insert(
+                        catch_var.data.clone(),
+                        ScopeVar {
+                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                            decl_scope_id: catch_body.scope_id,
+                            is_mut: false,
+                            enforced_type: None,
+                            value: GcCell::new(LocatedValue::new(
+                                *at,
+                                RuntimeValue::String(message.clone()),
+                            )),
+                        },
+                    );
 
-                        run_block(catch_body, ctx, Some(scope))?;
-                    }
-
-                    _ => return Err(err),
+                    run_block(catch_body, ctx, Some(scope))?;
+                } else {
+                    return Err(err);
                 }
             }
 

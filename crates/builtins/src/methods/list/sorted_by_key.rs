@@ -67,7 +67,7 @@ fn run() -> Runner {
             (i, key): (usize, <ComparableValueType as TypedValueParser>::Parsed),
             keyer_fn_at: RuntimeCodeRange,
             ctx: &mut Context,
-        ) -> Box<ExecError> {
+        ) -> ExecError {
             let first_item_type = match &keys {
                 SortingKeys::Strings(_) => SingleValueType::String,
                 SortingKeys::Integers(_) => SingleValueType::Int,

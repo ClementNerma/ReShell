@@ -436,14 +436,15 @@ pub fn value_to_str(
         | RuntimeValue::CmdArg(_)
         | RuntimeValue::Custom(_) // TODO?
         => Err(ctx
-            .error(
+            .error_with_infos(
                 at,
                 format!(
                     "could not convert a value of type {} to a string",
                     value
                         .compute_type()
                         .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                )
-            ).with_info(ExecInfoType::Note, type_error_tip)),
+                ),
+                [(ExecInfoType::Note, type_error_tip)]
+            )),
     }
 }

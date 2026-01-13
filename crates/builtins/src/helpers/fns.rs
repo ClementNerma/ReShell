@@ -110,7 +110,7 @@ macro_rules! define_internal_fn {
             let InternalFnCallData { call_at, args_at, args, ctx } = call_data;
 
             let (args, args_at) = _parse_args(ctx, call_at, args_at, args)
-                .map_err(|(at, err)| ctx.error(at, err))?;
+                .map_err(|(err_at, err)| ctx.error(err_at, err))?;
 
             let Runner(runner) = run();
 

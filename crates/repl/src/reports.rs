@@ -20,57 +20,31 @@ use reshell_parser::{
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::CallStackEntry,
-    errors::{ExecError, ExecErrorNature, ExecInfoType, ExecNotActualError},
+    errors::{ExecActualError, ExecActualErrorNature, ExecInfoType},
 };
 
 #[derive(Debug)]
 pub enum ReportableError {
     Parsing(ParsingError),
     Checking(CheckerError),
-    Runtime(Box<ExecError>, Option<Span<Program>>),
+    Runtime(Box<ExecActualError>, Option<Span<Program>>),
 }
 
 impl ReportableError {
-    pub fn is_actual_error(&self) -> bool {
-        match self {
-            ReportableError::Parsing(_) => true,
-            ReportableError::Checking(_) => true,
-
-            ReportableError::Runtime(err, _) => match &err.nature {
-                ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::CheckingErr(_)
-                | ExecErrorNature::CommandFailedToStart { message: _ }
-                | ExecErrorNature::CommandFailed {
-                    message: _,
-                    exit_status: _,
-                }
-                | ExecErrorNature::Thrown { at: _, message: _ }
-                | ExecErrorNature::FailureExit { code: _ }
-                | ExecErrorNature::CtrlC
-                | ExecErrorNature::Custom(_) => true,
-
-                ExecErrorNature::NotAnError(err) => match err {
-                    ExecNotActualError::SuccessfulExit => false,
-                },
-
-                ExecErrorNature::InternalPropagation(_) => unreachable!(),
-            },
-        }
-    }
-
     pub fn exit_code(&self) -> Option<u8> {
         match self {
             ReportableError::Parsing(_) => None,
             ReportableError::Checking(_) => None,
-            ReportableError::Runtime(err, _) => match &err.nature {
-                ExecErrorNature::Custom(_)
-                | ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::CheckingErr(_)
-                | ExecErrorNature::Thrown { at: _, message: _ } => None,
 
-                ExecErrorNature::CommandFailedToStart { message: _ } => Some(1),
+            ReportableError::Runtime(err, _) => match err.nature {
+                ExecActualErrorNature::Custom(_)
+                | ExecActualErrorNature::ParsingErr(_)
+                | ExecActualErrorNature::CheckingErr(_)
+                | ExecActualErrorNature::Thrown { at: _, message: _ } => None,
 
-                ExecErrorNature::CommandFailed {
+                ExecActualErrorNature::CommandFailedToStart { message: _ } => Some(1),
+
+                ExecActualErrorNature::CommandFailed {
                     message: _,
                     exit_status,
                 } => Some(
@@ -79,15 +53,9 @@ impl ReportableError {
                         .unwrap_or(1),
                 ),
 
-                ExecErrorNature::CtrlC => None,
+                ExecActualErrorNature::CtrlC => None,
 
-                ExecErrorNature::FailureExit { code } => Some(code.get()),
-
-                ExecErrorNature::NotAnError(err) => match &err {
-                    ExecNotActualError::SuccessfulExit => Some(0),
-                },
-
-                ExecErrorNature::InternalPropagation(_) => unreachable!(),
+                ExecActualErrorNature::FailureExit { code } => Some(code.get()),
             },
         }
     }
@@ -107,26 +75,26 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ),
 
         ReportableError::Runtime(err, _) => match &err.nature {
-            ExecErrorNature::FailureExit { code } => (
+            ExecActualErrorNature::FailureExit { code } => (
                 err.at,
                 "Non-zero exit code",
                 format!("program exited with code {code}"),
             ),
 
-            ExecErrorNature::CtrlC => (
+            ExecActualErrorNature::CtrlC => (
                 err.at,
                 "User interruption",
                 "program was interrupted by a Ctrl+C press".to_owned(),
             ),
 
-            ExecErrorNature::Custom(message) => (err.at, "Runtime error", {
+            ExecActualErrorNature::Custom(message) => (err.at, "Runtime error", {
                 match message {
                     Cow::Borrowed(str) => (*str).to_owned(),
                     Cow::Owned(string) => string.clone(),
                 }
             }),
 
-            ExecErrorNature::ParsingErr(err) => {
+            ExecActualErrorNature::ParsingErr(err) => {
                 let (at, err) = parsing_error(err);
                 (
                     RuntimeCodeRange::Parsed(at),
@@ -135,22 +103,22 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 )
             }
 
-            ExecErrorNature::CheckingErr(err) => (
+            ExecActualErrorNature::CheckingErr(err) => (
                 RuntimeCodeRange::Parsed(err.at),
                 "Checking error",
                 err.msg.clone(),
             ),
 
-            ExecErrorNature::CommandFailedToStart { message } => {
+            ExecActualErrorNature::CommandFailedToStart { message } => {
                 (err.at, "Could not start command", message.clone())
             }
 
-            ExecErrorNature::CommandFailed {
+            ExecActualErrorNature::CommandFailed {
                 message,
                 exit_status: _,
             } => (err.at, "Command failed", message.clone()),
 
-            ExecErrorNature::Thrown { at: _, message } => (
+            ExecActualErrorNature::Thrown { at: _, message } => (
                 err.at,
                 "Thrown",
                 format!(
@@ -159,10 +127,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                     message.bright_red()
                 ),
             ),
-
-            ExecErrorNature::NotAnError(_) => unreachable!(),
-
-            ExecErrorNature::InternalPropagation(_) => unreachable!(),
         },
     };
 
@@ -315,7 +279,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             .map(|detail| (ExecInfoType::Note, detail.clone()))
             .collect(),
         ReportableError::Runtime(err, _) => match &err.nature {
-            ExecErrorNature::CheckingErr(checking_err) => checking_err
+            ExecActualErrorNature::CheckingErr(checking_err) => checking_err
                 .details
                 .iter()
                 .map(|detail| (ExecInfoType::Note, detail.clone()))

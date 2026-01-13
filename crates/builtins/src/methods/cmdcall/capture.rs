@@ -1,7 +1,7 @@
 use reshell_parser::ast::CmdCaptureType;
 use reshell_runtime::{
     cmd::{CmdExecParams, CmdExecResult, run_cmd},
-    errors::ExecErrorNature,
+    errors::{ExecActualErrorNature, ExecError},
 };
 
 use crate::define_internal_fn;
@@ -42,30 +42,32 @@ fn run() -> Runner {
                 },
             );
 
-            let captured = exec_result.map_err(|err| {
-                if err.at.parsed_range() != Some(cmd_call) {
-                    return err;
-                }
-
-                match err.nature {
-                    ExecErrorNature::CommandFailedToStart { message } => {
-                        ctx.throw(at, format!("failed to start command: {message}"))
+            let captured = exec_result.map_err(|err| match err {
+                ExecError::ActualError(err) => {
+                    if err.at.parsed_range() != Some(cmd_call) {
+                        return ExecError::ActualError(err);
                     }
 
-                    ExecErrorNature::CommandFailed {
-                        message,
-                        exit_status: _,
-                    } => ctx.throw(at, message),
+                    match err.nature {
+                        ExecActualErrorNature::CommandFailedToStart { message } => {
+                            ctx.throw(at, format!("failed to start command: {message}"))
+                        }
 
-                    ExecErrorNature::ParsingErr(_)
-                    | ExecErrorNature::CheckingErr(_)
-                    | ExecErrorNature::Thrown { message: _, at: _ }
-                    | ExecErrorNature::CtrlC
-                    | ExecErrorNature::FailureExit { code: _ }
-                    | ExecErrorNature::Custom(_)
-                    | ExecErrorNature::NotAnError(_)
-                    | ExecErrorNature::InternalPropagation(_) => err,
+                        ExecActualErrorNature::CommandFailed {
+                            message,
+                            exit_status: _,
+                        } => ctx.throw(at, message),
+
+                        ExecActualErrorNature::ParsingErr(_)
+                        | ExecActualErrorNature::CheckingErr(_)
+                        | ExecActualErrorNature::Thrown { message: _, at: _ }
+                        | ExecActualErrorNature::CtrlC
+                        | ExecActualErrorNature::FailureExit { code: _ }
+                        | ExecActualErrorNature::Custom(_) => ExecError::ActualError(err),
+                    }
                 }
+
+                ExecError::InternalPropagation(_) | ExecError::TopPropagation(_) => err,
             })?;
 
             let captured = match captured {

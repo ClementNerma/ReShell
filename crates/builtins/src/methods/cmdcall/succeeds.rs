@@ -1,6 +1,6 @@
 use reshell_runtime::{
     cmd::{CmdExecParams, run_cmd},
-    errors::ExecErrorNature,
+    errors::{ExecActualErrorNature, ExecError},
 };
 
 use crate::define_internal_fn;
@@ -32,21 +32,17 @@ fn run() -> Runner {
         match cmd_result {
             Ok(_) => Ok(Some(RuntimeValue::Bool(true))),
 
-            Err(err) => match err.nature {
-                ExecErrorNature::CommandFailedToStart { message: _ }
-                | ExecErrorNature::CommandFailed {
-                    message: _,
-                    exit_status: _,
-                } => Ok(Some(RuntimeValue::Bool(false))),
+            Err(err) => match err {
+                ExecError::ActualError(err) => match err.nature {
+                    ExecActualErrorNature::CommandFailedToStart { message: _ }
+                    | ExecActualErrorNature::CommandFailed {
+                        message: _,
+                        exit_status: _,
+                    } => Ok(Some(RuntimeValue::Bool(false))),
 
-                ExecErrorNature::ParsingErr(_)
-                | ExecErrorNature::CheckingErr(_)
-                | ExecErrorNature::Thrown { message: _, at: _ }
-                | ExecErrorNature::CtrlC
-                | ExecErrorNature::FailureExit { code: _ }
-                | ExecErrorNature::Custom(_)
-                | ExecErrorNature::NotAnError(_)
-                | ExecErrorNature::InternalPropagation(_) => Err(err),
+                    _ => Err(ExecError::ActualError(err)),
+                },
+                ExecError::InternalPropagation(_) | ExecError::TopPropagation(_) => Err(err),
             },
         }
     })

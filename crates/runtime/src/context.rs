@@ -21,7 +21,10 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore};
 use crate::{
     bin_resolver::BinariesResolver,
     conf::RuntimeConf,
-    errors::{ExecError, ExecErrorNature, ExecNotActualError, ExecResult},
+    errors::{
+        ExecActualError, ExecActualErrorNature, ExecError, ExecInfoType, ExecResult,
+        ExecTopPropagation,
+    },
     gc::{GcCell, GcReadOnlyCell},
     typechecking::check_if_value_fits_type,
     values::{LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
@@ -160,7 +163,7 @@ impl Context {
     /// Otherwise, return a Ctrl+C error
     pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
         if (self.conf.take_ctrl_c_indicator)() {
-            Err(self.error(at.into(), ExecErrorNature::CtrlC))
+            Err(self.error(at.into(), ExecActualErrorNature::CtrlC))
         } else {
             Ok(())
         }
@@ -339,39 +342,70 @@ impl Context {
     }
 
     /// Generate an error object
-    /// Errors are always wrapped in a [`Box`] to avoid moving very large [`ExecError`] values around
-    /// Given an error is either critical or related to a function throwing a value, the allocation
-    /// overhead is acceptable here
     pub fn error(
         &self,
         at: impl Into<RuntimeCodeRange>,
-        nature: impl Into<ExecErrorNature>,
-    ) -> Box<ExecError> {
+        nature: impl Into<ExecActualErrorNature>,
+    ) -> ExecError {
         let current_scope = self.current_scope();
 
-        Box::new(ExecError {
+        ExecError::ActualError(Box::new(ExecActualError {
             at: at.into(),
             nature: nature.into(),
             call_stack: current_scope.call_stack.clone(),
             infos: vec![],
-        })
+        }))
+    }
+
+    /// Generate an error object and attach additional informations to it
+    pub fn error_with_infos<const N: usize>(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        nature: impl Into<ExecActualErrorNature>,
+        infos: [(ExecInfoType, impl Into<String>); N],
+    ) -> ExecError {
+        let current_scope = self.current_scope();
+
+        ExecError::ActualError(Box::new(ExecActualError {
+            at: at.into(),
+            nature: nature.into(),
+            call_stack: current_scope.call_stack.clone(),
+            infos: infos
+                .into_iter()
+                .map(|(info_type, msg)| (info_type, msg.into()))
+                .collect(),
+        }))
+    }
+
+    /// Generate an error object and attach additional informations to it
+    pub fn error_with(
+        &self,
+        at: impl Into<RuntimeCodeRange>,
+        nature: impl Into<ExecActualErrorNature>,
+        with: impl FnOnce(&mut ExecActualError),
+    ) -> ExecError {
+        let current_scope = self.current_scope();
+
+        let mut err = ExecActualError {
+            at: at.into(),
+            nature: nature.into(),
+            call_stack: current_scope.call_stack.clone(),
+            infos: vec![],
+        };
+
+        with(&mut err);
+
+        ExecError::ActualError(Box::new(err))
     }
 
     /// Generate a "successful exit" value
-    pub fn successful_exit(&self, at: impl Into<RuntimeCodeRange>) -> Box<ExecError> {
-        self.error(
-            at,
-            ExecErrorNature::NotAnError(ExecNotActualError::SuccessfulExit),
-        )
+    pub fn successful_exit(&self) -> ExecError {
+        ExecError::TopPropagation(ExecTopPropagation::SuccessfulExit)
     }
 
     /// Generate a "failure exit" value
-    pub fn failure_exit(
-        &self,
-        at: impl Into<RuntimeCodeRange>,
-        code: NonZero<u8>,
-    ) -> Box<ExecError> {
-        self.error(at, ExecErrorNature::FailureExit { code })
+    pub fn failure_exit(&self, at: impl Into<RuntimeCodeRange>, code: NonZero<u8>) -> ExecError {
+        self.error(at, ExecActualErrorNature::FailureExit { code })
     }
 
     /// Generate a throw error
@@ -379,10 +413,10 @@ impl Context {
         &self,
         at: impl Into<RuntimeCodeRange> + Copy,
         message: impl Into<String>,
-    ) -> Box<ExecError> {
+    ) -> ExecError {
         self.error(
             at,
-            ExecErrorNature::Thrown {
+            ExecActualErrorNature::Thrown {
                 at: at.into(),
                 message: message.into(),
             },

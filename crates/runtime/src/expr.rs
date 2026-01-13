@@ -14,7 +14,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, pretty_printable_str
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecError, ExecErrorNature, ExecInternalPropagation, ExecResult},
+    errors::{ExecActualErrorNature, ExecError, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::{GcCell, GcOnceCell, GcReadOnlyCell},
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
@@ -347,7 +347,7 @@ fn not_applicable_on_value_err(
     left: &RuntimeValue,
     op: Span<DoubleOp>,
     ctx: &Context,
-) -> Box<ExecError> {
+) -> ExecError {
     ctx.error(
         op.at,
         format!(
@@ -363,7 +363,7 @@ fn not_applicable_on_pair_err(
     op: Span<DoubleOp>,
     right: &RuntimeValue,
     ctx: &Context,
-) -> Box<ExecError> {
+) -> ExecError {
     ctx.error(
         op.at,
         format!(
@@ -566,8 +566,10 @@ fn eval_expr_inner_content(
             catch_var,
             catch_expr,
             catch_expr_scope_id,
-        } => eval_expr(try_expr, ctx).or_else(|err| match err.nature {
-            ExecErrorNature::Thrown { at, message } => {
+        } => eval_expr(try_expr, ctx).or_else(|err| {
+            if let ExecError::ActualError(err) = &err
+                && let ExecActualErrorNature::Thrown { at, message } = &err.nature
+            {
                 let mut scope = ScopeContent::new();
 
                 scope.vars.insert(
@@ -577,7 +579,10 @@ fn eval_expr_inner_content(
                         decl_scope_id: *catch_expr_scope_id,
                         is_mut: false,
                         enforced_type: None,
-                        value: GcCell::new(LocatedValue::new(at, RuntimeValue::String(message))),
+                        value: GcCell::new(LocatedValue::new(
+                            *at,
+                            RuntimeValue::String(message.clone()),
+                        )),
                     },
                 );
 
@@ -588,9 +593,9 @@ fn eval_expr_inner_content(
                 ctx.pop_scope();
 
                 result
+            } else {
+                Err(err)
             }
-
-            _ => Err(err),
         }),
 
         ExprInnerContent::FnAsValue(name) => ctx
@@ -615,7 +620,7 @@ fn eval_expr_inner_content(
 
             Err(ctx.error(
                 expr.at,
-                ExecErrorNature::Thrown {
+                ExecActualErrorNature::Thrown {
                     at: RuntimeCodeRange::Parsed(expr.at),
                     message,
                 },
@@ -624,14 +629,12 @@ fn eval_expr_inner_content(
 
         ExprInnerContent::Value(value) => eval_value(value, ctx),
 
-        ExprInnerContent::LoopContinue => Err(ctx.error(
-            content.at,
-            ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopContinuation),
+        ExprInnerContent::LoopContinue => Err(ExecError::InternalPropagation(
+            ExecInternalPropagation::LoopContinuation,
         )),
 
-        ExprInnerContent::LoopBreak => Err(ctx.error(
-            content.at,
-            ExecErrorNature::InternalPropagation(ExecInternalPropagation::LoopBreakage),
+        ExprInnerContent::LoopBreak => Err(ExecError::InternalPropagation(
+            ExecInternalPropagation::LoopBreakage,
         )),
     }
 }

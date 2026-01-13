@@ -1,7 +1,7 @@
 use reshell_parser::ast::CmdCaptureType;
 use reshell_runtime::{
     cmd::{CmdExecParams, run_cmd},
-    errors::ExecErrorNature,
+    errors::{ExecActualErrorNature, ExecError},
 };
 
 use crate::define_internal_fn;
@@ -50,41 +50,39 @@ fn run() -> Runner {
                 },
             ) {
                 Ok(_) => Ok(None),
-                Err(err) => {
-                    if err.at.parsed_range() != Some(cmd_call) {
-                        return Err(err);
-                    }
+                Err(err) => match err {
+                    ExecError::ActualError(err) => {
+                        if err.at.parsed_range() != Some(cmd_call) {
+                            return Err(ExecError::ActualError(err));
+                        }
 
-                    match err.nature {
-                        ExecErrorNature::CommandFailedToStart { message } => {
-                            if ignore_failure {
-                                Ok(None)
-                            } else {
+                        match err.nature {
+                            ExecActualErrorNature::CommandFailedToStart { message } => {
                                 Err(ctx.throw(at, format!("failed to start command: {message}")))
                             }
-                        }
 
-                        ExecErrorNature::CommandFailed {
-                            message,
-                            exit_status: _,
-                        } => {
-                            if ignore_failure {
-                                Ok(None)
-                            } else {
-                                Err(ctx.throw(at, message))
+                            ExecActualErrorNature::CommandFailed {
+                                message,
+                                exit_status: _,
+                            } => {
+                                if ignore_failure {
+                                    Ok(None)
+                                } else {
+                                    Err(ctx.throw(at, message))
+                                }
                             }
-                        }
 
-                        ExecErrorNature::ParsingErr(_)
-                        | ExecErrorNature::CheckingErr(_)
-                        | ExecErrorNature::Thrown { message: _, at: _ }
-                        | ExecErrorNature::CtrlC
-                        | ExecErrorNature::FailureExit { code: _ }
-                        | ExecErrorNature::Custom(_)
-                        | ExecErrorNature::NotAnError(_)
-                        | ExecErrorNature::InternalPropagation(_) => Err(err),
+                            ExecActualErrorNature::ParsingErr(_)
+                            | ExecActualErrorNature::CheckingErr(_)
+                            | ExecActualErrorNature::Thrown { message: _, at: _ }
+                            | ExecActualErrorNature::CtrlC
+                            | ExecActualErrorNature::FailureExit { code: _ }
+                            | ExecActualErrorNature::Custom(_) => Err(ExecError::ActualError(err)),
+                        }
                     }
-                }
+
+                    ExecError::InternalPropagation(_) | ExecError::TopPropagation(_) => Err(err),
+                },
             }
         },
     )

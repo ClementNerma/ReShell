@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use reshell_runtime::{errors::ExecInfoType, gc::GcCell};
+use reshell_runtime::gc::GcCell;
 
 crate::define_internal_fn!(
     //
@@ -119,10 +119,6 @@ fn run() -> Runner {
                                     "Path contains invalid UTF-8 characters: {}",
                                     item_path.display()
                                 ),
-                            )
-                            .with_info(
-                                ExecInfoType::Tip,
-                                "you can use '--lossy' to get the string anyway",
                             )
                         })?
                         .to_owned()
