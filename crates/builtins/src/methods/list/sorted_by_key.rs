@@ -2,10 +2,9 @@ use reshell_parser::ast::SingleValueType;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{errors::ExecError, gc::GcCell, values::CustomValueType};
 
-use super::sorted::ComparableValueType;
 use crate::{
     declare_typed_fn_handler,
-    methods::list::sorted::ComparableType,
+    helpers::shared::{ComparableType, ComparableValueType},
     types::{DateTimeValue, DurationValue},
     utils::{call_fn_checked, expect_returned_value},
 };
@@ -85,7 +84,7 @@ fn run() -> Runner {
                 format!(
                     "first call to this function returned a {}, but {i} call(s) later it returned a {}",
                     first_item_type.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                    key.from_value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    key.original_value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 )
             )
         }

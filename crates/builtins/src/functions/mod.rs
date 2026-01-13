@@ -37,6 +37,8 @@ functions_set! {
         mod human_size;
         mod in_dir;
         mod instant;
+        mod max;
+        mod min;
         mod mkdir;
         mod mtime;
         mod parent_dir;

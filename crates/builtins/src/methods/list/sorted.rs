@@ -18,13 +18,6 @@ crate::define_internal_fn!(
      -> UntypedListType
 );
 
-declare_typed_union_handler!(pub ComparableValueType => enum ComparableType {
-    String(StringType),
-    Int(IntType),
-    Duration(CustomType<DurationValue>),
-    DateTime(CustomType<DateTimeValue>)
-});
-
 declare_typed_union_handler!(pub ComparableListType => enum ComparableList {
     String(DetachedListType<StringType>),
     Int(DetachedListType<IntType>),

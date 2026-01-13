@@ -157,7 +157,8 @@ impl<T> Clone for GcOnceCell<T> {
 #[derive(Debug, Clone, Copy)]
 pub struct GcOnceCellAlreadyInitErr;
 
-// Garbage-collectable read-only cell
+// TODO: never put a Box inside a GcCell, GcOnceCell, GcReadOnlyCell ; use `dyn` directly instead
+/// Garbage-collectable read-only cell
 #[derive(Debug)]
 pub struct GcReadOnlyCell<T> {
     value: Arc<T>,

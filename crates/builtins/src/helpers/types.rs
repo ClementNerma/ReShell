@@ -432,6 +432,7 @@ impl<C: CustomValueType> TypedValueParser for CustomType<C> {
     fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
             RuntimeValue::Custom(value) => {
+                // TODO: remove clone_box (c.f. other downcast in the code)
                 Box::<dyn Any>::downcast::<C>(dyn_clone::clone_box::<dyn CustomValueType>(&**value))
                     .map_err(|_| {
                         format!(
@@ -444,6 +445,14 @@ impl<C: CustomValueType> TypedValueParser for CustomType<C> {
         }
     }
 }
+
+// impl<C: CustomValueType> TypedValueEncoder for CustomType<C> {
+//     type Encodable = Box<C>;
+
+//     fn encode(value: Self::Encodable) -> RuntimeValue {
+//         RuntimeValue::Custom(GcReadOnlyCell::new(value))
+//     }
+// }
 
 /// Macro to implement a type handler for a union type
 macro_rules! generic_type_union_handler {
@@ -527,7 +536,7 @@ macro_rules! declare_typed_union_handler {
 
             type Parsed = $result_enum;
 
-            fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
+            fn parse(value: ::reshell_runtime::values::RuntimeValue) -> Result<Self::Parsed, String> {
                 $(
                     if let Ok(parsed) = <$variant_type as $crate::helpers::args::TypedValueParser>::parse(value.clone()) {
                         return Ok($result_enum::$variant_name(parsed))
@@ -539,8 +548,8 @@ macro_rules! declare_typed_union_handler {
         }
 
         impl $result_enum {
-            #[allow(dead_code, clippy::wrong_self_convention)]
-            pub fn from_value_type(&self) -> ::reshell_parser::ast::ValueType {
+            #[allow(dead_code)]
+            pub fn original_value_type(&self) -> ::reshell_parser::ast::ValueType {
                 match self {
                     $(Self::$variant_name(_) => <$variant_type as $crate::helpers::args::TypedValueParser>::value_type()),+
                 }
@@ -732,4 +741,20 @@ pub fn camel_case<'a>(input: &'a str) -> Cow<'a, str> {
     }
 
     Cow::Owned(out)
+}
+
+pub struct WithOriginalValue<T: TypedValueParser> {
+    _t: PhantomData<T>,
+}
+
+impl<T: TypedValueParser> TypedValueParser for WithOriginalValue<T> {
+    fn value_type() -> ValueType {
+        T::value_type()
+    }
+
+    type Parsed = (T::Parsed, RuntimeValue);
+
+    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
+        T::parse(value.clone()).map(|parsed| (parsed, value))
+    }
 }
