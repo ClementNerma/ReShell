@@ -1,0 +1,13 @@
+[package]
+name = "reshell-tests"
+publish = false
+edition = "2024"
+
+[dependencies]
+parsy = "0.15.9"
+reshell-builtins = { path = "../builtins" }
+reshell-checker = { path = "../checker" }
+reshell-parser = { path = "../parser" }
+reshell-runtime = { path = "../runtime" }
+reshell-reports = { path = "../reports" }
+reshell-prettify = { path = "../prettify" }

@@ -1016,7 +1016,6 @@ dependencies = [
 name = "reshell-repl"
 version = "0.1.0"
 dependencies = [
- "annotate-snippets",
  "clap",
  "colored",
  "crossterm",
@@ -1032,8 +1031,22 @@ dependencies = [
  "reshell-checker",
  "reshell-parser",
  "reshell-prettify",
+ "reshell-reports",
  "reshell-runtime",
  "reshell-syntax-highlighter",
+]
+
+[[package]]
+name = "reshell-reports"
+version = "0.1.0"
+dependencies = [
+ "annotate-snippets",
+ "colored",
+ "parsy",
+ "reshell-checker",
+ "reshell-parser",
+ "reshell-prettify",
+ "reshell-runtime",
 ]
 
 [[package]]
@@ -1056,6 +1069,19 @@ dependencies = [
  "paste",
  "pomsky-macro",
  "regex",
+]
+
+[[package]]
+name = "reshell-tests"
+version = "0.0.0"
+dependencies = [
+ "parsy",
+ "reshell-builtins",
+ "reshell-checker",
+ "reshell-parser",
+ "reshell-prettify",
+ "reshell-reports",
+ "reshell-runtime",
 ]
 
 [[package]]

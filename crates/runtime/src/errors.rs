@@ -13,6 +13,7 @@ use crate::context::CallStack;
 /// Result of an action that may have resulted in an execution error
 pub type ExecResult<T> = Result<T, ExecError>;
 
+// TODO: change this enum so that InternalPropagation cannot be transmitted to the outside of the crate
 /// An error that occured during execution (runtime)
 #[derive(Debug)]
 pub enum ExecError {

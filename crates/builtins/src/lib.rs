@@ -7,6 +7,7 @@
 #![forbid(unused_must_use)]
 #![warn(unused_crate_dependencies)]
 
+mod builder;
 mod functions;
 mod helpers;
 mod methods;
@@ -14,5 +15,12 @@ mod types;
 mod utils;
 mod vars;
 
-pub mod builder;
-pub use crate::vars::repl;
+pub use self::{
+    builder::*,
+    helpers::{
+        args::{TypedValueEncoder, TypedValueParser},
+        fns::InternalFunction,
+    },
+    types::*,
+    vars::repl,
+};

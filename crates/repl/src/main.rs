@@ -8,8 +8,7 @@ use clap::Parser as _;
 use colored::Colorize;
 use parsy::{FileId, Parser, ParserInput, ParserResult};
 use reshell_builtins::{
-    builder::{NativeLibParams, build_native_lib_content},
-    repl::on_dir_jump::trigger_directory_jump_event,
+    NativeLibParams, build_native_lib_content, repl::on_dir_jump::trigger_directory_jump_event,
 };
 use reshell_parser::{
     PROGRAM, ParserContext,
@@ -41,7 +40,6 @@ mod history;
 mod paths;
 mod prompt;
 mod repl;
-mod reports;
 mod utils;
 mod validator;
 
@@ -158,7 +156,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         return Ok(match result {
             Ok(ProgramResult::GracefullyExit | ProgramResult::Success(_)) => ExitCode::SUCCESS,
             Err(err) => {
-                reports::print_error(&err, ctx.files_map());
+                reshell_reports::print_error(&err, ctx.files_map());
                 err.exit_code().map_or(ExitCode::FAILURE, ExitCode::from)
             }
         });
@@ -191,7 +189,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             }
 
             Err(err) => {
-                reports::print_error(&err, ctx.files_map());
+                reshell_reports::print_error(&err, ctx.files_map());
 
                 Ok(err
                     .exit_code()
@@ -238,7 +236,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                                 }
 
                                 Err(err) => {
-                                    reports::print_error(&err, ctx.files_map());
+                                    reshell_reports::print_error(&err, ctx.files_map());
                                 }
                             }
                         }

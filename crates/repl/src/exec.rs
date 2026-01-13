@@ -1,5 +1,6 @@
 use parsy::{FileId, Span};
 use reshell_parser::{ast::Program, files_map::SourceFileLocation};
+use reshell_reports::ReportableError;
 use reshell_runtime::{
     context::Context,
     errors::{ExecError, ExecResult, ExecTopPropagation},
@@ -7,7 +8,7 @@ use reshell_runtime::{
     values::LocatedValue,
 };
 
-use crate::{args::ExecArgs, parse_program, reports::ReportableError};
+use crate::{args::ExecArgs, parse_program};
 
 /// Run a ReShell script
 pub fn run_script(

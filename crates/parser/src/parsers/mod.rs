@@ -14,10 +14,14 @@ mod instrs;
 mod types;
 mod values;
 
+/// The parsing context, required to parse a ReShell program
 pub struct ParserContext {
     pub load_file: Box<dyn Fn(String, FileId) -> Result<SourceFile, String> + Send + Sync>,
 }
 
+/// Parser for a ReShell program
+///
+/// Requires to set up a parser context by providing a [`ParserContext`] to [`parsy::ParserInput::new_with_ctx`]
 pub static PROGRAM: LazilyDefined<Program> = LazilyDefined::new(|| {
     use_basic_parsers!(msnl);
 

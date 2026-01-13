@@ -21,6 +21,7 @@ use reshell_builtins::repl::{
 };
 use reshell_parser::{ast::Instruction, files_map::SourceFileLocation};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_reports::ReportableError;
 use reshell_runtime::{
     context::Context,
     errors::{ExecActualErrorNature, ExecError, ExecTopPropagation},
@@ -35,7 +36,6 @@ use crate::{
     highlighter::{self},
     hinter, history,
     prompt::Prompt,
-    reports::{self, ReportableError},
     utils::cmd_checker::COMMANDS_CHECKER,
     validator,
 };
@@ -96,7 +96,7 @@ pub fn start(
                     return Ok(Some(ExitCode::from(code)));
                 }
 
-                reports::print_error(&err, ctx.files_map());
+                reshell_reports::print_error(&err, ctx.files_map());
                 PromptRendering::default()
             }
         };
@@ -222,7 +222,7 @@ pub fn start(
                 }
 
                 // In any other case, print the full error
-                reports::print_error(err, ctx.files_map());
+                reshell_reports::print_error(err, ctx.files_map());
             }
         }
     }
@@ -283,7 +283,10 @@ fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<External
         Err(err) => {
             match err {
                 ExecError::ActualError(err) => {
-                    reports::print_error(&ReportableError::Runtime(err, None), ctx.files_map());
+                    reshell_reports::print_error(
+                        &ReportableError::Runtime(err, None),
+                        ctx.files_map(),
+                    );
 
                     panic!();
                     // TODO: find a way to display error
