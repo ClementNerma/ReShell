@@ -1,7 +1,7 @@
 use std::num::NonZero;
 
-use parsy::FileId;
-use reshell_parser::files_map::SourceFileLocation;
+use parsy::{FileId, Span};
+use reshell_parser::{ast::Program, files_map::SourceFileLocation};
 use reshell_reports::ReportableError;
 use reshell_runtime::{
     context::Context,
@@ -13,12 +13,13 @@ use reshell_runtime::{
 use crate::{args::ExecArgs, parse_program};
 
 /// Run a ReShell script
+#[allow(clippy::type_complexity)]
 pub fn run_script(
     input: &str,
     file_loc: SourceFileLocation,
     exec_args: ExecArgs,
     ctx: &mut Context,
-) -> Result<ProgramResult, ReportableError> {
+) -> Result<ProgramResult, (ReportableError, Option<Box<Span<Program>>>)> {
     let ExecArgs {
         print_ast,
         only_check,
@@ -26,26 +27,26 @@ pub fn run_script(
 
     let file_id = ctx.files_map().register_file(file_loc, input.to_string());
 
-    let parsed =
-        parse_program(input, FileId::SourceFile(file_id)).map_err(ReportableError::Parsing)?;
+    let program = parse_program(input, FileId::SourceFile(file_id))
+        .map_err(|err| (ReportableError::Parsing(err), None))?;
 
     if print_ast {
-        println!("AST: {parsed:#?}");
+        println!("AST: {program:#?}");
     }
 
     if only_check {
         reshell_checker::check(
-            &parsed.data,
+            &program.data,
             ctx.generate_checker_scopes(),
             &mut ctx.checker_output().clone(),
         )
-        .map_err(ReportableError::Checking)?;
+        .map_err(|err| (ReportableError::Checking(err), Some(Box::new(program))))?;
 
         println!("The provided program is valid (no error detected).");
         return Ok(ProgramResult::Success(None));
     }
 
-    handle_ret_value(run_program(&parsed, ctx))
+    handle_ret_value(run_program(&program, ctx)).map_err(|err| (err, Some(Box::new(program))))
 }
 
 pub fn handle_ret_value(

@@ -156,7 +156,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         return Ok(match result {
             Ok(ProgramResult::Success(_) | ProgramResult::GracefullyExit) => ExitCode::SUCCESS,
             Ok(ProgramResult::ExitWithErrorCode(code)) => ExitCode::from(code.get()),
-            Err(err) => {
+            Err((err, _)) => {
                 reshell_reports::print_error(&err, ctx.files_map());
                 err.exit_code().map_or(ExitCode::FAILURE, ExitCode::from)
             }
@@ -189,7 +189,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                 ProgramResult::ExitWithErrorCode(code) => ExitCode::from(code.get()),
             }),
 
-            Err(err) => {
+            Err((err, _)) => {
                 reshell_reports::print_error(&err, ctx.files_map());
 
                 Ok(err
@@ -241,7 +241,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                                     return Ok(ExitCode::from(code.get()));
                                 }
 
-                                Err(err) => {
+                                Err((err, _)) => {
                                     reshell_reports::print_error(&err, ctx.files_map());
                                 }
                             }

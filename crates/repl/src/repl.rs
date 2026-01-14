@@ -13,17 +13,18 @@ use std::{
     time::Instant,
 };
 
+use colored::Colorize;
 use reedline::{Reedline, Signal};
 use reshell_builtins::repl::{
     completer::{CompletionStringSegment, generate_completions},
     prompt::{LastCmdStatus, PromptRendering, render_prompt},
 };
-use reshell_parser::files_map::SourceFileLocation;
+use reshell_parser::{ast::Instruction, files_map::SourceFileLocation};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_reports::ReportableError;
 use reshell_runtime::{
     context::Context,
-    errors::{ExecError, ExecTopPropagation},
+    errors::{ExecActualErrorNature, ExecError, ExecTopPropagation},
 };
 
 use crate::{
@@ -152,7 +153,7 @@ pub fn start(
         last_cmd_status = Some(LastCmdStatus {
             success: ret.is_ok(),
             duration_ms: i64::try_from(start.elapsed().as_millis()).unwrap_or(i64::MAX),
-            exit_code: ret.as_ref().err().and_then(|err| err.exit_code()),
+            exit_code: ret.as_ref().err().and_then(|(err, _)| err.exit_code()),
         });
 
         if show_timings {
@@ -184,7 +185,45 @@ pub fn start(
             },
 
             // If the program failed, display the error
-            Err(err) => reshell_reports::print_error(err, ctx.files_map()),
+            Err((err, program)) => {
+                if let ReportableError::Runtime(err) = &err {
+                    let program = program.as_ref().unwrap();
+
+                    let program_content = &program.data.content.data.instructions;
+
+                    let is_single_cmd_call = program_content.len() == 1
+                        && matches!(program_content[0].data, Instruction::CmdCall(_))
+                        && err.at.parsed_range()
+                            == Some(program.data.content.data.instructions[0].at);
+
+                    // If we only run a single command (not more, no pipes, etc.) and it failed to start or run,
+                    // display a simpler error.
+                    if is_single_cmd_call {
+                        match &err.nature {
+                            ExecActualErrorNature::CommandFailedToStart { message } => {
+                                eprintln!("{}", format!("ERROR: {message}").bright_red());
+                                continue;
+                            }
+
+                            ExecActualErrorNature::CommandFailed {
+                                message: _,
+                                exit_status: _,
+                            } => {
+                                continue;
+                            }
+
+                            ExecActualErrorNature::ParsingErr(_)
+                            | ExecActualErrorNature::CheckingErr(_)
+                            | ExecActualErrorNature::Thrown { at: _, message: _ }
+                            | ExecActualErrorNature::CtrlC
+                            | ExecActualErrorNature::Custom(_) => {}
+                        }
+                    }
+                }
+
+                // In any other case, print the full error
+                reshell_reports::print_error(err, ctx.files_map())
+            }
         }
     }
 }
