@@ -8,7 +8,7 @@ crate::define_internal_fn!(
     "humanSize",
 
     (
-        size: RequiredArg<ExactIntType<u64>> = Arg::positional("size"),
+        size: RequiredArg<IntType> = Arg::positional("size"),
         precision: OptionalArg<ExactIntType<u8>> = Arg::long_and_short_flag("precision", 'p')
     )
 
@@ -22,15 +22,18 @@ fn run() -> Runner {
     })
 }
 
-pub fn human_size(size: u64, precision: Option<u8>) -> Result<String, &'static str> {
+pub fn human_size(size: i64, precision: Option<u8>) -> Result<String, &'static str> {
     let units = ["B", "KiB", "MiB", "GiB", "TiB"];
+
+    let is_neg = size.is_negative();
+    let size = size.abs();
 
     let (unit, unit_base) = units
         .iter()
         .enumerate()
         .rev()
         .find_map(|(i, unit)| {
-            let base = 1024_u64.pow(i.try_into().unwrap());
+            let base = 1024_i64.pow(i.try_into().unwrap());
 
             if size >= base || base == 1 {
                 Some((unit, base))
@@ -42,5 +45,5 @@ pub fn human_size(size: u64, precision: Option<u8>) -> Result<String, &'static s
 
     let str = approx_int_div::approx_int_div(size, unit_base, precision.unwrap_or(2))?;
 
-    Ok(format!("{str} {unit}"))
+    Ok(format!("{}{str} {unit}", if is_neg { "-" } else { "" }))
 }
