@@ -220,11 +220,17 @@ impl<From: RustIntType> TypedValueParser for ExactIntType<From> {
     fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
             RuntimeValue::Int(int) => From::try_from(int).map_err(|_| {
-                format!(
-                    "expected an integer between {} and {}",
-                    From::MIN,
-                    From::MAX
-                )
+                if int < 0 && From::MIN.to_i128() == 0 {
+                    "expected a positive integer".to_owned()
+                } else if int > 0 && From::MAX.to_i128() == 0 {
+                    "expected a negative integer".to_owned()
+                } else {
+                    format!(
+                        "expected an integer between {} and {}",
+                        From::MIN,
+                        From::MAX
+                    )
+                }
             }),
             _ => Err("expected an integer".to_owned()),
         }
@@ -247,6 +253,8 @@ impl<From: RustIntType> TypedValueEncoder for ExactIntType<From> {
 pub trait RustIntType: TryFrom<i64> + TryInto<i64> + Display + Copy + std::fmt::Debug {
     const MIN: Self;
     const MAX: Self;
+
+    fn to_i128(self) -> i128;
 }
 
 /// Macro to add support for conversion between the shell's integer type and Rust's ones
@@ -256,6 +264,10 @@ macro_rules! implement_specific_int_types {
             impl RustIntType for $int_type {
                 const MIN: Self = Self::MIN;
                 const MAX: Self = Self::MAX;
+
+                fn to_i128(self) -> i128 {
+                    i128::try_from(self).unwrap()
+                }
             }
         )+
     };
