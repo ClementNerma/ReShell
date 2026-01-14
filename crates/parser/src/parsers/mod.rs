@@ -16,8 +16,11 @@ mod values;
 
 /// The parsing context, required to parse a ReShell program
 pub struct ParserContext {
-    pub load_file: Box<dyn Fn(String, FileId) -> Result<SourceFile, String> + Send + Sync>,
+    pub load_file: FileLoader,
 }
+
+/// A callback to load files when an 'include' statement is encountered
+pub type FileLoader = Box<dyn Fn(String, FileId) -> Result<SourceFile, String> + Send + Sync>;
 
 /// Parser for a ReShell program
 ///
