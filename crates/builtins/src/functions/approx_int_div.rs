@@ -16,17 +16,18 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(
-        |_,
+        |at,
          Args {
              divident,
              dividor,
              precision,
          },
          _,
-         _| {
-            Ok(Some(RuntimeValue::String(approx_int_div(
-                divident, dividor, precision,
-            ))))
+         ctx| {
+            let str =
+                approx_int_div(divident, dividor, precision).map_err(|err| ctx.throw(at, err))?;
+
+            Ok(Some(RuntimeValue::String(str)))
         },
     )
 }
@@ -36,7 +37,11 @@ fn run() -> Runner {
 /// The last decimal will be rounded to the nearest.
 ///
 /// The `precision` parameter is the number of floating-point decimals to keep.
-pub fn approx_int_div(a: u64, b: u64, precision: u8) -> String {
+pub fn approx_int_div(a: u64, b: u64, precision: u8) -> Result<String, &'static str> {
+    if b == 0 {
+        return Err("attempting to divide by zero");
+    }
+
     let max_prec = 10_u128.pow(u32::from(precision));
 
     let div = u128::from(a) * max_prec * 10 / u128::from(b);
@@ -54,7 +59,14 @@ pub fn approx_int_div(a: u64, b: u64, precision: u8) -> String {
             frac_part,
             precision = precision.into()
         ));
+
+        if out.ends_with('0') {
+            let first_non_zero = out.rfind(|c| c != '0').unwrap();
+            out.truncate(first_non_zero + 1);
+        }
+
+        assert!(!out.ends_with('.'));
     }
 
-    out
+    Ok(out)
 }

@@ -16,12 +16,13 @@ crate::define_internal_fn!(
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { size, precision }, _, _| {
-        Ok(Some(RuntimeValue::String(human_size(size, precision))))
+    Runner::new(|at, Args { size, precision }, _, ctx| {
+        let str = human_size(size, precision).map_err(|err| ctx.throw(at, err))?;
+        Ok(Some(RuntimeValue::String(str)))
     })
 }
 
-pub fn human_size(size: u64, precision: Option<u8>) -> String {
+pub fn human_size(size: u64, precision: Option<u8>) -> Result<String, &'static str> {
     let units = ["B", "KiB", "MiB", "GiB", "TiB"];
 
     let (unit, unit_base) = units
@@ -39,8 +40,7 @@ pub fn human_size(size: u64, precision: Option<u8>) -> String {
         })
         .unwrap();
 
-    format!(
-        "{} {unit}",
-        approx_int_div::approx_int_div(size, unit_base, precision.unwrap_or(2))
-    )
+    let str = approx_int_div::approx_int_div(size, unit_base, precision.unwrap_or(2))?;
+
+    Ok(format!("{str} {unit}"))
 }
