@@ -11,10 +11,10 @@ use std::borrow::Cow;
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
 use colored::Colorize;
-use parsy::{CodeRange, FileId, ParserExpectation, ParsingError, SourceFileID, Span};
+use parsy::{CodeRange, FileId, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
 use reshell_parser::{
-    ast::{Program, RuntimeCodeRange},
+    ast::RuntimeCodeRange,
     files_map::{FilesMap, SourceFile, SourceFileLocation},
 };
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
@@ -27,7 +27,7 @@ use reshell_runtime::{
 pub enum ReportableError {
     Parsing(ParsingError),
     Checking(CheckerError),
-    Runtime(Box<ExecActualError>, Option<Span<Program>>),
+    Runtime(Box<ExecActualError>),
 }
 
 impl ReportableError {
@@ -36,7 +36,7 @@ impl ReportableError {
             ReportableError::Parsing(_) => None,
             ReportableError::Checking(_) => None,
 
-            ReportableError::Runtime(err, _) => match err.nature {
+            ReportableError::Runtime(err) => match err.nature {
                 ExecActualErrorNature::Custom(_)
                 | ExecActualErrorNature::ParsingErr(_)
                 | ExecActualErrorNature::CheckingErr(_)
@@ -72,7 +72,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             err.msg.clone(),
         ),
 
-        ReportableError::Runtime(err, _) => match &err.nature {
+        ReportableError::Runtime(err) => match &err.nature {
             ExecActualErrorNature::CtrlC => (
                 err.at,
                 "User interruption",
@@ -125,7 +125,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
     let call_stack = match err {
         ReportableError::Parsing(_) => None,
         ReportableError::Checking(_) => None,
-        ReportableError::Runtime(err, _) => Some(&err.call_stack),
+        ReportableError::Runtime(err) => Some(&err.call_stack),
     };
 
     let (source_file, offset, len) = match at {
@@ -265,12 +265,14 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
 
     let infos = match err {
         ReportableError::Parsing(_) => vec![],
+
         ReportableError::Checking(err) => err
             .details
             .iter()
             .map(|detail| (ExecInfoType::Note, detail.clone()))
             .collect(),
-        ReportableError::Runtime(err, _) => match &err.nature {
+
+        ReportableError::Runtime(err) => match &err.nature {
             ExecActualErrorNature::CheckingErr(checking_err) => checking_err
                 .details
                 .iter()

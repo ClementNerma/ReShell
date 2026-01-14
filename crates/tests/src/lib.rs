@@ -1,9 +1,9 @@
 use ::std::{any::Any, fmt::Debug};
 
-use parsy::{FileId, Parser, ParserInput, Span};
+use parsy::{FileId, Parser, ParserInput};
 use reshell_parser::{
     PROGRAM, ParserContext,
-    ast::{Program, RuntimeCodeRange},
+    ast::RuntimeCodeRange,
     files_map::{FilesMap, SourceFileLocation},
 };
 
@@ -28,7 +28,7 @@ mod std;
 #[allow(clippy::type_complexity, clippy::result_large_err)]
 pub fn run(
     source: impl Into<String>,
-) -> Result<(Option<LocatedValue>, Context), (ExecError, Span<Program>, Context)> {
+) -> Result<(Option<LocatedValue>, Context), (ExecError, Context)> {
     let source = source.into();
 
     let files_map = FilesMap::new(Box::new(|_, _, _| unreachable!()));
@@ -67,7 +67,7 @@ pub fn run(
 
     match run_program(&program, &mut ctx) {
         Ok(ret) => Ok((ret, ctx)),
-        Err(err) => Err((err, program, ctx)),
+        Err(err) => Err((err, ctx)),
     }
 }
 
@@ -75,12 +75,9 @@ pub fn run_expect_success(source: &str) -> (Option<LocatedValue>, Context) {
     match run(source) {
         Ok((value, ctx)) => (value, ctx),
 
-        Err((err, program, ctx)) => match err {
+        Err((err, ctx)) => match err {
             ExecError::ActualError(err) => {
-                reshell_reports::print_error(
-                    &ReportableError::Runtime(err, Some(program)),
-                    ctx.files_map(),
-                );
+                reshell_reports::print_error(&ReportableError::Runtime(err), ctx.files_map());
 
                 panic!("Program failed")
             }
@@ -146,17 +143,14 @@ pub fn run_expect_throw(source: &str) {
     match run(source) {
         Ok(_) => panic!("Program terminated successfully, but expected it to throw."),
 
-        Err((err, program, ctx)) => match err {
+        Err((err, ctx)) => match err {
             ExecError::ActualError(err) => match &err.nature {
                 ExecActualErrorNature::Thrown { at: _, message: _ } => {
                     // OK
                 }
 
                 _ => {
-                    reshell_reports::print_error(
-                        &ReportableError::Runtime(err, Some(program)),
-                        ctx.files_map(),
-                    );
+                    reshell_reports::print_error(&ReportableError::Runtime(err), ctx.files_map());
 
                     panic!("Program failed without throwing, but expected it to throw.");
                 }
@@ -175,13 +169,10 @@ pub fn run_expect_non_throw_error(source: &str) {
     match run(source) {
         Ok(_) => panic!("Program terminated successfully, but expected it to fail."),
 
-        Err((err, program, ctx)) => match err {
+        Err((err, ctx)) => match err {
             ExecError::ActualError(err) => match &err.nature {
                 ExecActualErrorNature::Thrown { at: _, message: _ } => {
-                    reshell_reports::print_error(
-                        &ReportableError::Runtime(err, Some(program)),
-                        ctx.files_map(),
-                    );
+                    reshell_reports::print_error(&ReportableError::Runtime(err), ctx.files_map());
 
                     panic!("Program thrown, but expected to fail.");
                 }
@@ -204,12 +195,9 @@ pub fn run_expect_exit(source: &str) {
     match run(source) {
         Ok(_) => panic!("Program terminated successfully, but expected it to exit manually."),
 
-        Err((err, program, ctx)) => match err {
+        Err((err, ctx)) => match err {
             ExecError::ActualError(err) => {
-                reshell_reports::print_error(
-                    &ReportableError::Runtime(err, Some(program)),
-                    ctx.files_map(),
-                );
+                reshell_reports::print_error(&ReportableError::Runtime(err), ctx.files_map());
 
                 panic!("Program failed")
             }

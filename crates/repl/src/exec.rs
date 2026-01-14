@@ -1,7 +1,7 @@
 use std::num::NonZero;
 
-use parsy::{FileId, Span};
-use reshell_parser::{ast::Program, files_map::SourceFileLocation};
+use parsy::FileId;
+use reshell_parser::files_map::SourceFileLocation;
 use reshell_reports::ReportableError;
 use reshell_runtime::{
     context::Context,
@@ -45,17 +45,17 @@ pub fn run_script(
         return Ok(ProgramResult::Success(None));
     }
 
-    handle_ret_value(run_program(&parsed, ctx), Some(parsed))
+    handle_ret_value(run_program(&parsed, ctx))
 }
 
 pub fn handle_ret_value(
     ret_value: ExecResult<Option<LocatedValue>>,
-    parsed: Option<Span<Program>>,
 ) -> Result<ProgramResult, ReportableError> {
     match ret_value {
         Ok(ret_val) => Ok(ProgramResult::Success(ret_val)),
+
         Err(err) => match err {
-            ExecError::ActualError(err) => Err(ReportableError::Runtime(err, parsed)),
+            ExecError::ActualError(err) => Err(ReportableError::Runtime(err)),
             ExecError::TopPropagation(err) => match err {
                 ExecTopPropagation::SuccessfulExit => Ok(ProgramResult::GracefullyExit),
                 ExecTopPropagation::FailureExit { code } => {
