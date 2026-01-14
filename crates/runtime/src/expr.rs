@@ -14,9 +14,10 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, pretty_printable_str
 use crate::{
     cmd::capture_cmd_output,
     context::{Context, ScopeContent, ScopeVar},
-    errors::{ExecActualErrorNature, ExecError, ExecInternalPropagation, ExecResult},
+    errors::{ExecActualErrorNature, ExecError, ExecInfoType, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
     gc::GcCell,
+    pretty_impl::{pretty_printable_date_time, pretty_printable_duration},
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
@@ -102,7 +103,7 @@ fn apply_double_op(
 ) -> ExecResult<RuntimeValue> {
     let result = match op.data {
         DoubleOp::Arithmetic(inner_op) => {
-            let right = right_val(ctx)?;
+            let right_val = right_val(ctx)?;
 
             let got_overflow = || {
                 ctx.throw(
@@ -110,12 +111,12 @@ fn apply_double_op(
                     format!(
                         "overflow during arithmetic operation with operands: {} and {}",
                         left_val.display(ctx, PrettyPrintOptions::inline()),
-                        right.display(ctx, PrettyPrintOptions::inline())
+                        right_val.display(ctx, PrettyPrintOptions::inline())
                     ),
                 )
             };
 
-            match (&left_val, &right) {
+            match (&left_val, &right_val) {
                 (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
                     ArithmeticDoubleOp::Add => {
                         RuntimeValue::Int(left.checked_add(*right).ok_or_else(got_overflow)?)
@@ -179,7 +180,71 @@ fn apply_double_op(
                     ));
                 }
 
-                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
+                (RuntimeValue::DateTime(datetime), RuntimeValue::Duration(duration)) => {
+                    let result = match inner_op {
+                        ArithmeticDoubleOp::Add => datetime.checked_add(duration),
+                        ArithmeticDoubleOp::Sub => datetime.checked_sub(duration),
+                        ArithmeticDoubleOp::Mul
+                        | ArithmeticDoubleOp::Div
+                        | ArithmeticDoubleOp::Mod => {
+                            return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
+                        }
+                    };
+
+                    result
+                        .map(|zoned| RuntimeValue::DateTime(Arc::new(zoned)))
+                        .map_err(|err| {
+                            ctx.throw_with_infos(
+                                op.at,
+                                format!("Failed to add duration to datetime: {err}"),
+                                [
+                                    (
+                                        ExecInfoType::Note,
+                                        format!(
+                                            "left  : {}",
+                                            pretty_printable_date_time(datetime)
+                                                .display(&(), PrettyPrintOptions::inline())
+                                        ),
+                                    ),
+                                    (
+                                        ExecInfoType::Note,
+                                        format!(
+                                            "right : {}",
+                                            pretty_printable_duration(*duration)
+                                                .display(&(), PrettyPrintOptions::inline())
+                                        ),
+                                    ),
+                                ],
+                            )
+                        })?
+                }
+
+                (RuntimeValue::Duration(left), RuntimeValue::Duration(right)) => {
+                    let result = match inner_op {
+                        ArithmeticDoubleOp::Add => left.checked_add(*right),
+                        ArithmeticDoubleOp::Sub => left.checked_sub(*right),
+                        ArithmeticDoubleOp::Mul
+                        | ArithmeticDoubleOp::Div
+                        | ArithmeticDoubleOp::Mod => {
+                            return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
+                        }
+                    };
+
+                    result.map(RuntimeValue::Duration).ok_or_else(|| {
+                        ctx.throw(
+                            op.at,
+                            format!(
+                                "overflow during arithmetic operation with operands: {} and {}",
+                                pretty_printable_duration(*left)
+                                    .display(&(), PrettyPrintOptions::inline()),
+                                pretty_printable_duration(*right)
+                                    .display(&(), PrettyPrintOptions::inline())
+                            ),
+                        )
+                    })?
+                }
+
+                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx)),
             }
         }
 

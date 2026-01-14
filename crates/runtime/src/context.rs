@@ -423,6 +423,23 @@ impl Context {
         )
     }
 
+    /// Generate a throw error, with additional informations
+    pub fn throw_with_infos<const N: usize>(
+        &self,
+        at: impl Into<RuntimeCodeRange> + Copy,
+        message: impl Into<String>,
+        infos: [(ExecInfoType, impl Into<String>); N],
+    ) -> ExecError {
+        self.hard_error_with_infos(
+            at,
+            ExecActualErrorNature::Thrown {
+                at: at.into(),
+                message: message.into(),
+            },
+            infos,
+        )
+    }
+
     /// Panic because of an internal error
     pub fn panic(&self, at: impl Into<RuntimeCodeRange>, message: impl AsRef<str>) -> ! {
         panic!(
