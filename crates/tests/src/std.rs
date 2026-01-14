@@ -1,6 +1,13 @@
-use reshell_builtins::type_helpers::StringType;
+use reshell_builtins::type_helpers::{NullType, StringType};
 
-use crate::{run_expect_non_throw_error, run_expect_specific_value, run_expect_throw};
+use crate::{
+    run_expect_non_throw_error, run_expect_specific_value, run_expect_success, run_expect_throw,
+    run_expect_value_of_type,
+};
+
+// TODO: ask() - requires STDIN interaction
+// TODO: canonicalize() - requires interacting with the real filesystem
+// TODO: cd() - requires interacting with the real filesystem + cleaning up afterwards
 
 #[test]
 fn approx_int_div() {
@@ -51,4 +58,18 @@ fn approx_int_div() {
     run_expect_non_throw_error("approxIntDiv 1 1");
     run_expect_non_throw_error("approxIntDiv 1");
     run_expect_non_throw_error("approxIntDiv");
+}
+
+#[test]
+fn assert() {
+    run_expect_success("assert (0 == 0)");
+    run_expect_throw("assert (0 == 1)");
+}
+
+#[test]
+fn basename() {
+    run_expect_specific_value::<StringType>("basename file.txt", "file.txt");
+    run_expect_specific_value::<StringType>("basename /file.txt", "file.txt");
+    run_expect_specific_value::<StringType>("basename a/", "a");
+    run_expect_value_of_type::<NullType>("basename /");
 }

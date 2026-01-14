@@ -105,17 +105,18 @@ pub fn run_expect_value(source: &str) -> (LocatedValue, Context) {
     )
 }
 
-pub fn run_expect_typed_value<T: TypedValueParser>(source: &str) -> T::Parsed {
+pub fn run_expect_value_of_type<T: TypedValueParser>(source: &str) -> T::Parsed {
     let (value, ctx) = run_expect_value(source);
 
     T::parse(value.value.clone()).unwrap_or_else(|err| {
         panic!(
-            "Program did not return the expected value type: {err}\n\n=> expected : {}\n=> got      : {}",
+            "Program did not return the expected value type: {err}\n\n=> expected : {}\n=> got      : {}\n=> value    : {}",
             T::value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
             value
                 .value
                 .compute_type()
                 .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                value.value.display(&ctx, PrettyPrintOptions::inline())
         )
     })
 }
@@ -126,7 +127,7 @@ pub fn run_expect_specific_value<T: TypedValueParser>(
 ) where
     T::Parsed: Debug,
 {
-    let got = run_expect_typed_value::<T>(source);
+    let got = run_expect_value_of_type::<T>(source);
 
     if expect != got {
         panic!(
