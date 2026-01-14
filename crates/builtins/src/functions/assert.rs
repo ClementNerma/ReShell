@@ -15,7 +15,7 @@ fn run() -> Runner {
         if bool {
             Ok(None)
         } else {
-            Err(ctx.error(args_at.bool, "predicate failed"))
+            Err(ctx.throw(args_at.bool, "predicate failed"))
         }
     })
 }
