@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use reshell_runtime::gc::GcCell;
 
 use crate::{
@@ -45,7 +43,7 @@ fn run() -> Runner {
 
                 durations
                     .into_iter()
-                    .map(|val| RuntimeValue::Custom(Arc::new(val)))
+                    .map(|val| RuntimeValue::Custom(val))
                     .collect()
             }
 
@@ -54,7 +52,7 @@ fn run() -> Runner {
 
                 datetimes
                     .into_iter()
-                    .map(|val| RuntimeValue::Custom(Arc::new(val)))
+                    .map(|val| RuntimeValue::Custom(val))
                     .collect()
             }
         };

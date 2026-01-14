@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 colored = "3.0.0"
 dunce = "1.0.5"
-dyn-clone = "1.0.20"
 indexmap = "2.13.0"
 indicatif = "0.18.3"
 parsy = "0.15.9"

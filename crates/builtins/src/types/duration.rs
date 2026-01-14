@@ -9,7 +9,7 @@ use crate::utils::downcast_custom_value;
 /// Time duration
 ///
 /// Backed by an STD [`Duration`]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DurationValue(pub Duration);
 
 impl Deref for DurationValue {

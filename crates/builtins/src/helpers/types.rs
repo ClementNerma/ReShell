@@ -3,7 +3,7 @@
 //! allow to convert and parse some of the scripting language's native types.
 //!
 
-use std::{borrow::Cow, collections::HashMap, fmt::Display, marker::PhantomData};
+use std::{borrow::Cow, collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc};
 
 use indexmap::IndexMap;
 use parsy::CodeRange;
@@ -12,8 +12,6 @@ use reshell_runtime::{
     gc::GcCell,
     values::{CmdArgValue, CustomValueType, ErrorValueContent, RangeValue, RuntimeValue},
 };
-
-use crate::utils::downcast_custom_value;
 
 use super::args::{TypedValueEncoder, TypedValueParser};
 
@@ -441,18 +439,16 @@ impl<C: CustomValueType> TypedValueParser for CustomType<C> {
         ValueType::Single(SingleValueType::Custom(C::typename_static()))
     }
 
-    type Parsed = C;
+    type Parsed = Arc<C>;
 
     fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
-            RuntimeValue::Custom(value) => downcast_custom_value::<C>(&*value)
-                .map(dyn_clone::clone)
-                .map_err(|_| {
-                    format!(
-                        "Failed to downcast value of type '{}'",
-                        C::typename_static()
-                    )
-                }),
+            RuntimeValue::Custom(value) => Arc::downcast::<C>(value).map_err(|_| {
+                format!(
+                    "Failed to downcast value of type '{}'",
+                    C::typename_static()
+                )
+            }),
 
             _ => Err(format!("expected a {}", C::typename_static())),
         }
