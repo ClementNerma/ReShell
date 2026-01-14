@@ -91,6 +91,12 @@ pub fn run_expect_success(source: &str) -> (Option<LocatedValue>, Context) {
                 ExecTopPropagation::SuccessfulExit => {
                     panic!("Program exited manually ; expected a value instead")
                 }
+
+                ExecTopPropagation::FailureExit { code } => {
+                    panic!(
+                        "Program exited manually (with error code {code}) ; expected a value instead"
+                    )
+                }
             },
         },
     }
@@ -213,6 +219,10 @@ pub fn run_expect_exit(source: &str) {
             ExecError::TopPropagation(err) => match err {
                 ExecTopPropagation::SuccessfulExit => {
                     // OK!
+                }
+
+                ExecTopPropagation::FailureExit { code } => {
+                    panic!("Program exited with non-zero code: {code}");
                 }
             },
         },

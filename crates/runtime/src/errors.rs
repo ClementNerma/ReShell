@@ -62,24 +62,28 @@ impl ExecActualError {
 pub enum ExecActualErrorNature {
     /// Parsing of a program failed
     ParsingErr(ParsingError),
+
     /// Checking of a program failed
     CheckingErr(CheckerError),
+
     /// A command could not be started
     CommandFailedToStart { message: String },
+
     /// A command failed
     CommandFailed {
         message: String,
         exit_status: Option<i32>,
     },
+
     /// A value was thrown and stayed uncaught
     Thrown {
         at: RuntimeCodeRange,
         message: String,
     },
-    /// Failure exit (with error code)
-    FailureExit { code: NonZero<u8> },
+
     /// Interrupted by a Ctrl+C press
     CtrlC,
+
     /// Any other error, represented by a custom message
     Custom(Cow<'static, str>),
 }
@@ -131,4 +135,7 @@ pub enum ExecInternalPropagation {
 pub enum ExecTopPropagation {
     /// Exit the program successfully
     SuccessfulExit,
+
+    /// Failure exit (with error code)
+    FailureExit { code: NonZero<u8> },
 }

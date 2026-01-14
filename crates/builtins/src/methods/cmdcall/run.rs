@@ -76,7 +76,6 @@ fn run() -> Runner {
                             | ExecActualErrorNature::CheckingErr(_)
                             | ExecActualErrorNature::Thrown { message: _, at: _ }
                             | ExecActualErrorNature::CtrlC
-                            | ExecActualErrorNature::FailureExit { code: _ }
                             | ExecActualErrorNature::Custom(_) => Err(ExecError::ActualError(err)),
                         }
                     }

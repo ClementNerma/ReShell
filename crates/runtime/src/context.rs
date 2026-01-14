@@ -404,8 +404,8 @@ impl Context {
     }
 
     /// Generate a "failure exit" value
-    pub fn failure_exit(&self, at: impl Into<RuntimeCodeRange>, code: NonZero<u8>) -> ExecError {
-        self.hard_error(at, ExecActualErrorNature::FailureExit { code })
+    pub fn failure_exit(&self, code: NonZero<u8>) -> ExecError {
+        ExecError::TopPropagation(ExecTopPropagation::FailureExit { code })
     }
 
     /// Generate a throw error

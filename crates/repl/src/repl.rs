@@ -85,6 +85,9 @@ pub fn start(
                     // TODO: forbid exiting from the prompt rendering function?
                     ExecError::TopPropagation(err) => match err {
                         ExecTopPropagation::SuccessfulExit => return Ok(Some(ExitCode::SUCCESS)),
+                        ExecTopPropagation::FailureExit { code } => {
+                            return Ok(Some(ExitCode::from(code.get())));
+                        }
                     },
 
                     ExecError::InternalPropagation(_) => unreachable!(),
@@ -175,17 +178,16 @@ pub fn start(
                 }
 
                 ProgramResult::GracefullyExit => return Ok(Some(ExitCode::SUCCESS)),
+
+                ProgramResult::ExitWithErrorCode(code) => {
+                    return Ok(Some(ExitCode::from(code.get())));
+                }
             },
 
             // If the program failed, display the error
             Err(err) => {
                 if let ReportableError::Runtime(err, program) = &err {
                     let program = program.as_ref().unwrap();
-
-                    // Except in case of Exit request, which makes the REPL itself quit
-                    if let ExecActualErrorNature::FailureExit { code } = err.nature {
-                        return Ok(Some(ExitCode::from(code.get())));
-                    }
 
                     let program_content = &program.data.content.data.instructions;
 
@@ -215,8 +217,6 @@ pub fn start(
                             | ExecActualErrorNature::Thrown { at: _, message: _ }
                             | ExecActualErrorNature::CtrlC
                             | ExecActualErrorNature::Custom(_) => {}
-
-                            ExecActualErrorNature::FailureExit { code: _ } => unreachable!(),
                         }
                     }
                 }
@@ -293,7 +293,8 @@ fn comp_gen(pieces: &[Vec<UnescapedSegment>], ctx: &mut Context) -> Vec<External
                 }
 
                 ExecError::TopPropagation(err) => match err {
-                    ExecTopPropagation::SuccessfulExit => {
+                    ExecTopPropagation::SuccessfulExit
+                    | ExecTopPropagation::FailureExit { code: _ } => {
                         // TODO: report properly instead of panicking
                         panic!("Cannot exit from completions generation function");
                     }

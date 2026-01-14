@@ -1,3 +1,5 @@
+use std::num::NonZero;
+
 use parsy::{FileId, Span};
 use reshell_parser::{ast::Program, files_map::SourceFileLocation};
 use reshell_reports::ReportableError;
@@ -56,6 +58,9 @@ pub fn handle_ret_value(
             ExecError::ActualError(err) => Err(ReportableError::Runtime(err, parsed)),
             ExecError::TopPropagation(err) => match err {
                 ExecTopPropagation::SuccessfulExit => Ok(ProgramResult::GracefullyExit),
+                ExecTopPropagation::FailureExit { code } => {
+                    Ok(ProgramResult::ExitWithErrorCode(code))
+                }
             },
             ExecError::InternalPropagation(_) => unreachable!(),
         },
@@ -65,4 +70,5 @@ pub fn handle_ret_value(
 pub enum ProgramResult {
     Success(Option<LocatedValue>),
     GracefullyExit,
+    ExitWithErrorCode(NonZero<u8>),
 }

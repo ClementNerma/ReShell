@@ -154,7 +154,8 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
         );
 
         return Ok(match result {
-            Ok(ProgramResult::GracefullyExit | ProgramResult::Success(_)) => ExitCode::SUCCESS,
+            Ok(ProgramResult::Success(_) | ProgramResult::GracefullyExit) => ExitCode::SUCCESS,
+            Ok(ProgramResult::ExitWithErrorCode(code)) => ExitCode::from(code.get()),
             Err(err) => {
                 reshell_reports::print_error(&err, ctx.files_map());
                 err.exit_code().map_or(ExitCode::FAILURE, ExitCode::from)
@@ -169,24 +170,24 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             exec_args,
             &mut ctx,
         ) {
-            Ok(result) => {
-                match result {
-                    ProgramResult::Success(wandering_value) => {
-                        if let Some(wandering_value) = wandering_value {
-                            println!(
-                                "{}",
-                                wandering_value
-                                    .value
-                                    .display(&ctx, PrettyPrintOptions::multiline())
-                            )
-                        }
+            Ok(result) => Ok(match result {
+                ProgramResult::Success(wandering_value) => {
+                    if let Some(wandering_value) = wandering_value {
+                        println!(
+                            "{}",
+                            wandering_value
+                                .value
+                                .display(&ctx, PrettyPrintOptions::multiline())
+                        )
                     }
 
-                    ProgramResult::GracefullyExit => todo!(),
+                    ExitCode::SUCCESS
                 }
 
-                Ok(ExitCode::SUCCESS)
-            }
+                ProgramResult::GracefullyExit => ExitCode::SUCCESS,
+
+                ProgramResult::ExitWithErrorCode(code) => ExitCode::from(code.get()),
+            }),
 
             Err(err) => {
                 reshell_reports::print_error(&err, ctx.files_map());
@@ -233,6 +234,11 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                                 // TODO: forbid exiting from init script?
                                 Ok(ProgramResult::GracefullyExit) => {
                                     return Ok(ExitCode::SUCCESS);
+                                }
+
+                                // TODO: forbid exiting from init script?
+                                Ok(ProgramResult::ExitWithErrorCode(code)) => {
+                                    return Ok(ExitCode::from(code.get()));
                                 }
 
                                 Err(err) => {

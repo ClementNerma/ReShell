@@ -54,8 +54,6 @@ impl ReportableError {
                 ),
 
                 ExecActualErrorNature::CtrlC => None,
-
-                ExecActualErrorNature::FailureExit { code } => Some(code.get()),
             },
         }
     }
@@ -75,12 +73,6 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
         ),
 
         ReportableError::Runtime(err, _) => match &err.nature {
-            ExecActualErrorNature::FailureExit { code } => (
-                err.at,
-                "Non-zero exit code",
-                format!("program exited with code {code}"),
-            ),
-
             ExecActualErrorNature::CtrlC => (
                 err.at,
                 "User interruption",
