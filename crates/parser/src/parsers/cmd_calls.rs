@@ -22,15 +22,7 @@ use crate::{
 };
 
 pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(|| {
-    use_basic_parsers!(
-        var_name,
-        msnl,
-        ident,
-        s,
-        ms,
-        possible_ident_char,
-        first_ident_char
-    );
+    use_basic_parsers!(var_name, msnl, ident, s, ms, first_ident_char);
 
     let cmd_raw_string = not(just("->")).ignore_then(
         choice::<CmdRawStringPiece, _>((
@@ -184,7 +176,7 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
             )
             .map(CmdFlagArgName::Long),
         char('-')
-            .ignore_then(possible_ident_char)
+            .ignore_then(first_ident_char)
             .map(CmdFlagArgName::Short),
     ))
     .followed_by(silent_choice((
