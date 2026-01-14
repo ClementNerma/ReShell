@@ -6,7 +6,11 @@ use std::time::Duration;
 
 use colored::{Color, Colorize};
 use jiff::Zoned;
-use reshell_parser::ast::FlagValueSeparator;
+use parsy::{CodeRange, FileId};
+use reshell_parser::{
+    ast::{FlagValueSeparator, RuntimeCodeRange},
+    files_map::{FilesMap, SourceFileLocation},
+};
 use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, Styled, pretty_printable_string};
 
 use crate::{
@@ -87,14 +91,14 @@ impl PrettyPrintable for RuntimeValue {
                     PrettyPrintablePiece::colored_atomic("error(", Color::Red),
                     data.generate_pretty_data(ctx),
                     PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
-                    at.generate_pretty_data(ctx.files_map()),
+                    pretty_printable_code_range(*at, ctx.files_map()),
                     PrettyPrintablePiece::colored_atomic(")", Color::Red),
                 ])
             }
 
             RuntimeValue::CmdCall { content_at } => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("@{", Color::Magenta),
-                content_at.generate_pretty_data(ctx.files_map()),
+                pretty_printable_code_range(*content_at, ctx.files_map()),
                 PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
             ]),
 
@@ -247,6 +251,61 @@ impl PrettyPrintable for SingleCmdArgResult {
             Self::Flag(flag) => flag.generate_pretty_data(ctx),
         }
     }
+}
+
+pub fn pretty_printable_runtime_code_range(
+    range: RuntimeCodeRange,
+    files_map: &FilesMap,
+) -> PrettyPrintablePiece {
+    match range {
+        RuntimeCodeRange::Parsed(at) => pretty_printable_code_range(at, files_map),
+        RuntimeCodeRange::Internal(infos) => {
+            // TODO: improve with coloration
+            PrettyPrintablePiece::Atomic(Styled::colorless(format!("<internal location: {infos}>")))
+        }
+    }
+}
+
+pub fn pretty_printable_code_range(range: CodeRange, files_map: &FilesMap) -> PrettyPrintablePiece {
+    // TODO: improve with coloration
+    let output = match range.start.file_id {
+        FileId::None => unreachable!(),
+        FileId::SourceFile(id) => {
+            let Some(file) = files_map.get_file(id) else {
+                return PrettyPrintablePiece::Atomic(Styled::colorless(format!(
+                    "<unknown file @ offset {}>",
+                    range.start.offset
+                )));
+            };
+
+            let bef = &file.content.as_str()[..range.start.offset];
+
+            let line = bef.chars().filter(|c| *c == '\n').count() + 1;
+
+            let after_last_nl = match bef.rfind('\n') {
+                Some(index) => &bef[index + 1..],
+                None => bef,
+            };
+
+            let col = after_last_nl.chars().count() + 1;
+
+            format!(
+                "{}:{}:{}",
+                match &file.location {
+                    SourceFileLocation::CustomName(name) => format!("<{name}>"),
+                    SourceFileLocation::RealFile(path) => path.to_string_lossy().to_string(),
+                },
+                line,
+                col
+            )
+        }
+
+        FileId::Internal => "<internal>".into(),
+
+        FileId::Custom(id) => format!("<custom: {id}>"),
+    };
+
+    PrettyPrintablePiece::Atomic(Styled::colorless(output))
 }
 
 pub fn pretty_printable_date_time(zoned: &Zoned) -> PrettyPrintablePiece {

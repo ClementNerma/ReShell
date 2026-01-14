@@ -5,14 +5,11 @@
 use std::{collections::HashMap, sync::Arc};
 
 use colored::Color;
-use parsy::{CodeRange, FileId, Span};
-use reshell_parser::{
-    ast::{
-        CmdFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames,
-        FnSignatureNormalFlagArg, FnSignaturePositionalArg, FnSignaturePresenceFlagArg,
-        FnSignatureRestArg, RuntimeCodeRange, SingleValueType, StructTypeMember, ValueType,
-    },
-    files_map::{FilesMap, SourceFileLocation},
+use parsy::Span;
+use reshell_parser::ast::{
+    CmdFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
+    FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, SingleValueType,
+    StructTypeMember, ValueType,
 };
 
 use crate::{PrettyPrintable, PrettyPrintablePiece, Styled};
@@ -114,68 +111,6 @@ impl PrettyPrintable for SingleValueType {
                 ctx.get(name).unwrap().data.generate_pretty_data(ctx),
             ]),
         }
-    }
-}
-
-impl PrettyPrintable for RuntimeCodeRange {
-    type Context = FilesMap;
-
-    fn generate_pretty_data(&self, files_map: &Self::Context) -> PrettyPrintablePiece {
-        match self {
-            RuntimeCodeRange::Parsed(at) => at.generate_pretty_data(files_map),
-            RuntimeCodeRange::Internal(infos) => {
-                // TODO: improve with coloration
-                PrettyPrintablePiece::Atomic(Styled::colorless(format!(
-                    "<internal location: {infos}>"
-                )))
-            }
-        }
-    }
-}
-
-impl PrettyPrintable for CodeRange {
-    type Context = FilesMap;
-
-    fn generate_pretty_data(&self, files_map: &Self::Context) -> PrettyPrintablePiece {
-        // TODO: improve with coloration
-        let output = match self.start.file_id {
-            FileId::None => unreachable!(),
-            FileId::SourceFile(id) => {
-                let Some(file) = files_map.get_file(id) else {
-                    return PrettyPrintablePiece::Atomic(Styled::colorless(format!(
-                        "<unknown file @ offset {}>",
-                        self.start.offset
-                    )));
-                };
-
-                let bef = &file.content.as_str()[..self.start.offset];
-
-                let line = bef.chars().filter(|c| *c == '\n').count() + 1;
-
-                let after_last_nl = match bef.rfind('\n') {
-                    Some(index) => &bef[index + 1..],
-                    None => bef,
-                };
-
-                let col = after_last_nl.chars().count() + 1;
-
-                format!(
-                    "{}:{}:{}",
-                    match &file.location {
-                        SourceFileLocation::CustomName(name) => format!("<{name}>"),
-                        SourceFileLocation::RealFile(path) => path.to_string_lossy().to_string(),
-                    },
-                    line,
-                    col
-                )
-            }
-
-            FileId::Internal => "<internal>".into(),
-
-            FileId::Custom(id) => format!("<custom: {id}>"),
-        };
-
-        PrettyPrintablePiece::Atomic(Styled::colorless(output))
     }
 }
 

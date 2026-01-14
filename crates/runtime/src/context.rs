@@ -26,6 +26,7 @@ use crate::{
         ExecTopPropagation,
     },
     gc::GcCell,
+    pretty_impl::pretty_printable_runtime_code_range,
     typechecking::check_if_value_fits_type,
     values::{LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
@@ -445,8 +446,8 @@ impl Context {
         panic!(
             "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
-            at.into()
-                .display(self.files_map(), PrettyPrintOptions::inline())
+            pretty_printable_runtime_code_range(at.into(), self.files_map())
+                .display(&(), PrettyPrintOptions::inline())
                 .no_colors()
         );
     }

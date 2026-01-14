@@ -1,7 +1,9 @@
 use colored::Colorize;
 use parsy::FileId;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::{context::ScopeContent, values::RuntimeFnBody};
+use reshell_runtime::{
+    context::ScopeContent, pretty_impl::pretty_printable_code_range, values::RuntimeFnBody,
+};
 
 use crate::define_internal_fn;
 
@@ -36,7 +38,8 @@ fn run() -> Runner {
                             "* Method declared at: {}\n  {}\n",
                             match method.name_at {
                                 RuntimeCodeRange::Parsed(at) => {
-                                    at.display(ctx.files_map(), PrettyPrintOptions::inline())
+                                    pretty_printable_code_range(at, ctx.files_map())
+                                        .display(&(), PrettyPrintOptions::inline())
                                         .to_string()
                                         .underline()
                                 }
@@ -55,7 +58,8 @@ fn run() -> Runner {
                         "Function declared at: {}\n\n{}",
                         match func.name_at {
                             RuntimeCodeRange::Parsed(at) => {
-                                at.display(ctx.files_map(), PrettyPrintOptions::inline())
+                                pretty_printable_code_range(at, ctx.files_map())
+                                    .display(&(), PrettyPrintOptions::inline())
                                     .to_string()
                                     .underline()
                             }
@@ -88,12 +92,13 @@ fn run() -> Runner {
 
                     println!(
                         "Alias declared at: {}\n\n{}",
-                        cmd_alias
-                            .value
-                            .name_declared_at
-                            .display(ctx.files_map(), PrettyPrintOptions::inline())
-                            .to_string()
-                            .underline(),
+                        pretty_printable_code_range(
+                            cmd_alias.value.name_declared_at,
+                            ctx.files_map()
+                        )
+                        .display(&(), PrettyPrintOptions::inline())
+                        .to_string()
+                        .underline(),
                         match at.start.file_id {
                             FileId::SourceFile(id) => {
                                 let source = ctx.files_map().get_file(id).unwrap().content;

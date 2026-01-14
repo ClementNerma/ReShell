@@ -21,6 +21,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::CallStackEntry,
     errors::{ExecActualError, ExecActualErrorNature, ExecInfoType},
+    pretty_impl::pretty_printable_runtime_code_range,
 };
 
 #[derive(Debug)]
@@ -305,7 +306,8 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             eprintln!(
                 "  = {} function called at: {}",
                 "note:".cyan(),
-                fn_called_at.display(files, PrettyPrintOptions::inline())
+                pretty_printable_runtime_code_range(*fn_called_at, files)
+                    .display(&(), PrettyPrintOptions::inline())
             );
         }
     }
