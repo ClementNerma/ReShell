@@ -264,6 +264,10 @@ fn apply_double_op(
 
                 (RuntimeValue::String(left), RuntimeValue::String(right)) => left == right,
 
+                (RuntimeValue::DateTime(left), RuntimeValue::DateTime(right)) => left == right,
+
+                (RuntimeValue::Duration(left), RuntimeValue::Duration(right)) => left == right,
+
                 (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
             };
 
@@ -291,6 +295,10 @@ fn apply_double_op(
                         )
                     })?
                 }
+
+                (RuntimeValue::DateTime(left), RuntimeValue::DateTime(right)) => left.cmp(right),
+
+                (RuntimeValue::Duration(left), RuntimeValue::Duration(right)) => left.cmp(right),
 
                 (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx)),
             };
