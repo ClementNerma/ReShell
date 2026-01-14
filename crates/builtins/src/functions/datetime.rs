@@ -20,7 +20,7 @@ fn run() -> Runner {
 
             Some(secs) => {
                 let ts = Timestamp::new(secs, 0).map_err(|err| {
-                    ctx.error(
+                    ctx.hard_error(
                         args_at.secs_since_epoch.unwrap(),
                         format!("Failed to create date time from provided seconds: {err}"),
                     )

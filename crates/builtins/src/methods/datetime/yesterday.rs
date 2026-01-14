@@ -16,7 +16,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { moment }, args_at, ctx| {
         let moment = moment.yesterday().map_err(|err| {
-            ctx.error(
+            ctx.hard_error(
                 args_at.moment,
                 format!(
                     "Failed to get yesterday's date from {}: {err}",

@@ -64,7 +64,7 @@ pub fn render_prompt(
     )?;
 
     let ret_val = ret_val.ok_or_else(|| {
-        ctx.error(
+        ctx.hard_error(
             RuntimeCodeRange::Internal("calling prompt generation function"),
             "prompt generation function did not return a value",
         )
@@ -73,7 +73,7 @@ pub fn render_prompt(
     PromptRendering::parse(ret_val.value)
         .map(Some)
         .map_err(|err| {
-            ctx.error(
+            ctx.hard_error(
                 ret_val.from,
                 format!("type error in prompt function's return value: {err}"),
             )

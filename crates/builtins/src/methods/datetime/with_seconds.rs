@@ -27,7 +27,7 @@ fn run() -> Runner {
             DateTime::from_parts(moment.date(), time).to_zoned(moment.time_zone().clone())
         })
         .map_err(|err| {
-            ctx.error(
+            ctx.hard_error(
                 args_at.seconds,
                 format!(
                     "Failed to set seconds to {seconds} in {}: {err}",

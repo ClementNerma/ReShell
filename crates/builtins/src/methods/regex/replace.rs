@@ -113,7 +113,7 @@ fn replace_regex_with_pattern(
 
             // If the group doesn't exist, return an error
             let Some(captured) = captured else {
-                return Err(ctx.error(
+                return Err(ctx.hard_error(
                     pattern_at,
                     format!("No capture group named '{group_name}' in matched content"),
                 ));

@@ -56,7 +56,7 @@ fn run() -> Runner {
                     PathBuf::from(from)
                 }
                 None => std::env::current_dir().map_err(|err| {
-                    ctx.error(
+                    ctx.hard_error(
                         at,
                         format!("Failed to get path to current directory: {err}"),
                     )

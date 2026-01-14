@@ -47,7 +47,7 @@ impl<T> GcCell<T> {
                 ctx.panic(at, "write lock is not available in garbabe collector cell")
             });
 
-            ctx.error(
+            ctx.hard_error(
                 at,
                 format!(
                     "Failed to write as parent value is currently borrowed from {}",

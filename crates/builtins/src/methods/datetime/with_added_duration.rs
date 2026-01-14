@@ -20,7 +20,7 @@ fn run() -> Runner {
         let moment = moment
             .checked_add(ZonedArithmetic::from(**duration))
             .map_err(|err| {
-                ctx.error(
+                ctx.hard_error(
                     args_at.duration,
                     format!(
                         "Failed to add duration {} to {}: {err}",

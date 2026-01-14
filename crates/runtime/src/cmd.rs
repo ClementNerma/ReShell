@@ -105,7 +105,7 @@ pub fn run_cmd(
                 let (piped_string, children) = match state {
                     Some(CmdChainState::NoValue(from)) => {
                         if i > 0 {
-                            return Err(ctx.error(from, "this function returned nothing ; cannot pipe it into a command's input"));
+                            return Err(ctx.hard_error(from, "this function returned nothing ; cannot pipe it into a command's input"));
                         }
 
                         (None, None)
@@ -116,7 +116,7 @@ pub fn run_cmd(
                             RuntimeValue::String(string) => string,
 
                             _ => {
-                                return Err(ctx.error(
+                                return Err(ctx.hard_error(
                                     loc_val.from,
                                     format!(
                                         "expected a string to pipe into the next command, instead found a: {}",
@@ -171,7 +171,7 @@ pub fn run_cmd(
                 let piped_value = match state {
                     Some(CmdChainState::NoValue(from)) => {
                         if i > 0 {
-                            return Err(ctx.error(from, "this function returned nothing ; cannot pipe it into another function"));
+                            return Err(ctx.hard_error(from, "this function returned nothing ; cannot pipe it into another function"));
                         }
 
                         None
@@ -221,7 +221,7 @@ pub fn run_cmd(
                                     }
                                 })
                                 .ok_or_else(|| {
-                                    ctx.error(
+                                    ctx.hard_error(
                                         call_at,
                                         "please provide at least one argument to run the method on",
                                     )
@@ -262,7 +262,7 @@ pub fn run_cmd(
     match capture {
         Some(capture) => Ok(match state {
             CmdChainState::NoValue(from) => {
-                return Err(ctx.error(from, "this returned nothing to capture"));
+                return Err(ctx.hard_error(from, "this returned nothing to capture"));
             }
 
             CmdChainState::Value(loc_val) => {
@@ -270,7 +270,7 @@ pub fn run_cmd(
                     RuntimeValue::String(string) => string,
 
                     _ => {
-                        return Err(ctx.error(
+                        return Err(ctx.hard_error(
                             loc_val.from,
                             format!(
                                 "expected a string to capture, found a: {}",
@@ -550,14 +550,14 @@ fn exec_cmd(
 
     // Determine the command name (or path)
     let cmd_path =
-        try_replace_home_dir_tilde(&name.data, ctx).map_err(|err| ctx.error(name.at, err))?;
+        try_replace_home_dir_tilde(&name.data, ctx).map_err(|err| ctx.hard_error(name.at, err))?;
 
     // Resolve the command name to a binary's path
     let cmd_path = ctx
         .binaries_resolver()
         .resolve_binary_path(&cmd_path)
         .map_err(|err| {
-            ctx.error(
+            ctx.hard_error(
                 name.at,
                 ExecActualErrorNature::CommandFailedToStart {
                     message: err.to_string(),
@@ -624,7 +624,7 @@ fn exec_cmd(
         .stderr(stderr)
         .spawn()
         .map_err(|err| {
-            ctx.error(
+            ctx.hard_error(
                 name.at,
                 ExecActualErrorNature::CommandFailedToStart {
                     message: format!("failed to start command '{}': {err}", name.data),
@@ -739,7 +739,7 @@ fn compute_pipes_for_child(
                 let file = open_redirect_file(path, ctx)?;
 
                 let file_bis = file.try_clone().map_err(|err| {
-                    ctx.error(path.at, format!("failed to duplicate file handler: {err}"))
+                    ctx.hard_error(path.at, format!("failed to duplicate file handler: {err}"))
                 })?;
 
                 (PipeType::File(file), PipeType::File(file_bis))
@@ -804,14 +804,14 @@ fn open_redirect_file(path: &Span<CmdRawString>, ctx: &mut Context) -> ExecResul
         .join(Path::new(&path_str).parent().unwrap_or(Path::new("")))
         .is_dir()
     {
-        return Err(ctx.error(
+        return Err(ctx.hard_error(
             path.at,
             "the parent directory of this file does not exist".to_string(),
         ));
     }
 
     File::create(&path_str).map_err(|err| {
-        ctx.error(
+        ctx.hard_error(
             path.at,
             format!("failed to open file at path '{path_str}': {err}"),
         )
@@ -978,7 +978,7 @@ fn eval_cmd_raw_string_piece(
     match &piece.data {
         CmdRawStringPiece::Literal(str) => {
             if transmute_tilde {
-                try_replace_home_dir_tilde(str, ctx).map_err(|err| ctx.error(piece.at, err))
+                try_replace_home_dir_tilde(str, ctx).map_err(|err| ctx.hard_error(piece.at, err))
             } else {
                 Ok(str.clone())
             }
@@ -1030,7 +1030,7 @@ fn wait_for_commands_ending(
         ctx.reset_ctrl_c_press_indicator();
 
         let output = output.map_err(|err| {
-            ctx.error(
+            ctx.hard_error(
                 at,
                 ExecActualErrorNature::CommandFailed {
                     message: format!("command failed: {err}"),
@@ -1040,7 +1040,7 @@ fn wait_for_commands_ending(
         })?;
 
         if !output.status.success() {
-            return Err(ctx.error(
+            return Err(ctx.hard_error(
                 at,
                 ExecActualErrorNature::CommandFailed {
                     message: format!(
@@ -1064,7 +1064,7 @@ fn wait_for_commands_ending(
                         let mut buf = vec![];
 
                         stdout.read_to_end(&mut buf).map_err(|err| {
-                            ctx.error(at, format!("failed to read command's STDOUT: {err}"))
+                            ctx.hard_error(at, format!("failed to read command's STDOUT: {err}"))
                         })?;
 
                         buf
@@ -1078,7 +1078,7 @@ fn wait_for_commands_ending(
                         let mut buf = vec![];
 
                         stderr.read_to_end(&mut buf).map_err(|err| {
-                            ctx.error(at, format!("failed to read command's STDERR: {err}"))
+                            ctx.hard_error(at, format!("failed to read command's STDERR: {err}"))
                         })?;
 
                         buf

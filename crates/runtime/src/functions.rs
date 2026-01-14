@@ -71,7 +71,7 @@ pub fn eval_fn_call(
                 RuntimeValue::Function(func) => func.clone(),
 
                 value => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         call.data.name.at,
                         format!(
                             "expected a function, found a {} instead",
@@ -137,7 +137,7 @@ pub fn call_fn_value(
             }
 
             let Some(captured_deps) = func.captured_deps.get().cloned() else {
-                return Err(ctx.error(call_at, "function called before its declaration"));
+                return Err(ctx.hard_error(call_at, "function called before its declaration"));
             };
 
             scope_content.extend(captured_deps).unwrap_or_else(|err| {
@@ -174,7 +174,7 @@ pub fn call_fn_value(
         if matches!(*ret_type.data, ValueType::Single(SingleValueType::Void)) {
             // Ensure no value was returned from the function (as void = no return value)
             if returned.is_some() {
-                return Err(ctx.error(
+                return Err(ctx.hard_error(
                     call_at,
                     format!(
                         "function call returned a value but has a return type of {}",
@@ -189,7 +189,7 @@ pub fn call_fn_value(
         else {
             // Ensure the function returned a value
             let Some(ret_val) = &returned else {
-                return Err(ctx.error(
+                return Err(ctx.hard_error(
                     call_at,
                     format!(
                         "function call did not return any value, was expected to return a {}",
@@ -216,7 +216,7 @@ pub fn call_fn_value(
                         .data
                         .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
                 );
-                return Err(ctx.error(call_at, nature));
+                return Err(ctx.hard_error(call_at, nature));
             }
         }
     }
@@ -421,7 +421,7 @@ fn parse_fn_call_args(
                 .iter()
                 .map(|rest_arg| match rest_arg {
                     SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.clone()),
-                    SingleCmdArgResult::Flag(CmdFlagValue { name, value: _ }) => Err(ctx.error(
+                    SingleCmdArgResult::Flag(CmdFlagValue { name, value: _ }) => Err(ctx.hard_error(
                         name.at,
                         format!(
                             "provided a flag but this function's rest argument's type is: {}",
@@ -449,7 +449,7 @@ fn parse_fn_call_args(
                             // If so, return an error
                             if let Some(faulty_arg) = faulty_arg {
                                 return Err(
-                                    ctx.error(
+                                    ctx.hard_error(
                                         faulty_arg.from,
                                         format!(
                                             "incorrect value provided in rest arguments ; expected values of type {}, found {}",
@@ -538,7 +538,7 @@ fn parse_single_fn_call_arg<'a>(
 
                                             // Otherwise, fail
                                             FlagValueSeparator::Equal => {
-                                                Err(ctx.error(
+                                                Err(ctx.hard_error(
                                                     value.from,
                                                     "the provided flag doesn't accept a value (other than booleans)",
                                                 ))
@@ -710,7 +710,7 @@ fn parse_single_fn_call_arg<'a>(
             {
                 let is_method_self_arg = func.is_method && name.data == "self";
 
-                return Err(ctx.error(
+                return Err(ctx.hard_error(
                     loc_val.from,
                     format!(
                         "type mismatch: {} {}, found {}",
@@ -773,7 +773,7 @@ fn flatten_fn_call_args(
 
         FnCallNature::Method => {
             if !is_method {
-                return Err(ctx.error(call_at, "cannot call a normal function like a method"));
+                return Err(ctx.hard_error(call_at, "cannot call a normal function like a method"));
             }
 
             if let Some(piped) = piped {

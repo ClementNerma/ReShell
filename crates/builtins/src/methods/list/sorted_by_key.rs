@@ -79,7 +79,7 @@ fn run() -> Runner {
                 }
             };
 
-            ctx.error(
+            ctx.hard_error(
                 keyer_fn_at,
                 format!(
                     "first call to this function returned a {}, but {i} call(s) later it returned a {}",

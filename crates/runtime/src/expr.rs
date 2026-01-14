@@ -59,7 +59,7 @@ fn eval_expr_ref(
                 ExprOp::TypeIs { right_op: _ } => unreachable!(),
             };
 
-            return Err(ctx.error(op_at, "to avoid confusions, mixing some operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
+            return Err(ctx.hard_error(op_at, "to avoid confusions, mixing some operators '*' and '/' with '+' or '-' is not allowed (use parenthesis instead)"));
         }
 
         let left = eval_expr_ref(inner, &right_ops[..pos], ctx)?;
@@ -166,14 +166,14 @@ fn apply_double_op(
                 }
 
                 (RuntimeValue::Int(_), RuntimeValue::Float(_)) => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         op.at,
                         "left operand is an int but right operand is a float".to_string(),
                     ));
                 }
 
                 (RuntimeValue::Float(_), RuntimeValue::Int(_)) => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         op.at,
                         "left operand is a float but right operand is an int".to_string(),
                     ));
@@ -348,7 +348,7 @@ fn not_applicable_on_value_err(
     op: Span<DoubleOp>,
     ctx: &Context,
 ) -> ExecError {
-    ctx.error(
+    ctx.hard_error(
         op.at,
         format!(
             "cannot apply this operator on a {}",
@@ -364,7 +364,7 @@ fn not_applicable_on_pair_err(
     right: &RuntimeValue,
     ctx: &Context,
 ) -> ExecError {
-    ctx.error(
+    ctx.hard_error(
         op.at,
         format!(
             "cannot apply this operator on a pair of {} and {}",
@@ -454,7 +454,7 @@ fn eval_expr_inner_content(
                 SingleOp::Neg => match right_val {
                     RuntimeValue::Bool(bool) => Ok(RuntimeValue::Bool(!bool)),
 
-                    _ => Err(ctx.error(
+                    _ => Err(ctx.hard_error(
                         right.at,
                         format!(
                             "expected a boolean due to operator, found a: {}",
@@ -478,7 +478,7 @@ fn eval_expr_inner_content(
             let cond_val =
                 match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
-                    value => return Err(ctx.error(
+                    value => return Err(ctx.hard_error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -499,7 +499,7 @@ fn eval_expr_inner_content(
                 let cond_val = eval_expr(&cond.data, ctx)?;
 
                 let RuntimeValue::Bool(cond_val) = cond_val else {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -526,7 +526,7 @@ fn eval_expr_inner_content(
 
                 let cmp = are_values_equal(&match_on, &case_value).map_err(
                     |NotComparableTypesErr { reason }| {
-                        ctx.error(
+                        ctx.hard_error(
                             matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
@@ -606,7 +606,7 @@ fn eval_expr_inner_content(
             let message = match eval_expr(&expr.data, ctx)? {
                 RuntimeValue::String(string) => string,
                 value => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         expr.at,
                         format!(
                             "expected a string, found a {}",
@@ -618,7 +618,7 @@ fn eval_expr_inner_content(
                 }
             };
 
-            Err(ctx.error(
+            Err(ctx.hard_error(
                 expr.at,
                 ExecActualErrorNature::Thrown {
                     at: RuntimeCodeRange::Parsed(expr.at),
@@ -674,7 +674,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
                         let eval_key = eval_map_key(key, ctx)?;
 
                         if map.contains_key(&eval_key) {
-                            return Err(ctx.error(
+                            return Err(ctx.hard_error(
                                 key.at,
                                 format!(
                                     "key {} appears twice in this map",
@@ -801,7 +801,7 @@ fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
         MapKey::ComputedString(computed_string) => eval_computed_string(computed_string, ctx),
         MapKey::Expr(expr) => match eval_expr(expr, ctx)? {
             RuntimeValue::String(str) => Ok(str),
-            value => Err(ctx.error(
+            value => Err(ctx.hard_error(
                 key.at,
                 format!(
                     "expected a string key for the map, got a: {}",
@@ -835,7 +835,7 @@ pub fn eval_list_spread_value(
     match eval_spread_value(spread_value, ctx)? {
         RuntimeValue::List(items) => Ok(items),
 
-        value => Err(ctx.error(
+        value => Err(ctx.hard_error(
             spread_value.at,
             format!(
                 "expected a list to spread, found a {}",
@@ -854,7 +854,7 @@ fn eval_map_or_struct_spread_value(
     match eval_spread_value(spread_value, ctx)? {
         RuntimeValue::Map(obj) | RuntimeValue::Struct(obj) => Ok(obj),
 
-        value => Err(ctx.error(
+        value => Err(ctx.hard_error(
             spread_value.at,
             format!(
                 "expected a map or struct to spread, found a {}",
@@ -897,7 +897,7 @@ pub fn eval_range_bound(range_bound: &RangeBound, ctx: &mut Context) -> ExecResu
     match value {
         RuntimeValue::Int(literal) => Ok(literal),
 
-        _ => Err(ctx.error(
+        _ => Err(ctx.hard_error(
             value_at,
             format!(
                 "expected an integer, found a: {}",

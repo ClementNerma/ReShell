@@ -33,7 +33,7 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 
     match content.at.start.file_id {
         FileId::None | FileId::Internal | FileId::Custom(_) => {
-            return Err(ctx.error(content.at, "program must be backed by a source file"));
+            return Err(ctx.hard_error(content.at, "program must be backed by a source file"));
         }
 
         FileId::SourceFile(id) => assert!(ctx.files_map().get_file(id).is_some()),
@@ -231,7 +231,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             let init_value = eval_expr(&init_expr.data, ctx)?;
 
             if matches!(init_value, RuntimeValue::Void) {
-                return Err(ctx.error(init_expr.at, "cannot assign a void value"));
+                return Err(ctx.hard_error(init_expr.at, "cannot assign a void value"));
             }
 
             declare_vars(names, init_value, init_expr.at, None, ctx)?;
@@ -253,7 +253,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             let assign_value = eval_expr(&expr.data, ctx)?;
 
             if matches!(assign_value, RuntimeValue::Void) {
-                return Err(ctx.error(expr.at, "cannot assign a void value"));
+                return Err(ctx.hard_error(expr.at, "cannot assign a void value"));
             }
 
             if prop_acc.is_empty()
@@ -261,7 +261,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 && let Some(enforced_type) = &var.enforced_type
                 && !check_if_value_fits_type(&assign_value, enforced_type, ctx)
             {
-                return Err(ctx.error(
+                return Err(ctx.hard_error(
                     expr.at,
                     format!(
                         "variable has enforced type {}, but tried to assign a value of type: {}",
@@ -309,7 +309,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                                 let left_type = existing_type
                                     .display(ctx.type_alias_store(), PrettyPrintOptions::inline());
 
-                                Err(ctx.error(
+                                Err(ctx.hard_error(
                                     list_push.at,
                                     format!("cannot push a value as this is not a list but a {left_type}"),
                                 ))
@@ -335,7 +335,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             let cond_val =
                 match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
-                    value => return Err(ctx.error(
+                    value => return Err(ctx.hard_error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -357,7 +357,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     let cond_val = eval_expr(&cond.data, ctx)?;
 
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.compute_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
+                        return Err(ctx.hard_error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.compute_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline()))));
                     };
 
                     if cond_val {
@@ -477,7 +477,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 }
 
                 value => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         iter_on.at,
                         format!(
                             "expected a list to iterate on, found a {} instead",
@@ -501,7 +501,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             let map = match eval_expr(&iter_on.data, ctx)? {
                 RuntimeValue::Map(map) => map,
                 value => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         iter_on.at,
                         format!(
                             "expected a map, got a {}",
@@ -573,7 +573,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
             loop {
                 let cond_val = match eval_expr(&cond.data, ctx)? {
                     RuntimeValue::Bool(bool) => bool,
-                    value => return Err(ctx.error(
+                    value => return Err(ctx.hard_error(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
@@ -639,7 +639,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
 
                 let cmp = are_values_equal(&match_on, &case_value).map_err(
                     |NotComparableTypesErr { reason }| {
-                        ctx.error(
+                        ctx.hard_error(
                             matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
@@ -736,7 +736,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 RuntimeValue::String(string) => string,
 
                 value => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         expr.at,
                         format!(
                             "expected a string, found a {}",
@@ -748,7 +748,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 }
             };
 
-            return Err(ctx.error(
+            return Err(ctx.hard_error(
                 instr.at,
                 ExecActualErrorNature::Thrown {
                     at: RuntimeCodeRange::Parsed(instr.at),
@@ -907,7 +907,7 @@ fn declare_vars(
                 RuntimeValue::List(list) => list,
 
                 _ => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         names.at,
                         format!(
                             "tried to spread a list but found a: {}",
@@ -922,7 +922,7 @@ fn declare_vars(
             let list = list.read_promise_no_write();
 
             if members.len() > list.len() {
-                return Err(ctx.error(
+                return Err(ctx.hard_error(
                     names.at,
                     format!(
                         "tried to spread {} elements, but provided list contains {}",
@@ -950,7 +950,7 @@ fn declare_vars(
                 RuntimeValue::Struct(members) => members,
 
                 _ => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         names.at,
                         format!(
                             "tried to spread a map or struct but found a: {}",
@@ -988,7 +988,7 @@ fn declare_vars(
 
                         None => {
                             return Err(
-                                ctx.error(name.at, "this property was not found in provided value")
+                                ctx.hard_error(name.at, "this property was not found in provided value")
                             );
                         }
                     },
@@ -1061,7 +1061,7 @@ fn declare_var(
     if let Some(enforced_type) = &enforced_type
         && !check_if_value_fits_type(&value, enforced_type, ctx)
     {
-        return Err(ctx.error(
+        return Err(ctx.hard_error(
             value_at,
             format!(
                 "variable has enforced type {}, but tried to assign a value of type: {}",

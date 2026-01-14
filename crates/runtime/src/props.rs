@@ -49,11 +49,11 @@ pub fn eval_props_access<'ast, 'c, T>(
                 RuntimeValue::List(list) => {
                     let index = match eval_expr(&key_expr.data, ctx)? {
                         RuntimeValue::Int(index) => usize::try_from(index).map_err(|_| {
-                            ctx.error(key_expr.at, format!("got a negative index: {index}"))
+                            ctx.hard_error(key_expr.at, format!("got a negative index: {index}"))
                         })?,
 
                         value => {
-                            return Err(ctx.error(
+                            return Err(ctx.hard_error(
                                 key_expr.at,
                                 format!(
                                     "expected an index (integer), found a {}",
@@ -74,7 +74,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                                 false => left = value.clone(),
                                 true => {
                                     return Err(
-                                        ctx.error(next_acc.at, "left operand is a primitive")
+                                        ctx.hard_error(next_acc.at, "left operand is a primitive")
                                     );
                                 }
                             },
@@ -99,7 +99,7 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         None => {
                             return Err(
-                                ctx.error(key_expr.at, format!("index '{index}' is out-of-bounds (list only contains {} elements)", items.len()))
+                                ctx.hard_error(key_expr.at, format!("index '{index}' is out-of-bounds (list only contains {} elements)", items.len()))
                             );
                         }
                     }
@@ -109,7 +109,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                     let key = match eval_expr(&key_expr.data, ctx)? {
                         RuntimeValue::String(key) => key,
                         value => {
-                            return Err(ctx.error(
+                            return Err(ctx.hard_error(
                                 key_expr.at,
                                 format!(
                                     "expected a key (string), found a {}",
@@ -128,9 +128,10 @@ pub fn eval_props_access<'ast, 'c, T>(
                     match (value, next_acc) {
                         (Some(value), Some(next_acc)) => {
                             if !value.is_container() {
-                                return Err(
-                                    ctx.error(next_acc.at, "left operand is not a value container")
-                                );
+                                return Err(ctx.hard_error(
+                                    next_acc.at,
+                                    "left operand is not a value container",
+                                ));
                             } else {
                                 left = value.clone();
                             }
@@ -155,16 +156,17 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                         (None, Some(_)) => {
                             return Err(
-                                ctx.error(key_expr.at, format!("key '{key}' was not found"))
+                                ctx.hard_error(key_expr.at, format!("key '{key}' was not found"))
                             );
                         }
 
                         (None, None) => match policy {
                             TailPropAccessPolicy::Read
                             | TailPropAccessPolicy::Write(TailPropWritingPolicy::ExistingOnly) => {
-                                return Err(
-                                    ctx.error(key_expr.at, format!("key '{key}' was not found"))
-                                );
+                                return Err(ctx.hard_error(
+                                    key_expr.at,
+                                    format!("key '{key}' was not found"),
+                                ));
                             }
 
                             TailPropAccessPolicy::Write(TailPropWritingPolicy::TailMayNotExist) => {
@@ -184,7 +186,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                 }
 
                 _ => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         acc.at,
                         format!(
                             "left operand is not a map nor a list, but a {}",
@@ -200,7 +202,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                     let obj_read = obj.read(prop.at);
 
                     let value = obj_read.get(&prop.data).ok_or_else(|| {
-                        ctx.error(
+                        ctx.hard_error(
                             prop.at,
                             format!("member '{}' was not found in structure", prop.data),
                         )
@@ -209,9 +211,10 @@ pub fn eval_props_access<'ast, 'c, T>(
                     match next_acc {
                         Some(next_acc) => {
                             if !value.is_container() {
-                                return Err(
-                                    ctx.error(next_acc.at, "left operand is not a value container")
-                                );
+                                return Err(ctx.hard_error(
+                                    next_acc.at,
+                                    "left operand is not a value container",
+                                ));
                             } else {
                                 left = value.clone();
                             }
@@ -237,7 +240,7 @@ pub fn eval_props_access<'ast, 'c, T>(
                 }
 
                 _ => {
-                    return Err(ctx.error(
+                    return Err(ctx.hard_error(
                         acc.at,
                         format!(
                             "left operand is not a struct, but a {}",

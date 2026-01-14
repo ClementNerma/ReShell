@@ -163,7 +163,7 @@ impl Context {
     /// Otherwise, return a Ctrl+C error
     pub(crate) fn ensure_no_ctrl_c_press(&self, at: impl Into<RuntimeCodeRange>) -> ExecResult<()> {
         if (self.conf.take_ctrl_c_indicator)() {
-            Err(self.error(at.into(), ExecActualErrorNature::CtrlC))
+            Err(self.hard_error(at.into(), ExecActualErrorNature::CtrlC))
         } else {
             Ok(())
         }
@@ -341,8 +341,8 @@ impl Context {
         // self.program_main_scope = None;
     }
 
-    /// Generate an error object
-    pub fn error(
+    /// Generate a "hard" (unrecoverable) error information
+    pub fn hard_error(
         &self,
         at: impl Into<RuntimeCodeRange>,
         nature: impl Into<ExecActualErrorNature>,
@@ -405,7 +405,7 @@ impl Context {
 
     /// Generate a "failure exit" value
     pub fn failure_exit(&self, at: impl Into<RuntimeCodeRange>, code: NonZero<u8>) -> ExecError {
-        self.error(at, ExecActualErrorNature::FailureExit { code })
+        self.hard_error(at, ExecActualErrorNature::FailureExit { code })
     }
 
     /// Generate a throw error
@@ -414,7 +414,7 @@ impl Context {
         at: impl Into<RuntimeCodeRange> + Copy,
         message: impl Into<String>,
     ) -> ExecError {
-        self.error(
+        self.hard_error(
             at,
             ExecActualErrorNature::Thrown {
                 at: at.into(),

@@ -87,7 +87,7 @@ fn run() -> Runner {
 
                 let item_path = if full_path {
                     let canon = fs::canonicalize(item.path()).map_err(|err| {
-                        ctx.error(
+                        ctx.hard_error(
                             args_at.full_path,
                             format!(
                                 "Failed to canonicalize directory entry at '{}': {}",

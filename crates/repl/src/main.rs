@@ -305,7 +305,7 @@ pub struct Timings {
 
 fn on_dir_jump(ctx: &mut Context, at: RuntimeCodeRange) -> ExecResult<()> {
     let current_dir = std::env::current_dir().map_err(|err| {
-        ctx.error(
+        ctx.hard_error(
             at,
             format!("failed to get path to new current directory: {err}"),
         )

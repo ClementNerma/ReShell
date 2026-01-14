@@ -64,7 +64,7 @@ pub fn ordered(
             }
         }),
 
-        Err(()) => Err(ctx.error(
+        Err(()) => Err(ctx.hard_error(
             at,
             format!(
                 "cannot compare a {} and a {}",

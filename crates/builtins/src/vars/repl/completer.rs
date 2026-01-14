@@ -83,14 +83,14 @@ pub fn generate_completions(
     )?;
 
     let ret_val = ret_val.ok_or_else(|| {
-        ctx.error(
+        ctx.hard_error(
             RuntimeCodeRange::Internal("calling completion generation function"),
             "completion generation function did not return a value",
         )
     })?;
 
     let results = CompleterReturnType::parse(ret_val.value).map_err(|err| {
-        ctx.error(
+        ctx.hard_error(
             ret_val.from,
             format!("type error in completion function's return value: {err}"),
         )

@@ -38,7 +38,7 @@ pub fn get_repl_config(ctx: &mut Context) -> ExecResult<ReplConfig> {
     let internal_at = RuntimeCodeRange::Internal("REPL config fetcher");
 
     ReplConfig::parse(var.value.read(internal_at).value.clone()).map_err(|err| {
-        ctx.error(
+        ctx.hard_error(
             internal_at,
             format!("REPL configuration variable does not have the expected shape: {err}"),
         )

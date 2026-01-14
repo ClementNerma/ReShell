@@ -90,7 +90,7 @@ pub fn call_fn_checked_with_parsed_args(
     let func = match &loc_val.value {
         RuntimeValue::Function(func) => func,
         value => {
-            return Err(ctx.error(
+            return Err(ctx.hard_error(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
@@ -110,7 +110,7 @@ pub fn call_fn_checked_with_parsed_args(
     };
 
     if !check_if_fn_signature_fits_another(signature, expected_signature, ctx.type_alias_store()) {
-        return Err(ctx.error(
+        return Err(ctx.hard_error(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
@@ -143,10 +143,10 @@ pub fn expect_returned_value<T, P: TypedValueParser<Parsed = T>>(
     at: RuntimeCodeRange,
     ctx: &Context,
 ) -> ExecResult<T> {
-    let loc_val = value.ok_or_else(|| ctx.error(at, "function did not return a value"))?;
+    let loc_val = value.ok_or_else(|| ctx.hard_error(at, "function did not return a value"))?;
 
     P::parse(loc_val.value)
-        .map_err(|err| ctx.error(at, format!("function returned wrong value type: {err}")))
+        .map_err(|err| ctx.hard_error(at, format!("function returned wrong value type: {err}")))
 }
 
 /// Downcast a dynamic custom runtime value to a specific type

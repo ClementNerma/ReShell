@@ -23,7 +23,7 @@ fn run() -> Runner {
                     .to_zoned(moment.time_zone().clone())
             })
             .map_err(|err| {
-                ctx.error(
+                ctx.hard_error(
                     args_at.day,
                     format!(
                         "Failed to set day to {day} in {}: {err}",
