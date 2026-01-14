@@ -1,8 +1,10 @@
+use std::sync::Arc;
+
 use jiff::{
     civil::{Date, Time},
     tz::{Offset, TimeZone},
 };
-use reshell_runtime::gc::{GcCell, GcReadOnlyCell};
+use reshell_runtime::gc::GcCell;
 use toml::{
     Table, Value,
     value::{Date as TomlDate, Datetime as TomlDatetime, Offset as TomlOffset, Time as TomlTime},
@@ -44,11 +46,8 @@ fn run() -> Runner {
 fn toml_to_value(value: Value, use_maps: bool) -> Result<RuntimeValue, String> {
     match value {
         Value::Boolean(bool) => Ok(RuntimeValue::Bool(bool)),
-
         Value::Integer(int) => Ok(RuntimeValue::Int(int)),
-
         Value::Float(float) => Ok(RuntimeValue::Float(float)),
-
         Value::String(string) => Ok(RuntimeValue::String(string)),
 
         Value::Datetime(datetime) => {
@@ -91,9 +90,7 @@ fn toml_to_value(value: Value, use_maps: bool) -> Result<RuntimeValue, String> {
                 .to_zoned(timezone.unwrap_or(TimeZone::UTC))
                 .map_err(|err| format!("Invalid date time {datetime}: {err}"))?;
 
-            Ok(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                DateTimeValue(date_time),
-            ))))
+            Ok(RuntimeValue::Custom(Arc::new(DateTimeValue(date_time))))
         }
 
         Value::Array(array) => Ok(RuntimeValue::List(GcCell::new(

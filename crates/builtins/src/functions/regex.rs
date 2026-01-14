@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use regex::Regex;
-use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::{define_internal_fn, types::RegexValue};
 
@@ -20,9 +19,8 @@ fn run() -> Runner {
         let regex =
             Regex::new(&pattern).map_err(|err| ctx.throw(args_at.pattern, format!("{err}")))?;
 
-        let regex =
-            RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(RegexValue(Arc::new(regex)))));
-
-        Ok(Some(regex))
+        Ok(Some(RuntimeValue::Custom(Arc::new(RegexValue(Arc::new(
+            regex,
+        ))))))
     })
 }

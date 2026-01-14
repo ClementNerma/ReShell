@@ -1,10 +1,7 @@
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 use regex::{Captures, Regex};
-use reshell_runtime::{
-    gc::{GcCell, GcReadOnlyCell},
-    values::RuntimeFnValue,
-};
+use reshell_runtime::{gc::GcCell, values::RuntimeFnValue};
 
 use crate::{
     declare_typed_fn_handler, declare_typed_union_handler,
@@ -132,7 +129,7 @@ static CAPTURE_NAME_REGEX: LazyLock<Regex> =
 fn replace_regex_with_fn(
     regex: &Regex,
     subject: &str,
-    replacer_fn: GcReadOnlyCell<RuntimeFnValue>,
+    replacer_fn: Arc<RuntimeFnValue>,
     replacer_at: RuntimeCodeRange,
     ctx: &mut Context,
 ) -> ExecResult<String> {

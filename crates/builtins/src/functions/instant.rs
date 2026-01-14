@@ -1,6 +1,4 @@
-use std::time::Instant;
-
-use reshell_runtime::gc::GcReadOnlyCell;
+use std::{sync::Arc, time::Instant};
 
 use crate::types::InstantValue;
 
@@ -16,8 +14,6 @@ fn run() -> Runner {
     Runner::new(|_, Args {}, _, _| {
         let value = InstantValue(Instant::now());
 
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            value,
-        )))))
+        Ok(Some(RuntimeValue::Custom(Arc::new(value))))
     })
 }

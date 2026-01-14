@@ -25,7 +25,7 @@ use crate::{
         ExecActualError, ExecActualErrorNature, ExecError, ExecInfoType, ExecResult,
         ExecTopPropagation,
     },
-    gc::{GcCell, GcReadOnlyCell},
+    gc::GcCell,
     typechecking::check_if_value_fits_type,
     values::{LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue},
 };
@@ -271,7 +271,7 @@ impl Context {
                                     .iter()
                                     .map(|method| {
                                         (
-                                            GcReadOnlyCell::clone_as_arc(&method.on_type),
+                                            Arc::clone(&method.on_type),
                                             DeclaredMethod {
                                                 decl_at: method.name_at,
                                                 scope_id: method.decl_scope_id,
@@ -548,7 +548,7 @@ impl Context {
     pub(crate) fn get_visible_fn_value<'s>(
         &'s self,
         name: &Span<String>,
-    ) -> ExecResult<&'s GcReadOnlyCell<RuntimeFnValue>> {
+    ) -> ExecResult<&'s Arc<RuntimeFnValue>> {
         let Some(func) = self.get_visible_fn(name) else {
             self.panic(name.at, "function not found");
         };
@@ -928,6 +928,7 @@ pub struct ScopeVar {
     pub enforced_type: Option<ValueType>,
 
     /// Value of the variable
+    ///
     /// It is backed by a [`GcCell`] in order to be sharable in captured dependencies
     ///
     /// See [`Context::capture_deps`]
@@ -944,8 +945,9 @@ pub struct ScopeFn {
     pub decl_scope_id: AstScopeId,
 
     /// Value of the function
-    /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
-    pub value: GcReadOnlyCell<RuntimeFnValue>,
+    ///
+    /// It is backed by a [`Arc`] in order to avoid needless cloning
+    pub value: Arc<RuntimeFnValue>,
 }
 
 /// Scoped method
@@ -958,12 +960,14 @@ pub struct ScopeMethod {
     pub decl_scope_id: AstScopeId,
 
     /// Type the method can be applied on
-    /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
-    pub on_type: GcReadOnlyCell<ValueType>,
+    ///
+    /// It is backed by a [`Arc`] in order to avoid needless cloning
+    pub on_type: Arc<ValueType>,
 
     /// Value of the method
-    /// It is backed by a [`GcReadOnlyCell`] in order to avoid needless cloning
-    pub value: GcReadOnlyCell<RuntimeFnValue>,
+    ///
+    /// It is backed by a [`Arc`] in order to avoid needless cloning
+    pub value: Arc<RuntimeFnValue>,
 }
 
 /// Scoped command alias
@@ -976,8 +980,9 @@ pub struct ScopeCmdAlias {
     pub name_at: CodeRange,
 
     /// Content of the alias
-    /// It is backed by an immutable [`GcReadOnlyCell`] in order to avoid needless cloning
-    pub value: GcReadOnlyCell<RuntimeCmdAlias>,
+    ///
+    /// It is backed by an [`Arc`] in order to avoid needless cloning
+    pub value: Arc<RuntimeCmdAlias>,
 }
 
 /// A scope's call stack

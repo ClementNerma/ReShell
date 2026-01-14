@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use jiff::ZonedArithmetic;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::types::{DateTimeValue, DurationValue};
 
@@ -18,7 +19,7 @@ crate::define_internal_fn!(
 fn run() -> Runner {
     Runner::new(|_, Args { moment, duration }, args_at, ctx| {
         let moment = moment
-            .checked_add(ZonedArithmetic::from(**duration))
+            .checked_add(ZonedArithmetic::from(*duration))
             .map_err(|err| {
                 ctx.hard_error(
                     args_at.duration,
@@ -30,8 +31,6 @@ fn run() -> Runner {
                 )
             })?;
 
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue(moment),
-        )))))
+        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(moment)))))
     })
 }

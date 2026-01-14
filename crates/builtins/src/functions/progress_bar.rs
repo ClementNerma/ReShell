@@ -1,7 +1,6 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use indicatif::{ProgressBar, ProgressFinish, ProgressStyle};
-use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::types::ProgressBarValue;
 
@@ -66,9 +65,7 @@ fn run() -> Runner {
 
             pb.enable_steady_tick(Duration::from_millis(10));
 
-            Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-                ProgressBarValue(pb),
-            )))))
+            Ok(Some(RuntimeValue::Custom(Arc::new(ProgressBarValue(pb)))))
         },
     )
 }

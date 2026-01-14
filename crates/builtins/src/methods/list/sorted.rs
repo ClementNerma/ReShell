@@ -1,4 +1,6 @@
-use reshell_runtime::gc::{GcCell, GcReadOnlyCell};
+use std::sync::Arc;
+
+use reshell_runtime::gc::GcCell;
 
 use crate::{
     declare_typed_union_handler,
@@ -43,7 +45,7 @@ fn run() -> Runner {
 
                 durations
                     .into_iter()
-                    .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
+                    .map(|val| RuntimeValue::Custom(Arc::new(val)))
                     .collect()
             }
 
@@ -52,7 +54,7 @@ fn run() -> Runner {
 
                 datetimes
                     .into_iter()
-                    .map(|val| RuntimeValue::Custom(GcReadOnlyCell::new(val)))
+                    .map(|val| RuntimeValue::Custom(Arc::new(val)))
                     .collect()
             }
         };

@@ -1,5 +1,6 @@
+use std::sync::Arc;
+
 use jiff::fmt::rfc2822;
-use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::{define_internal_fn, types::DateTimeValue};
 
@@ -31,8 +32,8 @@ fn run() -> Runner {
                 )
             })?;
 
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue(datetime_at_midnight),
+        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(
+            datetime_at_midnight,
         )))))
     })
 }

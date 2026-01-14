@@ -3,7 +3,7 @@
 //! allow to convert and parse some of the scripting language's native types.
 //!
 
-use std::{any::Any, borrow::Cow, collections::HashMap, fmt::Display, marker::PhantomData};
+use std::{borrow::Cow, collections::HashMap, fmt::Display, marker::PhantomData};
 
 use indexmap::IndexMap;
 use parsy::CodeRange;
@@ -12,6 +12,8 @@ use reshell_runtime::{
     gc::GcCell,
     values::{CmdArgValue, CustomValueType, ErrorValueContent, RangeValue, RuntimeValue},
 };
+
+use crate::utils::downcast_custom_value;
 
 use super::args::{TypedValueEncoder, TypedValueParser};
 
@@ -439,20 +441,19 @@ impl<C: CustomValueType> TypedValueParser for CustomType<C> {
         ValueType::Single(SingleValueType::Custom(C::typename_static()))
     }
 
-    type Parsed = Box<C>;
+    type Parsed = C;
 
     fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
         match value {
-            RuntimeValue::Custom(value) => {
-                // TODO: remove clone_box (c.f. other downcast in the code)
-                Box::<dyn Any>::downcast::<C>(dyn_clone::clone_box::<dyn CustomValueType>(&**value))
-                    .map_err(|_| {
-                        format!(
-                            "Failed to downcast value of type '{}'",
-                            C::typename_static()
-                        )
-                    })
-            }
+            RuntimeValue::Custom(value) => downcast_custom_value::<C>(&*value)
+                .map(dyn_clone::clone)
+                .map_err(|_| {
+                    format!(
+                        "Failed to downcast value of type '{}'",
+                        C::typename_static()
+                    )
+                }),
+
             _ => Err(format!("expected a {}", C::typename_static())),
         }
     }
@@ -674,7 +675,7 @@ macro_rules! declare_typed_fn_handler {
                     ))
                 }
 
-                type Parsed = ::reshell_runtime::gc::GcReadOnlyCell<::reshell_runtime::values::RuntimeFnValue>;
+                type Parsed = ::std::sync::Arc<::reshell_runtime::values::RuntimeFnValue>;
 
                 fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
                     // NOTE: we don't check the function as it was already checked by the runtime

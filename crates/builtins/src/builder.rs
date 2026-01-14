@@ -1,6 +1,11 @@
 //! This module builds the native library's content
 
-use std::{collections::HashMap, ffi::OsString, path::PathBuf};
+use std::{
+    collections::HashMap,
+    ffi::OsString,
+    path::PathBuf,
+    sync::{Arc, OnceLock},
+};
 
 use indexmap::IndexSet;
 use reshell_parser::{
@@ -9,7 +14,7 @@ use reshell_parser::{
 };
 use reshell_runtime::{
     context::{ScopeContent, ScopeFn, ScopeMethod, ScopeVar},
-    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
+    gc::GcCell,
     values::{LocatedValue, RuntimeFnBody, RuntimeFnSignature, RuntimeFnValue, RuntimeValue},
 };
 
@@ -48,12 +53,16 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                     ret_type,
                 } = func;
 
+                // TODO: requires locking, which isn't ideal
+                let captured_deps = OnceLock::new();
+                captured_deps.set(ScopeContent::new()).unwrap();
+
                 (
                     name.to_owned(),
                     ScopeFn {
                         decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
                         name_at: INTERNAL_CODE_RANGE,
-                        value: GcReadOnlyCell::new(RuntimeFnValue {
+                        value: Arc::new(RuntimeFnValue {
                             is_method: false,
 
                             signature: RuntimeFnSignature::Owned(FnSignature {
@@ -62,7 +71,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
-                            captured_deps: GcOnceCell::new_init(ScopeContent::new()),
+                            captured_deps,
                         }),
                     },
                 )
@@ -82,11 +91,15 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
 
                 let on_type = method_on_type.unwrap();
 
+                // TODO: requires locking, which isn't ideal
+                let captured_deps = OnceLock::new();
+                captured_deps.set(ScopeContent::new()).unwrap();
+
                 map.entry(name.to_owned()).or_default().push(ScopeMethod {
                     name_at: INTERNAL_CODE_RANGE,
                     decl_scope_id: NATIVE_LIB_AST_SCOPE_ID,
-                    on_type: GcReadOnlyCell::new(on_type),
-                    value: GcReadOnlyCell::new(RuntimeFnValue {
+                    on_type: Arc::new(on_type),
+                    value: Arc::new(RuntimeFnValue {
                         is_method: true,
 
                         signature: RuntimeFnSignature::Owned(FnSignature {
@@ -95,7 +108,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
                         }),
                         body: RuntimeFnBody::Internal(run),
                         parent_scopes: IndexSet::new(),
-                        captured_deps: GcOnceCell::new_init(ScopeContent::new()),
+                        captured_deps,
                     }),
                 });
 

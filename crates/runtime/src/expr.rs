@@ -1,4 +1,7 @@
-use std::cmp::Ordering;
+use std::{
+    cmp::Ordering,
+    sync::{Arc, OnceLock},
+};
 
 use indexmap::IndexMap;
 use parsy::Span;
@@ -16,7 +19,7 @@ use crate::{
     context::{Context, ScopeContent, ScopeVar},
     errors::{ExecActualErrorNature, ExecError, ExecInternalPropagation, ExecResult},
     functions::eval_fn_call,
-    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
+    gc::GcCell,
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
@@ -319,8 +322,8 @@ fn apply_double_op_on_custom_value(
             }
 
             match inner_op {
-                EqualityCmpDoubleOp::Eq => left.eq(&***right),
-                EqualityCmpDoubleOp::Neq => !left.eq(&***right),
+                EqualityCmpDoubleOp::Eq => left.eq(&**right),
+                EqualityCmpDoubleOp::Neq => !left.eq(&**right),
             }
         }
 
@@ -332,7 +335,7 @@ fn apply_double_op_on_custom_value(
             // Just to be sure
             assert!(left.supports_eq());
 
-            let ord = left.ord(&***right);
+            let ord = left.ord(&**right);
 
             match inner_op {
                 OrderingCmpDoubleOp::Lt => matches!(ord, Ordering::Less),
@@ -610,7 +613,7 @@ fn eval_expr_inner_content(
 
         ExprInnerContent::FnAsValue(name) => ctx
             .get_visible_fn_value(name)
-            .map(|func| RuntimeValue::Function(GcReadOnlyCell::clone(func))),
+            .map(|func| RuntimeValue::Function(Arc::clone(func))),
 
         ExprInnerContent::Throw(expr) => {
             let message = match eval_expr(&expr.data, ctx)? {
@@ -890,12 +893,19 @@ pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
 
     let signature = RuntimeFnSignature::Shared(ctx.get_fn_signature(signature));
 
-    RuntimeValue::Function(GcReadOnlyCell::new(RuntimeFnValue {
+    let captured_deps = OnceLock::new();
+
+    // TODO: this requires locking, which isn't ideal
+    captured_deps
+        .set(ctx.capture_deps(body.at, body.data.scope_id))
+        .unwrap();
+
+    RuntimeValue::Function(Arc::new(RuntimeFnValue {
         is_method: false,
         signature,
         body: RuntimeFnBody::Block(ctx.get_fn_body(body)),
         parent_scopes: ctx.generate_parent_scopes_list(),
-        captured_deps: GcOnceCell::new_init(ctx.capture_deps(body.at, body.data.scope_id)),
+        captured_deps,
     }))
 }
 

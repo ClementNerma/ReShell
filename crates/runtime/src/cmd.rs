@@ -6,6 +6,7 @@ use std::{
     io::{PipeReader, PipeWriter, Read, Write},
     path::{MAIN_SEPARATOR, Path},
     process::{Child, Command, Stdio},
+    sync::Arc,
 };
 
 use parsy::{CodeRange, Span};
@@ -26,7 +27,6 @@ use crate::{
         lambda_to_value,
     },
     functions::{FnCallInfos, FnPossibleCallArgs, call_fn_value, find_applicable_method},
-    gc::GcReadOnlyCell,
     values::{
         CmdArgValue, CmdFlagValue, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue,
         value_to_str,
@@ -472,7 +472,7 @@ fn evaluate_cmd_target(
         let func = match &cmd_path.data {
             CmdPath::Method(name) => EvaluatedCmdTarget::Method(name.clone()),
 
-            CmdPath::Raw(name) => EvaluatedCmdTarget::Function(GcReadOnlyCell::clone(
+            CmdPath::Raw(name) => EvaluatedCmdTarget::Function(Arc::clone(
                 ctx.get_visible_fn_value(&name.forge_here(name.data.to_owned()))?,
             )),
 
@@ -518,7 +518,9 @@ enum EvaluatedCmdTarget {
     ExternalCommand(Span<String>),
 
     /// Target is a function
-    Function(GcReadOnlyCell<RuntimeFnValue>),
+    ///
+    /// It is backed by an [`Arc`] to avoid needless cloning
+    Function(Arc<RuntimeFnValue>),
 
     /// Target is a method (will be resolved later)
     Method(Span<String>),

@@ -1,4 +1,4 @@
-use reshell_runtime::gc::GcReadOnlyCell;
+use std::sync::Arc;
 
 use crate::types::{DurationValue, InstantValue};
 
@@ -14,8 +14,8 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { instant }, _, _| {
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DurationValue(instant.elapsed()),
+        Ok(Some(RuntimeValue::Custom(Arc::new(DurationValue(
+            instant.elapsed(),
         )))))
     })
 }

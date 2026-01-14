@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use colored::Colorize;
 use parsy::{CodeRange, Span};
@@ -17,7 +17,7 @@ use crate::{
     errors::{ExecInfoType, ExecResult},
     exec::{InstrRet, run_block_detailed},
     expr::eval_expr,
-    gc::{GcCell, GcReadOnlyCell},
+    gc::GcCell,
     typechecking::check_if_value_fits_type,
     values::{
         CmdArgValue, CmdFlagValue, InternalFnCallData, LocatedValue, RuntimeFnBody, RuntimeFnValue,
@@ -103,7 +103,7 @@ pub fn eval_fn_call(
 /// Call a function value
 pub fn call_fn_value(
     call_at: RuntimeCodeRange,
-    func: &GcReadOnlyCell<RuntimeFnValue>,
+    func: &Arc<RuntimeFnValue>,
     infos: FnCallInfos,
     ctx: &mut Context,
 ) -> ExecResult<Option<LocatedValue>> {

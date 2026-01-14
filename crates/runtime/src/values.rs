@@ -4,7 +4,7 @@ use std::{
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::{DefaultHasher, Hash, Hasher},
-    sync::Arc,
+    sync::{Arc, OnceLock},
 };
 
 use dyn_clone::DynClone;
@@ -21,7 +21,7 @@ use crate::{
     context::{Context, ScopeContent},
     errors::{ExecInfoType, ExecResult},
     functions::ValidatedFnCallArg,
-    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
+    gc::GcCell,
 };
 
 /// Runtime function value
@@ -36,7 +36,7 @@ pub struct RuntimeFnValue {
     /// Uninit before the function's actual declaration point
     ///
     /// TODO: Use an `Option` to avoid allocating if no dependency to capture
-    pub captured_deps: GcOnceCell<ScopeContent>,
+    pub captured_deps: OnceLock<ScopeContent>,
 }
 
 /// Runtime function signature
@@ -146,7 +146,9 @@ pub enum RuntimeValue {
     String(String),
     Range(RangeValue),
     Error(Box<ErrorValueContent>),
-    CmdCall { content_at: CodeRange },
+    CmdCall {
+        content_at: CodeRange,
+    },
     CmdArg(Box<CmdArgValue>),
 
     // Containers
@@ -154,12 +156,12 @@ pub enum RuntimeValue {
     List(GcCell<Vec<RuntimeValue>>),
     Map(GcCell<IndexMap<String, RuntimeValue>>),
     Struct(GcCell<IndexMap<String, RuntimeValue>>),
-    Function(GcReadOnlyCell<RuntimeFnValue>),
+    Function(Arc<RuntimeFnValue>),
 
-    // Custom value type
-    // We use a `Box` to get a 'static lifetime with the dynamic dispatch
-    // And we wrap it inside an `GcReadOnlyCell` as `Box` is costly to clone (requires an allocation)
-    Custom(GcReadOnlyCell<Box<dyn CustomValueType>>),
+    /// Custom value type
+    ///
+    /// Wrapped inside an [`Arc`] to get dynamic dispatch and avoid needless cloning
+    Custom(Arc<dyn CustomValueType>),
 }
 
 impl RuntimeValue {

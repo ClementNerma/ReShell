@@ -4,7 +4,6 @@ use colored::Colorize;
 use pomsky::{Expr, diagnose::Severity, options::CompileOptions};
 use regex::Regex;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::{define_internal_fn, types::RegexValue};
 
@@ -43,9 +42,8 @@ fn run() -> Runner {
             }
         };
 
-        let value =
-            RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(RegexValue(Arc::new(regex)))));
-
-        Ok(Some(value))
+        Ok(Some(RuntimeValue::Custom(Arc::new(RegexValue(Arc::new(
+            regex,
+        ))))))
     })
 }

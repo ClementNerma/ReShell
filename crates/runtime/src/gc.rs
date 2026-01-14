@@ -1,6 +1,6 @@
 use std::{
     ops::Deref,
-    sync::{Arc, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use reshell_parser::ast::RuntimeCodeRange;
@@ -111,84 +111,5 @@ impl<'a, T> Deref for GcRef<'a, T> {
 
     fn deref(&self) -> &Self::Target {
         &self.inner
-    }
-}
-
-// Garbage-collectable once-assignable cell
-#[derive(Debug)]
-pub struct GcOnceCell<T> {
-    inner: Arc<OnceLock<T>>,
-}
-
-impl<T> GcOnceCell<T> {
-    pub fn new_uninit() -> Self {
-        Self {
-            inner: Arc::new(OnceLock::new()),
-        }
-    }
-
-    pub fn new_init(value: T) -> Self {
-        let lock = OnceLock::new();
-        let _ = lock.set(value);
-
-        Self {
-            inner: Arc::new(lock),
-        }
-    }
-
-    pub fn init(&self, data: T) -> Result<(), GcOnceCellAlreadyInitErr> {
-        self.inner.set(data).map_err(|_| GcOnceCellAlreadyInitErr)
-    }
-
-    pub fn get(&'_ self) -> Option<&T> {
-        self.inner.get()
-    }
-}
-
-// NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
-impl<T> Clone for GcOnceCell<T> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: Arc::clone(&self.inner),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct GcOnceCellAlreadyInitErr;
-
-// TODO: never put a Box inside a GcCell, GcOnceCell, GcReadOnlyCell ; use `dyn` directly instead
-/// Garbage-collectable read-only cell
-#[derive(Debug)]
-pub struct GcReadOnlyCell<T> {
-    value: Arc<T>,
-}
-
-impl<T> GcReadOnlyCell<T> {
-    pub fn new(value: T) -> Self {
-        Self {
-            value: Arc::new(value),
-        }
-    }
-
-    pub fn clone_as_arc(this: &Self) -> Arc<T> {
-        Arc::clone(&this.value)
-    }
-}
-
-impl<T> Deref for GcReadOnlyCell<T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
-
-// NOTE: This is required because of https://github.com/rust-lang/rust/issues/26925
-impl<T> Clone for GcReadOnlyCell<T> {
-    fn clone(&self) -> Self {
-        Self {
-            value: Arc::clone(&self.value),
-        }
     }
 }

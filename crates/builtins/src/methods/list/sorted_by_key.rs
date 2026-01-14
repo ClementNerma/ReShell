@@ -46,8 +46,8 @@ fn run() -> Runner {
         enum SortingKeys {
             Strings(Vec<(usize, String)>),
             Integers(Vec<(usize, i64)>),
-            Durations(Vec<(usize, Box<DurationValue>)>),
-            DateTimes(Vec<(usize, Box<DateTimeValue>)>),
+            Durations(Vec<(usize, DurationValue)>),
+            DateTimes(Vec<(usize, DateTimeValue)>),
         }
 
         let mut get_item_key = |item: RuntimeValue| {

@@ -1,6 +1,7 @@
+use std::sync::Arc;
+
 use jiff::civil::{DateTime, Time};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::gc::GcReadOnlyCell;
 
 use crate::types::DateTimeValue;
 
@@ -36,8 +37,6 @@ fn run() -> Runner {
             )
         })?;
 
-        Ok(Some(RuntimeValue::Custom(GcReadOnlyCell::new(Box::new(
-            DateTimeValue(moment),
-        )))))
+        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(moment)))))
     })
 }

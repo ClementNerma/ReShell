@@ -1,4 +1,7 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    sync::{Arc, OnceLock},
+};
 
 use indexmap::IndexSet;
 use parsy::{CodeRange, FileId, Span};
@@ -16,7 +19,7 @@ use crate::{
     },
     errors::{ExecActualErrorNature, ExecError, ExecInfoType, ExecInternalPropagation, ExecResult},
     expr::eval_expr,
-    gc::{GcCell, GcOnceCell, GcReadOnlyCell},
+    gc::GcCell,
     props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
@@ -184,12 +187,12 @@ fn block_first_pass(
                     ScopeFn {
                         decl_scope_id: block.scope_id,
                         name_at: RuntimeCodeRange::Parsed(name.at),
-                        value: GcReadOnlyCell::new(RuntimeFnValue {
+                        value: Arc::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
                             is_method: false,
                             parent_scopes,
-                            captured_deps: GcOnceCell::new_uninit(),
+                            captured_deps: OnceLock::new(),
                         }),
                     },
                 );
@@ -217,13 +220,13 @@ fn block_first_pass(
                     .push(ScopeMethod {
                         name_at: RuntimeCodeRange::Parsed(name.at),
                         decl_scope_id: block.scope_id,
-                        on_type: GcReadOnlyCell::new(on_type.clone()),
-                        value: GcReadOnlyCell::new(RuntimeFnValue {
+                        on_type: Arc::new(on_type.clone()),
+                        value: Arc::new(RuntimeFnValue {
                             body: RuntimeFnBody::Block(body),
                             signature: RuntimeFnSignature::Shared(signature),
                             is_method: true,
                             parent_scopes,
-                            captured_deps: GcOnceCell::new_uninit(),
+                            captured_deps: OnceLock::new(),
                         }),
                     });
             }
@@ -633,7 +636,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 .unwrap()
                 .value
                 .captured_deps
-                .init(captured_deps)
+                .set(captured_deps)
                 .unwrap();
 
             None
@@ -658,7 +661,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 .unwrap()
                 .value
                 .captured_deps
-                .init(captured_deps)
+                .set(captured_deps)
                 .unwrap();
 
             None
@@ -760,7 +763,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 ScopeCmdAlias {
                     decl_scope_id,
                     name_at: name.at,
-                    value: GcReadOnlyCell::new(RuntimeCmdAlias {
+                    value: Arc::new(RuntimeCmdAlias {
                         name: name.data.clone(),
                         name_declared_at: name.at,
                         content: alias_content,
