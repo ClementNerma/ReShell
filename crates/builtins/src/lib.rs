@@ -20,6 +20,7 @@ pub use self::{
     helpers::{
         args::{TypedValueEncoder, TypedValueParser},
         fns::InternalFunction,
+        types as type_helpers,
     },
     types::*,
     vars::repl,

@@ -160,7 +160,7 @@ pub static RANGE_BOUND: LazilyDefined<Range> = LazilyDefined::new(|| {
     range_bound
         .then_ignore(just(".."))
         .then(char('=').or_not().map(|eq| eq.is_some()))
-        .then(range_bound)
+        .then(range_bound.critical("expected a closing range bound"))
         .map(|((from, include_last_value), to)| Range {
             from,
             to,

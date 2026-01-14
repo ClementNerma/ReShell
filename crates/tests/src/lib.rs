@@ -1,4 +1,4 @@
-use ::std::any::Any;
+use ::std::{any::Any, fmt::Debug};
 
 use parsy::{FileId, Parser, ParserInput, Span};
 use reshell_parser::{
@@ -19,7 +19,10 @@ use reshell_runtime::{
     values::LocatedValue,
 };
 
+#[cfg(test)]
 mod basics;
+
+#[cfg(test)]
 mod std;
 
 pub fn run(
@@ -115,9 +118,26 @@ pub fn run_expect_typed_value<T: TypedValueParser>(source: &str) -> T::Parsed {
     })
 }
 
+pub fn run_expect_specific_value<T: TypedValueParser>(source: &str, value: T::Parsed)
+where
+    T::Parsed: Eq + Debug,
+{
+    assert_eq!(run_expect_typed_value::<T>(source), value)
+}
+
+pub fn run_expect_error(source: &str) {
+    match run(source) {
+        Ok(_) => panic!("Program terminated successfully, but expected it to fail."),
+
+        Err(_) => {
+            // OK
+        }
+    }
+}
+
 pub fn run_expect_exit(source: &str) {
     match run(source) {
-        Ok(_) => panic!("Program exited automatically, expected it to exit manually."),
+        Ok(_) => panic!("Program terminated successfully, but expected it to exit manually."),
 
         Err((err, program)) => match err {
             ExecError::ActualError(err) => {
