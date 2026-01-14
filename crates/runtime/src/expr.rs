@@ -274,27 +274,33 @@ fn apply_double_op(
         }
 
         DoubleOp::OrderingCmp(inner_op) => {
-            let right = right_val(ctx)?;
+            let right_val = right_val(ctx)?;
 
-            let result = match (&left_val, &right) {
-                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
-                    OrderingCmpDoubleOp::Lt => left < right,
-                    OrderingCmpDoubleOp::Lte => left <= right,
-                    OrderingCmpDoubleOp::Gt => left > right,
-                    OrderingCmpDoubleOp::Gte => left >= right,
-                },
+            let ord = match (&left_val, &right_val) {
+                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => left.cmp(right),
 
-                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match inner_op {
-                    OrderingCmpDoubleOp::Lt => left < right,
-                    OrderingCmpDoubleOp::Lte => left <= right,
-                    OrderingCmpDoubleOp::Gt => left > right,
-                    OrderingCmpDoubleOp::Gte => left >= right,
-                },
+                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => {
+                    left.partial_cmp(right).ok_or_else(|| {
+                        ctx.throw(
+                            op.at,
+                            format!(
+                                "Cannot compare these two floats: {} and {}",
+                                left_val.display(ctx, PrettyPrintOptions::inline()),
+                                right_val.display(ctx, PrettyPrintOptions::inline())
+                            ),
+                        )
+                    })?
+                }
 
-                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
+                (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx)),
             };
 
-            RuntimeValue::Bool(result)
+            RuntimeValue::Bool(match inner_op {
+                OrderingCmpDoubleOp::Lt => ord.is_lt(),
+                OrderingCmpDoubleOp::Lte => ord.is_le(),
+                OrderingCmpDoubleOp::Gt => ord.is_gt(),
+                OrderingCmpDoubleOp::Gte => ord.is_ge(),
+            })
         }
 
         DoubleOp::Logic(inner_op) => {
