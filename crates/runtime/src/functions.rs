@@ -42,7 +42,7 @@ pub fn eval_fn_call(
 
         FnCallNature::Method => {
             let Some(piped) = piped.as_ref() else {
-                return Err(ctx.error_with(
+                return Err(ctx.hard_error_with(
                     call.data.call_args.at,
                     "please only call methods as postfix",
                     |err| {
@@ -267,7 +267,7 @@ fn fill_fn_args(
                 typ: _,
             }) => {
                 if !*is_optional {
-                    return Err(ctx.error_with(
+                    return Err(ctx.hard_error_with(
                         call_at,
                         format!("missing value for argument: {}", fn_arg_human_name(arg)),
                         |err| {
@@ -584,7 +584,7 @@ fn parse_single_fn_call_arg<'a>(
                                         value_on_hold: None,
                                     })
                                 } else {
-                                    Err(ctx.error_with_infos(
+                                    Err(ctx.hard_error_with_infos(
                                         name.at,
                                         format!(
                                             "a value of type {} is expected for this flag",
@@ -617,7 +617,7 @@ fn parse_single_fn_call_arg<'a>(
                                 return if !is_null_for_optional
                                     && !check_if_value_fits_type(&value.value, typ, ctx)
                                 {
-                                    Err(ctx.error_with_infos(
+                                    Err(ctx.hard_error_with_infos(
                                         value.from,
                                         format!(
                                             "expected a value of type {} for flag {}, found a {}",
@@ -668,7 +668,7 @@ fn parse_single_fn_call_arg<'a>(
             }
 
             // Otherwise, we have found an unknown flag
-            Err(ctx.error_with_infos(
+            Err(ctx.hard_error_with_infos(
                 name.at,
                 "unknown flag provided",
                 [(
@@ -694,7 +694,7 @@ fn parse_single_fn_call_arg<'a>(
                 }
                 // Otherwise, we have found an argument that doesn't belong anywhere
                 else {
-                    Err(ctx.error_with_infos(
+                    Err(ctx.hard_error_with_infos(
                         loc_val.from,
                         "too many arguments provided",
                         [(
@@ -991,7 +991,7 @@ pub fn find_applicable_method<'s>(
 ) -> ExecResult<&'s ScopeMethod> {
     ctx.find_applicable_method(name, for_value)
         .map_err(|not_matching| {
-            ctx.error_with(
+            ctx.hard_error_with(
                 name.at,
                 format!(
                     "no such method for type {}",

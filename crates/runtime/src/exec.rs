@@ -55,7 +55,7 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
 
     // Check the program
     ctx.prepare_for_new_program(program).map_err(|err| {
-        ctx.error_with(program.at, ExecActualErrorNature::CheckingErr(err), |err| {
+        ctx.hard_error_with(program.at, ExecActualErrorNature::CheckingErr(err), |err| {
             err.add_info(
                 ExecInfoType::Note,
                 "Error was encountered before running the program",

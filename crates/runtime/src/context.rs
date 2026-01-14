@@ -358,7 +358,7 @@ impl Context {
     }
 
     /// Generate an error object and attach additional informations to it
-    pub fn error_with_infos<const N: usize>(
+    pub fn hard_error_with_infos<const N: usize>(
         &self,
         at: impl Into<RuntimeCodeRange>,
         nature: impl Into<ExecActualErrorNature>,
@@ -378,7 +378,7 @@ impl Context {
     }
 
     /// Generate an error object and attach additional informations to it
-    pub fn error_with(
+    pub fn hard_error_with(
         &self,
         at: impl Into<RuntimeCodeRange>,
         nature: impl Into<ExecActualErrorNature>,

@@ -436,7 +436,7 @@ pub fn value_to_str(
         | RuntimeValue::CmdArg(_)
         | RuntimeValue::Custom(_) // TODO?
         => Err(ctx
-            .error_with_infos(
+            .hard_error_with_infos(
                 at,
                 format!(
                     "could not convert a value of type {} to a string",
