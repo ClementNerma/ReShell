@@ -105,7 +105,7 @@ fn apply_double_op(
             let right = right_val(ctx)?;
 
             let got_overflow = || {
-                ctx.error(
+                ctx.throw(
                     op.at,
                     format!(
                         "overflow during arithmetic operation with operands: {} and {}",
@@ -131,7 +131,7 @@ fn apply_double_op(
 
                     ArithmeticDoubleOp::Div => {
                         if *right == 0 {
-                            return Err(ctx.error(op.at, "cannot divide by zero"));
+                            return Err(ctx.throw(op.at, "cannot divide by zero"));
                         }
 
                         RuntimeValue::Int(left.checked_div(*right).ok_or_else(got_overflow)?)
@@ -155,7 +155,7 @@ fn apply_double_op(
                         ArithmeticDoubleOp::Mul => try_op(left * right)?,
                         ArithmeticDoubleOp::Div => {
                             if *right == 0.0 {
-                                return Err(ctx.error(op.at, "cannot divide by zero"));
+                                return Err(ctx.throw(op.at, "cannot divide by zero"));
                             }
 
                             try_op(left / right)?

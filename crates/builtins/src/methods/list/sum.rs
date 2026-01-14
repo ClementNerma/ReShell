@@ -20,7 +20,7 @@ fn run() -> Runner {
         for (i, num) in list.into_iter().enumerate() {
             sum = sum
                 .checked_add(num)
-                .ok_or_else(|| ctx.error(args_at.list, format!("Overflow during sum on item {} (sum at that point: {sum}, failed to add: {num}", i + 1)))?;
+                .ok_or_else(|| ctx.throw(args_at.list, format!("Overflow during sum on item {} (sum at that point: {sum}, failed to add: {num}", i + 1)))?;
         }
 
         Ok(Some(RuntimeValue::Int(sum)))
