@@ -1,3 +1,5 @@
+//! Commands execution
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -457,6 +459,7 @@ fn complete_cmd_data(
     Ok(())
 }
 
+/// Evaluate the target of a command call
 fn evaluate_cmd_target(
     call: &Span<SingleCmdCall>,
     ctx: &mut Context,
@@ -509,21 +512,40 @@ struct EvaluatedCmdArgs {
     args: Vec<(CmdArgResult, CodeRange)>,
 }
 
+/// Target of a command call
 enum EvaluatedCmdTarget {
+    /// Target is an external command (will be resolved through [`crate::bin_resolver::BinariesResolver`])
     ExternalCommand(Span<String>),
+
+    /// Target is a function
     Function(GcReadOnlyCell<RuntimeFnValue>),
+
+    /// Target is a method (will be resolved later)
     Method(Span<String>),
 }
 
+/// Arguments for the command's execution
 struct ExecCmdArgs<'a, 'b> {
+    /// Name of the command
     name: &'a Span<String>,
+
+    /// Arguments for the command
     args: EvaluatedCmdArgs,
+
+    /// Data being piped to this command
     pipe_type: Option<Span<CmdPipeType>>,
+
+    /// Pipe for this command's output
     next_pipe_type: Option<CmdPipeType>,
+
+    /// Execution parameters
     params: CmdExecParams,
+
+    /// File and stream redirects (e.g. STDOUT / STDERR)
     redirects: Option<&'b Span<CmdRedirects>>,
 }
 
+/// Execute a command
 fn exec_cmd(
     args: ExecCmdArgs,
     input: Option<CmdInput<'_>>,
@@ -571,7 +593,7 @@ fn exec_cmd(
         stdout_reader,
         stderr,
         stderr_reader,
-    } = compute_pipes_for_child(
+    } = build_pipes_for_child(
         capture,
         silent,
         next_pipe_type,
@@ -639,18 +661,29 @@ fn exec_cmd(
     })
 }
 
+/// Input for a command
 enum CmdInput<'a> {
+    /// Pipe a child process into the command
     Child(&'a mut SpawnedCmd),
+
+    /// Pipe a string into the command
     String(String),
 }
 
+/// Spawned command
 struct SpawnedCmd {
+    /// Child process handler
     child: Child,
+
+    /// STDOUT stream
     stdout: Option<PipeReader>,
+
+    /// STDERR stream
     stderr: Option<PipeReader>,
 }
 
-fn compute_pipes_for_child(
+/// Build the output pipes required for a child process
+fn build_pipes_for_child(
     capture: Option<CmdCaptureType>,
     silent: bool,
     next_pipe_type: Option<CmdPipeType>,
@@ -797,6 +830,7 @@ fn compute_pipes_for_child(
     })
 }
 
+/// Open a file that will be used to redirect SDTOUT or STDERR into
 fn open_redirect_file(path: &Span<CmdRawString>, ctx: &mut Context) -> ExecResult<File> {
     let path_str = eval_cmd_raw_string(path, ctx)?;
 
@@ -818,6 +852,9 @@ fn open_redirect_file(path: &Span<CmdRawString>, ctx: &mut Context) -> ExecResul
     })
 }
 
+/// STDIO (STDOUT / STDERR) pipes for a child process
+///
+/// Used by [`exec_cmd`]
 struct StdioPipesForChild {
     stdout: Stdio,
     stdout_reader: Option<PipeReader>,
@@ -825,6 +862,9 @@ struct StdioPipesForChild {
     stderr_reader: Option<PipeReader>,
 }
 
+/// Append a command's argument as a string
+///
+/// May be spread into multiple arguments
 fn append_cmd_arg_as_string(
     cmd_arg_result: CmdArgResult,
     cmd_arg_result_at: CodeRange,
@@ -887,6 +927,7 @@ fn append_cmd_arg_as_string(
     Ok(())
 }
 
+/// Evaluate a command argument's value
 pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgResult> {
     match &arg.data {
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
@@ -928,6 +969,7 @@ pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgR
     }
 }
 
+/// Evaluate a command value-making argument
 fn eval_cmd_value_making_arg(
     arg: &Span<CmdValueMakingArg>,
     ctx: &mut Context,
@@ -960,6 +1002,7 @@ fn eval_cmd_value_making_arg(
     Ok(LocatedValue::new(RuntimeCodeRange::Parsed(arg.at), value))
 }
 
+/// Evaluate a command raw string
 pub fn eval_cmd_raw_string(value: &Span<CmdRawString>, ctx: &mut Context) -> ExecResult<String> {
     value
         .data
@@ -970,6 +1013,7 @@ pub fn eval_cmd_raw_string(value: &Span<CmdRawString>, ctx: &mut Context) -> Exe
         .collect::<Result<String, _>>()
 }
 
+/// Evaluate a single piece of a command raw string
 fn eval_cmd_raw_string_piece(
     piece: &Span<CmdRawStringPiece>,
     transmute_tilde: bool,
@@ -995,6 +1039,9 @@ fn eval_cmd_raw_string_piece(
     }
 }
 
+/// Try replacing the `~` symbol at the beginning of a string by the actual home directory path
+///
+/// Used for expanding this symbol in arguments provided to commands
 pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'static str> {
     let home_dir = || {
         ctx.home_dir()
@@ -1014,6 +1061,7 @@ pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'
     Ok(out)
 }
 
+/// Wait for a set of spawned commands to complete
 fn wait_for_commands_ending(
     children: Vec<(SpawnedCmd, CodeRange)>,
     capture: Option<CmdCaptureType>,
@@ -1102,6 +1150,7 @@ fn wait_for_commands_ending(
     }))
 }
 
+/// Capture a command's output
 pub fn capture_cmd_output(capture: &CmdOutputCapture, ctx: &mut Context) -> ExecResult<String> {
     let CmdOutputCapture { capture, cmd_call } = capture;
 
@@ -1117,12 +1166,15 @@ pub fn capture_cmd_output(capture: &CmdOutputCapture, ctx: &mut Context) -> Exec
     Ok(cmd_result.as_captured().unwrap())
 }
 
+/// Result of a command argument's evaluation, which may result in either
+/// a single value, or multiple ones (spreading)
 #[derive(Debug, Clone)]
 pub enum CmdArgResult {
     Single(SingleCmdArgResult),
     Spreaded(Vec<SingleCmdArgResult>),
 }
 
+/// Single value part of a command argument's evaluated vlaue
 #[derive(Debug, Clone)]
 pub enum SingleCmdArgResult {
     Basic(LocatedValue),
@@ -1138,15 +1190,25 @@ impl From<CmdArgValue> for SingleCmdArgResult {
     }
 }
 
+/// Evaluation result of a flag argument's value
 #[derive(Debug, Clone)]
 pub struct FlagArgValueResult {
+    /// The argument's value
     pub value: LocatedValue,
+
+    /// The argument's separator
+    ///
+    /// Used to put back the original string together if the command is external
     pub value_sep: FlagValueSeparator,
 }
 
+/// Evaluation result of a command argument
 #[derive(Debug)]
 pub enum CmdEvalArg {
+    /// The argument evaluated to a value
     Value(RuntimeValue),
+
+    /// The argument evaluated to a flag
     Flag {
         name: Span<String>,
         value: Option<RuntimeValue>,

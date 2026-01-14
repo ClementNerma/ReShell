@@ -929,6 +929,7 @@ pub struct ScopeVar {
 
     /// Value of the variable
     /// It is backed by a [`GcCell`] in order to be sharable in captured dependencies
+    ///
     /// See [`Context::capture_deps`]
     pub value: GcCell<LocatedValue>,
 }

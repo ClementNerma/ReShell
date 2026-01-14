@@ -74,7 +74,7 @@ pub struct CheckerOutput {
 
     /// List of command calls as values
     ///
-    /// Used to avoid cloning Span<CmdCall> every time a value is used
+    /// Used to avoid cloning [`Span<CmdCall>`] every time a value is used
     pub cmd_call_values: HashMap<CodeRange, SharingType<Span<CmdCall>>>,
 }
 

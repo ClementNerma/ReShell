@@ -25,6 +25,9 @@ use crate::{
     },
 };
 
+/// Evaluate a function's call, with an optional piped value
+///
+/// If the function returns a value, it will be returned by this one too.
 pub fn eval_fn_call(
     call: &Span<FnCall>,
     piped: Option<LocatedValue>,
@@ -97,6 +100,7 @@ pub fn eval_fn_call(
     )
 }
 
+/// Call a function value
 pub fn call_fn_value(
     call_at: RuntimeCodeRange,
     func: &GcReadOnlyCell<RuntimeFnValue>,
@@ -224,6 +228,7 @@ pub fn call_fn_value(
     Ok(returned)
 }
 
+/// Fill a map linking a function's arguments' names to their (validated) value
 fn fill_fn_args(
     call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
@@ -348,6 +353,7 @@ fn fill_fn_args(
     Ok(parsed_args)
 }
 
+/// Parse a function's call arguments
 fn parse_fn_call_args(
     call_at: RuntimeCodeRange,
     func: &RuntimeFnValue,
@@ -421,14 +427,15 @@ fn parse_fn_call_args(
                 .iter()
                 .map(|rest_arg| match rest_arg {
                     SingleCmdArgResult::Basic(loc_val) => Ok(loc_val.clone()),
-                    SingleCmdArgResult::Flag(CmdFlagValue { name, value: _ }) => Err(ctx.hard_error(
-                        name.at,
-                        format!(
-                            "provided a flag but this function's rest argument's type is: {}",
-                            typ.data
-                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                        ),
-                    )),
+                    SingleCmdArgResult::Flag(CmdFlagValue { name, value: _ }) => Err(ctx
+                        .hard_error(
+                            name.at,
+                            format!(
+                                "provided a flag but this function's rest argument's type is: {}",
+                                typ.data
+                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            ),
+                        )),
                 })
                 .collect::<Result<Vec<_>, _>>()?;
 
@@ -473,15 +480,20 @@ fn parse_fn_call_args(
     })
 }
 
+/// A single parsed function call argument
+enum ParsedSingleFnCallArg {
+    Variable {
+        name: String,
+        value: ValidatedFnCallArg,
+        value_on_hold: Option<SingleCmdArgResult>,
+    },
+    Rest(SingleCmdArgResult),
+}
+
+/// A function's parsed called arguments
 struct ParsedFnCallArgs {
     parsed_args: HashMap<String, ValidatedFnCallArg>,
     rest_args: Vec<SingleCmdArgResult>,
-}
-
-struct SimplifiedPositionalFnArg<'a> {
-    name: &'a RuntimeSpan<String>,
-    is_optional: bool,
-    typ: &'a Option<ValueType>,
 }
 
 /// Parse a single function call argument
@@ -741,15 +753,14 @@ fn parse_single_fn_call_arg<'a>(
     }
 }
 
-enum ParsedSingleFnCallArg {
-    Variable {
-        name: String,
-        value: ValidatedFnCallArg,
-        value_on_hold: Option<SingleCmdArgResult>,
-    },
-    Rest(SingleCmdArgResult),
+/// A simplified positional function argument
+struct SimplifiedPositionalFnArg<'a> {
+    name: &'a RuntimeSpan<String>,
+    is_optional: bool,
+    typ: &'a Option<ValueType>,
 }
 
+/// Flatten a function call's arguments (e.g. flatten spreaded values)
 fn flatten_fn_call_args(
     call_at: RuntimeCodeRange,
     is_method: bool,
@@ -844,6 +855,7 @@ fn flatten_fn_call_args(
     Ok(out)
 }
 
+/// Display a function's argument in a readable way
 fn fn_arg_human_name(arg: &FnSignatureArg) -> String {
     match &arg {
         FnSignatureArg::Positional(FnSignaturePositionalArg {
@@ -869,6 +881,7 @@ fn fn_arg_human_name(arg: &FnSignatureArg) -> String {
     }
 }
 
+/// Determine a function argument's resulting variable name in the function's body's scope
 fn fn_arg_var_name(arg: &FnSignatureArg) -> String {
     match &arg {
         FnSignatureArg::Positional(FnSignaturePositionalArg {
@@ -901,6 +914,7 @@ fn fn_arg_var_name(arg: &FnSignatureArg) -> String {
     }
 }
 
+/// Determine the declaration location of a function's argument's variable for its body's scope
 fn fn_arg_var_at(arg: &FnSignatureArg) -> RuntimeCodeRange {
     match &arg {
         FnSignatureArg::Positional(FnSignaturePositionalArg {
@@ -929,6 +943,7 @@ fn fn_arg_var_at(arg: &FnSignatureArg) -> RuntimeCodeRange {
     }
 }
 
+/// Get the name to extract an argument's value from in its map (see [`fill_fn_args`])
 fn get_matching_var_name(name: &CmdFlagArgName, into: &FnSignatureFlagArgNames) -> Option<String> {
     match name {
         CmdFlagArgName::Short(name) => match into {
@@ -966,6 +981,9 @@ fn get_matching_var_name(name: &CmdFlagArgName, into: &FnSignatureFlagArgNames) 
     }
 }
 
+/// Find the only method applicable for a given value and method name
+///
+/// If the value's type leads to multiple methods being applicable, an error will be generated.
 pub fn find_applicable_method<'s>(
     name: &Span<String>,
     for_value: &RuntimeValue,
@@ -998,24 +1016,32 @@ pub fn find_applicable_method<'s>(
         })
 }
 
+/// Informations about a function call
 pub struct FnCallInfos<'a> {
     pub nature: FnCallNature,
     pub args: FnPossibleCallArgs<'a>,
     pub piped: Option<LocatedValue>,
 }
 
+/// Set of possible arguments for a function call
 pub enum FnPossibleCallArgs<'a> {
+    /// All arguments were parsed from source code
     Parsed(&'a Span<Vec<Span<FnArg>>>),
+
+    /// All arguments were parsed from the "command call" syntax
     ParsedCmdArgs {
         at: CodeRange,
         args: Vec<(CmdArgResult, CodeRange)>,
     },
+
+    /// All arguments were provided internally
     Internal {
         at: &'static str,
         args: Vec<CmdArgResult>,
     },
 }
 
+/// A validated function call argument
 #[derive(Debug)]
 pub struct ValidatedFnCallArg {
     pub decl_name_at: RuntimeCodeRange,

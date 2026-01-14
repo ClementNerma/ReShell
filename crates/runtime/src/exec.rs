@@ -25,6 +25,20 @@ use crate::{
     },
 };
 
+/// Run a program
+///
+/// The program may have been built from an AST, or parsed through [`reshell_parser::PROGRAM`].
+///
+/// STDIN is handled automatically, including Ctrl+C presses through the function
+/// provided in [`crate::context::ContextCreationParams`].
+///
+/// The program will be checked using [`reshell_checker::check`], so the program does not need to
+/// have been checked beforehand.
+///
+/// If the program ends with a wandering value, it will be returned as-is along with its original location.
+/// Note that said location is the place the value originates from, not necessarily where it was returned from.
+///
+/// In case an error occurs, an [`ExecError`] value will be returned instead.
 pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Option<LocatedValue>> {
     // Reset Ctrl+C requests
     ctx.reset_ctrl_c_press_indicator();
@@ -67,6 +81,7 @@ pub fn run_program(program: &Span<Program>, ctx: &mut Context) -> ExecResult<Opt
     })
 }
 
+/// Run a block, with the provided scope content
 fn run_block(
     block: &Block,
     ctx: &mut Context,
@@ -81,6 +96,7 @@ fn run_block(
     result
 }
 
+/// Run a block, with the provided scope content, parent scopes list, and call stack entry
 pub(crate) fn run_block_detailed(
     block: &Block,
     ctx: &mut Context,
@@ -102,6 +118,7 @@ pub(crate) fn run_block_detailed(
     result
 }
 
+/// Run a block inside the current scope instead of creating a dedicated one
 fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     let Block {
         scope_id: _,
@@ -115,6 +132,7 @@ fn run_block_in_current_scope(block: &Block, ctx: &mut Context) -> ExecResult<Op
     run_instructions_in_current_scope(instructions, ctx)
 }
 
+/// Run all the instructions in the current scope
 fn run_instructions_in_current_scope(
     instructions: &[Span<Instruction>],
     ctx: &mut Context,
@@ -141,6 +159,9 @@ fn run_instructions_in_current_scope(
     Ok(wandering_value.map(InstrRet::WanderingValue))
 }
 
+/// Perform a first pass on a block's provided set of instructions to declare
+/// static items like functions, methods, command aliases and type aliases,
+/// as well as to evaluate included blocks from other source files.
 fn block_first_pass(
     instructions: &[Span<Instruction>],
     block: &Block,
@@ -225,6 +246,7 @@ fn block_first_pass(
     Ok(())
 }
 
+/// Run a single instruction
 fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<InstrRet>> {
     let instr_ret = match &instr.data {
         Instruction::DeclareVar { names, init_expr } => {
@@ -794,6 +816,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
     Ok(instr_ret)
 }
 
+/// Run a loop's body block
 fn run_loop_block(
     body: &Block,
     ctx: &mut Context,
@@ -826,13 +849,20 @@ fn run_loop_block(
     }
 }
 
+/// Result of a loop's body block run
 #[derive(Debug)]
 enum LoopBlockResult {
+    /// Continue the loop (or end if the condition is met)
     Continue,
+
+    /// Break the loop immediately
     Break,
+
+    /// Propagate a function return value
     FnReturn(Option<LocatedValue>),
 }
 
+/// Declare a single variable or a set of ones, inside the current scope or the provided one
 fn declare_vars(
     names: &Span<ValueDestructuring>,
     value: RuntimeValue,
@@ -998,13 +1028,22 @@ fn declare_vars(
     Ok(())
 }
 
+/// Data for declaring a variable
 struct DeclareVarData {
+    /// Is the variable mutable?
     is_mut: bool,
+
+    /// The variable's initial value
     value: RuntimeValue,
+
+    /// The variable's initial value's original location
     value_at: CodeRange,
+
+    /// The variable's (optional) enforced type
     enforced_type: Option<ValueType>,
 }
 
+/// Declare a single variable
 fn declare_var(
     name: &Span<String>,
     data: DeclareVarData,

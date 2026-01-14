@@ -7,10 +7,11 @@ use std::sync::LazyLock;
 pub use self::syntax::SyntaxItem;
 use self::{elements::ItemType, highlighter::CmdChecker};
 
-mod coverage;
 pub mod elements;
-mod highlighter;
 pub mod nesting;
+
+mod coverage;
+mod highlighter;
 mod syntax;
 
 #[derive(Debug, Clone, Copy)]

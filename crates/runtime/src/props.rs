@@ -278,7 +278,7 @@ pub enum TailPropWritingPolicy {
 
 /// How to perform final access on a property chain.
 ///
-/// Will be generated depending on the provided [`PropAccessPolicy`].
+/// Will be generated depending on the provided [`TailPropAccessPolicy`].
 ///
 /// It will contain a value allowing for reading / writing / creating the tail property.
 pub enum PropAccessMode<'c> {

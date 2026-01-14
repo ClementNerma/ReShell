@@ -9,7 +9,7 @@ use crate::utils::downcast_custom_value;
 
 /// Date and time value
 ///
-/// Backed by an [`OffsetDateTime`]
+/// Backed by a [`Zoned`]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DateTimeValue(pub Zoned);
 

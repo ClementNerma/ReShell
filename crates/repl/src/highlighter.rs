@@ -1,6 +1,6 @@
 //!
 //! This module defines the rule set and systems used for highlighting ReShell programs
-//! using the [`super::utils::syntax`] module.
+//! (see [`SyntaxItem`])
 //!
 
 use nu_ansi_term::{Color, Style};

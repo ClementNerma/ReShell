@@ -474,7 +474,7 @@ pub struct DeclaredCmdAlias {
     pub content_at: CodeRange,
 
     /// Is the declared alias ready?
-    /// See [`Context::mark_cmd_alias_as_ready`]
+    /// See [`State::mark_cmd_alias_as_ready`]
     pub is_ready: bool,
 }
 

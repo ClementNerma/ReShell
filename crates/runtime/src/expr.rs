@@ -25,12 +25,16 @@ use crate::{
     },
 };
 
+/// Evaluate an expression
 pub fn eval_expr(expr: &Expr, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let Expr { inner, right_ops } = &expr;
 
     eval_expr_ref(inner, right_ops, ctx)
 }
 
+/// Evluate an expression's reference
+///
+/// Operators will be resolved by priority
 fn eval_expr_ref(
     inner: &Span<ExprInner>,
     right_ops: &[ExprOp],
@@ -279,6 +283,7 @@ fn apply_double_op(
     Ok(result)
 }
 
+/// Apply an operator on a pair of values, the left one being a custom one
 fn apply_double_op_on_custom_value(
     left_val: RuntimeValue,
     right_val: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
@@ -343,6 +348,7 @@ fn apply_double_op_on_custom_value(
     Ok(RuntimeValue::Bool(result))
 }
 
+/// Generate an error stating the provided operation is not applicable on a specific value type
 fn not_applicable_on_value_err(
     left: &RuntimeValue,
     op: Span<DoubleOp>,
@@ -358,6 +364,7 @@ fn not_applicable_on_value_err(
     )
 }
 
+/// Generate an error stating the provided operation is not applicable on a pair of values
 fn not_applicable_on_pair_err(
     left: &RuntimeValue,
     op: Span<DoubleOp>,
@@ -377,6 +384,7 @@ fn not_applicable_on_pair_err(
     )
 }
 
+/// Evaluate the inner content of an expression
 fn eval_expr_inner(inner: &Span<ExprInner>, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let ExprInner { content, chainings } = &inner.data;
 
@@ -392,6 +400,7 @@ fn eval_expr_inner(inner: &Span<ExprInner>, ctx: &mut Context) -> ExecResult<Run
     Ok(left_val)
 }
 
+/// Evaluate the chainings following an expression's inner content
 fn eval_expr_inner_chaining(
     chaining: &ExprInnerChaining,
     mut left: LocatedValue,
@@ -426,6 +435,7 @@ fn eval_expr_inner_chaining(
     }
 }
 
+/// Evaluate an expression's inner content's content
 fn eval_expr_inner_content(
     content: &Span<ExprInnerContent>,
     ctx: &mut Context,
@@ -639,6 +649,7 @@ fn eval_expr_inner_content(
     }
 }
 
+/// Evaluate a value
 fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let value = match value {
         Value::Null => RuntimeValue::Null,
@@ -751,6 +762,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
     Ok(value)
 }
 
+/// Evaluate a literal value
 pub fn eval_literal_value(value: &LiteralValue) -> RuntimeValue {
     match &value {
         LiteralValue::Boolean(bool) => RuntimeValue::Bool(*bool),
@@ -763,6 +775,7 @@ pub fn eval_literal_value(value: &LiteralValue) -> RuntimeValue {
     }
 }
 
+/// Evaluate a computed string
 pub fn eval_computed_string(value: &ComputedString, ctx: &mut Context) -> ExecResult<String> {
     value
         .pieces
@@ -771,6 +784,7 @@ pub fn eval_computed_string(value: &ComputedString, ctx: &mut Context) -> ExecRe
         .collect::<Result<String, _>>()
 }
 
+/// Evaluate a single computed string's piece
 fn eval_computed_string_piece(
     piece: &ComputedStringPiece,
     ctx: &mut Context,
@@ -794,6 +808,7 @@ fn eval_computed_string_piece(
     }
 }
 
+/// Evaluate a map key
 fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
     match &key.data {
         MapKey::Raw(str) => Ok(str.to_owned()),
@@ -814,6 +829,7 @@ fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
     }
 }
 
+/// Evaluate a spread value
 fn eval_spread_value(
     spread_value: &Span<SpreadValue>,
     ctx: &mut Context,
@@ -828,6 +844,7 @@ fn eval_spread_value(
     }
 }
 
+/// Evaluate a list being spread
 pub fn eval_list_spread_value(
     spread_value: &Span<SpreadValue>,
     ctx: &mut Context,
@@ -847,6 +864,7 @@ pub fn eval_list_spread_value(
     }
 }
 
+/// Evaluate a map or structure being spread
 fn eval_map_or_struct_spread_value(
     spread_value: &Span<SpreadValue>,
     ctx: &mut Context,
@@ -866,6 +884,7 @@ fn eval_map_or_struct_spread_value(
     }
 }
 
+/// Convert a lambda to a runtime value
 pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
     let Function { signature, body } = &lambda;
 
@@ -880,6 +899,7 @@ pub fn lambda_to_value(lambda: &Function, ctx: &mut Context) -> RuntimeValue {
     }))
 }
 
+/// Evaluate a range bound
 pub fn eval_range_bound(range_bound: &RangeBound, ctx: &mut Context) -> ExecResult<i64> {
     let (value_at, value) = match range_bound {
         RangeBound::Literal(literal) => return Ok(*literal),
@@ -907,21 +927,7 @@ pub fn eval_range_bound(range_bound: &RangeBound, ctx: &mut Context) -> ExecResu
     }
 }
 
-fn operator_precedence(op: &ExprOp) -> u8 {
-    match op {
-        ExprOp::DoubleOp { op, right_op: _ } => match op.data {
-            DoubleOp::Arithmetic(op) => match op {
-                ArithmeticDoubleOp::Add | ArithmeticDoubleOp::Sub => 0,
-                ArithmeticDoubleOp::Mul | ArithmeticDoubleOp::Div | ArithmeticDoubleOp::Mod => 1,
-            },
-            DoubleOp::Logic(_) => 5,
-            DoubleOp::EqualityCmp(_) | DoubleOp::OrderingCmp(_) => 4,
-            DoubleOp::NullFallback => 2,
-        },
-        ExprOp::TypeIs { right_op: _ } => 3,
-    }
-}
-
+/// Evaluate a list
 pub fn eval_list(items: &[ListItem], ctx: &mut Context) -> ExecResult<RuntimeValue> {
     let mut list = Vec::with_capacity(items.len());
 
@@ -940,4 +946,20 @@ pub fn eval_list(items: &[ListItem], ctx: &mut Context) -> ExecResult<RuntimeVal
     }
 
     Ok(RuntimeValue::List(GcCell::new(list)))
+}
+
+/// Get the precedence of an operator
+fn operator_precedence(op: &ExprOp) -> u8 {
+    match op {
+        ExprOp::DoubleOp { op, right_op: _ } => match op.data {
+            DoubleOp::Arithmetic(op) => match op {
+                ArithmeticDoubleOp::Add | ArithmeticDoubleOp::Sub => 0,
+                ArithmeticDoubleOp::Mul | ArithmeticDoubleOp::Div | ArithmeticDoubleOp::Mod => 1,
+            },
+            DoubleOp::Logic(_) => 5,
+            DoubleOp::EqualityCmp(_) | DoubleOp::OrderingCmp(_) => 4,
+            DoubleOp::NullFallback => 2,
+        },
+        ExprOp::TypeIs { right_op: _ } => 3,
+    }
 }
