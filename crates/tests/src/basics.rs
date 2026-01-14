@@ -63,7 +63,7 @@ fn invalid_ops() {
 }
 
 #[test]
-fn ranges() {
+fn ranged_loops() {
     run_expect_specific_value::<IntType>("let mut i = 0; for _ in 0..10 { $i = $i + 1 }; $i", 10);
     run_expect_specific_value::<IntType>("let mut i = 0; for _ in 1..10 { $i = $i + 1 }; $i", 9);
     run_expect_specific_value::<IntType>("let mut i = 0; for _ in 0..=10 { $i = $i + 1 }; $i", 11);
@@ -72,4 +72,11 @@ fn ranges() {
     run_expect_specific_value::<IntType>("let mut i = 0; for _ in 10..=10 { $i = $i + 1 }; $i", 1);
     run_expect_specific_value::<IntType>("let mut i = 0; for _ in 11..10 { $i = $i + 1 }; $i", 0);
     run_expect_specific_value::<IntType>("let mut i = 0; for _ in 11..=10 { $i = $i + 1 }; $i", 0);
+}
+
+#[test]
+fn while_loops() {
+    run_expect_specific_value::<IntType>("let mut i = 0; while $i < 10 { $i = $i + 1 }; $i", 10);
+    run_expect_specific_value::<IntType>("let mut i = 0; while $i <= 10 { $i = $i + 1 }; $i", 11);
+    run_expect_specific_value::<IntType>("let mut i = 0; while $i > 0 { $i = $i + 1 }; $i", 0);
 }
