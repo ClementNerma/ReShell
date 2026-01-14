@@ -251,41 +251,26 @@ fn apply_double_op(
         DoubleOp::EqualityCmp(inner_op) => {
             let right = right_val(ctx)?;
 
-            let result = match (&left_val, &right) {
-                (RuntimeValue::Null, RuntimeValue::Null) => match inner_op {
-                    EqualityCmpDoubleOp::Eq => true,
-                    EqualityCmpDoubleOp::Neq => false,
-                },
+            let is_eq = match (&left_val, &right) {
+                (RuntimeValue::Null, RuntimeValue::Null) => true,
 
-                (RuntimeValue::Null, _) | (_, RuntimeValue::Null) => match inner_op {
-                    EqualityCmpDoubleOp::Eq => false,
-                    EqualityCmpDoubleOp::Neq => true,
-                },
+                (RuntimeValue::Null, _) | (_, RuntimeValue::Null) => false,
 
-                (RuntimeValue::Bool(left), RuntimeValue::Bool(right)) => match inner_op {
-                    EqualityCmpDoubleOp::Eq => left == right,
-                    EqualityCmpDoubleOp::Neq => left != right,
-                },
+                (RuntimeValue::Bool(left), RuntimeValue::Bool(right)) => left == right,
 
-                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => match inner_op {
-                    EqualityCmpDoubleOp::Eq => left == right,
-                    EqualityCmpDoubleOp::Neq => left != right,
-                },
+                (RuntimeValue::Int(left), RuntimeValue::Int(right)) => left == right,
 
-                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => match inner_op {
-                    EqualityCmpDoubleOp::Eq => left == right,
-                    EqualityCmpDoubleOp::Neq => left != right,
-                },
+                (RuntimeValue::Float(left), RuntimeValue::Float(right)) => left == right,
 
-                (RuntimeValue::String(left), RuntimeValue::String(right)) => match inner_op {
-                    EqualityCmpDoubleOp::Eq => left == right,
-                    EqualityCmpDoubleOp::Neq => left != right,
-                },
+                (RuntimeValue::String(left), RuntimeValue::String(right)) => left == right,
 
                 (_, _) => return Err(not_applicable_on_pair_err(&left_val, op, &right, ctx)),
             };
 
-            RuntimeValue::Bool(result)
+            RuntimeValue::Bool(match inner_op {
+                EqualityCmpDoubleOp::Eq => is_eq,
+                EqualityCmpDoubleOp::Neq => !is_eq,
+            })
         }
 
         DoubleOp::OrderingCmp(inner_op) => {
