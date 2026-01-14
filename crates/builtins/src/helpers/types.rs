@@ -3,14 +3,23 @@
 //! allow to convert and parse some of the scripting language's native types.
 //!
 
-use std::{borrow::Cow, collections::HashMap, fmt::Display, marker::PhantomData, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    fmt::Display,
+    marker::PhantomData,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use indexmap::IndexMap;
+use jiff::Zoned;
 use parsy::CodeRange;
+use regex::Regex;
 use reshell_parser::ast::{SingleValueType, ValueType};
 use reshell_runtime::{
     gc::GcCell,
-    values::{CmdArgValue, CustomValueType, ErrorValueContent, RangeValue, RuntimeValue},
+    values::{CmdArgValue, ErrorValueContent, RangeValue, RuntimeValue},
 };
 
 use super::args::{TypedValueEncoder, TypedValueParser};
@@ -110,6 +119,50 @@ declare_basic_type_handlers!(
         }
 
         fn encode(value: String) { RuntimeValue::String(value) }
+    },
+
+    DateTimeType (DateTime) = Arc<Zoned> {
+        fn parse(value) {
+            match value {
+                RuntimeValue::DateTime(inner) => Ok(inner),
+                _ => Err("expected a datetime".to_owned())
+            }
+        }
+
+        fn encode(value: Arc<Zoned>) { RuntimeValue::DateTime(value) }
+    },
+
+    DurationType (Duration) = Duration {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Duration(inner) => Ok(inner),
+                _ => Err("expected a duration".to_owned())
+            }
+        }
+
+        fn encode(value: Duration) { RuntimeValue::Duration(value) }
+    },
+
+    InstantType (Instant) = Instant {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Instant(inner) => Ok(inner),
+                _ => Err("expected an anstant".to_owned())
+            }
+        }
+
+        fn encode(value: Instant) { RuntimeValue::Instant(value) }
+    },
+
+    RegexType (Regex) = Arc<Regex> {
+        fn parse(value) {
+            match value {
+                RuntimeValue::Regex(inner) => Ok(inner),
+                _ => Err("expected a regex".to_owned())
+            }
+        }
+
+        fn encode(value: Arc<Regex>) { RuntimeValue::Regex(value) }
     },
 
     RangeType (Range) = RangeValue {
@@ -428,40 +481,6 @@ impl<Inner: TypedValueParser + TypedValueEncoder> TypedValueEncoder for Nullable
         }
     }
 }
-
-/// Type handler for custom types
-pub struct CustomType<C: CustomValueType> {
-    _c: PhantomData<C>,
-}
-
-impl<C: CustomValueType> TypedValueParser for CustomType<C> {
-    fn value_type() -> ValueType {
-        ValueType::Single(SingleValueType::Custom(C::typename_static()))
-    }
-
-    type Parsed = Arc<C>;
-
-    fn parse(value: RuntimeValue) -> Result<Self::Parsed, String> {
-        match value {
-            RuntimeValue::Custom(value) => Arc::downcast::<C>(value).map_err(|_| {
-                format!(
-                    "Failed to downcast value of type '{}'",
-                    C::typename_static()
-                )
-            }),
-
-            _ => Err(format!("expected a {}", C::typename_static())),
-        }
-    }
-}
-
-// impl<C: CustomValueType> TypedValueEncoder for CustomType<C> {
-//     type Encodable = Box<C>;
-
-//     fn encode(value: Self::Encodable) -> RuntimeValue {
-//         RuntimeValue::Custom(GcReadOnlyCell::new(value))
-//     }
-// }
 
 /// Macro to implement a type handler for a union type
 macro_rules! generic_type_union_handler {

@@ -10,8 +10,6 @@ use toml::{
     value::{Date as TomlDate, Datetime as TomlDatetime, Offset as TomlOffset, Time as TomlTime},
 };
 
-use crate::types::DateTimeValue;
-
 crate::define_internal_fn!(
     "parseToml",
 
@@ -90,7 +88,7 @@ fn toml_to_value(value: Value, use_maps: bool) -> Result<RuntimeValue, String> {
                 .to_zoned(timezone.unwrap_or(TimeZone::UTC))
                 .map_err(|err| format!("Invalid date time {datetime}: {err}"))?;
 
-            Ok(RuntimeValue::Custom(Arc::new(DateTimeValue(date_time))))
+            Ok(RuntimeValue::DateTime(Arc::new(date_time)))
         }
 
         Value::Array(array) => Ok(RuntimeValue::List(GcCell::new(

@@ -5,7 +5,6 @@ use reshell_runtime::{gc::GcCell, values::RuntimeFnValue};
 
 use crate::{
     declare_typed_fn_handler, declare_typed_union_handler,
-    types::RegexValue,
     utils::{call_fn_checked, expect_returned_value},
 };
 
@@ -13,7 +12,7 @@ crate::define_internal_fn!(
     "replace",
 
     (
-        regex: RequiredArg<CustomType<RegexValue>> = Arg::method_self(),
+        regex: RequiredArg<RegexType> = Arg::method_self(),
         subject: RequiredArg<StringType> = Arg::positional("subject"),
         replacer: RequiredArg<ReplacerType> = Arg::positional("replacer")
     )

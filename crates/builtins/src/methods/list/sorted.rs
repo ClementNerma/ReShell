@@ -1,9 +1,6 @@
 use reshell_runtime::gc::GcCell;
 
-use crate::{
-    declare_typed_union_handler,
-    types::{DateTimeValue, DurationValue},
-};
+use crate::declare_typed_union_handler;
 
 crate::define_internal_fn!(
     //
@@ -21,8 +18,8 @@ crate::define_internal_fn!(
 declare_typed_union_handler!(pub ComparableListType => enum ComparableList {
     String(DetachedListType<StringType>),
     Int(DetachedListType<IntType>),
-    Duration(DetachedListType<CustomType<DurationValue>>),
-    DateTime(DetachedListType<CustomType<DateTimeValue>>)
+    Duration(DetachedListType<DurationType>),
+    DateTime(DetachedListType<DateTimeType>)
 });
 
 fn run() -> Runner {
@@ -40,20 +37,12 @@ fn run() -> Runner {
 
             ComparableList::Duration(mut durations) => {
                 durations.sort();
-
-                durations
-                    .into_iter()
-                    .map(|val| RuntimeValue::Custom(val))
-                    .collect()
+                durations.into_iter().map(RuntimeValue::Duration).collect()
             }
 
             ComparableList::DateTime(mut datetimes) => {
                 datetimes.sort();
-
-                datetimes
-                    .into_iter()
-                    .map(|val| RuntimeValue::Custom(val))
-                    .collect()
+                datetimes.into_iter().map(RuntimeValue::DateTime).collect()
             }
         };
 

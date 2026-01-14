@@ -98,6 +98,18 @@ pub fn check_if_single_type_fits_single(
         }
         (SingleValueType::StringLiteral(_), _) | (_, SingleValueType::StringLiteral(_)) => false,
 
+        (SingleValueType::DateTime, SingleValueType::DateTime) => true,
+        (SingleValueType::DateTime, _) | (_, SingleValueType::DateTime) => false,
+
+        (SingleValueType::Instant, SingleValueType::Instant) => true,
+        (SingleValueType::Instant, _) | (_, SingleValueType::Instant) => false,
+
+        (SingleValueType::Duration, SingleValueType::Duration) => true,
+        (SingleValueType::Duration, _) | (_, SingleValueType::Duration) => false,
+
+        (SingleValueType::Regex, SingleValueType::Regex) => true,
+        (SingleValueType::Regex, _) | (_, SingleValueType::Regex) => false,
+
         (SingleValueType::Range, SingleValueType::Range) => true,
         (SingleValueType::Range, _) | (_, SingleValueType::Range) => false,
 
@@ -109,9 +121,6 @@ pub fn check_if_single_type_fits_single(
 
         (SingleValueType::Error, SingleValueType::Error) => true,
         (SingleValueType::Error, _) | (_, SingleValueType::Error) => false,
-
-        (SingleValueType::Custom(a), SingleValueType::Custom(b)) => a == b,
-        (SingleValueType::Custom(_), _) | (_, SingleValueType::Custom(_)) => false,
 
         (SingleValueType::Function(signature), SingleValueType::Function(into)) => {
             check_if_fn_signature_fits_another(&signature.data, &into.data, ctx)

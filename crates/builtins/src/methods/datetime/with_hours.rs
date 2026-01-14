@@ -2,18 +2,17 @@ use std::sync::Arc;
 
 use jiff::civil::{DateTime, Time};
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-
-use crate::types::DateTimeValue;
+use reshell_runtime::pretty_impl::pretty_printable_date_time;
 
 crate::define_internal_fn!(
     "withHours",
 
     (
-        moment: RequiredArg<CustomType<DateTimeValue>> = Arg::method_self(),
+        moment: RequiredArg<DateTimeType> = Arg::method_self(),
         hours: RequiredArg<ExactIntType<i8>> = Arg::positional("hours")
     )
 
-    -> CustomType<DateTimeValue>
+    -> DateTimeType
 );
 
 fn run() -> Runner {
@@ -32,11 +31,11 @@ fn run() -> Runner {
                 args_at.hours,
                 format!(
                     "Failed to set hours to {hours} in {}: {err}",
-                    moment.display(&(), PrettyPrintOptions::inline())
+                    pretty_printable_date_time(&moment).display(&(), PrettyPrintOptions::inline())
                 ),
             )
         })?;
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(moment)))))
+        Ok(Some(RuntimeValue::DateTime(Arc::new(moment))))
     })
 }

@@ -1,19 +1,13 @@
-use std::{sync::Arc, time::Instant};
-
-use crate::types::InstantValue;
+use std::time::Instant;
 
 crate::define_internal_fn!(
     "instant",
 
     ()
 
-    -> CustomType<InstantValue>
+    -> InstantType
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args {}, _, _| {
-        let value = InstantValue(Instant::now());
-
-        Ok(Some(RuntimeValue::Custom(Arc::new(value))))
-    })
+    Runner::new(|_, Args {}, _, _| Ok(Some(RuntimeValue::Instant(Instant::now()))))
 }

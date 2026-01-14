@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    sync::{Arc, OnceLock},
-};
+use std::sync::{Arc, OnceLock};
 
 use indexmap::IndexMap;
 use parsy::Span;
@@ -23,7 +20,7 @@ use crate::{
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
-        LocatedValue, NotComparableTypesErr, RangeValue, RuntimeFnBody, RuntimeFnSignature,
+        LocatedValue, NotComparableTypeErr, RangeValue, RuntimeFnBody, RuntimeFnSignature,
         RuntimeFnValue, RuntimeValue, are_values_equal, value_to_str,
     },
 };
@@ -103,10 +100,6 @@ fn apply_double_op(
     op: Span<DoubleOp>,
     ctx: &mut Context,
 ) -> ExecResult<RuntimeValue> {
-    if let RuntimeValue::Custom(_) = &left_val {
-        return apply_double_op_on_custom_value(left_val, right_val, op, ctx);
-    }
-
     let result = match op.data {
         DoubleOp::Arithmetic(inner_op) => {
             let right = right_val(ctx)?;
@@ -284,71 +277,6 @@ fn apply_double_op(
     };
 
     Ok(result)
-}
-
-/// Apply an operator on a pair of values, the left one being a custom one
-fn apply_double_op_on_custom_value(
-    left_val: RuntimeValue,
-    right_val: impl FnOnce(&mut Context) -> ExecResult<RuntimeValue>,
-    op: Span<DoubleOp>,
-    ctx: &mut Context,
-) -> ExecResult<RuntimeValue> {
-    let RuntimeValue::Custom(left) = &left_val else {
-        unreachable!()
-    };
-
-    if let DoubleOp::NullFallback = op.data {
-        return Ok(left_val);
-    }
-
-    let right_val = right_val(ctx)?;
-
-    let RuntimeValue::Custom(right) = &right_val else {
-        return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
-    };
-
-    if left.typename() != right.typename() {
-        return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
-    }
-
-    let result = match op.data {
-        DoubleOp::Arithmetic(_) | DoubleOp::Logic(_) => {
-            return Err(not_applicable_on_pair_err(&left_val, op, &right_val, ctx));
-        }
-
-        DoubleOp::EqualityCmp(inner_op) => {
-            if !left.supports_eq() {
-                return Err(not_applicable_on_value_err(&left_val, op, ctx));
-            }
-
-            match inner_op {
-                EqualityCmpDoubleOp::Eq => left.eq(&**right),
-                EqualityCmpDoubleOp::Neq => !left.eq(&**right),
-            }
-        }
-
-        DoubleOp::OrderingCmp(inner_op) => {
-            if !left.supports_eq() {
-                return Err(not_applicable_on_value_err(&left_val, op, ctx));
-            }
-
-            // Just to be sure
-            assert!(left.supports_eq());
-
-            let ord = left.ord(&**right);
-
-            match inner_op {
-                OrderingCmpDoubleOp::Lt => matches!(ord, Ordering::Less),
-                OrderingCmpDoubleOp::Lte => matches!(ord, Ordering::Less | Ordering::Equal),
-                OrderingCmpDoubleOp::Gt => matches!(ord, Ordering::Greater),
-                OrderingCmpDoubleOp::Gte => matches!(ord, Ordering::Greater | Ordering::Equal),
-            }
-        }
-
-        DoubleOp::NullFallback => unreachable!(),
-    };
-
-    Ok(RuntimeValue::Bool(result))
 }
 
 /// Generate an error stating the provided operation is not applicable on a specific value type
@@ -538,7 +466,7 @@ fn eval_expr_inner_content(
                 let case_value = eval_expr(&matches.data, ctx)?;
 
                 let cmp = are_values_equal(&match_on, &case_value).map_err(
-                    |NotComparableTypesErr { reason }| {
+                    |NotComparableTypeErr { reason }| {
                         ctx.hard_error(
                             matches.at,
                             format!(

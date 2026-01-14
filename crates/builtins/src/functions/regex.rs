@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use regex::Regex;
 
-use crate::{define_internal_fn, types::RegexValue};
+use crate::define_internal_fn;
 
 define_internal_fn!(
     "regex",
@@ -11,7 +11,7 @@ define_internal_fn!(
         pattern: RequiredArg<StringType> = Arg::positional("pattern")
     )
 
-    -> CustomType<RegexValue>
+    -> RegexType
 );
 
 fn run() -> Runner {
@@ -19,8 +19,6 @@ fn run() -> Runner {
         let regex =
             Regex::new(&pattern).map_err(|err| ctx.throw(args_at.pattern, format!("{err}")))?;
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(RegexValue(Arc::new(
-            regex,
-        ))))))
+        Ok(Some(RuntimeValue::Regex(Arc::new(regex))))
     })
 }

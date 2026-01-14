@@ -369,34 +369,50 @@ pub enum CmdCaptureType {
 #[derive(Debug, Clone, Hash)]
 pub enum ValueType {
     Single(SingleValueType),
-    // TODO: BTreeSet
     Union(Vec<SingleValueType>),
 }
 
 #[derive(Debug, Clone, Hash)]
 pub enum SingleValueType {
+    // Primitives
     Any,
     Void,
     Null,
     Bool,
     Int,
     Float,
+    Range,
+
+    // String-based
     String,
     StringLiteral(String),
-    Range,
+
+    // Time-based
+    DateTime,
+    Instant,
+    Duration,
+
+    // Misc.
+    Regex,
     Error,
+
+    // Containers
     UntypedList,
     TypedList(Box<ValueType>),
     UntypedMap,
     TypedMap(Box<ValueType>),
     UntypedStruct,
     TypedStruct(Vec<StructTypeMember>),
+
+    // Functions
     Function(RuntimeSpan<FnSignature>),
-    TypeAlias(Span<String>),
+
+    // Command-related
     CmdCall,
     CmdArg,
-    // TODO: parsable?
-    Custom(&'static str),
+
+    // Type alias
+    TypeAlias(Span<String>),
 }
 
 #[derive(Debug, Clone, Hash)]

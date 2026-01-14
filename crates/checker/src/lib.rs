@@ -1682,14 +1682,18 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         | SingleValueType::Int
         | SingleValueType::Float
         | SingleValueType::String
+        | SingleValueType::StringLiteral(_)
+        | SingleValueType::DateTime
+        | SingleValueType::Instant
+        | SingleValueType::Duration
+        | SingleValueType::Regex
         | SingleValueType::Range
         | SingleValueType::Error
         | SingleValueType::CmdCall
         | SingleValueType::CmdArg
         | SingleValueType::UntypedList
         | SingleValueType::UntypedMap
-        | SingleValueType::UntypedStruct
-        | SingleValueType::StringLiteral(_) => Ok(()),
+        | SingleValueType::UntypedStruct => Ok(()),
 
         SingleValueType::TypedList(inner) | SingleValueType::TypedMap(inner) => {
             check_value_type(inner, state)
@@ -1724,8 +1728,6 @@ fn check_single_value_type(value_type: &SingleValueType, state: &mut State) -> C
         },
 
         SingleValueType::TypeAlias(name) => state.register_type_alias_usage(name),
-
-        SingleValueType::Custom(_) => unreachable!(),
     }
 }
 

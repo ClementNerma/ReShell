@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use jiff::{Timestamp, Zoned, tz::TimeZone};
 
-use crate::{define_internal_fn, types::DateTimeValue};
+use crate::define_internal_fn;
 
 define_internal_fn!(
     "datetime",
@@ -11,7 +11,7 @@ define_internal_fn!(
         secs_since_epoch: OptionalArg<ExactIntType<i64>> = Arg::positional("from-secs-since-unix-epoch")
     )
 
-    -> CustomType<DateTimeValue>
+    -> DateTimeType
 );
 
 fn run() -> Runner {
@@ -31,6 +31,6 @@ fn run() -> Runner {
             }
         };
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(moment)))))
+        Ok(Some(RuntimeValue::DateTime(Arc::new(moment))))
     })
 }

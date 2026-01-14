@@ -1,12 +1,10 @@
 use jiff::{Zoned, fmt::rfc2822};
 
-use crate::types::DateTimeValue;
-
 crate::define_internal_fn!(
     "toString",
 
     (
-        moment: RequiredArg<CustomType<DateTimeValue>> = Arg::method_self(),
+        moment: RequiredArg<DateTimeType> = Arg::method_self(),
         format: OptionalArg<StringType> = Arg::positional("format")
     )
 

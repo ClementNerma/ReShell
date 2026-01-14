@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use jiff::fmt::rfc2822;
 
-use crate::{define_internal_fn, types::DateTimeValue};
+use crate::define_internal_fn;
 
 define_internal_fn!(
     // return the provided datetime with midnight time
@@ -10,10 +10,10 @@ define_internal_fn!(
     "midnight",
 
     (
-        datetime: RequiredArg<CustomType<DateTimeValue>> = Arg::method_self()
+        datetime: RequiredArg<DateTimeType> = Arg::method_self()
     )
 
-    -> CustomType<DateTimeValue>
+    -> DateTimeType
 );
 
 fn run() -> Runner {
@@ -32,8 +32,6 @@ fn run() -> Runner {
                 )
             })?;
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(
-            datetime_at_midnight,
-        )))))
+        Ok(Some(RuntimeValue::DateTime(Arc::new(datetime_at_midnight))))
     })
 }

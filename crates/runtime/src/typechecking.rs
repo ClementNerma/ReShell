@@ -26,6 +26,10 @@ pub fn check_if_value_fits_single_type(
         SingleValueType::Int => matches!(value, RuntimeValue::Int(_)),
         SingleValueType::Float => matches!(value, RuntimeValue::Float(_)),
         SingleValueType::String => matches!(value, RuntimeValue::String(_)),
+        SingleValueType::DateTime => matches!(value, RuntimeValue::DateTime(_)),
+        SingleValueType::Instant => matches!(value, RuntimeValue::Instant(_)),
+        SingleValueType::Duration => matches!(value, RuntimeValue::Duration(_)),
+        SingleValueType::Regex => matches!(value, RuntimeValue::Regex(_)),
         SingleValueType::Range => matches!(value, RuntimeValue::Range(_)),
         SingleValueType::Error => matches!(value, RuntimeValue::Error(_)),
         SingleValueType::CmdCall => matches!(value, RuntimeValue::CmdCall { content_at: _ }),
@@ -90,10 +94,6 @@ pub fn check_if_value_fits_single_type(
 
         SingleValueType::TypeAlias(type_alias) => {
             check_if_value_fits_type(value, &ctx.get_type_alias(type_alias).data, ctx)
-        }
-
-        SingleValueType::Custom(typename) => {
-            matches!(value, RuntimeValue::Custom(value) if value.typename() == *typename)
         }
     }
 }

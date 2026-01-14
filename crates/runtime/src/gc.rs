@@ -31,6 +31,8 @@ impl<T> GcCell<T> {
         )
     }
 
+    // TODO: does this actually work now that parallel() exists?
+    /// Read the underlying content, with the affirmation that no write may happen on this resource during its read
     pub fn read_promise_no_write(&'_ self) -> RwLockReadGuard<'_, T> {
         self.value.read().unwrap()
     }

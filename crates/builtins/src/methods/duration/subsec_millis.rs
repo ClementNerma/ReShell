@@ -1,10 +1,8 @@
-use crate::types::DurationValue;
-
 crate::define_internal_fn!(
     "subsecMillis",
 
     (
-        duration: RequiredArg<CustomType<DurationValue>> = Arg::method_self()
+        duration: RequiredArg<DurationType> = Arg::method_self()
     )
 
     -> ExactIntType<u64>

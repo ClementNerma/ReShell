@@ -1,10 +1,8 @@
-use crate::types::RegexValue;
-
 crate::define_internal_fn!(
     "matches",
 
     (
-        regex: RequiredArg<CustomType<RegexValue>> = Arg::method_self(),
+        regex: RequiredArg<RegexType> = Arg::method_self(),
         subject: RequiredArg<StringType> = Arg::positional("subject")
     )
 

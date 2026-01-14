@@ -2,8 +2,6 @@ use std::{path::Path, sync::Arc};
 
 use jiff::{Timestamp, Zoned, tz::TimeZone};
 
-use crate::types::DateTimeValue;
-
 crate::define_internal_fn!(
     "ctime",
 
@@ -11,7 +9,7 @@ crate::define_internal_fn!(
         path: RequiredArg<StringType> = Arg::positional("path")
     )
 
-    -> CustomType<DateTimeValue>
+    -> DateTimeType
 );
 
 fn run() -> Runner {
@@ -38,6 +36,6 @@ fn run() -> Runner {
 
         let mtime = Zoned::new(mtime, TimeZone::system());
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(mtime)))))
+        Ok(Some(RuntimeValue::DateTime(Arc::new(mtime))))
     })
 }

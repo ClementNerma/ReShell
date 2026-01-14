@@ -1,10 +1,8 @@
-use crate::types::DateTimeValue;
-
 crate::define_internal_fn!(
     "month",
 
     (
-        moment: RequiredArg<CustomType<DateTimeValue>> = Arg::method_self()
+        moment: RequiredArg<DateTimeType> = Arg::method_self()
     )
 
     -> IntType

@@ -1,15 +1,15 @@
 use std::{
-    any::Any,
-    cmp::Ordering,
     collections::{HashMap, HashSet},
     fmt::Debug,
     hash::{DefaultHasher, Hash, Hasher},
     sync::{Arc, OnceLock},
+    time::{Duration, Instant},
 };
 
-use dyn_clone::DynClone;
 use indexmap::{IndexMap, IndexSet};
+use jiff::Zoned;
 use parsy::{CodeRange, Span};
+use regex::Regex;
 use reshell_parser::ast::{
     AstScopeId, Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
     SingleValueType, StructTypeMember, ValueType,
@@ -144,11 +144,13 @@ pub enum RuntimeValue {
     Int(i64),
     Float(f64),
     String(String),
+    DateTime(Arc<Zoned>),
+    Instant(Instant),
+    Duration(Duration),
+    Regex(Arc<Regex>),
     Range(RangeValue),
     Error(Box<ErrorValueContent>),
-    CmdCall {
-        content_at: CodeRange,
-    },
+    CmdCall { content_at: CodeRange },
     CmdArg(Box<CmdArgValue>),
 
     // Containers
@@ -157,11 +159,6 @@ pub enum RuntimeValue {
     Map(GcCell<IndexMap<String, RuntimeValue>>),
     Struct(GcCell<IndexMap<String, RuntimeValue>>),
     Function(Arc<RuntimeFnValue>),
-
-    /// Custom value type
-    ///
-    /// Wrapped inside an [`Arc`] to get dynamic dispatch and avoid needless cloning
-    Custom(Arc<dyn CustomValueType>),
 }
 
 impl RuntimeValue {
@@ -174,16 +171,22 @@ impl RuntimeValue {
             RuntimeValue::Int(_) => SingleValueType::Int,
             RuntimeValue::Float(_) => SingleValueType::Float,
             RuntimeValue::String(_) => SingleValueType::String,
+            RuntimeValue::DateTime(_) => SingleValueType::DateTime,
+            RuntimeValue::Instant(_) => SingleValueType::Instant,
+            RuntimeValue::Duration(_) => SingleValueType::Duration,
+            RuntimeValue::Regex(_) => SingleValueType::Regex,
             RuntimeValue::Range(_) => SingleValueType::Range,
             RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
             RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
             RuntimeValue::Error(_) => SingleValueType::Error,
+
             RuntimeValue::List(items) => {
                 match generate_values_types(items.read_promise_no_write().iter()) {
                     Some(typ) => SingleValueType::TypedList(Box::new(typ)),
                     None => SingleValueType::UntypedList,
                 }
             }
+
             RuntimeValue::Map(entries) => {
                 match generate_values_types(
                     entries
@@ -195,6 +198,7 @@ impl RuntimeValue {
                     None => SingleValueType::UntypedMap,
                 }
             }
+
             RuntimeValue::Struct(members) => SingleValueType::TypedStruct(
                 members
                     .read_promise_no_write()
@@ -206,6 +210,7 @@ impl RuntimeValue {
                     })
                     .collect(),
             ),
+
             RuntimeValue::Function(content) => {
                 // TODO: performance (use already collected data from checker?)
                 SingleValueType::Function(match &content.signature {
@@ -215,7 +220,6 @@ impl RuntimeValue {
                     }
                 })
             }
-            RuntimeValue::Custom(custom) => SingleValueType::Custom(custom.typename()),
         }
     }
 
@@ -228,12 +232,15 @@ impl RuntimeValue {
             | RuntimeValue::Int(_)
             | RuntimeValue::Float(_)
             | RuntimeValue::String(_)
+            | RuntimeValue::DateTime(_)
+            | RuntimeValue::Instant(_)
+            | RuntimeValue::Duration(_)
+            | RuntimeValue::Regex(_)
             | RuntimeValue::Range(_)
             | RuntimeValue::Error(_)
             | RuntimeValue::CmdCall { content_at: _ }
             | RuntimeValue::CmdArg(_)
-            | RuntimeValue::Function(_)
-            | RuntimeValue::Custom(_) => false,
+            | RuntimeValue::Function(_) => false,
 
             RuntimeValue::List(_) | RuntimeValue::Map(_) | RuntimeValue::Struct(_) => true,
         }
@@ -262,23 +269,6 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
         1 => Some(ValueType::Single(types.remove(0))),
         _ => Some(ValueType::Union(types)),
     }
-}
-
-/// Custom value type (used for e.g. custom builtin types)
-pub trait CustomValueType:
-    Any + Debug + PrettyPrintable<Context = ()> + DynClone + Send + Sync
-{
-    fn typename(&self) -> &'static str;
-
-    fn typename_static() -> &'static str
-    where
-        Self: Sized;
-
-    fn supports_eq(&self) -> bool;
-    fn eq(&self, right: &dyn CustomValueType) -> bool;
-
-    fn supports_ord(&self) -> bool;
-    fn ord(&self, right: &dyn CustomValueType) -> Ordering;
 }
 
 /// Content of an error value
@@ -314,7 +304,7 @@ impl LocatedValue {
 pub fn are_values_equal(
     left: &RuntimeValue,
     right: &RuntimeValue,
-) -> Result<bool, NotComparableTypesErr> {
+) -> Result<bool, NotComparableTypeErr> {
     match (left, right) {
         (_, RuntimeValue::Void) | (RuntimeValue::Void, _) => Ok(false),
 
@@ -332,6 +322,20 @@ pub fn are_values_equal(
 
         (RuntimeValue::String(a), RuntimeValue::String(b)) => Ok(a == b),
         (RuntimeValue::String(_), _) | (_, RuntimeValue::String(_)) => Ok(false),
+
+        (RuntimeValue::DateTime(a), RuntimeValue::DateTime(b)) => Ok(a == b),
+        (RuntimeValue::DateTime(_), _) | (_, RuntimeValue::DateTime(_)) => Ok(false),
+
+        (RuntimeValue::Instant(a), RuntimeValue::Instant(b)) => Ok(a == b),
+        (RuntimeValue::Instant(_), _) | (_, RuntimeValue::Instant(_)) => Ok(false),
+
+        (RuntimeValue::Duration(a), RuntimeValue::Duration(b)) => Ok(a == b),
+        (RuntimeValue::Duration(_), _) | (_, RuntimeValue::Duration(_)) => Ok(false),
+
+        (RuntimeValue::Regex(_), RuntimeValue::Regex(_)) => Err(NotComparableTypeErr {
+            reason: "cannot compare regular expressions",
+        }),
+        (RuntimeValue::Regex(_), _) | (_, RuntimeValue::Regex(_)) => Ok(false),
 
         (RuntimeValue::Range(a), RuntimeValue::Range(b)) => Ok(a == b),
         (RuntimeValue::Range(_), _) | (_, RuntimeValue::Range(_)) => Ok(false),
@@ -372,13 +376,13 @@ pub fn are_values_equal(
         }
         (RuntimeValue::Struct(_), _) | (_, RuntimeValue::Struct(_)) => Ok(false),
 
-        (RuntimeValue::Error(_), RuntimeValue::Error(_)) => Err(NotComparableTypesErr {
+        (RuntimeValue::Error(_), RuntimeValue::Error(_)) => Err(NotComparableTypeErr {
             reason: "cannot compare errors",
         }),
         (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Ok(false),
 
         (RuntimeValue::CmdCall { content_at: _ }, RuntimeValue::CmdCall { content_at: _ }) => {
-            Err(NotComparableTypesErr {
+            Err(NotComparableTypeErr {
                 reason: "cannot compare command calls",
             })
         }
@@ -389,25 +393,22 @@ pub fn are_values_equal(
             Ok(false)
         }
 
-        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypesErr {
+        (RuntimeValue::CmdArg(_), RuntimeValue::CmdArg(_)) => Err(NotComparableTypeErr {
             reason: "cannot compare command arguments",
         }),
         (RuntimeValue::CmdArg(_), _) | (_, RuntimeValue::CmdArg(_)) => Ok(false),
 
-        (RuntimeValue::Function(_), RuntimeValue::Function(_)) => Err(NotComparableTypesErr {
+        (RuntimeValue::Function(_), RuntimeValue::Function(_)) => Err(NotComparableTypeErr {
             reason: "cannot compare functions",
         }),
-        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Ok(false),
 
-        (RuntimeValue::Custom(_), RuntimeValue::Custom(_)) => Err(NotComparableTypesErr {
-            reason: "cannot compare custom types",
-        }),
-        // (RuntimeValue::Custom(_), _) | (_, RuntimeValue::Custom(_)) => Ok(false),
+        #[allow(unreachable_patterns)]
+        (RuntimeValue::Function(_), _) | (_, RuntimeValue::Function(_)) => Ok(false),
     }
 }
 
 /// Error returned when two values are not comparable
-pub struct NotComparableTypesErr {
+pub struct NotComparableTypeErr {
     pub reason: &'static str,
 }
 
@@ -428,6 +429,10 @@ pub fn value_to_str(
         RuntimeValue::String(str) => Ok(str.clone()),
         RuntimeValue::Void
         | RuntimeValue::Null
+        | RuntimeValue::DateTime(_)
+        | RuntimeValue::Instant(_)
+        | RuntimeValue::Duration(_)
+        | RuntimeValue::Regex(_)
         | RuntimeValue::Range(_)
         | RuntimeValue::List(_)
         | RuntimeValue::Map(_)
@@ -435,18 +440,15 @@ pub fn value_to_str(
         | RuntimeValue::Function(_)
         | RuntimeValue::Error(_)
         | RuntimeValue::CmdCall { content_at: _ }
-        | RuntimeValue::CmdArg(_)
-        | RuntimeValue::Custom(_) // TODO?
-        => Err(ctx
-            .hard_error_with_infos(
-                at,
-                format!(
-                    "could not convert a value of type {} to a string",
-                    value
-                        .compute_type()
-                        .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
-                ),
-                [(ExecInfoType::Note, type_error_tip)]
-            )),
+        | RuntimeValue::CmdArg(_) => Err(ctx.hard_error_with_infos(
+            at,
+            format!(
+                "could not convert a value of type {} to a string",
+                value
+                    .compute_type()
+                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+            ),
+            [(ExecInfoType::Note, type_error_tip)],
+        )),
     }
 }

@@ -2,7 +2,10 @@
 //! This module implements pretty-printing for several types.
 //!
 
+use std::time::Duration;
+
 use colored::{Color, Colorize};
+use jiff::Zoned;
 use reshell_parser::ast::FlagValueSeparator;
 use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, Styled, pretty_printable_string};
 
@@ -39,6 +42,30 @@ impl PrettyPrintable for RuntimeValue {
             }
 
             RuntimeValue::String(string) => pretty_printable_string(string),
+
+            RuntimeValue::DateTime(datetime) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic("datetime(", Color::Magenta),
+                pretty_printable_date_time(datetime),
+                PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+            ]),
+
+            RuntimeValue::Instant(_) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic("instant(", Color::Magenta),
+                PrettyPrintablePiece::colored_atomic("<internal>", Color::BrightBlack),
+                PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+            ]),
+
+            RuntimeValue::Duration(duration) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic("duration(", Color::Magenta),
+                pretty_printable_duration(*duration),
+                PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+            ]),
+
+            RuntimeValue::Regex(regex) => PrettyPrintablePiece::Join(vec![
+                PrettyPrintablePiece::colored_atomic("regex(", Color::Magenta),
+                pretty_printable_string(regex.as_str()),
+                PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+            ]),
 
             RuntimeValue::Range(RangeValue {
                 from,
@@ -130,8 +157,6 @@ impl PrettyPrintable for RuntimeValue {
             },
 
             RuntimeValue::Function(func) => func.generate_pretty_data(ctx),
-
-            RuntimeValue::Custom(value) => value.generate_pretty_data(&()),
         }
     }
 }
@@ -222,4 +247,37 @@ impl PrettyPrintable for SingleCmdArgResult {
             Self::Flag(flag) => flag.generate_pretty_data(ctx),
         }
     }
+}
+
+pub fn pretty_printable_date_time(zoned: &Zoned) -> PrettyPrintablePiece {
+    pretty_printable_string(&jiff::fmt::rfc2822::to_string(zoned).unwrap())
+}
+
+pub fn pretty_printable_duration(dur: Duration) -> PrettyPrintablePiece {
+    const SECS_PER_DAY: u64 = 86_400;
+    const SECS_PER_HOUR: u64 = 3_600;
+    const SECS_PER_MIN: u64 = 60;
+
+    let total_secs = dur.as_secs();
+
+    let days = total_secs / SECS_PER_DAY;
+    let hours = (total_secs % SECS_PER_DAY) / SECS_PER_HOUR;
+    let minutes = (total_secs % SECS_PER_HOUR) / SECS_PER_MIN;
+    let seconds = total_secs % SECS_PER_MIN;
+
+    let millis = dur.subsec_millis();
+
+    let str = if days > 0 {
+        format!("{days}d {hours}h {minutes}m {seconds}s {millis}ms")
+    } else if hours > 0 {
+        format!("{hours}h {minutes}m {seconds}s {millis}ms")
+    } else if minutes > 0 {
+        format!("{minutes}m {seconds}s {millis}ms")
+    } else if seconds > 0 {
+        format!("{seconds}s {millis}ms")
+    } else {
+        format!("{millis}ms")
+    };
+
+    PrettyPrintablePiece::colored_atomic(str, Color::Blue)
 }

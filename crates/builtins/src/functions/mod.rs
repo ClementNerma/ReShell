@@ -44,7 +44,6 @@ functions_set! {
         mod parent_dir;
         mod path_exists;
         mod pomsky;
-        mod progress_bar;
         mod rand_int;
         mod read_dir;
         mod read_file;

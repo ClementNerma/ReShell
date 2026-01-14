@@ -1,12 +1,12 @@
 use crate::{
     declare_typed_union_handler,
-    helpers::types::{CustomType, IntType, StringType},
-    types::{DateTimeValue, DurationValue},
+    helpers::types::{IntType, StringType},
+    type_helpers::{DateTimeType, DurationType},
 };
 
 declare_typed_union_handler!(pub ComparableValueType => enum ComparableType {
     String(StringType),
     Int(IntType),
-    Duration(CustomType<DurationValue>),
-    DateTime(CustomType<DateTimeValue>)
+    Duration(DurationType),
+    DateTime(DateTimeType)
 });

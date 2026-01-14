@@ -5,7 +5,7 @@ use pomsky::{Expr, diagnose::Severity, options::CompileOptions};
 use regex::Regex;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
-use crate::{define_internal_fn, types::RegexValue};
+use crate::define_internal_fn;
 
 define_internal_fn!(
     "pomsky",
@@ -14,7 +14,7 @@ define_internal_fn!(
         pattern: RequiredArg<StringType> = Arg::positional("pattern")
     )
 
-    -> CustomType<RegexValue>
+    -> RegexType
 );
 
 fn run() -> Runner {
@@ -42,8 +42,6 @@ fn run() -> Runner {
             }
         };
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(RegexValue(Arc::new(
-            regex,
-        ))))))
+        Ok(Some(RuntimeValue::Regex(Arc::new(regex))))
     })
 }

@@ -23,7 +23,7 @@ use crate::{
     props::{PropAccessMode, TailPropAccessPolicy, TailPropWritingPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
     values::{
-        LocatedValue, NotComparableTypesErr, RangeValue, RuntimeCmdAlias, RuntimeFnBody,
+        LocatedValue, NotComparableTypeErr, RangeValue, RuntimeCmdAlias, RuntimeFnBody,
         RuntimeFnSignature, RuntimeFnValue, RuntimeValue, are_values_equal,
     },
 };
@@ -583,7 +583,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 let case_value = eval_expr(&matches.data, ctx)?;
 
                 let cmp = are_values_equal(&match_on, &case_value).map_err(
-                    |NotComparableTypesErr { reason }| {
+                    |NotComparableTypeErr { reason }| {
                         ctx.hard_error(
                             matches.at,
                             format!(

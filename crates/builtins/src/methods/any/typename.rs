@@ -21,6 +21,10 @@ fn run() -> Runner {
             RuntimeValue::Int(_) => "int",
             RuntimeValue::Float(_) => "float",
             RuntimeValue::String(_) => "string",
+            RuntimeValue::DateTime(_) => "datetime",
+            RuntimeValue::Instant(_) => "instant",
+            RuntimeValue::Duration(_) => "duration",
+            RuntimeValue::Regex(_) => "regex",
             RuntimeValue::Range(_) => "range",
             RuntimeValue::Error(_) => "error",
             RuntimeValue::CmdCall { content_at: _ } => "cmdcall",
@@ -29,7 +33,6 @@ fn run() -> Runner {
             RuntimeValue::Map(_) => "map",
             RuntimeValue::Struct(_) => "struct",
             RuntimeValue::Function(_) => "fn",
-            RuntimeValue::Custom(name) => name.typename(),
         };
 
         Ok(Some(RuntimeValue::String(typename.to_owned())))

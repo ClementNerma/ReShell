@@ -1,13 +1,13 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
+use jiff::Zoned;
 use reshell_parser::ast::SingleValueType;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::{errors::ExecError, gc::GcCell, values::CustomValueType};
+use reshell_runtime::{errors::ExecError, gc::GcCell};
 
 use crate::{
     declare_typed_fn_handler,
     helpers::shared::{ComparableType, ComparableValueType},
-    types::{DateTimeValue, DurationValue},
     utils::{call_fn_checked, expect_returned_value},
 };
 
@@ -48,8 +48,8 @@ fn run() -> Runner {
         enum SortingKeys {
             Strings(Vec<(usize, String)>),
             Integers(Vec<(usize, i64)>),
-            Durations(Vec<(usize, DurationValue)>),
-            DateTimes(Vec<(usize, Arc<DateTimeValue>)>),
+            Durations(Vec<(usize, Duration)>),
+            DateTimes(Vec<(usize, Arc<Zoned>)>),
         }
 
         let mut get_item_key = |item: RuntimeValue| {
@@ -60,7 +60,7 @@ fn run() -> Runner {
         let mut keys = match get_item_key(first.clone())? {
             ComparableType::String(first) => SortingKeys::Strings(vec![(0, first)]),
             ComparableType::Int(first) => SortingKeys::Integers(vec![(0, first)]),
-            ComparableType::Duration(first) => SortingKeys::Durations(vec![(0, *first)]),
+            ComparableType::Duration(first) => SortingKeys::Durations(vec![(0, first)]),
             ComparableType::DateTime(first) => SortingKeys::DateTimes(vec![(0, first)]),
         };
 
@@ -73,12 +73,8 @@ fn run() -> Runner {
             let first_item_type = match &keys {
                 SortingKeys::Strings(_) => SingleValueType::String,
                 SortingKeys::Integers(_) => SingleValueType::Int,
-                SortingKeys::Durations(_) => {
-                    SingleValueType::Custom(DurationValue::typename_static())
-                }
-                SortingKeys::DateTimes(_) => {
-                    SingleValueType::Custom(DateTimeValue::typename_static())
-                }
+                SortingKeys::DateTimes(_) => SingleValueType::DateTime,
+                SortingKeys::Durations(_) => SingleValueType::Duration,
             };
 
             ctx.hard_error(
@@ -111,7 +107,7 @@ fn run() -> Runner {
 
                 SortingKeys::Durations(vec) => match key {
                     ComparableType::Duration(value) => {
-                        vec.push((i, *value));
+                        vec.push((i, value));
                     }
                     _ => return Err(gen_err(&keys, (i, key), args_at.keyer, ctx)),
                 },

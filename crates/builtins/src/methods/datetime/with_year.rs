@@ -2,18 +2,17 @@ use std::sync::Arc;
 
 use jiff::civil::Date;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-
-use crate::types::DateTimeValue;
+use reshell_runtime::pretty_impl::pretty_printable_date_time;
 
 crate::define_internal_fn!(
     "withYear",
 
     (
-        moment: RequiredArg<CustomType<DateTimeValue>> = Arg::method_self(),
+        moment: RequiredArg<DateTimeType> = Arg::method_self(),
         year: RequiredArg<ExactIntType<i16>> = Arg::positional("year")
     )
 
-    -> CustomType<DateTimeValue>
+    -> DateTimeType
 );
 
 fn run() -> Runner {
@@ -28,11 +27,12 @@ fn run() -> Runner {
                     args_at.year,
                     format!(
                         "Failed to set year to {year} in {}: {err}",
-                        moment.display(&(), PrettyPrintOptions::inline())
+                        pretty_printable_date_time(&moment)
+                            .display(&(), PrettyPrintOptions::inline())
                     ),
                 )
             })?;
 
-        Ok(Some(RuntimeValue::Custom(Arc::new(DateTimeValue(moment)))))
+        Ok(Some(RuntimeValue::DateTime(Arc::new(moment))))
     })
 }

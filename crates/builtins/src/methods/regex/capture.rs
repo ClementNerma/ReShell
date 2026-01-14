@@ -1,12 +1,10 @@
 use reshell_runtime::gc::GcCell;
 
-use crate::types::RegexValue;
-
 crate::define_internal_fn!(
     "capture",
 
     (
-        regex: RequiredArg<CustomType<RegexValue>> = Arg::method_self(),
+        regex: RequiredArg<RegexType> = Arg::method_self(),
         subject: RequiredArg<StringType> = Arg::positional("subject")
     )
 

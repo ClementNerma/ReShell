@@ -12,7 +12,6 @@ functions_set! {
         mod month;
         mod year;
         mod with_day;
-        mod with_added_duration;
         mod with_hours;
         mod with_minutes;
         mod with_month;

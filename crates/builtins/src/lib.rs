@@ -11,7 +11,6 @@ mod builder;
 mod functions;
 mod helpers;
 mod methods;
-mod types;
 mod utils;
 mod vars;
 
@@ -22,6 +21,5 @@ pub use self::{
         fns::InternalFunction,
         types as type_helpers,
     },
-    types::*,
     vars::repl,
 };

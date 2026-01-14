@@ -9,7 +9,6 @@ mod duration;
 mod instant;
 mod list;
 mod map;
-mod progress_bar;
 mod range;
 mod regex;
 mod string;
@@ -31,7 +30,6 @@ pub fn native_methods() -> Vec<InternalFunction> {
     out.extend(self::instant::instant_methods());
     out.extend(self::list::list_methods());
     out.extend(self::map::map_methods());
-    out.extend(self::progress_bar::progress_bar_methods());
     out.extend(self::range::range_methods());
     out.extend(self::regex::regex_methods());
     out.extend(self::string::string_methods());

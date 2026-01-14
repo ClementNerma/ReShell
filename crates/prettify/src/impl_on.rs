@@ -53,23 +53,31 @@ impl PrettyPrintable for SingleValueType {
             Self::Float => PrettyPrintablePiece::colored_atomic("float", Color::Magenta),
             Self::String => PrettyPrintablePiece::colored_atomic("string", Color::Magenta),
             Self::Range => PrettyPrintablePiece::colored_atomic("range", Color::Magenta),
+            Self::DateTime => PrettyPrintablePiece::colored_atomic("datetime", Color::Magenta),
+            Self::Duration => PrettyPrintablePiece::colored_atomic("duration", Color::Magenta),
+            Self::Instant => PrettyPrintablePiece::colored_atomic("instant", Color::Magenta),
+            Self::Regex => PrettyPrintablePiece::colored_atomic("regex", Color::Magenta),
             Self::Error => PrettyPrintablePiece::colored_atomic("error", Color::Magenta),
             Self::CmdCall => PrettyPrintablePiece::colored_atomic("cmdcall", Color::Magenta),
             Self::CmdArg => PrettyPrintablePiece::colored_atomic("cmdarg", Color::Magenta),
             Self::UntypedList => PrettyPrintablePiece::colored_atomic("list", Color::Magenta),
+            Self::UntypedMap => PrettyPrintablePiece::colored_atomic("map", Color::Magenta),
+            Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
+
             Self::StringLiteral(inner) => pretty_printable_string(inner),
+
             Self::TypedList(inner) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("list[", Color::Magenta),
                 inner.generate_pretty_data(ctx),
                 PrettyPrintablePiece::colored_atomic("]", Color::Magenta),
             ]),
-            Self::UntypedMap => PrettyPrintablePiece::colored_atomic("map", Color::Magenta),
+
             Self::TypedMap(inner) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("map[", Color::Magenta),
                 inner.generate_pretty_data(ctx),
                 PrettyPrintablePiece::colored_atomic("]", Color::Magenta),
             ]),
-            Self::UntypedStruct => PrettyPrintablePiece::colored_atomic("struct", Color::Magenta),
+
             Self::TypedStruct(members) => PrettyPrintablePiece::List {
                 begin: vec![Styled::colored("{ ", Color::Magenta)],
                 items: members
@@ -97,13 +105,14 @@ impl PrettyPrintable for SingleValueType {
                 end: vec![Styled::colored(" }", Color::Magenta)],
                 suffix: None,
             },
+
             Self::Function(signature) => signature.data.generate_pretty_data(ctx),
+
             Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Yellow),
                 PrettyPrintablePiece::colored_atomic(" = ", Color::BrightMagenta),
                 ctx.get(name).unwrap().data.generate_pretty_data(ctx),
             ]),
-            Self::Custom(value) => PrettyPrintablePiece::colored_atomic(*value, Color::Magenta),
         }
     }
 }
