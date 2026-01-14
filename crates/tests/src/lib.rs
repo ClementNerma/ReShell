@@ -14,7 +14,7 @@ use reshell_runtime::{
     bin_resolver::BinariesResolver,
     conf::RuntimeConf,
     context::{Context, ContextCreationParams},
-    errors::{ExecError, ExecResult, ExecTopPropagation},
+    errors::{ExecActualErrorNature, ExecError, ExecResult, ExecTopPropagation},
     exec::run_program,
     values::LocatedValue,
 };
@@ -25,9 +25,10 @@ mod basics;
 #[cfg(test)]
 mod std;
 
+#[allow(clippy::type_complexity, clippy::result_large_err)]
 pub fn run(
     source: impl Into<String>,
-) -> Result<(Option<LocatedValue>, Context), (ExecError, Span<Program>)> {
+) -> Result<(Option<LocatedValue>, Context), (ExecError, Span<Program>, Context)> {
     let source = source.into();
 
     let files_map = FilesMap::new(Box::new(|_, _, _| unreachable!()));
@@ -64,20 +65,21 @@ pub fn run(
         }),
     );
 
-    run_program(&program, &mut ctx)
-        .map(|ret| (ret, ctx))
-        .map_err(|err| (err, program))
+    match run_program(&program, &mut ctx) {
+        Ok(ret) => Ok((ret, ctx)),
+        Err(err) => Err((err, program, ctx)),
+    }
 }
 
 pub fn run_expect_success(source: &str) -> (Option<LocatedValue>, Context) {
     match run(source) {
         Ok((value, ctx)) => (value, ctx),
 
-        Err((err, program)) => match err {
+        Err((err, program, ctx)) => match err {
             ExecError::ActualError(err) => {
                 reshell_reports::print_error(
                     &ReportableError::Runtime(err, Some(program)),
-                    &FilesMap::new(Box::new(|_, _, _| unreachable!())),
+                    ctx.files_map(),
                 );
 
                 panic!("Program failed")
@@ -108,7 +110,7 @@ pub fn run_expect_typed_value<T: TypedValueParser>(source: &str) -> T::Parsed {
 
     T::parse(value.value.clone()).unwrap_or_else(|err| {
         panic!(
-            "Program did not return the expected value type: {err}\n\n=> expected: {}\n=>got: {}",
+            "Program did not return the expected value type: {err}\n\n=> expected : {}\n=> got      : {}",
             T::value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
             value
                 .value
@@ -118,20 +120,76 @@ pub fn run_expect_typed_value<T: TypedValueParser>(source: &str) -> T::Parsed {
     })
 }
 
-pub fn run_expect_specific_value<T: TypedValueParser>(source: &str, value: T::Parsed)
-where
-    T::Parsed: Eq + Debug,
+pub fn run_expect_specific_value<T: TypedValueParser>(
+    source: &str,
+    expect: impl PartialEq<T::Parsed> + Debug,
+) where
+    T::Parsed: Debug,
 {
-    assert_eq!(run_expect_typed_value::<T>(source), value)
+    let got = run_expect_typed_value::<T>(source);
+
+    if expect != got {
+        panic!(
+            "Program returned incorrect value.\n\n=> expected : {expect:?}\n=> got      : {got:?}"
+        );
+    }
 }
 
-pub fn run_expect_error(source: &str) {
+pub fn run_expect_throw(source: &str) {
+    match run(source) {
+        Ok(_) => panic!("Program terminated successfully, but expected it to throw."),
+
+        Err((err, program, ctx)) => match err {
+            ExecError::ActualError(err) => match &err.nature {
+                ExecActualErrorNature::Thrown { at: _, message: _ } => {
+                    // OK
+                }
+
+                _ => {
+                    reshell_reports::print_error(
+                        &ReportableError::Runtime(err, Some(program)),
+                        ctx.files_map(),
+                    );
+
+                    panic!("Program failed without throwing, but expected it to throw.");
+                }
+            },
+
+            ExecError::InternalPropagation(_) => unreachable!(),
+
+            ExecError::TopPropagation(_) => {
+                panic!("Program exited successfully, but expected it to throw.");
+            }
+        },
+    }
+}
+
+pub fn run_expect_non_throw_error(source: &str) {
     match run(source) {
         Ok(_) => panic!("Program terminated successfully, but expected it to fail."),
 
-        Err(_) => {
-            // OK
-        }
+        Err((err, program, ctx)) => match err {
+            ExecError::ActualError(err) => match &err.nature {
+                ExecActualErrorNature::Thrown { at: _, message: _ } => {
+                    reshell_reports::print_error(
+                        &ReportableError::Runtime(err, Some(program)),
+                        ctx.files_map(),
+                    );
+
+                    panic!("Program thrown, but expected to fail.");
+                }
+
+                _ => {
+                    // OK
+                }
+            },
+
+            ExecError::InternalPropagation(_) => unreachable!(),
+
+            ExecError::TopPropagation(_) => {
+                panic!("Program exited successfully, but expected it to fail.");
+            }
+        },
     }
 }
 
@@ -139,11 +197,11 @@ pub fn run_expect_exit(source: &str) {
     match run(source) {
         Ok(_) => panic!("Program terminated successfully, but expected it to exit manually."),
 
-        Err((err, program)) => match err {
+        Err((err, program, ctx)) => match err {
             ExecError::ActualError(err) => {
                 reshell_reports::print_error(
                     &ReportableError::Runtime(err, Some(program)),
-                    &FilesMap::new(Box::new(|_, _, _| unreachable!())),
+                    ctx.files_map(),
                 );
 
                 panic!("Program failed")

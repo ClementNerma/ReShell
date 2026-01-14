@@ -1,6 +1,8 @@
 use reshell_builtins::type_helpers::IntType;
 
-use crate::{run_expect_error, run_expect_specific_value, run_expect_success};
+use crate::{
+    run_expect_non_throw_error, run_expect_specific_value, run_expect_success, run_expect_throw,
+};
 
 #[test]
 fn empty_program() {
@@ -43,21 +45,21 @@ fn number_boundaries() {
 
 #[test]
 fn out_of_bounds_numbers() {
-    run_expect_error("1 / 0");
-    run_expect_error("0 / 0");
-    run_expect_error("-9223372036854775808 / -1");
-    run_expect_error("1.0 / 0.0");
+    run_expect_throw("1 / 0");
+    run_expect_throw("0 / 0");
+    run_expect_throw("-9223372036854775808 / -1");
+    run_expect_throw("1.0 / 0.0");
 }
 
 #[test]
 fn invalid_ops() {
-    run_expect_error("1 + 1.0");
-    run_expect_error("1.0 + 1");
-    run_expect_error("1.0 + 'a'");
-    run_expect_error("'a' + 1.0");
-    run_expect_error("1.0 + []");
-    run_expect_error("1.0 + 1..10");
-    run_expect_error("1.0 + 1..=10");
+    run_expect_non_throw_error("1 + 1.0");
+    run_expect_non_throw_error("1.0 + 1");
+    run_expect_non_throw_error("1.0 + 'a'");
+    run_expect_non_throw_error("'a' + 1.0");
+    run_expect_non_throw_error("1.0 + []");
+    run_expect_non_throw_error("1.0 + 1..10");
+    run_expect_non_throw_error("1.0 + 1..=10");
 }
 
 #[test]
