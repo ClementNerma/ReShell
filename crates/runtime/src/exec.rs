@@ -402,33 +402,12 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             ctx,
                         )?;
 
-                        // TODO: deduplicate
-                        //
-                        // Check block's execution result
-                        match run_block(body, ctx, Some(loop_scope)) {
-                            // Nothing to note
-                            Ok(None) => {}
-
-                            // Wandering values can be dropped
-                            Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                            // Propagate functions' return statements
-                            Ok(Some(InstrRet::FnReturn(value))) => {
-                                return Ok(Some(InstrRet::FnReturn(value)));
+                        match run_loop_block(body, ctx, Some(loop_scope))? {
+                            LoopBlockResult::Continue => {}
+                            LoopBlockResult::Break => break,
+                            LoopBlockResult::FnReturn(loc_val) => {
+                                return Ok(Some(InstrRet::FnReturn(loc_val)));
                             }
-
-                            Err(ExecError::InternalPropagation(propagation)) => {
-                                match propagation {
-                                    // Loop continuation (do nothing)
-                                    ExecInternalPropagation::LoopContinuation => {}
-
-                                    // Loop breakage
-                                    ExecInternalPropagation::LoopBreakage => break,
-                                }
-                            }
-
-                            // Propagate other error types
-                            Err(err) => return Err(err),
                         }
                     }
                 }
@@ -445,33 +424,12 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             ctx,
                         )?;
 
-                        // TODO: deduplicate
-                        //
-                        // Check block's execution result
-                        match run_block(body, ctx, Some(loop_scope)) {
-                            // Nothing to note
-                            Ok(None) => {}
-
-                            // Wandering values can be dropped
-                            Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                            // Propagate functions' return statements
-                            Ok(Some(InstrRet::FnReturn(value))) => {
-                                return Ok(Some(InstrRet::FnReturn(value)));
+                        match run_loop_block(body, ctx, Some(loop_scope))? {
+                            LoopBlockResult::Continue => {}
+                            LoopBlockResult::Break => break,
+                            LoopBlockResult::FnReturn(loc_val) => {
+                                return Ok(Some(InstrRet::FnReturn(loc_val)));
                             }
-
-                            Err(ExecError::InternalPropagation(propagation)) => {
-                                match propagation {
-                                    // Loop continuation (do nothing)
-                                    ExecInternalPropagation::LoopContinuation => {}
-
-                                    // Loop breakage
-                                    ExecInternalPropagation::LoopBreakage => break,
-                                }
-                            }
-
-                            // Propagate other error types
-                            Err(err) => return Err(err),
                         }
                     }
                 }
@@ -538,31 +496,12 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     ctx,
                 )?;
 
-                // TODO: deduplicate
-                //
-                // Check block's execution result
-                match run_block(body, ctx, Some(loop_scope)) {
-                    // Nothing to note
-                    Ok(None) => {}
-
-                    // Wandering values can be dropped
-                    Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                    // Propagate functions' return statements
-                    Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)));
+                match run_loop_block(body, ctx, Some(loop_scope))? {
+                    LoopBlockResult::Continue => {}
+                    LoopBlockResult::Break => break,
+                    LoopBlockResult::FnReturn(loc_val) => {
+                        return Ok(Some(InstrRet::FnReturn(loc_val)));
                     }
-
-                    Err(ExecError::InternalPropagation(propagation)) => match propagation {
-                        // Loop continuation (do nothing)
-                        ExecInternalPropagation::LoopContinuation => {}
-
-                        // Loop breakage
-                        ExecInternalPropagation::LoopBreakage => break,
-                    },
-
-                    // Propagate other error types
-                    Err(err) => return Err(err),
                 }
             }
 
@@ -588,31 +527,12 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     break;
                 }
 
-                // TODO: deduplicate
-                //
-                // Check block's execution result
-                match run_block(body, ctx, None) {
-                    // Nothing to note
-                    Ok(None) => {}
-
-                    // Wandering values can be dropped
-                    Ok(Some(InstrRet::WanderingValue(_))) => {}
-
-                    // Propagate functions' return statements
-                    Ok(Some(InstrRet::FnReturn(value))) => {
-                        return Ok(Some(InstrRet::FnReturn(value)));
+                match run_loop_block(body, ctx, None)? {
+                    LoopBlockResult::Continue => {}
+                    LoopBlockResult::Break => break,
+                    LoopBlockResult::FnReturn(loc_val) => {
+                        return Ok(Some(InstrRet::FnReturn(loc_val)));
                     }
-
-                    Err(ExecError::InternalPropagation(propagation)) => match propagation {
-                        // Loop continuation (do nothing)
-                        ExecInternalPropagation::LoopContinuation => {}
-
-                        // Loop breakage
-                        ExecInternalPropagation::LoopBreakage => break,
-                    },
-
-                    // Propagate other error types
-                    Err(err) => return Err(err),
                 }
             }
 
@@ -874,6 +794,45 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
     Ok(instr_ret)
 }
 
+fn run_loop_block(
+    body: &Block,
+    ctx: &mut Context,
+    loop_scope: Option<ScopeContent>,
+) -> ExecResult<LoopBlockResult> {
+    // Check block's execution result
+    match run_block(body, ctx, loop_scope) {
+        // Nothing to note
+        Ok(None) => Ok(LoopBlockResult::Continue),
+
+        // Wandering values can be dropped
+        Ok(Some(InstrRet::WanderingValue(_))) => Ok(LoopBlockResult::Continue),
+
+        // Propagate functions' return statements
+        Ok(Some(InstrRet::FnReturn(value))) => Ok(LoopBlockResult::FnReturn(value)),
+
+        // Internal propagation data
+        Err(ExecError::InternalPropagation(propagation)) => {
+            match propagation {
+                // Loop continuation (do nothing)
+                ExecInternalPropagation::LoopContinuation => Ok(LoopBlockResult::Continue),
+
+                // Loop breakage
+                ExecInternalPropagation::LoopBreakage => Ok(LoopBlockResult::Break),
+            }
+        }
+
+        // Propagate other error types
+        Err(err) => Err(err),
+    }
+}
+
+#[derive(Debug)]
+enum LoopBlockResult {
+    Continue,
+    Break,
+    FnReturn(Option<LocatedValue>),
+}
+
 fn declare_vars(
     names: &Span<ValueDestructuring>,
     value: RuntimeValue,
@@ -987,9 +946,10 @@ fn declare_vars(
                         Some(default_value) => eval_expr(default_value, ctx)?,
 
                         None => {
-                            return Err(
-                                ctx.hard_error(name.at, "this property was not found in provided value")
-                            );
+                            return Err(ctx.hard_error(
+                                name.at,
+                                "this property was not found in provided value",
+                            ));
                         }
                     },
                 };
