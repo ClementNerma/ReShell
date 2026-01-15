@@ -85,13 +85,18 @@ impl PrettyPrintable for RuntimeValue {
             ]),
 
             RuntimeValue::Error(err) => {
-                let ErrorValueContent { at, data } = &**err;
+                let ErrorValueContent {
+                    at: _,
+                    data,
+                    pretty_at,
+                } = &**err;
 
                 PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic("error(", Color::Red),
                     data.generate_pretty_data(ctx),
                     PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
-                    pretty_printable_code_range(*at, ctx.files_map()),
+                    // TODO: find a way to avoid cloning?
+                    pretty_at.clone(),
                     PrettyPrintablePiece::colored_atomic(")", Color::Red),
                 ])
             }

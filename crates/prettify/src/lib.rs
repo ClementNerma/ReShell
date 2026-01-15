@@ -70,7 +70,7 @@ impl<P: PrettyPrintable> Display for PrettyPrintableDisplay<'_, '_, P> {
 }
 
 /// Colored string
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Styled(ColoredString);
 
 impl Styled {
@@ -102,7 +102,7 @@ impl From<ColoredString> for Styled {
 }
 
 /// Pretty-printable piece
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum PrettyPrintablePiece {
     /// Atom: a simple string with a single color
     Atomic(Styled),

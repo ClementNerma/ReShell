@@ -1,4 +1,4 @@
-use reshell_runtime::values::ErrorValueContent;
+use reshell_runtime::{pretty_impl::pretty_printable_code_range, values::ErrorValueContent};
 
 crate::define_internal_fn!(
     //
@@ -20,6 +20,7 @@ fn run() -> Runner {
             Ok(Some(RuntimeValue::Error(Box::new(ErrorValueContent {
                 at,
                 data,
+                pretty_at: pretty_printable_code_range(at, ctx.files_map()),
             }))))
         }
 

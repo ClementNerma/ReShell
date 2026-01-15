@@ -14,7 +14,7 @@ use reshell_parser::ast::{
     AstScopeId, Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
     SingleValueType, StructTypeMember, ValueType,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece};
 
 use crate::{
     cmd::FlagArgValueResult,
@@ -276,6 +276,10 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
 pub struct ErrorValueContent {
     /// Error location
     pub at: CodeRange,
+
+    // TOOD: improve?
+    /// Pretty-printed error location
+    pub pretty_at: PrettyPrintablePiece,
 
     /// Data attached to the error
     pub data: RuntimeValue,

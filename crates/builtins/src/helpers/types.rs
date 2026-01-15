@@ -180,7 +180,7 @@ declare_basic_type_handlers!(
         fn parse(value) {
             match value {
                 RuntimeValue::Error(err) => {
-                    let ErrorValueContent { at, data } = *err;
+                    let ErrorValueContent { at, data, pretty_at: _ } = *err;
                     Ok((at, data.clone()))
                 },
 
