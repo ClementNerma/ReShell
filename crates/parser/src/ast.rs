@@ -1,4 +1,4 @@
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 
 /// A scope ID
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -707,9 +707,9 @@ pub struct RuntimeSpan<T> {
     pub data: T,
 }
 
-/// Either a [`CodeRange`] or an internal location
+/// Either a [`InputRange`] or an internal location
 #[derive(Debug, Clone, Copy, Hash)]
 pub enum RuntimeCodeRange {
-    Parsed(CodeRange),
+    Parsed(InputRange),
     Internal(&'static str),
 }

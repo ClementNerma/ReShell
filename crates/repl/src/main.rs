@@ -6,7 +6,7 @@ use std::{any::Any, fs, path::PathBuf, process::ExitCode, sync::LazyLock, time::
 
 use clap::Parser as _;
 use colored::Colorize;
-use parsy::{FileId, Parser, ParserInput, ParserResult};
+use parsy::{FileId, ParserInput, ParserNonConstUtils, ParserResult};
 use reshell_builtins::{
     NativeLibParams, build_native_lib_content, repl::on_dir_jump::trigger_directory_jump_event,
 };

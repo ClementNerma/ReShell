@@ -7,7 +7,7 @@ edition = "2024"
 jiff = { version = "0.2.18" }
 colored = "3.0.0"
 indexmap = "2.13.0"
-parsy = "0.15.9"
+parsy = "0.16.0"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
 reshell-prettify = { version = "0.1.0", path = "../prettify" }

@@ -9,7 +9,7 @@ use std::{
     sync::Arc,
 };
 
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use reshell_checker::output::DevelopedSingleCmdCall;
 use reshell_parser::ast::{
     CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath, CmdFlagArg,
@@ -315,9 +315,9 @@ pub fn run_cmd(
 
 /// Internal representation of command chain state
 enum CmdChainState {
-    NoValue(CodeRange),
+    NoValue(InputRange),
     Value(LocatedValue),
-    Commands(Vec<(SpawnedCmd, CodeRange)>),
+    Commands(Vec<(SpawnedCmd, InputRange)>),
 }
 
 /// Result of a command execution
@@ -503,14 +503,14 @@ fn evaluate_cmd_target(
 struct EvaluatedCmdData<'a> {
     target: EvaluatedCmdTarget,
     args: EvaluatedCmdArgs,
-    call_at: CodeRange,
-    args_at: CodeRange,
+    call_at: InputRange,
+    args_at: InputRange,
     redirects: Option<&'a Span<CmdRedirects>>,
 }
 
 struct EvaluatedCmdArgs {
     env_vars: HashMap<String, String>,
-    args: Vec<(CmdArgResult, CodeRange)>,
+    args: Vec<(CmdArgResult, InputRange)>,
 }
 
 /// Target of a command call
@@ -870,7 +870,7 @@ struct StdioPipesForChild {
 /// May be spread into multiple arguments
 fn append_cmd_arg_as_string(
     cmd_arg_result: CmdArgResult,
-    cmd_arg_result_at: CodeRange,
+    cmd_arg_result_at: InputRange,
     args_str: &mut Vec<String>,
     in_rest: bool,
     ctx: &mut Context,
@@ -1067,7 +1067,7 @@ pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'
 
 /// Wait for a set of spawned commands to complete
 fn wait_for_commands_ending(
-    children: Vec<(SpawnedCmd, CodeRange)>,
+    children: Vec<(SpawnedCmd, InputRange)>,
     capture: Option<CmdCaptureType>,
     ctx: &Context,
 ) -> ExecResult<Option<String>> {

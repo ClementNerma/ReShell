@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use colored::{Color, Colorize};
 use jiff::Zoned;
-use parsy::{CodeRange, FileId};
+use parsy::{FileId, InputRange};
 use reshell_parser::{
     ast::{FlagValueSeparator, RuntimeCodeRange},
     files_map::{FilesMap, SourceFileLocation},
@@ -264,7 +264,10 @@ pub fn pretty_printable_runtime_code_range(
     }
 }
 
-pub fn pretty_printable_code_range(range: CodeRange, files_map: &FilesMap) -> PrettyPrintablePiece {
+pub fn pretty_printable_code_range(
+    range: InputRange,
+    files_map: &FilesMap,
+) -> PrettyPrintablePiece {
     // TODO: improve with coloration
     let output = match range.start.file_id {
         FileId::None => unreachable!(),

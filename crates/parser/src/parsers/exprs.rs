@@ -1,13 +1,12 @@
 use parsy::{
-    Parser,
-    helpers::{
+    Parser, ParserConstUtils,
+    parsers::helpers::{
         char, choice, end, filter, just, lookahead, not, recursive_shared, silent_choice,
         to_define_shared,
     },
-    timed::LazilyDefined,
 };
 
-use super::types::VALUE_TYPE;
+use super::msnl;
 use crate::{
     DELIMITER_CHARS,
     ast::{
@@ -16,15 +15,12 @@ use crate::{
         OrderingCmpDoubleOp, PropAccess, PropAccessNature, SingleOp, TypeMatchExprCase,
     },
     parsers::{
-        blocks::generate_scope_id,
-        values::{FN_CALL, VALUE},
+        EXPR, FN_CALL, PROP_ACCESS_NATURE, VALUE, VALUE_TYPE, blocks::generate_scope_id, ident, ms,
+        s,
     },
-    use_basic_parsers,
 };
 
-pub static PROP_ACCESS_NATURE: LazilyDefined<PropAccessNature> = LazilyDefined::new(|| {
-    use_basic_parsers!(ident, msnl);
-
+pub fn prop_access_nature() -> impl Parser<PropAccessNature> + Send + Sync {
     choice::<PropAccessNature, _>((
         char('.')
             .ignore_then(ident.spanned().critical("expected a property name"))
@@ -42,12 +38,9 @@ pub static PROP_ACCESS_NATURE: LazilyDefined<PropAccessNature> = LazilyDefined::
             .then_ignore(char(']').critical_auto_msg())
             .map(PropAccessNature::Key),
     ))
-    .erase_type()
-});
+}
 
-pub static EXPR: LazilyDefined<Expr> = LazilyDefined::new(|| {
-    use_basic_parsers!(s, msnl, ms, ident);
-
+pub fn expr() -> impl Parser<Expr> + Send + Sync {
     recursive_shared::<Expr, _>(|expr| {
         let arithmetic_double_op = choice::<ArithmeticDoubleOp, _>((
             char('+').to(ArithmeticDoubleOp::Add),
@@ -396,5 +389,4 @@ pub static EXPR: LazilyDefined<Expr> = LazilyDefined::new(|| {
             .then(expr_op.repeated_into_vec())
             .map(|(inner, right_ops)| Expr { inner, right_ops })
     })
-    .erase_type()
-});
+}

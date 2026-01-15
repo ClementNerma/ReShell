@@ -1,14 +1,17 @@
 use std::borrow::Cow;
 
 use parsy::{
-    FileId, Parser, ParserInput, ParsingError, Span,
-    helpers::{
+    FileId, Parser, ParserConstUtils, ParserInput, ParserNonConstUtils, ParsingError, Span,
+    parsers::helpers::{
         char, choice, custom, end, filter, get_context, just, lookahead, recursive_shared,
         silent_choice,
     },
-    timed::LazilyDefined,
 };
 
+use super::{
+    BLOCK, CMD_CALL, EXPR, FN_SIGNATURE, LITERAL_STRING, PROP_ACCESS_NATURE, SINGLE_CMD_CALL,
+    VALUE_TYPE, blocks::generate_scope_id, ident, ms, msnl, possible_ident_char, s, var_name,
+};
 use crate::{
     DELIMITER_CHARS,
     ast::{
@@ -16,21 +19,10 @@ use crate::{
         ObjPropSpreading, ObjPropSpreadingBinding, ObjPropSpreadingType, SingleVarDecl,
         TypeMatchCase, ValueDestructuring, ValueType,
     },
-    parsers::{
-        PROGRAM, ParserContext,
-        blocks::{BLOCK, generate_scope_id},
-        cmd_calls::{CMD_CALL, SINGLE_CMD_CALL},
-        exprs::{EXPR, PROP_ACCESS_NATURE},
-        functions::FN_SIGNATURE,
-        types::VALUE_TYPE,
-        values::LITERAL_STRING,
-    },
-    use_basic_parsers,
+    parsers::{PROGRAM, ParserContext},
 };
 
-pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(|| {
-    use_basic_parsers!(possible_ident_char, ms, s, ident, msnl, var_name);
-
+pub fn instruction() -> impl Parser<Span<Instruction>> + Send + Sync {
     let single_var_decl = just("mut")
         .to(())
         .not_followed_by(possible_ident_char)
@@ -218,6 +210,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then(
                 BLOCK
                     .static_ref()
+                    .erase_type()
                     .critical("expected a body for the condition"),
             )
             .then(
@@ -231,7 +224,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                             .critical("expected a condition for the 'else if' statement"),
                     )
                     .then_ignore(ms)
-                    .then(BLOCK.static_ref())
+                    .then(BLOCK.static_ref().erase_type())
                     .map(|(cond, body)| ElsIf { cond, body })
                     .repeated_into_vec()
                     .then(
@@ -240,6 +233,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                             .ignore_then(
                                 BLOCK
                                     .static_ref()
+                                    .erase_type()
                                     .critical("expected a body for the 'else' block"),
                             )
                             .or_not(),
@@ -269,6 +263,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then(
                 BLOCK
                     .static_ref()
+                    .erase_type()
                     .critical("expected a body for the 'for' loop"),
             )
             .map(|((destructure_as, iter_on), body)| Instruction::ForLoop {
@@ -298,6 +293,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then(
                 BLOCK
                     .static_ref()
+                    .erase_type()
                     .critical("expected a body for the 'for' loop"),
             )
             .map(
@@ -318,6 +314,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then(
                 BLOCK
                     .static_ref()
+                    .erase_type()
                     .critical("expected a body for the 'while' loop"),
             )
             .map(|(cond, body)| Instruction::WhileLoop { cond, body }),
@@ -360,14 +357,14 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                             .critical("expected an expression to match"),
                     )
                     .then_ignore(ms)
-                    .then(BLOCK.static_ref().critical("expected a block"))
+                    .then(BLOCK.static_ref().erase_type().critical("expected a block"))
                     .map(|(matches, body)| MatchCase { matches, body })
                     .repeated_into_vec(),
             )
             .then(
                 msnl.ignore_then(just("else"))
                     .ignore_then(ms)
-                    .ignore_then(BLOCK.static_ref().critical("expected a block"))
+                    .ignore_then(BLOCK.static_ref().erase_type().critical("expected a block"))
                     .or_not(),
             )
             .then_ignore(msnl)
@@ -390,14 +387,14 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                     .ignore_then(ms)
                     .ignore_then(VALUE_TYPE.static_ref().critical("expected a type to match"))
                     .then_ignore(ms)
-                    .then(BLOCK.static_ref().critical("expected a block"))
+                    .then(BLOCK.static_ref().erase_type().critical("expected a block"))
                     .map(|(matches, body)| TypeMatchCase { matches, body })
                     .repeated_into_vec(),
             )
             .then(
                 msnl.ignore_then(just("else"))
                     .ignore_then(ms)
-                    .ignore_then(BLOCK.static_ref().critical("expected a block"))
+                    .ignore_then(BLOCK.static_ref().erase_type().critical("expected a block"))
                     .or_not(),
             )
             .then_ignore(msnl)
@@ -424,6 +421,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then(
                 BLOCK
                     .static_ref()
+                    .erase_type()
                     .spanned()
                     .critical("expected a body for the function"),
             )
@@ -501,6 +499,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .ignore_then(
                 BLOCK
                     .static_ref()
+                    .erase_type()
                     .spanned()
                     .padded_by(msnl)
                     .critical("expected an expression"),
@@ -517,7 +516,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
                     .critical("expected a variable to catch the throw value in"),
             )
             .then_ignore(s.critical_auto_msg())
-            .then(BLOCK.static_ref().critical("expected a block"))
+            .then(BLOCK.static_ref().erase_type().critical("expected a block"))
             .map(
                 move |((try_body, catch_var), catch_body)| Instruction::Try {
                     try_body,
@@ -541,6 +540,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
             .then(
                 SINGLE_CMD_CALL
                     .static_ref()
+                    .erase_type()
                     .spanned()
                     .critical("expected a command call to alias"),
             )
@@ -574,7 +574,7 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
         //
         just("do")
             .ignore_then(s)
-            .ignore_then(BLOCK.static_ref().critical("expected a block"))
+            .ignore_then(BLOCK.static_ref().erase_type().critical("expected a block"))
             .map(Instruction::DoBlock),
         //
         // Include statement
@@ -619,5 +619,4 @@ pub static INSTRUCTION: LazilyDefined<Span<Instruction>> = LazilyDefined::new(||
         ))
         .critical("unexpected symbol"),
     )
-    .erase_type()
-});
+}

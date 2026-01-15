@@ -11,7 +11,7 @@ use std::borrow::Cow;
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
 use colored::Colorize;
-use parsy::{CodeRange, FileId, ParserExpectation, ParsingError, SourceFileID};
+use parsy::{InputRange, FileId, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::RuntimeCodeRange,
@@ -322,7 +322,7 @@ fn parser_expection_to_str(err: &ParserExpectation) -> String {
     }
 }
 
-fn parsing_error(err: &ParsingError) -> (CodeRange, String) {
+fn parsing_error(err: &ParsingError) -> (InputRange, String) {
     let msg = match err.critical_message() {
         Some(nature) => nature.to_string(),
         None => parser_expection_to_str(err.inner().expected()),

@@ -1,6 +1,9 @@
 #![forbid(unsafe_code)]
 #![forbid(unused_must_use)]
-#![forbid(unused_crate_dependencies)]
+#![warn(unused_crate_dependencies)]
+// TODO: remove once stabilized (nightly)
+#![feature(type_alias_impl_trait)]
+#![feature(const_trait_impl)]
 
 pub mod ast;
 pub mod files_map;

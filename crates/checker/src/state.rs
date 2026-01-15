@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use reshell_parser::{
     NATIVE_LIB_AST_SCOPE_ID,
     ast::{AstScopeId, Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
@@ -87,7 +87,7 @@ impl<'a> State<'a> {
     /// Retrieve a registered developed command call
     pub fn get_developed_cmd_call_at(
         &self,
-        at: CodeRange,
+        at: InputRange,
     ) -> Option<SharingType<DevelopedSingleCmdCall>> {
         #[allow(clippy::map_clone)]
         self.collected.cmd_calls.get(&at).map(SharingType::clone)
@@ -403,7 +403,7 @@ pub struct CheckerScope {
     pub cmd_aliases: HashMap<String, DeclaredCmdAlias>,
 
     /// List of type aliases declared in this scope
-    pub type_aliases: HashMap<String, CodeRange>,
+    pub type_aliases: HashMap<String, InputRange>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -467,13 +467,13 @@ pub struct DeclaredMethod {
 #[derive(Clone, Copy)]
 pub struct DeclaredCmdAlias {
     /// Name location
-    pub decl_at: CodeRange,
+    pub decl_at: InputRange,
 
     /// Scope the comment alias is defined in
     pub scope_id: AstScopeId,
 
     /// Location of the command alias' content in its declaration
-    pub content_at: CodeRange,
+    pub content_at: InputRange,
 
     /// Is the declared alias ready?
     /// See [`State::mark_cmd_alias_as_ready`]

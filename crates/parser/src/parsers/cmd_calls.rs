@@ -1,29 +1,22 @@
 use parsy::{
-    Parser,
-    helpers::{char, choice, end, filter, just, newline, not, silent_choice, whitespaces},
-    timed::LazilyDefined,
+    Parser, ParserConstUtils,
+    parsers::helpers::{char, choice, end, filter, just, newline, not, silent_choice, whitespaces},
 };
 
-use super::DELIMITER_CHARS;
+use super::{
+    CMD_CAPTURE, COMPUTED_STRING, DELIMITER_CHARS, EXPR, INLINE_CMD_CALL, LAMBDA, LIST_VALUE,
+    LITERAL_STRING, LITERAL_VALUE, SPREAD_VALUE, first_ident_char, ident, ms, s, var_name,
+};
 use crate::{
     ast::{
         CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagArgName,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
         CmdRedirects, CmdValueMakingArg, FlagValueSeparator, SingleCmdCall,
     },
-    parsers::{
-        exprs::EXPR,
-        values::{
-            CMD_CAPTURE, COMPUTED_STRING, INLINE_CMD_CALL, LAMBDA, LIST_VALUE, LITERAL_STRING,
-            LITERAL_VALUE, SPREAD_VALUE,
-        },
-    },
-    use_basic_parsers,
+    parsers::{SINGLE_CMD_CALL, msnl},
 };
 
-pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(|| {
-    use_basic_parsers!(var_name, msnl, ident, s, ms, first_ident_char);
-
+pub fn single_cmd_call() -> impl Parser<SingleCmdCall> + Send + Sync {
     let cmd_raw_string = not(just("->")).ignore_then(
         choice::<CmdRawStringPiece, _>((
             // Variables
@@ -298,12 +291,9 @@ pub static SINGLE_CMD_CALL: LazilyDefined<SingleCmdCall> = LazilyDefined::new(||
             args,
             redirects,
         })
-        .erase_type()
-});
+}
 
-pub static CMD_CALL: LazilyDefined<CmdCall> = LazilyDefined::new(|| {
-    use_basic_parsers!(ms, msnl);
-
+pub fn cmd_call() -> impl Parser<CmdCall> + Send + Sync {
     let cmd_call_base = choice::<CmdCallBase, _>((
         //
         // Expressions
@@ -349,5 +339,4 @@ pub static CMD_CALL: LazilyDefined<CmdCall> = LazilyDefined::new(|| {
             .repeated_into_vec(),
         )
         .map(|(base, pipes)| CmdCall { base, pipes })
-        .erase_type()
-});
+}

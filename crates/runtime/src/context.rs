@@ -1,7 +1,7 @@
 use std::{collections::HashMap, ffi::OsString, num::NonZero, path::PathBuf, sync::Arc};
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use reshell_checker::{
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
     TypeAliasStore,
@@ -683,7 +683,7 @@ impl Context {
 
     /// Get a specific command call used as a value
     /// Avoids cloning the entire (heavy) [`Span<CmdCall>`]
-    pub fn get_cmd_call_used_as_value(&self, at: CodeRange) -> Arc<Span<CmdCall>> {
+    pub fn get_cmd_call_used_as_value(&self, at: InputRange) -> Arc<Span<CmdCall>> {
         match self.collected.cmd_call_values.get(&at) {
             Some(cmd_call) => Arc::clone(cmd_call),
             None => self.panic(at, "command call data is missing"),
@@ -706,7 +706,7 @@ impl Context {
     /// References work through [`GcCell`] values which allow to share access to multiple items at the same time
     pub(crate) fn capture_deps(
         &self,
-        body_content_at: CodeRange,
+        body_content_at: InputRange,
         body_ast_scope_id: AstScopeId,
     ) -> ScopeContent {
         let mut captured_deps = ScopeContent::new();
@@ -996,7 +996,7 @@ pub struct ScopeCmdAlias {
     pub decl_scope_id: AstScopeId,
 
     /// Location of the alias' name in its declaration
-    pub name_at: CodeRange,
+    pub name_at: InputRange,
 
     /// Content of the alias
     ///

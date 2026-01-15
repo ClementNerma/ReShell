@@ -1,18 +1,15 @@
 use parsy::{
-    Parser,
-    helpers::{char, choice, just, recursive_shared},
-    timed::LazilyDefined,
+    Parser, ParserConstUtils,
+    parsers::helpers::{char, choice, just, recursive_shared},
 };
 
+use super::{FN_SIGNATURE, LITERAL_STRING, ident, ms, msnl};
 use crate::{
     ast::{RuntimeSpan, SingleValueType, StructTypeMember, ValueType},
-    parsers::{functions::FN_SIGNATURE, values::LITERAL_STRING},
-    use_basic_parsers,
+    parsers::possible_ident_char,
 };
 
-pub static VALUE_TYPE: LazilyDefined<ValueType> = LazilyDefined::new(|| {
-    use_basic_parsers!(possible_ident_char, msnl, ident, ms);
-
+pub fn value_type() -> impl Parser<ValueType> + Send + Sync {
     recursive_shared::<ValueType, _>(|value_type| {
         let single_value_type = choice::<SingleValueType, _>((
             just("any")
@@ -120,5 +117,4 @@ pub static VALUE_TYPE: LazilyDefined<ValueType> = LazilyDefined::new(|| {
             single_value_type.map(ValueType::Single),
         ))
     })
-    .erase_type()
-});
+}

@@ -1,80 +1,69 @@
 use parsy::{
-    Parser,
-    helpers::{char, choice, filter, just, not},
-    timed::LazilyDefined,
+    Parser, ParserConstUtils,
+    parsers::helpers::{char, choice, filter, just, not},
 };
 
+use super::{
+    FN_ARG_LONG_FLAG_NAME_IDENTIFIER, FN_FLAG_ARG_SIGNATURE_NAMES, VALUE_TYPE, first_ident_char,
+    ident, ms, msnl, possible_ident_char,
+};
 use crate::{
     ast::{
         FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
         FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, RuntimeSpan,
     },
-    parsers::types::VALUE_TYPE,
-    use_basic_parsers,
+    parsers::FN_SIGNATURE_ARG,
 };
 
-pub static FN_ARG_LONG_FLAG_NAME_IDENTIFIER: LazilyDefined<String> = LazilyDefined::new(|| {
-    use_basic_parsers!(first_ident_char);
-
+pub fn fn_arg_long_flag_name_identifier() -> impl Parser<String> + Send + Sync {
     first_ident_char
         .then(filter(|c| c == '_' || c == '-' || c.is_alphanumeric()).repeated())
         .collect_string()
-        .erase_type()
-});
+}
 
-pub static FN_FLAG_ARG_SIGNATURE_NAMES: LazilyDefined<FnSignatureFlagArgNames> =
-    LazilyDefined::new(|| {
-        use_basic_parsers!(possible_ident_char, first_ident_char, ms);
+pub fn fn_flag_arg_signature_names() -> impl Parser<FnSignatureFlagArgNames> + Send + Sync {
+    let fn_arg_long_flag_name = just("--")
+        .ignore_then(
+            FN_ARG_LONG_FLAG_NAME_IDENTIFIER
+                .static_ref()
+                .validate_or_critical(
+                    |name| name != "it" && name != "self",
+                    "Cannot declare a flag with reserved name 'it' or 'self'",
+                )
+                .spanned()
+                .critical("expected a flag name (identifier)"),
+        )
+        .followed_by(not(possible_ident_char).critical("unexpected symbol after long flag name"));
 
-        let fn_arg_long_flag_name = just("--")
-            .ignore_then(
-                FN_ARG_LONG_FLAG_NAME_IDENTIFIER
-                    .static_ref()
-                    .validate_or_critical(
-                        |name| name != "it" && name != "self",
-                        "Cannot declare a flag with reserved name 'it' or 'self'",
-                    )
-                    .spanned()
-                    .critical("expected a flag name (identifier)"),
-            )
-            .followed_by(
-                not(possible_ident_char).critical("unexpected symbol after long flag name"),
-            );
+    let fn_arg_short_flag_name = char('-')
+        .ignore_then(
+            first_ident_char
+                .spanned()
+                .critical("expected a single-character identifier"),
+        )
+        .followed_by(not(possible_ident_char).critical("expected a single-character identifier"));
 
-        let fn_arg_short_flag_name = char('-')
-            .ignore_then(
-                first_ident_char
-                    .spanned()
-                    .critical("expected a single-character identifier"),
-            )
-            .followed_by(
-                not(possible_ident_char).critical("expected a single-character identifier"),
-            );
+    choice::<FnSignatureFlagArgNames, _>((
+        // Long *and* short flags
+        fn_arg_long_flag_name
+            .map(RuntimeSpan::from)
+            .then_ignore(ms)
+            .then_ignore(char('('))
+            .then(fn_arg_short_flag_name.map(RuntimeSpan::from))
+            .then_ignore(char(')').critical_auto_msg())
+            .map(|(long, short)| FnSignatureFlagArgNames::LongAndShortFlag { short, long }),
+        // Long flag only
+        fn_arg_long_flag_name
+            .map(RuntimeSpan::from)
+            .map(FnSignatureFlagArgNames::LongFlag),
+        // Long flag only
+        fn_arg_short_flag_name
+            .map(RuntimeSpan::from)
+            .map(FnSignatureFlagArgNames::ShortFlag),
+    ))
+}
 
-        choice::<FnSignatureFlagArgNames, _>((
-            // Long *and* short flags
-            fn_arg_long_flag_name
-                .map(RuntimeSpan::from)
-                .then_ignore(ms)
-                .then_ignore(char('('))
-                .then(fn_arg_short_flag_name.map(RuntimeSpan::from))
-                .then_ignore(char(')').critical_auto_msg())
-                .map(|(long, short)| FnSignatureFlagArgNames::LongAndShortFlag { short, long }),
-            // Long flag only
-            fn_arg_long_flag_name
-                .map(RuntimeSpan::from)
-                .map(FnSignatureFlagArgNames::LongFlag),
-            // Long flag only
-            fn_arg_short_flag_name
-                .map(RuntimeSpan::from)
-                .map(FnSignatureFlagArgNames::ShortFlag),
-        ))
-        .erase_type()
-    });
-
-pub static FN_SIGNATURE_ARG: LazilyDefined<FnSignatureArg> = LazilyDefined::new(|| {
-    use_basic_parsers!(ident, msnl);
-
+pub fn fn_signature_arg() -> impl Parser<FnSignatureArg> + Send + Sync {
     choice::<FnSignatureArg, _>((
         // Positional
         ident
@@ -149,12 +138,9 @@ pub static FN_SIGNATURE_ARG: LazilyDefined<FnSignatureArg> = LazilyDefined::new(
             )
             .map(|(name, typ)| FnSignatureArg::Rest(FnSignatureRestArg { name, typ })),
     ))
-    .erase_type()
-});
+}
 
-pub static FN_SIGNATURE: LazilyDefined<FnSignature> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl, ms);
-
+pub fn fn_signature() -> impl Parser<FnSignature> + Send + Sync {
     char('(')
         .ignore_then(
             FN_SIGNATURE_ARG
@@ -180,5 +166,4 @@ pub static FN_SIGNATURE: LazilyDefined<FnSignature> = LazilyDefined::new(|| {
                 .or_not(),
         )
         .map(|(args, ret_type)| FnSignature { args, ret_type })
-        .erase_type()
-});
+}

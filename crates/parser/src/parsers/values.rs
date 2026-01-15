@@ -1,9 +1,12 @@
 use parsy::{
-    Parser, Span,
-    helpers::{char, choice, digit, empty, end, filter, just, silent_choice},
-    timed::LazilyDefined,
+    Parser, ParserConstUtils, ParserNonConstUtils, Span,
+    parsers::helpers::{char, choice, digit, empty, end, filter, just, silent_choice},
 };
 
+use super::{
+    COMPUTED_STRING, ESCAPABLE_CHAR, FN_CALL, INLINE_CMD_CALL, LAMBDA, LIST_VALUE, LITERAL_INT,
+    LITERAL_STRING, LITERAL_VALUE, RANGE, SPREAD_VALUE, possible_ident_char, var_name,
+};
 use crate::{
     DELIMITER_CHARS,
     ast::{
@@ -13,34 +16,29 @@ use crate::{
         RangeBound, RuntimeSpan, SpreadValue, StructItem, Value,
     },
     parsers::{
-        blocks::RAW_BLOCK,
-        cmd_calls::CMD_CALL,
-        exprs::EXPR,
-        functions::{FN_ARG_LONG_FLAG_NAME_IDENTIFIER, FN_SIGNATURE_ARG},
+        CMD_CALL, CMD_CAPTURE, EXPR, FN_ARG_LONG_FLAG_NAME_IDENTIFIER, FN_SIGNATURE_ARG, RAW_BLOCK,
+        first_ident_char, ident, ms, msnl, s,
     },
-    use_basic_parsers,
 };
 
-pub static ESCAPABLE_CHAR: LazilyDefined<EscapableChar> = LazilyDefined::new(|| {
-    char('\\')
-        .ignore_then(
-            choice((
-                char('n').to(EscapableChar::Newline),
-                char('r').to(EscapableChar::CarriageReturn),
-                char('t').to(EscapableChar::Tab),
-                char('"').to(EscapableChar::DoubleQuote),
-                char('\'').to(EscapableChar::SingleQuote),
-                char('`').to(EscapableChar::BackQuote),
-                char('$').to(EscapableChar::DollarSign),
-                char('\\').to(EscapableChar::Backslash),
-                char('^').to(EscapableChar::Caret),
-            ))
-            .critical("this character is not escapable"),
-        )
-        .erase_type()
-});
+pub fn escapable_char() -> impl Parser<EscapableChar> + Send + Sync {
+    char('\\').ignore_then(
+        choice((
+            char('n').to(EscapableChar::Newline),
+            char('r').to(EscapableChar::CarriageReturn),
+            char('t').to(EscapableChar::Tab),
+            char('"').to(EscapableChar::DoubleQuote),
+            char('\'').to(EscapableChar::SingleQuote),
+            char('`').to(EscapableChar::BackQuote),
+            char('$').to(EscapableChar::DollarSign),
+            char('\\').to(EscapableChar::Backslash),
+            char('^').to(EscapableChar::Caret),
+        ))
+        .critical("this character is not escapable"),
+    )
+}
 
-pub static LITERAL_STRING: LazilyDefined<String> = LazilyDefined::new(|| {
+pub fn literal_string() -> impl Parser<String> + Send + Sync {
     char('\'')
         .ignore_then(
             choice((
@@ -52,23 +50,17 @@ pub static LITERAL_STRING: LazilyDefined<String> = LazilyDefined::new(|| {
             .repeated_into_container::<String>(),
         )
         .then_ignore(char('\''))
-        .erase_type()
-});
+}
 
-pub static LITERAL_INT: LazilyDefined<i64> = LazilyDefined::new(|| {
-    use_basic_parsers!(possible_ident_char);
-
+pub fn literal_int() -> impl Parser<i64> + Send + Sync {
     char('-')
         .or_not()
         .then(digit(10).repeated().at_least(1))
         .not_followed_by(possible_ident_char)
         .map_str(|num| str::parse::<i64>(num).unwrap())
-        .erase_type()
-});
+}
 
-pub static LITERAL_VALUE: LazilyDefined<LiteralValue> = LazilyDefined::new(|| {
-    use_basic_parsers!(possible_ident_char);
-
+pub fn literal_value() -> impl Parser<LiteralValue> + Send + Sync {
     choice::<LiteralValue, _>((
         // Strings
         LITERAL_STRING
@@ -103,12 +95,9 @@ pub static LITERAL_VALUE: LazilyDefined<LiteralValue> = LazilyDefined::new(|| {
         // Integers
         LITERAL_INT.static_ref().map(LiteralValue::Integer),
     ))
-    .erase_type()
-});
+}
 
-pub static COMPUTED_STRING: LazilyDefined<ComputedString> = LazilyDefined::new(|| {
-    use_basic_parsers!(ident, msnl);
-
+pub fn computed_string() -> impl Parser<ComputedString> + Send + Sync {
     char('"')
     .ignore_then(
         choice::<ComputedStringPiece, _>((
@@ -141,12 +130,10 @@ pub static COMPUTED_STRING: LazilyDefined<ComputedString> = LazilyDefined::new(|
         .repeated_into_vec(),
     )
     .then_ignore(char('"').critical_auto_msg())
-    .map(|pieces| ComputedString { pieces }).erase_type()
-});
+    .map(|pieces| ComputedString { pieces })
+}
 
-pub static RANGE_BOUND: LazilyDefined<Range> = LazilyDefined::new(|| {
-    use_basic_parsers!(var_name);
-
+pub fn range() -> impl Parser<Range> + Send + Sync {
     let range_bound = choice::<RangeBound, _>((
         LITERAL_INT.static_ref().map(RangeBound::Literal),
         var_name.spanned().map(RangeBound::Variable),
@@ -166,12 +153,9 @@ pub static RANGE_BOUND: LazilyDefined<Range> = LazilyDefined::new(|| {
             to,
             include_last_value,
         })
-        .erase_type()
-});
+}
 
-pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl);
-
+pub fn lambda() -> impl Parser<Function> + Send + Sync {
     let normal_lambda = char('{')
         .ignore_then(msnl)
         .ignore_then(
@@ -196,6 +180,7 @@ pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
         .then(
             RAW_BLOCK
                 .static_ref()
+                .erase_type()
                 .critical("expected a body for the lambda")
                 .spanned(),
         )
@@ -210,6 +195,7 @@ pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
         .then(
             RAW_BLOCK
                 .static_ref()
+                .erase_type()
                 .critical("expected a body for the lambda")
                 .spanned(),
         )
@@ -229,12 +215,10 @@ pub static LAMBDA: LazilyDefined<Function> = LazilyDefined::new(|| {
             body,
         });
 
-    normal_lambda.or(it_lambda).erase_type()
-});
+    normal_lambda.or(it_lambda)
+}
 
-pub static CMD_CAPTURE: LazilyDefined<CmdOutputCapture> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl);
-
+pub fn cmd_capture() -> impl Parser<CmdOutputCapture> + Send + Sync {
     choice::<CmdCaptureType, _>((
         just("$(").to(CmdCaptureType::Stdout),
         just("$^(").to(CmdCaptureType::Stderr),
@@ -244,59 +228,51 @@ pub static CMD_CAPTURE: LazilyDefined<CmdOutputCapture> = LazilyDefined::new(|| 
     .then(
         CMD_CALL
             .static_ref()
+            .erase_type()
             .spanned()
             .critical("expected a command call to capture"),
     )
     .then_ignore(msnl)
     .then_ignore(char(')').critical_auto_msg())
     .map(|(capture, cmd_call)| CmdOutputCapture { capture, cmd_call })
-    .erase_type()
-});
+}
 
-pub static INLINE_CMD_CALL: LazilyDefined<Span<CmdCall>> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl);
-
+pub fn inline_cmd_call() -> impl Parser<Span<CmdCall>> + Send + Sync {
     just("@(")
         .ignore_then(msnl)
         .ignore_then(
             CMD_CALL
                 .static_ref()
+                .erase_type()
                 .spanned()
                 .critical("expected a command call"),
         )
         .then_ignore(msnl)
         .then_ignore(char(')').critical_auto_msg())
-        .erase_type()
-});
+}
 
-pub static SPREAD_VALUE: LazilyDefined<SpreadValue> = LazilyDefined::new(|| {
-    use_basic_parsers!(ident, msnl);
+pub fn spread_value() -> impl Parser<SpreadValue> + Send + Sync {
+    just("...").ignore_then(
+        choice::<SpreadValue, _>((
+            char('$')
+                .ignore_then(ident.critical("expected a variable name to spread"))
+                .spanned()
+                .map(SpreadValue::Variable),
+            char('(')
+                .ignore_then(msnl)
+                .ignore_then(
+                    EXPR.static_ref()
+                        .critical("expected an expression to spread"),
+                )
+                .then_ignore(msnl)
+                .then_ignore(char(')'))
+                .map(SpreadValue::Expr),
+        ))
+        .critical("expected a value to spread"),
+    )
+}
 
-    just("...")
-        .ignore_then(
-            choice::<SpreadValue, _>((
-                char('$')
-                    .ignore_then(ident.critical("expected a variable name to spread"))
-                    .spanned()
-                    .map(SpreadValue::Variable),
-                char('(')
-                    .ignore_then(msnl)
-                    .ignore_then(
-                        EXPR.static_ref()
-                            .critical("expected an expression to spread"),
-                    )
-                    .then_ignore(msnl)
-                    .then_ignore(char(')'))
-                    .map(SpreadValue::Expr),
-            ))
-            .critical("expected a value to spread"),
-        )
-        .erase_type()
-});
-
-pub static FN_CALL: LazilyDefined<FnCall> = LazilyDefined::new(|| {
-    use_basic_parsers!(ident, first_ident_char, s, ms, msnl);
-
+pub fn fn_call() -> impl Parser<FnCall> + Send + Sync {
     let fn_arg = choice::<FnArg, _>((
         //
         // Flags
@@ -351,12 +327,9 @@ pub static FN_CALL: LazilyDefined<FnCall> = LazilyDefined::new(|| {
         name,
         call_args,
     })
-    .erase_type()
-});
+}
 
-pub static LIST_VALUE: LazilyDefined<Vec<ListItem>> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl);
-
+pub fn list_value() -> impl Parser<Vec<ListItem>> + Send + Sync {
     char('[')
         .ignore_then(msnl)
         .ignore_then(
@@ -368,12 +341,9 @@ pub static LIST_VALUE: LazilyDefined<Vec<ListItem>> = LazilyDefined::new(|| {
         )
         .then_ignore(msnl)
         .then_ignore(char(']').critical("expected a closing bracket ']' for the list"))
-        .erase_type()
-});
+}
 
-pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
-    use_basic_parsers!(ident, msnl, ms, var_name);
-
+pub fn value() -> impl Parser<Value> + Send + Sync {
     let map_key = choice::<MapKey, _>((
         ident.map(MapKey::Raw),
         LITERAL_STRING.static_ref().map(MapKey::LiteralString),
@@ -389,7 +359,7 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
     choice::<Value, _>((
         just("null").map(|_| Value::Null),
         // Range bounds
-        RANGE_BOUND.static_ref().map(Box::new).map(Value::Range),
+        RANGE.static_ref().map(Box::new).map(Value::Range),
         // Literals
         LITERAL_VALUE.static_ref().map(Value::Literal),
         // Computed strings
@@ -468,5 +438,4 @@ pub static VALUE: LazilyDefined<Value> = LazilyDefined::new(|| {
             .spanned()
             .map(Value::FnAsValue),
     ))
-    .erase_type()
-});
+}

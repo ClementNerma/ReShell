@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use reshell_parser::ast::{AstScopeId, Block, CmdCall, FnSignature, SingleCmdCall, ValueType};
 
 /// Sharing type used to avoid cloning in the runtime
@@ -31,7 +31,7 @@ pub struct CheckerOutput {
     /// List of type aliases declaration
     ///
     /// Maps the type alias' name token location to its content
-    pub type_aliases_decl: HashMap<CodeRange, SharingType<Span<ValueType>>>,
+    pub type_aliases_decl: HashMap<InputRange, SharingType<Span<ValueType>>>,
 
     /// List of all type aliases usage
     ///
@@ -52,17 +52,17 @@ pub struct CheckerOutput {
     /// Signature of all functions and lambdas
     ///
     /// Maps the signature's location to its content
-    pub fn_signatures: HashMap<CodeRange, SharingType<Span<FnSignature>>>,
+    pub fn_signatures: HashMap<InputRange, SharingType<Span<FnSignature>>>,
 
     /// Body of all functions and lambdas
     ///
     /// Maps the body's location to its content
-    pub fn_bodies: HashMap<CodeRange, SharingType<Span<Block>>>,
+    pub fn_bodies: HashMap<InputRange, SharingType<Span<Block>>>,
 
     /// List of command aliases
     ///
     /// Maps the command alias' content token location to its content
-    pub cmd_aliases: HashMap<CodeRange, SharingType<Span<SingleCmdCall>>>,
+    pub cmd_aliases: HashMap<InputRange, SharingType<Span<SingleCmdCall>>>,
 
     /// List of command calls
     ///
@@ -70,12 +70,12 @@ pub struct CheckerOutput {
     /// ahead of time
     ///
     /// Maps the single command's token location to the expanded call
-    pub cmd_calls: HashMap<CodeRange, SharingType<DevelopedSingleCmdCall>>,
+    pub cmd_calls: HashMap<InputRange, SharingType<DevelopedSingleCmdCall>>,
 
     /// List of command calls as values
     ///
     /// Used to avoid cloning [`Span<CmdCall>`] every time a value is used
-    pub cmd_call_values: HashMap<CodeRange, SharingType<Span<CmdCall>>>,
+    pub cmd_call_values: HashMap<InputRange, SharingType<Span<CmdCall>>>,
 }
 
 impl CheckerOutput {
@@ -98,7 +98,7 @@ impl CheckerOutput {
 #[derive(Debug, Clone)]
 pub struct DevelopedSingleCmdCall {
     /// Location that can be found in the related [`Span::<SingleCmdCall>::at`]
-    pub at: CodeRange,
+    pub at: InputRange,
 
     /// Is the target a function?
     pub is_function: bool,
@@ -114,7 +114,7 @@ pub struct DevelopedCmdAliasCall {
     pub alias_called_at: Span<String>,
 
     /// Location of the alias' content
-    pub alias_content_at: CodeRange,
+    pub alias_content_at: InputRange,
 }
 
 /// Description of an item that will require capture at runtime

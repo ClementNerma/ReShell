@@ -17,7 +17,7 @@ dunce = "1.0.5"
 globby = "0.2.4"
 indexmap = "2.13.0"
 nu-ansi-term = "0.50.3"
-parsy = "0.15.9"
+parsy = "0.16.0"
 reedline = "0.44.0"
 reshell-builtins = { path = "../builtins" }
 reshell-checker = { path = "../checker" }

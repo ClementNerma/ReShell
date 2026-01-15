@@ -1,16 +1,14 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use parsy::{
-    Parser,
-    helpers::{char, end, silent_choice},
-    timed::LazilyDefined,
+    Parser, ParserConstUtils,
+    parsers::helpers::{char, end, silent_choice},
 };
 
-use super::instrs::INSTRUCTION;
+use super::{INSTRUCTION, RAW_BLOCK, msnl};
 use crate::{
     NATIVE_LIB_AST_SCOPE_ID,
     ast::{AstScopeId, Block},
-    use_basic_parsers,
 };
 
 static SCOPE_ID_COUNTER: AtomicU64 = AtomicU64::new(NATIVE_LIB_AST_SCOPE_ID.0 + 1);
@@ -19,9 +17,7 @@ pub(crate) fn generate_scope_id() -> AstScopeId {
     AstScopeId(SCOPE_ID_COUNTER.fetch_add(1, Ordering::SeqCst))
 }
 
-pub static RAW_BLOCK: LazilyDefined<Block> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl);
-
+pub fn raw_block() -> impl Parser<Block> + Send + Sync {
     INSTRUCTION
         .static_ref()
         .padded_by(msnl)
@@ -34,17 +30,13 @@ pub static RAW_BLOCK: LazilyDefined<Block> = LazilyDefined::new(|| {
             msnl.then(silent_choice((end(), char('}'))))
                 .critical("expected an instruction"),
         )
-        .erase_type()
-});
+}
 
-pub static BLOCK: LazilyDefined<Block> = LazilyDefined::new(|| {
-    use_basic_parsers!(msnl);
-
+pub fn block() -> impl Parser<Block> + Send + Sync {
     char('{')
         .critical_auto_msg()
         .ignore_then(msnl)
         .ignore_then(RAW_BLOCK.static_ref())
         .then_ignore(msnl)
         .then_ignore(char('}').critical_auto_msg())
-        .erase_type()
-});
+}

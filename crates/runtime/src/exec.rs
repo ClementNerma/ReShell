@@ -4,7 +4,7 @@ use std::{
 };
 
 use indexmap::IndexSet;
-use parsy::{CodeRange, FileId, Span};
+use parsy::{FileId, InputRange, Span};
 use reshell_parser::ast::{
     AstScopeId, Block, ElsIf, Instruction, MatchCase, ObjPropSpreading, ObjPropSpreadingBinding,
     ObjPropSpreadingType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase,
@@ -858,7 +858,7 @@ enum LoopBlockResult {
 fn declare_vars(
     names: &Span<ValueDestructuring>,
     value: RuntimeValue,
-    value_at: CodeRange,
+    value_at: InputRange,
     mut scope: Option<(AstScopeId, &mut ScopeContent)>,
     ctx: &mut Context,
 ) -> ExecResult<()> {
@@ -1025,7 +1025,7 @@ struct DeclareVarData {
     value: RuntimeValue,
 
     /// The variable's initial value's original location
-    value_at: CodeRange,
+    value_at: InputRange,
 
     /// The variable's (optional) enforced type
     enforced_type: Option<ValueType>,

@@ -1,4 +1,4 @@
-use parsy::CodeRange;
+use parsy::InputRange;
 
 pub type CheckerResult<T = ()> = Result<T, CheckerError>;
 
@@ -6,7 +6,7 @@ pub type CheckerResult<T = ()> = Result<T, CheckerError>;
 #[derive(Debug)]
 pub struct CheckerError {
     /// Location of the error in the source code
-    pub at: CodeRange,
+    pub at: InputRange,
 
     /// Content of the error
     pub msg: String,
@@ -17,7 +17,7 @@ pub struct CheckerError {
 
 impl CheckerError {
     /// Create a new checker error
-    pub fn new(at: CodeRange, msg: impl Into<String>) -> Self {
+    pub fn new(at: InputRange, msg: impl Into<String>) -> Self {
         Self {
             at,
             msg: msg.into(),

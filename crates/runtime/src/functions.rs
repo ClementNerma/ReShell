@@ -1,7 +1,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use colored::Colorize;
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use reshell_checker::long_flag_var_name;
 use reshell_parser::ast::{
     CmdFlagArgName, FlagValueSeparator, FnArg, FnCall, FnCallNature, FnSignatureArg,
@@ -1004,8 +1004,8 @@ pub enum FnPossibleCallArgs<'a> {
 
     /// All arguments were parsed from the "command call" syntax
     ParsedCmdArgs {
-        at: CodeRange,
-        args: Vec<(CmdArgResult, CodeRange)>,
+        at: InputRange,
+        args: Vec<(CmdArgResult, InputRange)>,
     },
 
     /// All arguments were provided internally

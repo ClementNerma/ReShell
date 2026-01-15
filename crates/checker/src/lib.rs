@@ -18,7 +18,7 @@ pub mod typechecking;
 
 use std::collections::{HashMap, HashSet};
 
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use reshell_parser::ast::{
     AstScopeId, Block, CmdArg, CmdCall, CmdCallBase, CmdCaptureType, CmdEnvVar, CmdExternalPath,
     CmdFlagArg, CmdFlagValueArg, CmdOutputCapture, CmdPath, CmdPipe, CmdPipeType, CmdRawString,
@@ -1628,7 +1628,7 @@ fn check_fn_arg(arg: &FnSignatureArg, state: &mut State) -> CheckerResult<Checke
 
 #[derive(Clone)]
 struct CheckedFnArg {
-    name_at: CodeRange,
+    name_at: InputRange,
     var_name: String,
     is_rest: bool,
     has_explicit_type: bool,

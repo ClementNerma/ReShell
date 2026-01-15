@@ -8,7 +8,7 @@ use std::{
 
 use indexmap::{IndexMap, IndexSet};
 use jiff::Zoned;
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 use regex::Regex;
 use reshell_parser::ast::{
     AstScopeId, Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
@@ -94,7 +94,7 @@ pub type InternalFnBody = fn(InternalFnCallData) -> ExecResult<Option<LocatedVal
 #[derive(Debug, Clone)]
 pub struct RuntimeCmdAlias {
     /// Location of the command alias' name inside its declaration
-    pub name_declared_at: CodeRange,
+    pub name_declared_at: InputRange,
 
     /// Name of the alias
     pub name: String,
@@ -275,7 +275,7 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
 #[derive(Debug, Clone)]
 pub struct ErrorValue {
     /// Error location
-    pub at: CodeRange,
+    pub at: InputRange,
 
     // TOOD: improve?
     /// Pretty-printed error location
@@ -289,7 +289,7 @@ pub struct ErrorValue {
 #[derive(Debug, Clone)]
 pub struct CmdCallValue {
     /// Error location
-    pub content_at: CodeRange,
+    pub content_at: InputRange,
 
     // TOOD: improve?
     /// Pretty-printed error location

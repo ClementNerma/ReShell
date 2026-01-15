@@ -1,4 +1,4 @@
-use parsy::{CodeRange, Span};
+use parsy::{InputRange, Span};
 
 use crate::ast::{
     CmdFlagArgName, CmdRawString, CmdRawStringPiece, EscapableChar, FnFlagArgName,
@@ -71,7 +71,7 @@ impl<T> From<Span<T>> for RuntimeSpan<T> {
 }
 
 impl RuntimeCodeRange {
-    pub fn parsed_range(&self) -> Option<CodeRange> {
+    pub fn parsed_range(&self) -> Option<InputRange> {
         match self {
             RuntimeCodeRange::Parsed(range) => Some(*range),
             RuntimeCodeRange::Internal(_) => None,
@@ -79,8 +79,8 @@ impl RuntimeCodeRange {
     }
 }
 
-impl From<CodeRange> for RuntimeCodeRange {
-    fn from(range: CodeRange) -> Self {
+impl From<InputRange> for RuntimeCodeRange {
+    fn from(range: InputRange) -> Self {
         Self::Parsed(range)
     }
 }
