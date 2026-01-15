@@ -101,7 +101,7 @@ pub enum Instruction {
     /// Try block
     Try {
         try_body: Span<Block>,
-        catch_var: Span<String>,
+        catch_var: Option<Span<String>>,
         catch_body: Block,
     },
 
@@ -147,9 +147,11 @@ pub enum ObjPropSpreadingType {
         name: Span<String>,
         binding: Option<ObjPropSpreadingBinding>,
     },
+
     RawKeyToMut {
         name: Span<String>,
     },
+
     LiteralKeyToConst {
         literal_name: Span<String>,
         binding: ObjPropSpreadingBinding,
@@ -228,33 +230,43 @@ pub enum ExprInnerContent {
         right: Box<Span<ExprInnerContent>>,
         right_chainings: Vec<Span<ExprInnerChaining>>,
     },
+
     ParenExpr(Box<Expr>),
+
     Value(Value),
+
     FnAsValue(Span<String>),
+
     Ternary {
         cond: Span<Box<Expr>>,
         body: Box<Expr>,
         elsif: Vec<ElsIfExpr>,
         els: Box<Expr>,
     },
+
     Match {
         expr: Box<Expr>,
         cases: Vec<MatchExprCase>,
         els: Box<Expr>,
     },
+
     TypeMatch {
         expr: Box<Expr>,
         cases: Vec<TypeMatchExprCase>,
         els: Box<Expr>,
     },
+
     Try {
         try_expr: Box<Expr>,
-        catch_var: Span<String>,
+        catch_var: Option<Span<String>>,
         catch_expr: Box<Expr>,
         catch_expr_scope_id: AstScopeId,
     },
+
     Throw(Span<Box<Expr>>),
+
     LoopContinue,
+
     LoopBreak,
 }
 

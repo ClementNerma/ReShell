@@ -505,15 +505,16 @@ pub fn instruction() -> impl Parser<Span<Instruction>> + Send + Sync {
                     .critical("expected an expression"),
             )
             .then_ignore(just("catch").critical_auto_msg())
-            .then_ignore(s.critical_auto_msg())
             .then(
-                ident
-                    .validate_or_critical(
-                        |name| name != "it" && name != "self",
-                        "Cannot declare a variable with reserved name 'it' or 'self'",
-                    )
-                    .spanned()
-                    .critical("expected a variable to catch the throw value in"),
+                s.ignore_then(
+                    ident
+                        .validate_or_critical(
+                            |name| name != "it" && name != "self",
+                            "Cannot declare a variable with reserved name 'it' or 'self'",
+                        )
+                        .spanned(),
+                )
+                .or_not(),
             )
             .then_ignore(s.critical_auto_msg())
             .then(BLOCK.static_ref().erase_type().critical("expected a block"))

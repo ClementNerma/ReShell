@@ -454,14 +454,16 @@ fn check_instr(instr: &Span<Instruction>, state: &mut State) -> CheckerResult {
             check_block(&try_body.data, state)?;
 
             check_block_with(catch_body, state, |scope, _| {
-                scope.vars.insert(
-                    catch_var.data.clone(),
-                    DeclaredVar {
-                        decl_at: RuntimeCodeRange::Parsed(catch_var.at),
-                        scope_id: scope.id,
-                        is_mut: false,
-                    },
-                );
+                if let Some(catch_var) = catch_var {
+                    scope.vars.insert(
+                        catch_var.data.clone(),
+                        DeclaredVar {
+                            decl_at: RuntimeCodeRange::Parsed(catch_var.at),
+                            scope_id: scope.id,
+                            is_mut: false,
+                        },
+                    );
+                }
 
                 Ok(())
             })?;
@@ -796,14 +798,16 @@ fn check_expr_inner_content(content: &Span<ExprInnerContent>, state: &mut State)
             check_expr(try_expr, state)?;
 
             check_expr_with(catch_expr, *catch_expr_scope_id, state, |scope| {
-                scope.vars.insert(
-                    catch_var.data.clone(),
-                    DeclaredVar {
-                        decl_at: RuntimeCodeRange::Parsed(catch_var.at),
-                        scope_id: scope.id,
-                        is_mut: false,
-                    },
-                );
+                if let Some(catch_var) = catch_var {
+                    scope.vars.insert(
+                        catch_var.data.clone(),
+                        DeclaredVar {
+                            decl_at: RuntimeCodeRange::Parsed(catch_var.at),
+                            scope_id: scope.id,
+                            is_mut: false,
+                        },
+                    );
+                }
             })?;
         }
 

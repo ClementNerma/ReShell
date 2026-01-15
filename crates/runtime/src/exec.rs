@@ -702,19 +702,21 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                 {
                     let mut scope = ScopeContent::new();
 
-                    scope.vars.insert(
-                        catch_var.data.clone(),
-                        ScopeVar {
-                            name_at: RuntimeCodeRange::Parsed(catch_var.at),
-                            decl_scope_id: catch_body.scope_id,
-                            is_mut: false,
-                            enforced_type: None,
-                            value: GcCell::new(LocatedValue::new(
-                                *at,
-                                RuntimeValue::String(message.clone()),
-                            )),
-                        },
-                    );
+                    if let Some(catch_var) = catch_var {
+                        scope.vars.insert(
+                            catch_var.data.clone(),
+                            ScopeVar {
+                                name_at: RuntimeCodeRange::Parsed(catch_var.at),
+                                decl_scope_id: catch_body.scope_id,
+                                is_mut: false,
+                                enforced_type: None,
+                                value: GcCell::new(LocatedValue::new(
+                                    *at,
+                                    RuntimeValue::String(message.clone()),
+                                )),
+                            },
+                        );
+                    }
 
                     run_block(catch_body, ctx, Some(scope))?;
                 } else {

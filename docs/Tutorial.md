@@ -582,6 +582,16 @@ try {
 }
 ```
 
+Note that the error variable is optional, so if you don't care about the error itself, you can write:
+
+```reshell
+try {
+  divide(2, 0)
+} catch {
+  echo "Error"
+}
+```
+
 ## Types
 
 Each value has an associated _type_ which indicates what "category" it belongs to.

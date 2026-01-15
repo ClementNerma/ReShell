@@ -271,15 +271,16 @@ pub fn expr() -> impl Parser<Expr> + Send + Sync {
                     .then_ignore(char('}').critical_auto_msg())
                     .then_ignore(msnl)
                     .then_ignore(just("catch").critical_auto_msg())
-                    .then_ignore(s.critical_auto_msg())
                     .then(
-                        ident
-                            .validate_or_critical(
-                                |name| name != "it" && name != "self",
-                                "Cannot declare a variable with reserved name 'it' or 'self'",
-                            )
-                            .spanned()
-                            .critical("expected a catch variable"),
+                        s.ignore_then(
+                            ident
+                                .validate_or_critical(
+                                    |name| name != "it" && name != "self",
+                                    "Cannot declare a variable with reserved name 'it' or 'self'",
+                                )
+                                .spanned(),
+                        )
+                        .or_not(),
                     )
                     .then_ignore(msnl)
                     .then_ignore(char('{').critical_auto_msg())
