@@ -448,9 +448,7 @@ pub fn value_to_str(
             at,
             format!(
                 "could not convert a value of type {} to a string",
-                value
-                    .compute_type()
-                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                value.compute_type().display(PrettyPrintOptions::inline())
             ),
             [(ExecInfoType::Note, type_error_tip)],
         )),

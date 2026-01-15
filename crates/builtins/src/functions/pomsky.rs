@@ -30,7 +30,7 @@ fn run() -> Runner {
                     Severity::Error => "ERROR".bright_red(),
                 },
                 pretty_printable_runtime_code_range(args_at.pattern, ctx.files_map())
-                    .display(&(), PrettyPrintOptions::inline()),
+                    .display(PrettyPrintOptions::inline()),
                 diag.msg
             );
         }

@@ -2,10 +2,7 @@
 //! This module implements pretty-printing for several types.
 //!
 
-use std::{collections::HashMap, sync::Arc};
-
 use colored::Color;
-use parsy::Span;
 use reshell_parser::ast::{
     CmdFlagArgName, FnSignature, FnSignatureArg, FnSignatureFlagArgNames, FnSignatureNormalFlagArg,
     FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, SingleValueType,
@@ -14,21 +11,14 @@ use reshell_parser::ast::{
 
 use crate::{PrettyPrintable, PrettyPrintablePiece, Styled};
 
-pub type TypeAliasStore = HashMap<Span<String>, Arc<Span<ValueType>>>;
-
 impl PrettyPrintable for ValueType {
-    type Context = TypeAliasStore;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
-            Self::Single(single) => single.generate_pretty_data(ctx),
+            Self::Single(single) => single.generate_pretty_data(),
 
             Self::Union(types) => PrettyPrintablePiece::List {
                 begin: vec![Styled::empty()],
-                items: types
-                    .iter()
-                    .map(|typ| typ.generate_pretty_data(ctx))
-                    .collect(),
+                items: types.iter().map(|typ| typ.generate_pretty_data()).collect(),
                 sep: vec![Styled::colored(" |", Color::Magenta)],
                 end: vec![],
                 suffix: None,
@@ -38,9 +28,7 @@ impl PrettyPrintable for ValueType {
 }
 
 impl PrettyPrintable for SingleValueType {
-    type Context = TypeAliasStore;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
             Self::Void => PrettyPrintablePiece::colored_atomic("void", Color::Magenta),
             Self::Any => PrettyPrintablePiece::colored_atomic("any", Color::Magenta),
@@ -65,13 +53,13 @@ impl PrettyPrintable for SingleValueType {
 
             Self::TypedList(inner) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("list[", Color::Magenta),
-                inner.generate_pretty_data(ctx),
+                inner.generate_pretty_data(),
                 PrettyPrintablePiece::colored_atomic("]", Color::Magenta),
             ]),
 
             Self::TypedMap(inner) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("map[", Color::Magenta),
-                inner.generate_pretty_data(ctx),
+                inner.generate_pretty_data(),
                 PrettyPrintablePiece::colored_atomic("]", Color::Magenta),
             ]),
 
@@ -94,7 +82,7 @@ impl PrettyPrintable for SingleValueType {
                                 PrettyPrintablePiece::Empty
                             },
                             PrettyPrintablePiece::colored_atomic(": ", Color::BrightBlack),
-                            typ.generate_pretty_data(ctx),
+                            typ.generate_pretty_data(),
                         ])
                     })
                     .collect(),
@@ -103,21 +91,17 @@ impl PrettyPrintable for SingleValueType {
                 suffix: None,
             },
 
-            Self::Function(signature) => signature.data.generate_pretty_data(ctx),
+            Self::Function(signature) => signature.data.generate_pretty_data(),
 
-            Self::TypeAlias(name) => PrettyPrintablePiece::Join(vec![
-                PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Yellow),
-                PrettyPrintablePiece::colored_atomic(" = ", Color::BrightMagenta),
-                ctx.get(name).unwrap().data.generate_pretty_data(ctx),
-            ]),
+            Self::TypeAlias(name) => {
+                PrettyPrintablePiece::colored_atomic(name.data.clone(), Color::Yellow)
+            }
         }
     }
 }
 
 impl PrettyPrintable for FnSignature {
-    type Context = TypeAliasStore;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         let Self { args, ret_type } = self;
 
         PrettyPrintablePiece::List {
@@ -125,14 +109,14 @@ impl PrettyPrintable for FnSignature {
             items: args
                 .data
                 .iter()
-                .map(|item| item.generate_pretty_data(ctx))
+                .map(|item| item.generate_pretty_data())
                 .collect(),
             sep: vec![Styled::colored(",", Color::Blue)],
             end: vec![Styled::colored(")", Color::BrightMagenta)],
             suffix: ret_type.as_ref().map(|ret_type| {
                 Box::new(PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),
-                    ret_type.data.generate_pretty_data(ctx),
+                    ret_type.data.generate_pretty_data(),
                 ]))
             }),
         }
@@ -140,9 +124,7 @@ impl PrettyPrintable for FnSignature {
 }
 
 impl PrettyPrintable for FnSignatureArg {
-    type Context = TypeAliasStore;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
             FnSignatureArg::Positional(FnSignaturePositionalArg {
                 name,
@@ -157,7 +139,7 @@ impl PrettyPrintable for FnSignatureArg {
 
                 if let Some(typ) = typ {
                     out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                    out.push(typ.generate_pretty_data(ctx));
+                    out.push(typ.generate_pretty_data());
                 }
 
                 PrettyPrintablePiece::Join(out)
@@ -165,7 +147,7 @@ impl PrettyPrintable for FnSignatureArg {
 
             FnSignatureArg::PresenceFlag(FnSignaturePresenceFlagArg { names }) => {
                 PrettyPrintablePiece::Join(vec![
-                    names.generate_pretty_data(&()),
+                    names.generate_pretty_data(),
                     PrettyPrintablePiece::colored_atomic("?", Color::White),
                 ])
             }
@@ -175,14 +157,14 @@ impl PrettyPrintable for FnSignatureArg {
                 is_optional,
                 typ,
             }) => {
-                let mut out = vec![names.generate_pretty_data(&())];
+                let mut out = vec![names.generate_pretty_data()];
 
                 if *is_optional {
                     out.push(PrettyPrintablePiece::colored_atomic("?", Color::White));
                 }
 
                 out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                out.push(typ.generate_pretty_data(ctx));
+                out.push(typ.generate_pretty_data());
 
                 PrettyPrintablePiece::Join(out)
             }
@@ -195,7 +177,7 @@ impl PrettyPrintable for FnSignatureArg {
 
                 if let Some(typ) = typ {
                     out.push(PrettyPrintablePiece::colored_atomic(": ", Color::White));
-                    out.push(typ.data.generate_pretty_data(ctx));
+                    out.push(typ.data.generate_pretty_data());
                 }
 
                 PrettyPrintablePiece::Join(out)
@@ -205,9 +187,7 @@ impl PrettyPrintable for FnSignatureArg {
 }
 
 impl PrettyPrintable for FnSignatureFlagArgNames {
-    type Context = ();
-
-    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         let str = match self {
             FnSignatureFlagArgNames::ShortFlag(short) => format!("-{}", short.data),
             FnSignatureFlagArgNames::LongFlag(long) => format!("--{}", long.data),
@@ -221,9 +201,7 @@ impl PrettyPrintable for FnSignatureFlagArgNames {
 }
 
 impl PrettyPrintable for CmdFlagArgName {
-    type Context = ();
-
-    fn generate_pretty_data(&self, _: &()) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         let name = match self {
             CmdFlagArgName::Short(name) => format!("-{name}"),
             CmdFlagArgName::Long(name) => format!("--{name}"),

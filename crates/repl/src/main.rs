@@ -177,7 +177,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
                             "{}",
                             wandering_value
                                 .value
-                                .display(&ctx, PrettyPrintOptions::multiline())
+                                .display(PrettyPrintOptions::multiline())
                         )
                     }
 

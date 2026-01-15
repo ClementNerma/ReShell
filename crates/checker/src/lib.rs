@@ -39,6 +39,7 @@ pub use self::{
     errors::CheckerError,
     state::{
         CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar, SpecialScopeType,
+        TypeAliasStore,
     },
 };
 use crate::{errors::CheckerResult, output::*, state::State};
@@ -175,9 +176,9 @@ fn block_first_pass(
                                 name.at,
                                 "this method clashes with another same-name method applying on a compatible type",
                             ).with_detail(
-                                format!("trying to declare a method for type     : {}", on_type.display(state.type_alias_store(), PrettyPrintOptions::inline()))
+                                format!("trying to declare a method for type     : {}", on_type.display(PrettyPrintOptions::inline()))
                             ).with_detail(
-                                format!("...but a method exists for clashing type: {}", other_type.display(state.type_alias_store(), PrettyPrintOptions::inline()))
+                                format!("...but a method exists for clashing type: {}", other_type.display(PrettyPrintOptions::inline()))
                             ));
                         }
                     }
@@ -1598,8 +1599,7 @@ fn check_fn_arg(arg: &FnSignatureArg, state: &mut State) -> CheckerResult<Checke
                         typ.at.parsed_range().unwrap(),
                         format!(
                             "rest types, when provided, must be either 'list' or 'list[...]', found: {}",
-                            typ.data
-                                .display(state.type_alias_store(), PrettyPrintOptions::inline())
+                            typ.data.display(PrettyPrintOptions::inline())
                         ),
                     ));
                 }

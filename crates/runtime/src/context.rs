@@ -4,6 +4,7 @@ use indexmap::IndexSet;
 use parsy::{CodeRange, Span};
 use reshell_checker::{
     CheckerError, CheckerScope, DeclaredCmdAlias, DeclaredFn, DeclaredMethod, DeclaredVar,
+    TypeAliasStore,
     output::{
         CheckerOutput, Dependency, DependencyType, DevelopedCmdAliasCall, DevelopedSingleCmdCall,
     },
@@ -16,7 +17,7 @@ use reshell_parser::{
     },
     files_map::FilesMap,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, TypeAliasStore};
+use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
     bin_resolver::BinariesResolver,
@@ -447,7 +448,7 @@ impl Context {
             "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
             pretty_printable_runtime_code_range(at.into(), self.files_map())
-                .display(&(), PrettyPrintOptions::inline())
+                .display(PrettyPrintOptions::inline())
                 .no_colors()
         );
     }

@@ -76,7 +76,7 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
                         "Variable '{var_name}' does not have a stringifyable type ; found type {}",
                         value
                             .compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            .display(PrettyPrintOptions::inline())
                     )),
                 };
 

@@ -39,7 +39,7 @@ fn run() -> Runner {
                             match method.name_at {
                                 RuntimeCodeRange::Parsed(at) => {
                                     pretty_printable_code_range(at, ctx.files_map())
-                                        .display(&(), PrettyPrintOptions::inline())
+                                        .display(PrettyPrintOptions::inline())
                                         .to_string()
                                         .underline()
                                 }
@@ -48,7 +48,7 @@ fn run() -> Runner {
                                     format!("internal location: {str}").italic()
                                 }
                             },
-                            method.value.display(ctx, PrettyPrintOptions::inline())
+                            method.value.display(PrettyPrintOptions::inline())
                         );
                     }
 
@@ -59,7 +59,7 @@ fn run() -> Runner {
                         match func.name_at {
                             RuntimeCodeRange::Parsed(at) => {
                                 pretty_printable_code_range(at, ctx.files_map())
-                                    .display(&(), PrettyPrintOptions::inline())
+                                    .display(PrettyPrintOptions::inline())
                                     .to_string()
                                     .underline()
                             }
@@ -71,7 +71,7 @@ fn run() -> Runner {
                         func.value
                             .signature
                             .inner()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            .display(PrettyPrintOptions::inline())
                     );
 
                     if let RuntimeFnBody::Block(block) = &func.value.body
@@ -96,7 +96,7 @@ fn run() -> Runner {
                             cmd_alias.value.name_declared_at,
                             ctx.files_map()
                         )
-                        .display(&(), PrettyPrintOptions::inline())
+                        .display(PrettyPrintOptions::inline())
                         .to_string()
                         .underline(),
                         match at.start.file_id {

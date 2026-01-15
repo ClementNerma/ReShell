@@ -32,24 +32,21 @@ fn run() -> Runner {
             let at = format!(
                 "dbgType [{}]:",
                 pretty_printable_runtime_code_range(at, ctx.files_map())
-                    .display(&(), PrettyPrintOptions::inline())
+                    .display(PrettyPrintOptions::inline())
             );
 
             println!(
                 "{} {}",
                 at.bright_magenta(),
-                value.compute_type().display(
-                    ctx.type_alias_store(),
-                    PrettyPrintOptions {
-                        pretty: true,
-                        line_prefix_size: at.chars().count(),
-                        max_line_size: max_line_size
-                            .or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width)))
-                            .unwrap_or(30),
-                        tab_size: tab_size.unwrap_or(4),
-                        long_cut_off: true
-                    }
-                )
+                value.compute_type().display(PrettyPrintOptions {
+                    pretty: true,
+                    line_prefix_size: at.chars().count(),
+                    max_line_size: max_line_size
+                        .or_else(|| terminal_size().map(|(Width(width), _)| usize::from(width)))
+                        .unwrap_or(30),
+                    tab_size: tab_size.unwrap_or(4),
+                    long_cut_off: true
+                })
             );
 
             Ok(None)

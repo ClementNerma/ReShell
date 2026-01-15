@@ -307,7 +307,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
                 "  = {} function called at: {}",
                 "note:".cyan(),
                 pretty_printable_runtime_code_range(*fn_called_at, files)
-                    .display(&(), PrettyPrintOptions::inline())
+                    .display(PrettyPrintOptions::inline())
             );
         }
     }

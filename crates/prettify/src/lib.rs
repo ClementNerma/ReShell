@@ -14,24 +14,16 @@ pub use self::impl_on::*;
 ///
 /// It will allow to generate configurable displayable data
 pub trait PrettyPrintable {
-    /// Data required for pretty-printing
-    type Context: ?Sized;
-
     /// Generate pretty-printing data for later processing
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece;
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece;
 
     /// Obtain a [`Display`] type from this value
-    fn display<'p, 'c>(
-        &'p self,
-        ctx: &'c Self::Context,
-        opts: PrettyPrintOptions,
-    ) -> PrettyPrintableDisplay<'p, 'c, Self>
+    fn display<'p>(&'p self, opts: PrettyPrintOptions) -> PrettyPrintableDisplay<'p, Self>
     where
         Self: Sized,
     {
         PrettyPrintableDisplay {
             source: self,
-            ctx,
             opts,
             no_colors: false,
         }
@@ -39,24 +31,23 @@ pub trait PrettyPrintable {
 }
 
 /// Pretty-printable with options
-pub struct PrettyPrintableDisplay<'p, 'c, P: PrettyPrintable> {
+pub struct PrettyPrintableDisplay<'p, P: PrettyPrintable> {
     pub source: &'p P,
-    pub ctx: &'c P::Context,
     pub opts: PrettyPrintOptions,
     pub no_colors: bool,
 }
 
-impl<P: PrettyPrintable> PrettyPrintableDisplay<'_, '_, P> {
+impl<P: PrettyPrintable> PrettyPrintableDisplay<'_, P> {
     pub fn no_colors(mut self) -> Self {
         self.no_colors = true;
         self
     }
 }
 
-impl<P: PrettyPrintable> Display for PrettyPrintableDisplay<'_, '_, P> {
+impl<P: PrettyPrintable> Display for PrettyPrintableDisplay<'_, P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.source
-            .generate_pretty_data(self.ctx)
+            .generate_pretty_data()
             .render(self.opts, |styled| {
                 if self.no_colors {
                     write!(f, "{}", styled.inner().input).unwrap()
@@ -345,9 +336,7 @@ impl PrettyPrintablePiece {
 }
 
 impl PrettyPrintable for PrettyPrintablePiece {
-    type Context = ();
-
-    fn generate_pretty_data(&self, _: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         self.clone()
     }
 }

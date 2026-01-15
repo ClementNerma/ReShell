@@ -27,8 +27,7 @@ fn run() -> Runner {
                     args_at.year,
                     format!(
                         "Failed to set year to {year} in {}: {err}",
-                        pretty_printable_date_time(&moment)
-                            .display(&(), PrettyPrintOptions::inline())
+                        pretty_printable_date_time(&moment).display(PrettyPrintOptions::inline())
                     ),
                 )
             })?;

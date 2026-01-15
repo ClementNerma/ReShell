@@ -31,7 +31,7 @@ fn run() -> Runner {
                 args_at.hours,
                 format!(
                     "Failed to set hours to {hours} in {}: {err}",
-                    pretty_printable_date_time(&moment).display(&(), PrettyPrintOptions::inline())
+                    pretty_printable_date_time(&moment).display(PrettyPrintOptions::inline())
                 ),
             )
         })?;

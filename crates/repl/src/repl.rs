@@ -170,9 +170,7 @@ pub fn start(
                     if let Some(located_value) = located_value {
                         println!(
                             "{}",
-                            located_value
-                                .value
-                                .display(&ctx, PrettyPrintOptions::multiline())
+                            located_value.value.display(PrettyPrintOptions::multiline())
                         );
                     }
                 }

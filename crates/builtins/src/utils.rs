@@ -92,11 +92,8 @@ pub fn call_fn_checked_with_parsed_args(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    expected_signature
-                        .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                    value
-                        .compute_type()
-                        .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    expected_signature.display(PrettyPrintOptions::inline()),
+                    value.compute_type().display(PrettyPrintOptions::inline())
                 ),
             ));
         }
@@ -112,11 +109,11 @@ pub fn call_fn_checked_with_parsed_args(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                expected_signature.display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                expected_signature.display(PrettyPrintOptions::inline()),
                 loc_val
                     .value
                     .compute_type()
-                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    .display(PrettyPrintOptions::inline())
             ),
         ));
     }

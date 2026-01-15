@@ -968,7 +968,6 @@ name = "reshell-prettify"
 version = "0.1.0"
 dependencies = [
  "colored",
- "parsy",
  "reshell-parser",
 ]
 

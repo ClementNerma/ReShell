@@ -69,9 +69,9 @@ pub fn ordered(
             format!(
                 "cannot compare a {} and a {}",
                 a.original_value_type()
-                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+                    .display(PrettyPrintOptions::inline()),
                 b.original_value_type()
-                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                    .display(PrettyPrintOptions::inline())
             ),
         )),
     }

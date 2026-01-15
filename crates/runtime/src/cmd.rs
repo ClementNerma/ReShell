@@ -125,7 +125,7 @@ pub fn run_cmd(
                                         loc_val
                                             .value
                                             .compute_type()
-                                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                                            .display( PrettyPrintOptions::inline())
                                     )
                                 ));
                             }
@@ -279,7 +279,7 @@ pub fn run_cmd(
                                 loc_val
                                     .value
                                     .compute_type()
-                                    .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                                    .display(PrettyPrintOptions::inline())
                             ),
                         ));
                     }

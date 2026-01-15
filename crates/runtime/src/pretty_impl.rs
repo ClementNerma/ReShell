@@ -15,7 +15,6 @@ use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, Styled, pretty_pri
 
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
-    context::Context,
     values::{
         CmdArgValue, CmdFlagValue, ErrorValueContent, RangeValue, RuntimeFnBody, RuntimeFnValue,
         RuntimeValue,
@@ -23,9 +22,7 @@ use crate::{
 };
 
 impl PrettyPrintable for RuntimeValue {
-    type Context = Context;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
             RuntimeValue::Void => {
                 PrettyPrintablePiece::Atomic(Styled::from("void".bright_black().italic()))
@@ -93,7 +90,7 @@ impl PrettyPrintable for RuntimeValue {
 
                 PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic("error(", Color::Red),
-                    data.generate_pretty_data(ctx),
+                    data.generate_pretty_data(),
                     PrettyPrintablePiece::colored_atomic(" @ ", Color::BrightMagenta),
                     // TODO: find a way to avoid cloning?
                     pretty_at.clone(),
@@ -103,13 +100,14 @@ impl PrettyPrintable for RuntimeValue {
 
             RuntimeValue::CmdCall { content_at } => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("@{", Color::Magenta),
-                pretty_printable_code_range(*content_at, ctx.files_map()),
+                todo!(),
+                // pretty_printable_code_range(*content_at, ctx.files_map()),
                 PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
             ]),
 
             RuntimeValue::CmdArg(cmd_arg) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("cmdarg(", Color::Magenta),
-                cmd_arg.generate_pretty_data(ctx),
+                cmd_arg.generate_pretty_data(),
                 PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
             ]),
 
@@ -118,7 +116,7 @@ impl PrettyPrintable for RuntimeValue {
                 items: list
                     .read_promise_no_write()
                     .iter()
-                    .map(|item| item.generate_pretty_data(ctx))
+                    .map(|item| item.generate_pretty_data())
                     .collect(),
                 sep: vec![Styled::colored(",", Color::Blue)],
                 end: vec![Styled::colored("]", Color::Blue)],
@@ -135,7 +133,7 @@ impl PrettyPrintable for RuntimeValue {
                                 pretty_printable_string(key),
                                 PrettyPrintablePiece::colored_atomic(":", Color::Blue),
                                 PrettyPrintablePiece::Atomic(Styled::colorless(" ")),
-                                value.generate_pretty_data(ctx),
+                                value.generate_pretty_data(),
                             ])
                         })
                         .collect()
@@ -155,7 +153,7 @@ impl PrettyPrintable for RuntimeValue {
                                 PrettyPrintablePiece::colored_atomic(field, Color::Red),
                                 PrettyPrintablePiece::colored_atomic(":", Color::Blue),
                                 PrettyPrintablePiece::Atomic(Styled::colorless(" ")),
-                                value.generate_pretty_data(ctx),
+                                value.generate_pretty_data(),
                             ])
                         })
                         .collect()
@@ -165,19 +163,15 @@ impl PrettyPrintable for RuntimeValue {
                 suffix: None,
             },
 
-            RuntimeValue::Function(func) => func.generate_pretty_data(ctx),
+            RuntimeValue::Function(func) => func.generate_pretty_data(),
         }
     }
 }
 
 impl PrettyPrintable for RuntimeFnValue {
-    type Context = Context;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         PrettyPrintablePiece::Join(vec![
-            self.signature
-                .inner()
-                .generate_pretty_data(ctx.type_alias_store()),
+            self.signature.inner().generate_pretty_data(),
             PrettyPrintablePiece::colored_atomic(
                 match self.body {
                     RuntimeFnBody::Block(_) => " { ... }",
@@ -190,23 +184,19 @@ impl PrettyPrintable for RuntimeFnValue {
 }
 
 impl PrettyPrintable for CmdArgValue {
-    type Context = Context;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
-            Self::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
-            Self::Flag(flag) => flag.generate_pretty_data(ctx),
+            Self::Basic(loc_val) => loc_val.value.generate_pretty_data(),
+            Self::Flag(flag) => flag.generate_pretty_data(),
         }
     }
 }
 
 impl PrettyPrintable for CmdFlagValue {
-    type Context = Context;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         let Self { name, value } = self;
 
-        let mut join = vec![name.data.generate_pretty_data(&())];
+        let mut join = vec![name.data.generate_pretty_data()];
 
         if let Some(FlagArgValueResult { value, value_sep }) = value {
             let value_sep = match value_sep {
@@ -219,7 +209,7 @@ impl PrettyPrintable for CmdFlagValue {
                 Color::BrightYellow,
             ));
 
-            join.push(value.value.generate_pretty_data(ctx));
+            join.push(value.value.generate_pretty_data());
         }
 
         PrettyPrintablePiece::Join(join)
@@ -227,17 +217,15 @@ impl PrettyPrintable for CmdFlagValue {
 }
 
 impl PrettyPrintable for CmdArgResult {
-    type Context = Context;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
-            Self::Single(single) => single.generate_pretty_data(ctx),
+            Self::Single(single) => single.generate_pretty_data(),
 
             Self::Spreaded(items) => PrettyPrintablePiece::List {
                 begin: vec![Styled::colored("spread(", Color::Magenta)],
                 items: items
                     .iter()
-                    .map(|item| item.generate_pretty_data(ctx))
+                    .map(|item| item.generate_pretty_data())
                     .collect(),
                 sep: vec![Styled::colored(",", Color::Blue)],
                 end: vec![Styled::colored(")", Color::Magenta)],
@@ -248,12 +236,10 @@ impl PrettyPrintable for CmdArgResult {
 }
 
 impl PrettyPrintable for SingleCmdArgResult {
-    type Context = Context;
-
-    fn generate_pretty_data(&self, ctx: &Self::Context) -> PrettyPrintablePiece {
+    fn generate_pretty_data(&self) -> PrettyPrintablePiece {
         match self {
-            Self::Basic(loc_val) => loc_val.value.generate_pretty_data(ctx),
-            Self::Flag(flag) => flag.generate_pretty_data(ctx),
+            Self::Basic(loc_val) => loc_val.value.generate_pretty_data(),
+            Self::Flag(flag) => flag.generate_pretty_data(),
         }
     }
 }

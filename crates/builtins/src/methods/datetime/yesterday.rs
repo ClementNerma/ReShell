@@ -20,7 +20,7 @@ fn run() -> Runner {
                 args_at.moment,
                 format!(
                     "Failed to get yesterday's date from {}: {err}",
-                    pretty_printable_date_time(&moment).display(&(), PrettyPrintOptions::inline())
+                    pretty_printable_date_time(&moment).display(PrettyPrintOptions::inline())
                 ),
             )
         })?;

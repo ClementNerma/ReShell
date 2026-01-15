@@ -1,11 +1,13 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use parsy::{CodeRange, Span};
 use reshell_parser::{
     NATIVE_LIB_AST_SCOPE_ID,
     ast::{AstScopeId, Block, CmdCall, FnSignature, RuntimeCodeRange, SingleCmdCall, ValueType},
 };
-use reshell_prettify::TypeAliasStore;
 
 use crate::{CheckerError, errors::CheckerResult, output::*};
 
@@ -477,6 +479,9 @@ pub struct DeclaredCmdAlias {
     /// See [`State::mark_cmd_alias_as_ready`]
     pub is_ready: bool,
 }
+
+/// Type aliases store
+pub type TypeAliasStore = HashMap<Span<String>, Arc<Span<ValueType>>>;
 
 // TODO: internal functions, variables and methods are NOT registered as dependencies
 //       (as we don't have a way to tell apart methods with the same name if they don't have a different decl_at for instance)

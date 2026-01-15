@@ -25,10 +25,8 @@ mod basics;
 #[cfg(test)]
 mod std;
 
-#[allow(clippy::type_complexity, clippy::result_large_err)]
-pub fn run(
-    source: impl Into<String>,
-) -> Result<(Option<LocatedValue>, Context), (ExecError, Context)> {
+#[allow(clippy::result_large_err)]
+pub fn run(source: impl Into<String>) -> Result<Option<LocatedValue>, (ExecError, Context)> {
     let source = source.into();
 
     let files_map = FilesMap::new(Box::new(|_, _, _| unreachable!()));
@@ -65,15 +63,12 @@ pub fn run(
         }),
     );
 
-    match run_program(&program, &mut ctx) {
-        Ok(ret) => Ok((ret, ctx)),
-        Err(err) => Err((err, ctx)),
-    }
+    run_program(&program, &mut ctx).map_err(|err| (err, ctx))
 }
 
-pub fn run_expect_success(source: &str) -> (Option<LocatedValue>, Context) {
+pub fn run_expect_success(source: &str) -> Option<LocatedValue> {
     match run(source) {
-        Ok((value, ctx)) => (value, ctx),
+        Ok(value) => value,
 
         Err((err, ctx)) => match err {
             ExecError::ActualError(err) => {
@@ -99,27 +94,23 @@ pub fn run_expect_success(source: &str) -> (Option<LocatedValue>, Context) {
     }
 }
 
-pub fn run_expect_value(source: &str) -> (LocatedValue, Context) {
-    let (ret_val, ctx) = run_expect_success(source);
-
-    (
-        ret_val.expect("Expected the program to return a value, but it returned nothing"),
-        ctx,
-    )
+pub fn run_expect_value(source: &str) -> LocatedValue {
+    run_expect_success(source)
+        .expect("Expected the program to return a value, but it returned nothing")
 }
 
 pub fn run_expect_value_of_type<T: TypedValueParser>(source: &str) -> T::Parsed {
-    let (value, ctx) = run_expect_value(source);
+    let value = run_expect_value(source);
 
     T::parse(value.value.clone()).unwrap_or_else(|err| {
         panic!(
             "Program did not return the expected value type: {err}\n\n=> expected : {}\n=> got      : {}\n=> value    : {}",
-            T::value_type().display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
+            T::value_type().display(PrettyPrintOptions::inline()),
             value
                 .value
                 .compute_type()
-                .display(ctx.type_alias_store(), PrettyPrintOptions::inline()),
-                value.value.display(&ctx, PrettyPrintOptions::inline())
+                .display(PrettyPrintOptions::inline()),
+                value.value.display( PrettyPrintOptions::inline())
         )
     })
 }

@@ -5,7 +5,8 @@ use reshell_parser::ast::{
     FnSignaturePositionalArg, FnSignaturePresenceFlagArg, FnSignatureRestArg, SingleValueType,
     StructTypeMember, ValueType,
 };
-use reshell_prettify::TypeAliasStore;
+
+use crate::state::TypeAliasStore;
 
 /// Check if a type can fit into another (which is if all values of this type would be compatible with the target type)
 #[must_use]

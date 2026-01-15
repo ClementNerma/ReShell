@@ -338,7 +338,7 @@ fn build_fn_completions<'a>(
                         func.value
                             .signature
                             .inner()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            .display(PrettyPrintOptions::inline())
                             .to_string(),
                     ),
                     style: None,
@@ -383,7 +383,7 @@ fn build_method_completions<'a>(
                                 .value
                                 .signature
                                 .inner()
-                                .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                                .display(PrettyPrintOptions::inline())
                                 .to_string(),
                         ),
                         style: None,
@@ -518,7 +518,7 @@ fn complete_var_name(
                             .read_promise_no_write()
                             .value
                             .compute_type()
-                            .display(ctx.type_alias_store(), PrettyPrintOptions::inline())
+                            .display(PrettyPrintOptions::inline())
                             .to_string(),
                     ),
                     style: None,
