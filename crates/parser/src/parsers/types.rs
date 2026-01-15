@@ -33,6 +33,18 @@ pub static VALUE_TYPE: LazilyDefined<ValueType> = LazilyDefined::new(|| {
             just("string")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::String),
+            just("datetime")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::DateTime),
+            just("instant")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Instant),
+            just("duration")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Duration),
+            just("regex")
+                .not_followed_by(possible_ident_char)
+                .map(|_| SingleValueType::Regex),
             just("range")
                 .not_followed_by(possible_ident_char)
                 .map(|_| SingleValueType::Range),
