@@ -4,7 +4,7 @@ publish = false
 edition = "2024"
 
 [dependencies]
-parsy = "0.16.0"
+parsy = "0.16.2"
 reshell-builtins = { path = "../builtins" }
 reshell-checker = { path = "../checker" }
 reshell-parser = { path = "../parser" }
