@@ -54,7 +54,7 @@ fn value_to_serde_json(value: RuntimeValue) -> Result<Value, &'static str> {
 
         RuntimeValue::Error(_) => Err("cannot convert an error to JSON"),
 
-        RuntimeValue::CmdCall { content_at: _ } => Err("cannot convert a command call to JSON"),
+        RuntimeValue::CmdCall(_) => Err("cannot convert a command call to JSON"),
 
         RuntimeValue::List(list) => list
             .read_promise_no_write()

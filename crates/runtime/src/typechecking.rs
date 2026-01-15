@@ -32,7 +32,7 @@ pub fn check_if_value_fits_single_type(
         SingleValueType::Regex => matches!(value, RuntimeValue::Regex(_)),
         SingleValueType::Range => matches!(value, RuntimeValue::Range(_)),
         SingleValueType::Error => matches!(value, RuntimeValue::Error(_)),
-        SingleValueType::CmdCall => matches!(value, RuntimeValue::CmdCall { content_at: _ }),
+        SingleValueType::CmdCall => matches!(value, RuntimeValue::CmdCall(_)),
         SingleValueType::CmdArg => matches!(value, RuntimeValue::CmdArg(_)),
         SingleValueType::UntypedList => matches!(value, RuntimeValue::List(_)),
         SingleValueType::UntypedMap => matches!(value, RuntimeValue::Map(_)),

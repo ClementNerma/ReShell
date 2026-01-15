@@ -27,9 +27,10 @@ use crate::{
         lambda_to_value,
     },
     functions::{FnCallInfos, FnPossibleCallArgs, call_fn_value, find_applicable_method},
+    pretty_impl::pretty_printable_code_range,
     values::{
-        CmdArgValue, CmdFlagValue, LocatedValue, RuntimeCmdAlias, RuntimeFnValue, RuntimeValue,
-        value_to_str,
+        CmdArgValue, CmdCallValue, CmdFlagValue, LocatedValue, RuntimeCmdAlias, RuntimeFnValue,
+        RuntimeValue, value_to_str,
     },
 };
 
@@ -996,9 +997,10 @@ fn eval_cmd_value_making_arg(
 
         CmdValueMakingArg::Lambda(func) => lambda_to_value(&func.data, ctx),
 
-        CmdValueMakingArg::InlineCmdCall(call) => RuntimeValue::CmdCall {
+        CmdValueMakingArg::InlineCmdCall(call) => RuntimeValue::CmdCall(Arc::new(CmdCallValue {
             content_at: call.at,
-        },
+            pretty_content_at: pretty_printable_code_range(call.at, ctx.files_map()),
+        })),
     };
 
     Ok(LocatedValue::new(RuntimeCodeRange::Parsed(arg.at), value))

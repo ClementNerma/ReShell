@@ -149,9 +149,9 @@ pub enum RuntimeValue {
     Duration(Duration),
     Regex(Arc<Regex>),
     Range(RangeValue),
-    Error(Box<ErrorValueContent>),
-    CmdCall { content_at: CodeRange },
-    CmdArg(Box<CmdArgValue>),
+    Error(Arc<ErrorValue>),
+    CmdCall(Arc<CmdCallValue>),
+    CmdArg(Arc<CmdArgValue>),
 
     // Containers
     // These can be cloned cheaply thanks to them using a GcCell
@@ -176,7 +176,7 @@ impl RuntimeValue {
             RuntimeValue::Duration(_) => SingleValueType::Duration,
             RuntimeValue::Regex(_) => SingleValueType::Regex,
             RuntimeValue::Range(_) => SingleValueType::Range,
-            RuntimeValue::CmdCall { content_at: _ } => SingleValueType::CmdCall,
+            RuntimeValue::CmdCall(_) => SingleValueType::CmdCall,
             RuntimeValue::CmdArg(_) => SingleValueType::CmdArg,
             RuntimeValue::Error(_) => SingleValueType::Error,
 
@@ -238,7 +238,7 @@ impl RuntimeValue {
             | RuntimeValue::Regex(_)
             | RuntimeValue::Range(_)
             | RuntimeValue::Error(_)
-            | RuntimeValue::CmdCall { content_at: _ }
+            | RuntimeValue::CmdCall(_)
             | RuntimeValue::CmdArg(_)
             | RuntimeValue::Function(_) => false,
 
@@ -273,7 +273,7 @@ fn generate_values_types<'a>(values: impl Iterator<Item = &'a RuntimeValue>) -> 
 
 /// Content of an error value
 #[derive(Debug, Clone)]
-pub struct ErrorValueContent {
+pub struct ErrorValue {
     /// Error location
     pub at: CodeRange,
 
@@ -283,6 +283,17 @@ pub struct ErrorValueContent {
 
     /// Data attached to the error
     pub data: RuntimeValue,
+}
+
+/// Content of a command call value
+#[derive(Debug, Clone)]
+pub struct CmdCallValue {
+    /// Error location
+    pub content_at: CodeRange,
+
+    // TOOD: improve?
+    /// Pretty-printed error location
+    pub pretty_content_at: PrettyPrintablePiece,
 }
 
 /// Runtime value with a location
@@ -385,14 +396,11 @@ pub fn are_values_equal(
         }),
         (RuntimeValue::Error(_), _) | (_, RuntimeValue::Error(_)) => Ok(false),
 
-        (RuntimeValue::CmdCall { content_at: _ }, RuntimeValue::CmdCall { content_at: _ }) => {
-            Err(NotComparableTypeErr {
-                reason: "cannot compare command calls",
-            })
-        }
+        (RuntimeValue::CmdCall(_), RuntimeValue::CmdCall(_)) => Err(NotComparableTypeErr {
+            reason: "cannot compare command calls",
+        }),
 
-        (RuntimeValue::CmdCall { content_at: _ }, _)
-        | (_, RuntimeValue::CmdCall { content_at: _ }) => {
+        (RuntimeValue::CmdCall(_), _) | (_, RuntimeValue::CmdCall(_)) => {
             // TODO
             Ok(false)
         }
@@ -443,7 +451,7 @@ pub fn value_to_str(
         | RuntimeValue::Struct(_)
         | RuntimeValue::Function(_)
         | RuntimeValue::Error(_)
-        | RuntimeValue::CmdCall { content_at: _ }
+        | RuntimeValue::CmdCall(_)
         | RuntimeValue::CmdArg(_) => Err(ctx.hard_error_with_infos(
             at,
             format!(

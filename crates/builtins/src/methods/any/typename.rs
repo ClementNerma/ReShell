@@ -27,7 +27,7 @@ fn run() -> Runner {
             RuntimeValue::Regex(_) => "regex",
             RuntimeValue::Range(_) => "range",
             RuntimeValue::Error(_) => "error",
-            RuntimeValue::CmdCall { content_at: _ } => "cmdcall",
+            RuntimeValue::CmdCall(_) => "cmdcall",
             RuntimeValue::CmdArg(_) => "cmdarg",
             RuntimeValue::List(_) => "list",
             RuntimeValue::Map(_) => "map",

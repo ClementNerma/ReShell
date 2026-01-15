@@ -18,7 +18,7 @@ define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { cmd_call, silent }, _, ctx| {
-        let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
+        let cmd = ctx.get_cmd_call_used_as_value(cmd_call.content_at);
 
         let cmd_result = run_cmd(
             &cmd,

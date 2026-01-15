@@ -311,7 +311,7 @@ fn fill_fn_args(
                             SingleCmdArgResult::Basic(data) => CmdArgValue::Basic(data),
                             SingleCmdArgResult::Flag(data) => CmdArgValue::Flag(data),
                         })
-                        .map(Box::new)
+                        .map(Arc::new)
                         .map(RuntimeValue::CmdArg)
                         .collect()
                 }

@@ -16,8 +16,8 @@ use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece, Styled, pretty_pri
 use crate::{
     cmd::{CmdArgResult, FlagArgValueResult, SingleCmdArgResult},
     values::{
-        CmdArgValue, CmdFlagValue, ErrorValueContent, RangeValue, RuntimeFnBody, RuntimeFnValue,
-        RuntimeValue,
+        CmdArgValue, CmdCallValue, CmdFlagValue, ErrorValue, RangeValue, RuntimeFnBody,
+        RuntimeFnValue, RuntimeValue,
     },
 };
 
@@ -82,7 +82,7 @@ impl PrettyPrintable for RuntimeValue {
             ]),
 
             RuntimeValue::Error(err) => {
-                let ErrorValueContent {
+                let ErrorValue {
                     at: _,
                     data,
                     pretty_at,
@@ -98,12 +98,19 @@ impl PrettyPrintable for RuntimeValue {
                 ])
             }
 
-            RuntimeValue::CmdCall { content_at } => PrettyPrintablePiece::Join(vec![
-                PrettyPrintablePiece::colored_atomic("@{", Color::Magenta),
-                todo!(),
-                // pretty_printable_code_range(*content_at, ctx.files_map()),
-                PrettyPrintablePiece::colored_atomic("}", Color::Magenta),
-            ]),
+            RuntimeValue::CmdCall(call) => {
+                let CmdCallValue {
+                    content_at: _,
+                    pretty_content_at,
+                } = &**call;
+
+                PrettyPrintablePiece::Join(vec![
+                    PrettyPrintablePiece::colored_atomic("@(", Color::Magenta),
+                    // TODO: find a way to avoid cloning?
+                    pretty_content_at.clone(),
+                    PrettyPrintablePiece::colored_atomic(")", Color::Magenta),
+                ])
+            }
 
             RuntimeValue::CmdArg(cmd_arg) => PrettyPrintablePiece::Join(vec![
                 PrettyPrintablePiece::colored_atomic("cmdarg(", Color::Magenta),

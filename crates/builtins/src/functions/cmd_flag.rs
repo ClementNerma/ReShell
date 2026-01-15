@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use reshell_parser::ast::{CmdFlagArgName, FlagValueSeparator};
 use reshell_runtime::{
     cmd::FlagArgValueResult,
@@ -17,7 +19,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { name, value }, args_at, ctx| {
-        Ok(Some(RuntimeValue::CmdArg(Box::new(CmdArgValue::Flag(
+        Ok(Some(RuntimeValue::CmdArg(Arc::new(CmdArgValue::Flag(
             CmdFlagValue {
                 name: RuntimeSpan {
                     at: args_at.name,

@@ -14,12 +14,11 @@ use std::{
 
 use indexmap::IndexMap;
 use jiff::Zoned;
-use parsy::CodeRange;
 use regex::Regex;
 use reshell_parser::ast::{SingleValueType, ValueType};
 use reshell_runtime::{
     gc::GcCell,
-    values::{CmdArgValue, ErrorValueContent, RangeValue, RuntimeValue},
+    values::{CmdArgValue, CmdCallValue, ErrorValue, RangeValue, RuntimeValue},
 };
 
 use super::args::{TypedValueEncoder, TypedValueParser};
@@ -176,23 +175,19 @@ declare_basic_type_handlers!(
         fn encode(value: RangeValue) { RuntimeValue::Range(value) }
     },
 
-    ErrorType (Error) = (CodeRange, RuntimeValue) {
+    ErrorType (Error) = Arc<ErrorValue> {
         fn parse(value) {
             match value {
-                RuntimeValue::Error(err) => {
-                    let ErrorValueContent { at, data, pretty_at: _ } = *err;
-                    Ok((at, data.clone()))
-                },
-
+                RuntimeValue::Error(inner) => Ok(inner),
                 _ => Err("expected an error".to_owned())
             }
         }
     },
 
-    CmdCallType (CmdCall) = CodeRange {
+    CmdCallType (CmdCall) = Arc<CmdCallValue> {
         fn parse(value) {
             match value {
-                RuntimeValue::CmdCall { content_at } => Ok(content_at),
+                RuntimeValue::CmdCall(inner) => Ok(inner),
                 _ => Err("expected a command call".to_owned())
             }
         }
@@ -231,7 +226,7 @@ declare_basic_type_handlers!(
         fn encode(members: IndexMap<String, RuntimeValue>) { RuntimeValue::Struct(GcCell::new(members)) }
     },
 
-    CmdArgType (CmdArg) = Box<CmdArgValue> {
+    CmdArgType (CmdArg) = Arc<CmdArgValue> {
         fn parse(value) {
             match value {
                 RuntimeValue::CmdArg(arg) => Ok(arg),

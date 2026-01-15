@@ -30,7 +30,7 @@ fn run() -> Runner {
          },
          _,
          ctx| {
-            let cmd = ctx.get_cmd_call_used_as_value(cmd_call);
+            let cmd = ctx.get_cmd_call_used_as_value(cmd_call.content_at);
 
             match run_cmd(
                 &cmd,
@@ -52,7 +52,7 @@ fn run() -> Runner {
                 Ok(_) => Ok(None),
                 Err(err) => match err {
                     ExecError::ActualError(err) => {
-                        if err.at.parsed_range() != Some(cmd_call) {
+                        if err.at.parsed_range() != Some(cmd_call.content_at) {
                             return Err(ExecError::ActualError(err));
                         }
 

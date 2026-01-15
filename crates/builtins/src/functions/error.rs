@@ -1,4 +1,6 @@
-use reshell_runtime::{pretty_impl::pretty_printable_code_range, values::ErrorValueContent};
+use std::sync::Arc;
+
+use reshell_runtime::{pretty_impl::pretty_printable_code_range, values::ErrorValue};
 
 crate::define_internal_fn!(
     //
@@ -16,13 +18,11 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|at, Args { data }, _, ctx| match at {
-        RuntimeCodeRange::Parsed(at) => {
-            Ok(Some(RuntimeValue::Error(Box::new(ErrorValueContent {
-                at,
-                data,
-                pretty_at: pretty_printable_code_range(at, ctx.files_map()),
-            }))))
-        }
+        RuntimeCodeRange::Parsed(at) => Ok(Some(RuntimeValue::Error(Arc::new(ErrorValue {
+            at,
+            data,
+            pretty_at: pretty_printable_code_range(at, ctx.files_map()),
+        })))),
 
         RuntimeCodeRange::Internal(_) => {
             Err(ctx.throw(at, "cannot generate an error from an internal location"))

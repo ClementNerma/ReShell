@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use reshell_runtime::values::CmdArgValue;
 
 crate::define_internal_fn!(
@@ -12,7 +14,7 @@ crate::define_internal_fn!(
 
 fn run() -> Runner {
     Runner::new(|_, Args { value }, args_at, _| {
-        Ok(Some(RuntimeValue::CmdArg(Box::new(CmdArgValue::Basic(
+        Ok(Some(RuntimeValue::CmdArg(Arc::new(CmdArgValue::Basic(
             LocatedValue::new(args_at.value, value),
         )))))
     })
