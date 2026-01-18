@@ -173,7 +173,8 @@ pub fn lambda() -> impl Parser<Function> + Send + Sync {
                 .then_ignore(msnl)
                 .then_ignore(char('|').critical_auto_msg())
                 .spanned()
-                .then_ignore(msnl),
+                .then_ignore(msnl)
+                .or_not(),
         )
         .then(
             RAW_BLOCK
@@ -184,7 +185,15 @@ pub fn lambda() -> impl Parser<Function> + Send + Sync {
         )
         .then_ignore(msnl)
         .then_ignore(char('}').critical_auto_msg())
-        .map(|(signature, body)| Function { signature, body });
+        .map(|(signature, body)| Function {
+            signature: signature.unwrap_or_else(|| {
+                body.forge_here(FnSignature {
+                    args: vec![],
+                    ret_type: None,
+                })
+            }),
+            body,
+        });
 
     let it_lambda = char(':')
         .spanned()
@@ -392,7 +401,9 @@ pub fn value() -> impl Parser<Value> + Send + Sync {
         // Lambdas
         LAMBDA.static_ref().map(Box::new).map(Value::Lambda),
         // Structures
-        char('{')
+        just("struct")
+            .ignore_then(ms)
+            .ignore_then(char('{'))
             .ignore_then(msnl)
             .ignore_then(
                 choice::<StructItem, _>((
