@@ -4,7 +4,7 @@ use colored::Colorize;
 use pomsky::{Expr, diagnose::Severity, options::CompileOptions};
 use regex::Regex;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::pretty_impl::pretty_printable_runtime_code_range;
+use reshell_runtime::pretty_impl::pretty_printable_runtime_input_range;
 
 use crate::define_internal_fn;
 
@@ -29,7 +29,7 @@ fn run() -> Runner {
                     Severity::Warning => "WARNING".bright_yellow(),
                     Severity::Error => "ERROR".bright_red(),
                 },
-                pretty_printable_runtime_code_range(args_at.pattern, ctx.files_map())
+                pretty_printable_runtime_input_range(args_at.pattern, ctx.files_map())
                     .display(PrettyPrintOptions::inline()),
                 diag.msg
             );

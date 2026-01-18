@@ -1,6 +1,6 @@
 use colored::Colorize;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
-use reshell_runtime::pretty_impl::pretty_printable_runtime_code_range;
+use reshell_runtime::pretty_impl::pretty_printable_runtime_input_range;
 use terminal_size::{Width, terminal_size};
 
 crate::define_internal_fn!(
@@ -32,7 +32,7 @@ fn run() -> Runner {
          ctx| {
             let at = format!(
                 "dbg [{}]:",
-                pretty_printable_runtime_code_range(at, ctx.files_map())
+                pretty_printable_runtime_input_range(at, ctx.files_map())
                     .display(PrettyPrintOptions::inline())
             );
 

@@ -251,12 +251,12 @@ impl PrettyPrintable for SingleCmdArgResult {
     }
 }
 
-pub fn pretty_printable_runtime_code_range(
+pub fn pretty_printable_runtime_input_range(
     range: RuntimeCodeRange,
     files_map: &FilesMap,
 ) -> PrettyPrintablePiece {
     match range {
-        RuntimeCodeRange::Parsed(at) => pretty_printable_code_range(at, files_map),
+        RuntimeCodeRange::Parsed(at) => pretty_printable_input_range(at, files_map),
         RuntimeCodeRange::Internal(infos) => {
             // TODO: improve with coloration
             PrettyPrintablePiece::Atomic(Styled::colorless(format!("<internal location: {infos}>")))
@@ -264,7 +264,7 @@ pub fn pretty_printable_runtime_code_range(
     }
 }
 
-pub fn pretty_printable_code_range(
+pub fn pretty_printable_input_range(
     range: InputRange,
     files_map: &FilesMap,
 ) -> PrettyPrintablePiece {

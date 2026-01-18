@@ -7,7 +7,7 @@ use reshell_parser::ast::RuntimeCodeRange;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 
 use crate::{
-    context::Context, errors::ExecResult, pretty_impl::pretty_printable_runtime_code_range,
+    context::Context, errors::ExecResult, pretty_impl::pretty_printable_runtime_input_range,
 };
 
 // Garbage-collectable cell
@@ -55,7 +55,7 @@ impl<T> GcCell<T> {
                 at,
                 format!(
                     "Failed to write as parent value is currently borrowed from {}",
-                    pretty_printable_runtime_code_range(borrowed_at, ctx.files_map())
+                    pretty_printable_runtime_input_range(borrowed_at, ctx.files_map())
                         .display(PrettyPrintOptions::inline())
                 ),
             )

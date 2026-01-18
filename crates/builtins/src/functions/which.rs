@@ -2,7 +2,7 @@ use colored::Colorize;
 use parsy::FileId;
 use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
-    context::ScopeContent, pretty_impl::pretty_printable_code_range, values::RuntimeFnBody,
+    context::ScopeContent, pretty_impl::pretty_printable_input_range, values::RuntimeFnBody,
 };
 
 use crate::define_internal_fn;
@@ -38,7 +38,7 @@ fn run() -> Runner {
                             "* Method declared at: {}\n  {}\n",
                             match method.name_at {
                                 RuntimeCodeRange::Parsed(at) => {
-                                    pretty_printable_code_range(at, ctx.files_map())
+                                    pretty_printable_input_range(at, ctx.files_map())
                                         .display(PrettyPrintOptions::inline())
                                         .to_string()
                                         .underline()
@@ -58,7 +58,7 @@ fn run() -> Runner {
                         "Function declared at: {}\n\n{}",
                         match func.name_at {
                             RuntimeCodeRange::Parsed(at) => {
-                                pretty_printable_code_range(at, ctx.files_map())
+                                pretty_printable_input_range(at, ctx.files_map())
                                     .display(PrettyPrintOptions::inline())
                                     .to_string()
                                     .underline()
@@ -92,7 +92,7 @@ fn run() -> Runner {
 
                     println!(
                         "Alias declared at: {}\n\n{}",
-                        pretty_printable_code_range(
+                        pretty_printable_input_range(
                             cmd_alias.value.name_declared_at,
                             ctx.files_map()
                         )

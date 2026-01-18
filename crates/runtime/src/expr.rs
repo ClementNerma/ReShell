@@ -18,7 +18,7 @@ use crate::{
     functions::eval_fn_call,
     gc::GcCell,
     pretty_impl::{
-        pretty_printable_code_range, pretty_printable_date_time, pretty_printable_duration,
+        pretty_printable_date_time, pretty_printable_duration, pretty_printable_input_range,
     },
     props::{PropAccessMode, TailPropAccessPolicy, eval_props_access},
     typechecking::check_if_value_fits_type,
@@ -745,7 +745,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
 
         Value::CmdCall(call) => RuntimeValue::CmdCall(Arc::new(CmdCallValue {
             content_at: call.at,
-            pretty_content_at: pretty_printable_code_range(call.at, ctx.files_map()),
+            pretty_content_at: pretty_printable_input_range(call.at, ctx.files_map()),
         })),
 
         Value::Lambda(func) => lambda_to_value(func, ctx),

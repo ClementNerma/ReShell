@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use reshell_runtime::{pretty_impl::pretty_printable_code_range, values::ErrorValue};
+use reshell_runtime::{pretty_impl::pretty_printable_input_range, values::ErrorValue};
 
 crate::define_internal_fn!(
     //
@@ -21,7 +21,7 @@ fn run() -> Runner {
         RuntimeCodeRange::Parsed(at) => Ok(Some(RuntimeValue::Error(Arc::new(ErrorValue {
             at,
             data,
-            pretty_at: pretty_printable_code_range(at, ctx.files_map()),
+            pretty_at: pretty_printable_input_range(at, ctx.files_map()),
         })))),
 
         RuntimeCodeRange::Internal(_) => {

@@ -11,7 +11,7 @@ use std::borrow::Cow;
 
 use annotate_snippets::{AnnotationKind, Level, Renderer, Snippet, renderer::DecorStyle};
 use colored::Colorize;
-use parsy::{InputRange, FileId, ParserExpectation, ParsingError, SourceFileID};
+use parsy::{FileId, InputRange, ParserExpectation, ParsingError, SourceFileID};
 use reshell_checker::CheckerError;
 use reshell_parser::{
     ast::RuntimeCodeRange,
@@ -21,7 +21,7 @@ use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
 use reshell_runtime::{
     context::CallStackEntry,
     errors::{ExecActualError, ExecActualErrorNature, ExecInfoType},
-    pretty_impl::pretty_printable_runtime_code_range,
+    pretty_impl::pretty_printable_runtime_input_range,
 };
 
 #[derive(Debug)]
@@ -306,7 +306,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             eprintln!(
                 "  = {} function called at: {}",
                 "note:".cyan(),
-                pretty_printable_runtime_code_range(*fn_called_at, files)
+                pretty_printable_runtime_input_range(*fn_called_at, files)
                     .display(PrettyPrintOptions::inline())
             );
         }
