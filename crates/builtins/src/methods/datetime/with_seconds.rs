@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use jiff::civil::{DateTime, Time};
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::pretty_impl::pretty_printable_date_time;
 
 crate::define_internal_fn!(
@@ -31,7 +31,7 @@ fn run() -> Runner {
                 args_at.seconds,
                 format!(
                     "Failed to set seconds to {seconds} in {}: {err}",
-                    pretty_printable_date_time(&moment).display(PrettyPrintOptions::inline())
+                    pretty_printable_date_time(&moment).display_inline()
                 ),
             )
         })?;

@@ -17,7 +17,7 @@ use reshell_parser::{
     },
     files_map::FilesMap,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintable};
 
 use crate::{
     bin_resolver::BinariesResolver,
@@ -448,7 +448,7 @@ impl Context {
             "\n| An internal error occured.\n| This is not supposed to happen and is the result of a bug in the shell itself (not your program).\n|\n| Details : {}\n| Location: {}\n",
             message.as_ref(),
             pretty_printable_runtime_input_range(at.into(), self.files_map())
-                .display(PrettyPrintOptions::inline())
+                .display_inline()
                 .no_colors()
         );
     }

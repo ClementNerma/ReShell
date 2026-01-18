@@ -4,7 +4,7 @@ use std::{
 };
 
 use reshell_parser::ast::RuntimeCodeRange;
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use crate::{
     context::Context, errors::ExecResult, pretty_impl::pretty_printable_runtime_input_range,
@@ -56,7 +56,7 @@ impl<T> GcCell<T> {
                 format!(
                     "Failed to write as parent value is currently borrowed from {}",
                     pretty_printable_runtime_input_range(borrowed_at, ctx.files_map())
-                        .display(PrettyPrintOptions::inline())
+                        .display_inline()
                 ),
             )
         })

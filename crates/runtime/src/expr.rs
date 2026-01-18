@@ -9,7 +9,7 @@ use reshell_parser::ast::{
     PropAccess, Range, RangeBound, RuntimeCodeRange, SingleOp, SpreadValue, StructItem,
     TypeMatchExprCase, Value,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, pretty_printable_string};
+use reshell_prettify::{PrettyPrintable, pretty_printable_string};
 
 use crate::{
     cmd::capture_cmd_output,
@@ -112,8 +112,8 @@ fn apply_double_op(
                     op.at,
                     format!(
                         "overflow during arithmetic operation with operands: {} and {}",
-                        left_val.display(PrettyPrintOptions::inline()),
-                        right_val.display(PrettyPrintOptions::inline())
+                        left_val.display_inline(),
+                        right_val.display_inline()
                     ),
                 )
             };
@@ -205,7 +205,7 @@ fn apply_double_op(
                                         format!(
                                             "left  : {}",
                                             pretty_printable_date_time(datetime)
-                                                .display(PrettyPrintOptions::inline())
+                                                .display_inline()
                                         ),
                                     ),
                                     (
@@ -213,7 +213,7 @@ fn apply_double_op(
                                         format!(
                                             "right : {}",
                                             pretty_printable_duration(*duration)
-                                                .display(PrettyPrintOptions::inline())
+                                                .display_inline()
                                         ),
                                     ),
                                 ],
@@ -238,9 +238,9 @@ fn apply_double_op(
                             format!(
                                 "overflow during arithmetic operation with operands: {} and {}",
                                 pretty_printable_duration(*left)
-                                    .display(PrettyPrintOptions::inline()),
+                                    .display_inline(),
                                 pretty_printable_duration(*right)
-                                    .display(PrettyPrintOptions::inline())
+                                    .display_inline()
                             ),
                         )
                     })?
@@ -291,8 +291,8 @@ fn apply_double_op(
                             op.at,
                             format!(
                                 "Cannot compare these two floats: {} and {}",
-                                left_val.display(PrettyPrintOptions::inline()),
-                                right_val.display(PrettyPrintOptions::inline())
+                                left_val.display_inline(),
+                                right_val.display_inline()
                             ),
                         )
                     })?
@@ -355,7 +355,7 @@ fn not_applicable_on_value_err(
         op.at,
         format!(
             "cannot apply this operator on a {}",
-            left.compute_type().display(PrettyPrintOptions::inline()),
+            left.compute_type().display_inline(),
         ),
     )
 }
@@ -371,8 +371,8 @@ fn not_applicable_on_pair_err(
         op.at,
         format!(
             "cannot apply this operator on a pair of {} and {}",
-            left.compute_type().display(PrettyPrintOptions::inline()),
-            right.compute_type().display(PrettyPrintOptions::inline())
+            left.compute_type().display_inline(),
+            right.compute_type().display_inline()
         ),
     )
 }
@@ -463,7 +463,7 @@ fn eval_expr_inner_content(
                             "expected a boolean due to operator, found a: {}",
                             right_val
                                 .compute_type()
-                                .display(PrettyPrintOptions::inline())
+                                .display_inline()
                         ),
                     )),
                 },
@@ -485,7 +485,7 @@ fn eval_expr_inner_content(
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     )),
                 };
@@ -506,7 +506,7 @@ fn eval_expr_inner_content(
                             "expected the condition to resolve to a boolean, found a {} instead",
                             cond_val
                                 .compute_type()
-                                .display(PrettyPrintOptions::inline())
+                                .display_inline()
                         ),
                     ));
                 };
@@ -533,10 +533,10 @@ fn eval_expr_inner_content(
                                 "cannot compare {} and {}: {reason}",
                                 match_on
                                     .compute_type()
-                                    .display(PrettyPrintOptions::inline()),
+                                    .display_inline(),
                                 case_value
                                     .compute_type()
-                                    .display(PrettyPrintOptions::inline())
+                                    .display_inline()
                             ),
                         )
                     },
@@ -613,7 +613,7 @@ fn eval_expr_inner_content(
                         expr.at,
                         format!(
                             "expected a string, found a {}",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     ));
                 }
@@ -681,7 +681,7 @@ fn eval_value(value: &Value, ctx: &mut Context) -> ExecResult<RuntimeValue> {
                                 format!(
                                     "key {} appears twice in this map",
                                     pretty_printable_string(&eval_key)
-                                        .display(PrettyPrintOptions::inline())
+                                        .display_inline()
                                 ),
                             ));
                         }
@@ -812,7 +812,7 @@ fn eval_map_key(key: &Span<MapKey>, ctx: &mut Context) -> ExecResult<String> {
                 key.at,
                 format!(
                     "expected a string key for the map, got a: {}",
-                    value.compute_type().display(PrettyPrintOptions::inline())
+                    value.compute_type().display_inline()
                 ),
             )),
         },
@@ -846,7 +846,7 @@ pub fn eval_list_spread_value(
             spread_value.at,
             format!(
                 "expected a list to spread, found a {}",
-                value.compute_type().display(PrettyPrintOptions::inline())
+                value.compute_type().display_inline()
             ),
         )),
     }
@@ -864,7 +864,7 @@ fn eval_map_or_struct_spread_value(
             spread_value.at,
             format!(
                 "expected a map or struct to spread, found a {}",
-                value.compute_type().display(PrettyPrintOptions::inline())
+                value.compute_type().display_inline()
             ),
         )),
     }
@@ -914,7 +914,7 @@ pub fn eval_range_bound(range_bound: &RangeBound, ctx: &mut Context) -> ExecResu
             value_at,
             format!(
                 "expected an integer, found a: {}",
-                value.display(PrettyPrintOptions::inline())
+                value.display_inline()
             ),
         )),
     }

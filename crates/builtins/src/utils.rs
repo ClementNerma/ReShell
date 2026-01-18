@@ -5,7 +5,7 @@ use reshell_parser::ast::{
     FnCallNature, FnSignature, FnSignatureArg, FnSignaturePositionalArg, RuntimeCodeRange,
     RuntimeSpan, ValueType,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::{
     cmd::{CmdArgResult, SingleCmdArgResult},
     context::Context,
@@ -92,8 +92,8 @@ pub fn call_fn_checked_with_parsed_args(
                 loc_val.from,
                 format!(
                     "type mismatch: expected a {}, found a {}",
-                    expected_signature.display(PrettyPrintOptions::inline()),
-                    value.compute_type().display(PrettyPrintOptions::inline())
+                    expected_signature.display_inline(),
+                    value.compute_type().display_inline()
                 ),
             ));
         }
@@ -109,11 +109,8 @@ pub fn call_fn_checked_with_parsed_args(
             loc_val.from,
             format!(
                 "type mismatch: expected a {}, found a {}",
-                expected_signature.display(PrettyPrintOptions::inline()),
-                loc_val
-                    .value
-                    .compute_type()
-                    .display(PrettyPrintOptions::inline())
+                expected_signature.display_inline(),
+                loc_val.value.compute_type().display_inline()
             ),
         ));
     }

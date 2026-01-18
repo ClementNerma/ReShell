@@ -3,7 +3,7 @@ use std::sync::Arc;
 use colored::Colorize;
 use pomsky::{Expr, diagnose::Severity, options::CompileOptions};
 use regex::Regex;
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::pretty_impl::pretty_printable_runtime_input_range;
 
 use crate::define_internal_fn;
@@ -30,7 +30,7 @@ fn run() -> Runner {
                     Severity::Error => "ERROR".bright_red(),
                 },
                 pretty_printable_runtime_input_range(args_at.pattern, ctx.files_map())
-                    .display(PrettyPrintOptions::inline()),
+                    .display_inline(),
                 diag.msg
             );
         }

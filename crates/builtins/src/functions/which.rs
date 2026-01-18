@@ -1,6 +1,6 @@
 use colored::Colorize;
 use parsy::FileId;
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::{
     context::ScopeContent, pretty_impl::pretty_printable_input_range, values::RuntimeFnBody,
 };
@@ -39,7 +39,7 @@ fn run() -> Runner {
                             match method.name_at {
                                 RuntimeCodeRange::Parsed(at) => {
                                     pretty_printable_input_range(at, ctx.files_map())
-                                        .display(PrettyPrintOptions::inline())
+                                        .display_inline()
                                         .to_string()
                                         .underline()
                                 }
@@ -48,7 +48,7 @@ fn run() -> Runner {
                                     format!("internal location: {str}").italic()
                                 }
                             },
-                            method.value.display(PrettyPrintOptions::inline())
+                            method.value.display_inline()
                         );
                     }
 
@@ -59,7 +59,7 @@ fn run() -> Runner {
                         match func.name_at {
                             RuntimeCodeRange::Parsed(at) => {
                                 pretty_printable_input_range(at, ctx.files_map())
-                                    .display(PrettyPrintOptions::inline())
+                                    .display_inline()
                                     .to_string()
                                     .underline()
                             }
@@ -68,10 +68,7 @@ fn run() -> Runner {
                                 format!("internal location: {str}").italic()
                             }
                         },
-                        func.value
-                            .signature
-                            .inner()
-                            .display(PrettyPrintOptions::inline())
+                        func.value.signature.inner().display_inline()
                     );
 
                     if let RuntimeFnBody::Block(block) = &func.value.body
@@ -96,7 +93,7 @@ fn run() -> Runner {
                             cmd_alias.value.name_declared_at,
                             ctx.files_map()
                         )
-                        .display(PrettyPrintOptions::inline())
+                        .display_inline()
                         .to_string()
                         .underline(),
                         match at.start.file_id {

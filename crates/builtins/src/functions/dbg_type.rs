@@ -31,8 +31,7 @@ fn run() -> Runner {
          ctx| {
             let at = format!(
                 "dbgType [{}]:",
-                pretty_printable_runtime_input_range(at, ctx.files_map())
-                    .display(PrettyPrintOptions::inline())
+                pretty_printable_runtime_input_range(at, ctx.files_map()).display_inline()
             );
 
             println!(

@@ -14,7 +14,7 @@ use reshell_parser::ast::{
     AstScopeId, Block, CmdFlagArgName, FnSignature, RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
     SingleValueType, StructTypeMember, ValueType,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable, PrettyPrintablePiece};
+use reshell_prettify::{PrettyPrintable, PrettyPrintablePiece};
 
 use crate::{
     cmd::FlagArgValueResult,
@@ -456,7 +456,7 @@ pub fn value_to_str(
             at,
             format!(
                 "could not convert a value of type {} to a string",
-                value.compute_type().display(PrettyPrintOptions::inline())
+                value.compute_type().display_inline()
             ),
             [(ExecInfoType::Note, type_error_tip)],
         )),

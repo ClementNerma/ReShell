@@ -19,7 +19,7 @@ use reedline::{
 };
 use reshell_builtins::repl::completer::GeneratedCompletion;
 use reshell_parser::DELIMITER_CHARS;
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintable};
 use reshell_runtime::{
     compat::{PATH_VAR_SEP, TARGET_FAMILY, TargetFamily},
     context::Context,
@@ -338,7 +338,7 @@ fn build_fn_completions<'a>(
                         func.value
                             .signature
                             .inner()
-                            .display(PrettyPrintOptions::inline())
+                            .display_inline()
                             .to_string(),
                     ),
                     style: None,
@@ -383,7 +383,7 @@ fn build_method_completions<'a>(
                                 .value
                                 .signature
                                 .inner()
-                                .display(PrettyPrintOptions::inline())
+                                .display_inline()
                                 .to_string(),
                         ),
                         style: None,
@@ -518,7 +518,7 @@ fn complete_var_name(
                             .read_promise_no_write()
                             .value
                             .compute_type()
-                            .display(PrettyPrintOptions::inline())
+                            .display_inline()
                             .to_string(),
                     ),
                     style: None,

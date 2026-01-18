@@ -20,7 +20,7 @@ use reshell_builtins::repl::{
     prompt::{LastCmdStatus, PromptRendering, render_prompt},
 };
 use reshell_parser::{ast::Instruction, files_map::SourceFileLocation};
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintable};
 use reshell_reports::ReportableError;
 use reshell_runtime::{
     context::Context,
@@ -168,10 +168,7 @@ pub fn start(
             Ok(result) => match result {
                 ProgramResult::Success(located_value) => {
                     if let Some(located_value) = located_value {
-                        println!(
-                            "{}",
-                            located_value.value.display(PrettyPrintOptions::multiline())
-                        );
+                        println!("{}", located_value.value.display_multiline());
                     }
                 }
 

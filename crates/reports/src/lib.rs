@@ -17,7 +17,7 @@ use reshell_parser::{
     ast::RuntimeCodeRange,
     files_map::{FilesMap, SourceFile, SourceFileLocation},
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::{
     context::CallStackEntry,
     errors::{ExecActualError, ExecActualErrorNature, ExecInfoType},
@@ -306,8 +306,7 @@ pub fn print_error(err: &ReportableError, files: &FilesMap) {
             eprintln!(
                 "  = {} function called at: {}",
                 "note:".cyan(),
-                pretty_printable_runtime_input_range(*fn_called_at, files)
-                    .display(PrettyPrintOptions::inline())
+                pretty_printable_runtime_input_range(*fn_called_at, files).display_inline()
             );
         }
     }

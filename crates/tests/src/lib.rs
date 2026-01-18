@@ -6,7 +6,7 @@ use reshell_parser::{
     ast::RuntimeCodeRange,
     files_map::{FilesMap, SourceFileLocation},
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_reports::ReportableError;
 use reshell_runtime::{
     bin_resolver::BinariesResolver,
@@ -103,12 +103,12 @@ pub fn run_expect_value_of_type<T: TypedValueParser>(source: &str) -> T::Parsed 
     T::parse(value.value.clone()).unwrap_or_else(|err| {
         panic!(
             "Program did not return the expected value type: {err}\n\n=> expected : {}\n=> got      : {}\n=> value    : {}",
-            T::value_type().display(PrettyPrintOptions::inline()),
+            T::value_type().display_inline(),
             value
                 .value
                 .compute_type()
-                .display(PrettyPrintOptions::inline()),
-                value.value.display( PrettyPrintOptions::inline())
+                .display_inline(),
+                value.value.display_inline()
         )
     })
 }

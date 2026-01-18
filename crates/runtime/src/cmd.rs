@@ -17,7 +17,7 @@ use reshell_parser::ast::{
     CmdRawStringPiece, CmdRedirects, CmdValueMakingArg, FlagValueSeparator, FnCallNature,
     RuntimeCodeRange, RuntimeSpan, SingleCmdCall,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use crate::{
     context::Context,
@@ -126,7 +126,7 @@ pub fn run_cmd(
                                         loc_val
                                             .value
                                             .compute_type()
-                                            .display( PrettyPrintOptions::inline())
+                                            .display_inline()
                                     )
                                 ));
                             }
@@ -277,10 +277,7 @@ pub fn run_cmd(
                             loc_val.from,
                             format!(
                                 "expected a string to capture, found a: {}",
-                                loc_val
-                                    .value
-                                    .compute_type()
-                                    .display(PrettyPrintOptions::inline())
+                                loc_val.value.compute_type().display_inline()
                             ),
                         ));
                     }

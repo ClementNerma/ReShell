@@ -28,6 +28,22 @@ pub trait PrettyPrintable {
             no_colors: false,
         }
     }
+
+    /// Obtain a [`Display`] type from this value, with [`PrettyPrintOptions::inline`] options
+    fn display_inline<'p>(&'p self) -> PrettyPrintableDisplay<'p, Self>
+    where
+        Self: Sized,
+    {
+        self.display(PrettyPrintOptions::inline())
+    }
+
+    /// Obtain a [`Display`] type from this value, with [`PrettyPrintOptions::multiline`] options
+    fn display_multiline<'p>(&'p self) -> PrettyPrintableDisplay<'p, Self>
+    where
+        Self: Sized,
+    {
+        self.display(PrettyPrintOptions::multiline())
+    }
 }
 
 /// Pretty-printable with options

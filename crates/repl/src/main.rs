@@ -15,7 +15,7 @@ use reshell_parser::{
     ast::{Program, RuntimeCodeRange},
     files_map::{FilesMap, SourceFileLocation},
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::{
     bin_resolver::BinariesResolver,
     conf::{HistoryConf, RuntimeConf},
@@ -173,12 +173,7 @@ fn inner_main(started: Instant) -> Result<ExitCode, String> {
             Ok(result) => Ok(match result {
                 ProgramResult::Success(wandering_value) => {
                     if let Some(wandering_value) = wandering_value {
-                        println!(
-                            "{}",
-                            wandering_value
-                                .value
-                                .display(PrettyPrintOptions::multiline())
-                        )
+                        println!("{}", wandering_value.value.display_multiline())
                     }
 
                     ExitCode::SUCCESS

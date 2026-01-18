@@ -10,7 +10,7 @@ use reshell_parser::ast::{
     ObjPropSpreadingType, Program, RuntimeCodeRange, SingleVarDecl, TypeMatchCase,
     ValueDestructuring, ValueType,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use crate::{
     cmd::{CmdExecParams, run_cmd},
@@ -290,10 +290,8 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     expr.at,
                     format!(
                         "variable has enforced type {}, but tried to assign a value of type: {}",
-                        enforced_type.display(PrettyPrintOptions::inline()),
-                        assign_value
-                            .compute_type()
-                            .display(PrettyPrintOptions::inline())
+                        enforced_type.display_inline(),
+                        assign_value.compute_type().display_inline()
                     ),
                 ));
             }
@@ -331,7 +329,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             _ => {
                                 let existing_type = existing.compute_type();
 
-                                let left_type = existing_type.display(PrettyPrintOptions::inline());
+                                let left_type = existing_type.display_inline();
 
                                 Err(ctx.hard_error(
                                     list_push.at,
@@ -363,7 +361,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     )),
                 };
@@ -379,7 +377,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                     let cond_val = eval_expr(&cond.data, ctx)?;
 
                     let RuntimeValue::Bool(cond_val) = cond_val else {
-                        return Err(ctx.hard_error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.compute_type().display( PrettyPrintOptions::inline()))));
+                        return Err(ctx.hard_error(cond.at, format!("expected the condition to resolve to a boolean, found a {} instead", cond_val.compute_type().display_inline())));
                     };
 
                     if cond_val {
@@ -461,7 +459,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         iter_on.at,
                         format!(
                             "expected a list to iterate on, found a {} instead",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     ));
                 }
@@ -483,7 +481,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         iter_on.at,
                         format!(
                             "expected a map, got a {}",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     ));
                 }
@@ -534,7 +532,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         cond.at,
                         format!(
                             "expected the condition to resolve to a boolean, found a {} instead",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     )),
                 };
@@ -579,12 +577,8 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                             matches.at,
                             format!(
                                 "cannot compare {} and {}: {reason}",
-                                match_on
-                                    .compute_type()
-                                    .display(PrettyPrintOptions::inline()),
-                                case_value
-                                    .compute_type()
-                                    .display(PrettyPrintOptions::inline())
+                                match_on.compute_type().display_inline(),
+                                case_value.compute_type().display_inline()
                             ),
                         )
                     },
@@ -676,7 +670,7 @@ fn run_instr(instr: &Span<Instruction>, ctx: &mut Context) -> ExecResult<Option<
                         expr.at,
                         format!(
                             "expected a string, found a {}",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     ));
                 }
@@ -894,7 +888,7 @@ fn declare_vars(
                         names.at,
                         format!(
                             "tried to spread a list but found a: {}",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     ));
                 }
@@ -935,7 +929,7 @@ fn declare_vars(
                         names.at,
                         format!(
                             "tried to spread a map or struct but found a: {}",
-                            value.compute_type().display(PrettyPrintOptions::inline())
+                            value.compute_type().display_inline()
                         ),
                     ));
                 }
@@ -1054,8 +1048,8 @@ fn declare_var(
             value_at,
             format!(
                 "variable has enforced type {}, but tried to assign a value of type: {}",
-                enforced_type.display(PrettyPrintOptions::inline()),
-                value.compute_type().display(PrettyPrintOptions::inline())
+                enforced_type.display_inline(),
+                value.compute_type().display_inline()
             ),
         ));
     }

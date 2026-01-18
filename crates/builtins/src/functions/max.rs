@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use crate::{
     define_internal_fn,
@@ -68,10 +68,8 @@ pub fn ordered(
             at,
             format!(
                 "cannot compare a {} and a {}",
-                a.original_value_type()
-                    .display(PrettyPrintOptions::inline()),
-                b.original_value_type()
-                    .display(PrettyPrintOptions::inline())
+                a.original_value_type().display_inline(),
+                b.original_value_type().display_inline()
             ),
         )),
     }

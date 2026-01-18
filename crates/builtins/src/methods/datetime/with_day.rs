@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use jiff::civil::Date;
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::pretty_impl::pretty_printable_date_time;
 
 crate::define_internal_fn!(
@@ -27,7 +27,7 @@ fn run() -> Runner {
                     args_at.day,
                     format!(
                         "Failed to set day to {day} in {}: {err}",
-                        pretty_printable_date_time(&moment).display(PrettyPrintOptions::inline()),
+                        pretty_printable_date_time(&moment).display_inline(),
                     ),
                 )
             })?;

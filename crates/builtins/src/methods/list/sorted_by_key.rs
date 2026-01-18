@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use jiff::Zoned;
 use reshell_parser::ast::SingleValueType;
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::{errors::ExecError, gc::GcCell};
 
 use crate::{
@@ -81,8 +81,8 @@ fn run() -> Runner {
                 keyer_fn_at,
                 format!(
                     "first call to this function returned a {}, but {i} call(s) later it returned a {}",
-                    first_item_type.display( PrettyPrintOptions::inline()),
-                    key.original_value_type().display( PrettyPrintOptions::inline())
+                    first_item_type.display_inline(),
+                    key.original_value_type().display_inline()
                 )
             )
         }

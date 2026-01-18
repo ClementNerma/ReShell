@@ -32,7 +32,7 @@ use reshell_parser::ast::{
     SingleValueType, SingleVarDecl, SpreadValue, StructItem, StructTypeMember, TypeMatchCase,
     TypeMatchExprCase, Value, ValueDestructuring, ValueType,
 };
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use self::typechecking::check_if_type_fits_type;
 pub use self::{
@@ -176,9 +176,9 @@ fn block_first_pass(
                                 name.at,
                                 "this method clashes with another same-name method applying on a compatible type",
                             ).with_detail(
-                                format!("trying to declare a method for type     : {}", on_type.display(PrettyPrintOptions::inline()))
+                                format!("trying to declare a method for type     : {}", on_type.display_inline())
                             ).with_detail(
-                                format!("...but a method exists for clashing type: {}", other_type.display(PrettyPrintOptions::inline()))
+                                format!("...but a method exists for clashing type: {}", other_type.display_inline())
                             ));
                         }
                     }
@@ -1603,7 +1603,7 @@ fn check_fn_arg(arg: &FnSignatureArg, state: &mut State) -> CheckerResult<Checke
                         typ.at.parsed_range().unwrap(),
                         format!(
                             "rest types, when provided, must be either 'list' or 'list[...]', found: {}",
-                            typ.data.display(PrettyPrintOptions::inline())
+                            typ.data.display_inline()
                         ),
                     ));
                 }

@@ -11,7 +11,7 @@ use std::{
     path::{MAIN_SEPARATOR, MAIN_SEPARATOR_STR},
 };
 
-use reshell_prettify::{PrettyPrintOptions, PrettyPrintable};
+use reshell_prettify::{PrettyPrintable};
 use reshell_runtime::{context::Context, values::RuntimeValue};
 
 use crate::completer::UnescapedSegment;
@@ -76,7 +76,7 @@ pub fn globify_path(segments: &[UnescapedSegment], ctx: &Context) -> Result<Glob
                         "Variable '{var_name}' does not have a stringifyable type ; found type {}",
                         value
                             .compute_type()
-                            .display(PrettyPrintOptions::inline())
+                            .display_inline()
                     )),
                 };
 
