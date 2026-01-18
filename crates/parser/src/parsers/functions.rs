@@ -156,8 +156,6 @@ pub fn fn_signature() -> impl Parser<FnSignature> + Send + Sync {
                     VALUE_TYPE
                         .static_ref()
                         .map(Box::new)
-                        .spanned()
-                        .map(RuntimeSpan::from)
                         .critical("expected a type"),
                 )
                 .then_ignore(ms)

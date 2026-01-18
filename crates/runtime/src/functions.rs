@@ -173,14 +173,14 @@ pub fn call_fn_value(
     // If the function's signature contains a return type...
     if let Some(ret_type) = &func.signature.inner().ret_type {
         // If the return type is 'void'...
-        if matches!(*ret_type.data, ValueType::Single(SingleValueType::Void)) {
+        if matches!(&**ret_type, ValueType::Single(SingleValueType::Void)) {
             // Ensure no value was returned from the function (as void = no return value)
             if returned.is_some() {
                 return Err(ctx.hard_error(
                     call_at,
                     format!(
                         "function call returned a value but has a return type of {}",
-                        ret_type.data.display_inline()
+                        ret_type.display_inline()
                     ),
                 ));
             }
@@ -193,13 +193,13 @@ pub fn call_fn_value(
                     call_at,
                     format!(
                         "function call did not return any value, was expected to return a {}",
-                        ret_type.data.display_inline()
+                        ret_type.display_inline()
                     ),
                 ));
             };
 
             // Check if the returned value's type matches the signature return type
-            if !check_if_value_fits_type(&ret_val.value, &ret_type.data, ctx) {
+            if !check_if_value_fits_type(&ret_val.value, ret_type, ctx) {
                 let nature = format!(
                     "{}function call returned a {}, was expected to return a {}",
                     match func.body {
@@ -207,7 +207,7 @@ pub fn call_fn_value(
                         RuntimeFnBody::Internal(_) => "native ",
                     },
                     ret_val.value.compute_type().display_inline(),
-                    ret_type.data.display_inline()
+                    ret_type.display_inline()
                 );
                 return Err(ctx.hard_error(call_at, nature));
             }

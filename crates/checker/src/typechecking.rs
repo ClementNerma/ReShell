@@ -183,7 +183,7 @@ pub fn check_if_fn_signature_fits_another(
 ) -> bool {
     // Compare return types
     if let (Some(ret_type), Some(cmp_ret_type)) = (&signature.ret_type, &into.ret_type)
-        && !check_if_type_fits_type(&ret_type.data, &cmp_ret_type.data, ctx)
+        && !check_if_type_fits_type(ret_type, cmp_ret_type, ctx)
     {
         return false;
     }

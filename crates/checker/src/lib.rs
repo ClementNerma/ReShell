@@ -1813,7 +1813,7 @@ fn check_fn_signature(
     }
 
     if let Some(ret_type) = ret_type {
-        check_value_type(&ret_type.data, state)?;
+        check_value_type(ret_type, state)?;
     }
 
     Ok(checked_args)

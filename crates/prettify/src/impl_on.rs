@@ -115,7 +115,7 @@ impl PrettyPrintable for FnSignature {
             suffix: ret_type.as_ref().map(|ret_type| {
                 Box::new(PrettyPrintablePiece::Join(vec![
                     PrettyPrintablePiece::colored_atomic(" -> ", Color::BrightMagenta),
-                    ret_type.data.generate_pretty_data(),
+                    ret_type.generate_pretty_data(),
                 ]))
             }),
         }

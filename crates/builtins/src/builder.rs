@@ -19,11 +19,8 @@ use reshell_runtime::{
 };
 
 use crate::{
-    functions::native_functions,
-    helpers::fns::InternalFunction,
-    methods::native_methods,
-    utils::{INTERNAL_CODE_RANGE, internal_runtime_span},
-    vars::native_vars,
+    functions::native_functions, helpers::fns::InternalFunction, methods::native_methods,
+    utils::INTERNAL_CODE_RANGE, vars::native_vars,
 };
 
 /// Parameters of the native library
@@ -67,7 +64,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
 
                             signature: RuntimeFnSignature::Owned(FnSignature {
                                 args,
-                                ret_type: Some(internal_runtime_span(Box::new(ret_type))),
+                                ret_type: Some(Box::new(ret_type)),
                             }),
                             body: RuntimeFnBody::Internal(run),
                             parent_scopes: IndexSet::new(),
@@ -104,7 +101,7 @@ pub fn build_native_lib_content(params: NativeLibParams) -> ScopeContent {
 
                         signature: RuntimeFnSignature::Owned(FnSignature {
                             args,
-                            ret_type: Some(internal_runtime_span(Box::new(ret_type))),
+                            ret_type: Some(Box::new(ret_type)),
                         }),
                         body: RuntimeFnBody::Internal(run),
                         parent_scopes: IndexSet::new(),

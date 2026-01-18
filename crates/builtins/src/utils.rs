@@ -42,7 +42,7 @@ pub fn forge_basic_fn_signature(
             })
             .collect(),
 
-        ret_type: ret_type.map(|ret_type| internal_runtime_span(Box::new(ret_type))),
+        ret_type: ret_type.map(Box::new),
     }
 }
 
