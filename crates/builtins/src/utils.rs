@@ -31,17 +31,16 @@ pub fn forge_basic_fn_signature(
     ret_type: Option<ValueType>,
 ) -> FnSignature {
     FnSignature {
-        args: internal_runtime_span(
-            args.into_iter()
-                .map(|(name, typ)| {
-                    FnSignatureArg::Positional(FnSignaturePositionalArg {
-                        name: internal_runtime_span(name.into()),
-                        is_optional: false,
-                        typ: Some(typ),
-                    })
+        args: args
+            .into_iter()
+            .map(|(name, typ)| {
+                FnSignatureArg::Positional(FnSignaturePositionalArg {
+                    name: internal_runtime_span(name.into()),
+                    is_optional: false,
+                    typ: Some(typ),
                 })
-                .collect(),
-        ),
+            })
+            .collect(),
 
         ret_type: ret_type.map(|ret_type| internal_runtime_span(Box::new(ret_type))),
     }

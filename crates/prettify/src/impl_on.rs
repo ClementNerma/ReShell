@@ -107,7 +107,6 @@ impl PrettyPrintable for FnSignature {
         PrettyPrintablePiece::List {
             begin: vec![Styled::colored("fn(", Color::BrightMagenta)],
             items: args
-                .data
                 .iter()
                 .map(|item| item.generate_pretty_data())
                 .collect(),

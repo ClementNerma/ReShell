@@ -1743,17 +1743,15 @@ fn check_fn_signature(
 
     let FnSignature { args, ret_type } = &signature.data;
 
-    assert!(args.as_parsed().is_some());
-
     let mut used_idents = HashSet::new();
 
     let mut rest_arg = None::<CheckedFnArg>;
 
-    let mut checked_args = Vec::with_capacity(args.data.len());
+    let mut checked_args = Vec::with_capacity(args.len());
 
     let mut had_optional = false;
 
-    for (i, arg) in args.data.iter().enumerate() {
+    for (i, arg) in args.iter().enumerate() {
         let checked_arg = check_fn_arg(arg, state)?;
 
         let CheckedFnArg {

@@ -113,7 +113,7 @@ pub fn call_fn_value(
         FnPossibleCallArgs::Internal { at, args: _ } => RuntimeCodeRange::Internal(at),
     };
 
-    let args = fill_fn_args(call_at, func, infos, &func.signature.inner().args.data, ctx)?;
+    let args = fill_fn_args(call_at, func, infos, &func.signature.inner().args, ctx)?;
 
     let returned = match &func.body {
         RuntimeFnBody::Block(body) => {

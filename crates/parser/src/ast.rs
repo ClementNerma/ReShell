@@ -436,7 +436,7 @@ pub struct StructTypeMember {
 
 #[derive(Debug, Clone, Hash)]
 pub struct FnSignature {
-    pub args: RuntimeSpan<Vec<FnSignatureArg>>,
+    pub args: Vec<FnSignatureArg>,
     pub ret_type: Option<RuntimeSpan<Box<ValueType>>>,
 }
 

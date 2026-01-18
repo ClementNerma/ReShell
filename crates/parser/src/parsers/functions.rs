@@ -145,9 +145,7 @@ pub fn fn_signature() -> impl Parser<FnSignature> + Send + Sync {
         .ignore_then(
             FN_SIGNATURE_ARG
                 .static_ref()
-                .separated_by_into_vec(char(',').padded_by(msnl))
-                .spanned()
-                .map(RuntimeSpan::from),
+                .separated_by_into_vec(char(',').padded_by(msnl)),
         )
         .then_ignore(msnl)
         .then_ignore(char(')').critical_auto_msg())

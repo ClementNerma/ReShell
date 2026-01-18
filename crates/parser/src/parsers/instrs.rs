@@ -429,7 +429,6 @@ pub fn instruction() -> impl Parser<Span<Instruction>> + Send + Sync {
                 let on_type = signature
                     .data
                     .args
-                    .data
                     .first()
                     .and_then(|first_arg| -> Option<Result<ValueType, ParsingError>> {
                         match first_arg {

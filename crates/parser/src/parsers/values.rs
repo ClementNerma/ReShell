@@ -165,8 +165,6 @@ pub fn lambda() -> impl Parser<Function> + Send + Sync {
                     FN_SIGNATURE_ARG
                         .static_ref()
                         .separated_by_into_vec(char(',').padded_by(msnl))
-                        .spanned()
-                        .map(RuntimeSpan::from)
                         .map(|args| FnSignature {
                             args,
                             ret_type: None,
@@ -203,13 +201,11 @@ pub fn lambda() -> impl Parser<Function> + Send + Sync {
         .then_ignore(char('}').critical_auto_msg())
         .map(|(it, body)| Function {
             signature: it.forge_here(FnSignature {
-                args: RuntimeSpan::from(it.forge_here(vec![FnSignatureArg::Positional(
-                    FnSignaturePositionalArg {
-                        name: RuntimeSpan::from(it.forge_here("it".to_owned())),
-                        is_optional: false,
-                        typ: None,
-                    },
-                )])),
+                args: vec![FnSignatureArg::Positional(FnSignaturePositionalArg {
+                    name: RuntimeSpan::from(it.forge_here("it".to_owned())),
+                    is_optional: false,
+                    typ: None,
+                })],
                 ret_type: None,
             }),
             body,

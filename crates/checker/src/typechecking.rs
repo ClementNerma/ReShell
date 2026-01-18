@@ -416,7 +416,7 @@ impl<'a> FnCategorizedArgs<'a> {
         let mut normal_flags = vec![];
         let mut rest_arg = None;
 
-        for arg in &fn_signature.args.data {
+        for arg in &fn_signature.args {
             match arg {
                 FnSignatureArg::Positional(arg) => positionals.push(arg),
                 FnSignatureArg::PresenceFlag(arg) => presence_flags.push(arg),
