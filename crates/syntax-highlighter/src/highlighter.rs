@@ -85,7 +85,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
                 vec![
                     Symbol(MethodDotPrefix),
-                    method_name_style(&matched[2], cmd_checker),
+                    method_name_style(matched[2], cmd_checker),
                 ]
             })),
         })
@@ -104,7 +104,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
             preceded_by: None,
             validate: None,
             style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                vec![fn_name_style(&matched[1], cmd_checker)]
+                vec![fn_name_style(matched[1], cmd_checker)]
             })),
         })
     };
@@ -158,7 +158,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                             CheckCmdType::BroadCmd
                         };
 
-                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
+                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(matched[2], cmd_type)) {
                             Identifier(CmdNameOrPath)
                         } else {
                             Invalid(CmdPathNotFound)
@@ -204,7 +204,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     followed_by_nesting: None,
                     validate: None,
                     style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        vec![Symbol(MethodDotPrefix), method_name_style(&matched[2], cmd_checker)]
+                        vec![Symbol(MethodDotPrefix), method_name_style(matched[2], cmd_checker)]
                     })),
                 }),
 
@@ -236,7 +236,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                             CheckCmdType::BroadCmd
                         };
 
-                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(&matched[2], cmd_type)) {
+                        let item_type = if cmd_checker.as_ref().is_none_or(|cmd_checker| cmd_checker(matched[2], cmd_type)) {
                             Identifier(CmdNameOrPath)
                         } else {
                             Invalid(CmdPathNotFound)
@@ -284,7 +284,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     followed_by_nesting: None,
                     validate: None,
                     style: RuleStylization::Dynamic(Box::new(move |matches, _| {
-                        let item_type = if KEYWORDS.contains(matches[1].as_str()) {
+                        let item_type = if KEYWORDS.contains(matches[1]) {
                             Keyword
                         } else if matches[1].chars().enumerate().all(|(i, c)| c.is_ascii_digit() || (c == '.' && i > 0)) {
                             Value(Number)
@@ -381,7 +381,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     preceded_by: None,
                     validate: None,
                     style: RuleStylization::Dynamic(Box::new(|matched, cmd_checker: &SharedCmdChecker| {
-                        vec![Keyword, fn_name_style(&matched[2], cmd_checker)]
+                        vec![Keyword, fn_name_style(matched[2], cmd_checker)]
                     })),
                 }),
 

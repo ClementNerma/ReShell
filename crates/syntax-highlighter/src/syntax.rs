@@ -106,7 +106,7 @@ impl<T> std::fmt::Debug for RuleStylization<T> {
 }
 
 pub type DynamicRuleStylizer<T> =
-    Box<dyn Fn(Vec<String>, &T) -> Vec<ItemType> + Send + Sync + 'static>;
+    Box<dyn Fn(Vec<&str>, &T) -> Vec<ItemType> + Send + Sync + 'static>;
 
 pub fn compute_highlight_pieces<T>(
     input: &str,
@@ -293,11 +293,10 @@ fn highlight_piece<T>(
     let style = match &matched.rule.style {
         RuleStylization::Static(style) => style.clone(),
         RuleStylization::Dynamic(stylizer) => stylizer(
-            // TODO: don't allocate
             matched
                 ._captured
                 .iter()
-                .map(|cap| cap.unwrap().as_str().to_owned())
+                .map(|cap| cap.unwrap().as_str())
                 .collect(),
             rule_data,
         ),
