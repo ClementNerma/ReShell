@@ -226,7 +226,7 @@ pub static RULE_SET: LazyLock<ValidatedRuleSet<SharedCmdChecker>> = LazyLock::ne
                     )).unwrap()),
                     followed_by: None,
                     followed_by_nesting: None,
-                    validate: Some(|matched| !matched[1].is_empty() || !KEYWORDS.contains(matched[2].as_str())),
+                    validate: Some(|matched| !matched[1].is_empty() || !KEYWORDS.contains(matched[2])),
                     style: RuleStylization::Dynamic(Box::new(move |matched, cmd_checker: &SharedCmdChecker| {
                         let is_external = !matched[1].is_empty();
 

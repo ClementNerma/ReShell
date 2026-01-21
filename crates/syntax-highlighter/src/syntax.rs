@@ -87,7 +87,7 @@ pub struct SimpleRule<T> {
     pub preceded_by: Option<Regex>,
     pub followed_by: Option<Regex>,
     pub followed_by_nesting: Option<HashSet<NestingOpeningType>>,
-    pub validate: Option<fn(&[String]) -> bool>,
+    pub validate: Option<fn(&[&str]) -> bool>,
     pub style: RuleStylization<T>,
 }
 
@@ -379,10 +379,9 @@ impl<'h, 'str, T> Match<'h, 'str, T> {
 
         if rule.validate.is_some_and(|validate| {
             !validate(
-                // TODO: don't allocate
                 cap._captured
                     .iter()
-                    .map(|cap| cap.unwrap().as_str().to_owned())
+                    .map(|cap| cap.unwrap().as_str())
                     .collect::<Vec<_>>()
                     .as_slice(),
             )
