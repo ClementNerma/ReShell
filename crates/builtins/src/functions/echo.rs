@@ -11,48 +11,65 @@ crate::define_internal_fn!(
 
     (
         message: RequiredArg<StringifyableType> = Arg::positional("message"),
-        color: OptionalArg<StringType> = Arg::long_and_short_flag("color", 'c')
+        color: OptionalArg<StringType> = Arg::long_and_short_flag("color", 'c'),
+        no_newline: PresenceFlag = Arg::long_and_short_flag("no-newline", 'n')
     )
 
     -> VoidType
 );
 
 fn run() -> Runner {
-    Runner::new(|_, Args { message, color }, args_at, ctx| {
-        let message = stringify_value(message);
+    Runner::new(
+        |_,
+         Args {
+             message,
+             color,
+             no_newline,
+         },
+         args_at,
+         ctx| {
+            let message = stringify_value(message);
 
-        match color {
-            None => println!("{message}"),
+            match color {
+                None => println!("{message}"),
 
-            Some(color) => {
-                let color = match color.as_str() {
-                    "black" => Color::Black,
-                    "red" => Color::Red,
-                    "green" => Color::Green,
-                    "yellow" => Color::Yellow,
-                    "blue" => Color::Blue,
-                    "magenta" => Color::Magenta,
-                    "cyan" => Color::Cyan,
-                    "white" => Color::White,
-                    "brightBlack" => Color::BrightBlack,
-                    "brightRed" => Color::BrightRed,
-                    "brightGreen" => Color::BrightGreen,
-                    "brightYellow" => Color::BrightYellow,
-                    "brightBlue" => Color::BrightBlue,
-                    "brightmagenta" => Color::BrightMagenta,
-                    "brightCyan" => Color::BrightCyan,
-                    "brightWhite" => Color::BrightWhite,
-                    _ => {
-                        return Err(
-                            ctx.throw(args_at.color.unwrap(), format!("unknown color '{color}'"))
-                        );
+                Some(color) => {
+                    let color = match color.as_str() {
+                        "black" => Color::Black,
+                        "red" => Color::Red,
+                        "green" => Color::Green,
+                        "yellow" => Color::Yellow,
+                        "blue" => Color::Blue,
+                        "magenta" => Color::Magenta,
+                        "cyan" => Color::Cyan,
+                        "white" => Color::White,
+                        "brightBlack" => Color::BrightBlack,
+                        "brightRed" => Color::BrightRed,
+                        "brightGreen" => Color::BrightGreen,
+                        "brightYellow" => Color::BrightYellow,
+                        "brightBlue" => Color::BrightBlue,
+                        "brightmagenta" => Color::BrightMagenta,
+                        "brightCyan" => Color::BrightCyan,
+                        "brightWhite" => Color::BrightWhite,
+                        _ => {
+                            return Err(ctx.throw(
+                                args_at.color.unwrap(),
+                                format!("unknown color '{color}'"),
+                            ));
+                        }
+                    };
+
+                    let message = message.color(color);
+
+                    if no_newline {
+                        print!("{message}");
+                    } else {
+                        println!("{message}");
                     }
-                };
-
-                println!("{}", message.color(color));
+                }
             }
-        }
 
-        Ok(None)
-    })
+            Ok(None)
+        },
+    )
 }
