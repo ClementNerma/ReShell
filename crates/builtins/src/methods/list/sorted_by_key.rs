@@ -131,7 +131,7 @@ fn run() -> Runner {
             }
 
             SortingKeys::Integers(mut vec) => {
-                vec.sort_by(|(_, a), (_, b)| a.cmp(b));
+                vec.sort_by_key(|(_, a)| *a);
 
                 vec.iter()
                     .map(|(i, _)| list.get(*i).unwrap().clone())
@@ -139,7 +139,7 @@ fn run() -> Runner {
             }
 
             SortingKeys::Durations(mut vec) => {
-                vec.sort_by(|(_, a), (_, b)| a.cmp(b));
+                vec.sort_by_key(|(_, a)| *a);
 
                 vec.iter()
                     .map(|(i, _)| list.get(*i).unwrap().clone())
