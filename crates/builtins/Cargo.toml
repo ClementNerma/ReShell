@@ -21,3 +21,4 @@ reshell-prettify = { path = "../prettify" }
 jiff = "0.2.18"
 globby = "0.2.4"
 rayon = "1.11.0"
+console = "0.16.2"

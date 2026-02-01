@@ -17,7 +17,7 @@ use reshell_parser::{
     },
     files_map::FilesMap,
 };
-use reshell_prettify::{PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use crate::{
     bin_resolver::BinariesResolver,

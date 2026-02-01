@@ -1,4 +1,4 @@
-use std::io::{self, Write};
+use console::Term;
 
 crate::define_internal_fn!(
     "ask",
@@ -14,24 +14,13 @@ fn run() -> Runner {
     Runner::new(|at, Args { message }, _, ctx| {
         print!("{message}");
 
-        let mut buffer = String::new();
+        // TODO: try to not rely on an external crate (`console`)
+        let term = Term::stdout();
 
-        io::stdout()
-            .flush()
-            .map_err(|err| ctx.throw(at, format!("failed to flush stdout: {err}")))?;
+        let input = term
+            .read_line()
+            .map_err(|err| ctx.throw(at, format!("Failed to read input: {err}")))?;
 
-        io::stderr()
-            .flush()
-            .map_err(|err| ctx.throw(at, format!("failed to flush stdout: {err}")))?;
-
-        io::stdin()
-            .read_line(&mut buffer)
-            .map_err(|err| ctx.throw(at, format!("failed to read line: {err}")))?;
-
-        if buffer.ends_with('\n') {
-            buffer.pop();
-        }
-
-        Ok(Some(RuntimeValue::String(buffer)))
+        Ok(Some(RuntimeValue::String(input)))
     })
 }
