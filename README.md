@@ -18,7 +18,7 @@ let mut lives = 10
 while true {
     let guess = ask("Guess the number: ")
 
-    let guess = try { $guess.parseInt() } catch _ { null }
+    let guess = try { $guess.parseInt() } catch { null }
 
     if $guess == null {
         continue
