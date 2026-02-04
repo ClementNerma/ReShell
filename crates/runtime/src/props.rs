@@ -6,7 +6,7 @@
 use indexmap::map::{Entry, VacantEntry};
 use parsy::Span;
 use reshell_parser::ast::PropAccessNature;
-use reshell_prettify::{PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 
 use crate::{context::Context, errors::ExecResult, expr::eval_expr, values::RuntimeValue};
 
@@ -67,14 +67,19 @@ pub fn eval_props_access<'ast, 'c, T>(
 
                     match items.get(index) {
                         Some(value) => match next_acc {
-                            Some(next_acc) => match value.is_container() {
-                                false => left = value.clone(),
-                                true => {
-                                    return Err(
-                                        ctx.hard_error(next_acc.at, "left operand is a primitive")
-                                    );
+                            Some(next_acc) => {
+                                if value.is_container() {
+                                    left = value.clone()
+                                } else {
+                                    return Err(ctx.hard_error(
+                                        next_acc.at,
+                                        format!(
+                                            "expected a container due to next chaining, found: {}",
+                                            value.compute_type().display_inline()
+                                        ),
+                                    ));
                                 }
-                            },
+                            }
 
                             None => match policy {
                                 TailPropAccessPolicy::Read => {
