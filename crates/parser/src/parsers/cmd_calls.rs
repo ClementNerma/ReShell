@@ -11,7 +11,7 @@ use crate::{
     ast::{
         CmdArg, CmdCall, CmdCallBase, CmdEnvVar, CmdExternalPath, CmdFlagArg, CmdFlagArgName,
         CmdFlagValueArg, CmdPath, CmdPipe, CmdPipeType, CmdRawString, CmdRawStringPiece,
-        CmdRedirects, CmdValueMakingArg, FlagValueSeparator, SingleCmdCall,
+        CmdRedirects, CmdValueMakingArg, FlagValueSeparator, LiteralValue, SingleCmdCall,
     },
     parsers::{SINGLE_CMD_CALL, msnl},
 };
@@ -99,6 +99,20 @@ pub fn single_cmd_call() -> impl Parser<SingleCmdCall> + Send + Sync {
         // Literal values
         LITERAL_VALUE
             .static_ref()
+            // Disambiguation: booleans should be treated as strings, as we want to
+            // allow values like `true` and `false` to be used as literal strings
+            // without quotes, but still not interpret them as booleans
+            //
+            // Otherwise: `^cmd --flag=true` wouldn't work properly
+            .map(|value| match &value {
+                // Convert literal booleans to literal strings
+                LiteralValue::Boolean(b) => LiteralValue::String(b.to_string()),
+
+                // Don't touch other value types
+                LiteralValue::Integer(_) | LiteralValue::Float(_) | LiteralValue::String(_) => {
+                    value
+                }
+            })
             // Disambiguation: literal values should be followed by either
             // a space, a newline, a delimiter character or the end of the program
             // Otherwise this means we're in a raw argument with remaining symbols
