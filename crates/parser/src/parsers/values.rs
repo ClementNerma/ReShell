@@ -57,7 +57,13 @@ pub fn literal_int() -> impl Parser<i64> + Send + Sync {
         .or_not()
         .then(digit(10).repeated().at_least(1))
         .not_followed_by(possible_ident_char)
-        .map_str(|num| str::parse::<i64>(num).unwrap())
+        // TODO: find a way to not require an allocation
+        .map_str(|num| (num.to_owned(), str::parse::<i64>(num).unwrap()))
+        .validate_or_critical(
+            |(literal, parsed)| parsed.to_string() == *literal,
+            "this integer's literal form is different from its parsed value (tip: use quotes or remove the leading zeroes / dash)",
+        )
+        .map(|(_, parsed)| parsed)
 }
 
 pub fn literal_value() -> impl Parser<LiteralValue> + Send + Sync {
@@ -91,7 +97,13 @@ pub fn literal_value() -> impl Parser<LiteralValue> + Send + Sync {
                     .critical("expected digits after the dot separator"),
             )
             .not_followed_by(possible_ident_char)
-            .map_str(|num| LiteralValue::Float(str::parse::<f64>(num).unwrap())),
+            // TODO: find a way to not require an allocation
+            .map_str(|num| (num.to_owned(), str::parse::<f64>(num).unwrap()))
+            .validate_or_critical(
+                |(literal, parsed)| parsed.to_string() == *literal,
+                "this float's literal form is different from its parsed value (tip: use quotes or remove the leading zeroes / dash)",
+            )
+            .map(|(_, parsed)| LiteralValue::Float(parsed)),
         // Integers
         LITERAL_INT.static_ref().map(LiteralValue::Integer),
     ))
