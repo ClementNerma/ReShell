@@ -136,11 +136,21 @@ fn try_convert_time(time: TomlTime) -> Result<Time, String> {
     } = time;
 
     let hour = i8::try_from(hour).map_err(|_| format!("Invalid hour '{hour}'"))?;
-    let minute = i8::try_from(minute).map_err(|_| format!("Invalid minute '{minute}'"))?;
-    let second = i8::try_from(second).map_err(|_| format!("Invalid second '{second}'"))?;
 
-    let subsec_nanosecond = i32::try_from(nanosecond)
-        .map_err(|_| format!("Invalid nanoseconds count '{nanosecond}'"))?;
+    let minute = i8::try_from(minute).map_err(|_| format!("Invalid minute '{minute}'"))?;
+
+    let second = match second {
+        Some(second) => i8::try_from(second).map_err(|_| format!("Invalid second '{second}'"))?,
+        None => 0,
+    };
+
+    let subsec_nanosecond = match nanosecond {
+        Some(nanosecond) => {
+            i32::try_from(nanosecond).map_err(|_| format!("Invalid nanosecond '{nanosecond}'"))?
+        }
+
+        None => 0,
+    };
 
     let converted = Time::new(hour, minute, second, subsec_nanosecond);
 

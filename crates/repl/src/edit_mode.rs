@@ -23,7 +23,7 @@ impl RlEditMode for EditMode {
                 body.replace("\r\n", "\n").replace('\r', "\n"),
             )]),
 
-            Event::Mouse(_) => ReedlineEvent::Mouse, // TODO: update when reedline gets correct mouse support
+            Event::Mouse(_) => ReedlineEvent::None, // TODO
 
             Event::Resize(cols, rows) => ReedlineEvent::Resize(cols, rows),
 

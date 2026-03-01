@@ -19,7 +19,7 @@ use reedline::{
 };
 use reshell_builtins::repl::completer::GeneratedCompletion;
 use reshell_parser::DELIMITER_CHARS;
-use reshell_prettify::{PrettyPrintable};
+use reshell_prettify::PrettyPrintable;
 use reshell_runtime::{
     compat::{PATH_VAR_SEP, TARGET_FAMILY, TargetFamily},
     context::Context,
@@ -157,6 +157,7 @@ pub fn generate_completions(
         CompletionMode::Single(single) => {
             return Ok(vec![Suggestion {
                 value: single.to_owned(),
+                display_override: None,
                 description: None,
                 style: None,
                 extra: None,
@@ -250,6 +251,7 @@ pub fn generate_completions(
 
                         Suggestion {
                             value: escape_str(&value, None).into_owned(),
+                            display_override: Some(value),
                             description: Some(description),
                             style: None,
                             extra: None,
@@ -334,13 +336,8 @@ fn build_fn_completions<'a>(
                         add_prefix.unwrap_or_default(),
                         add_suffix.unwrap_or_default()
                     ),
-                    description: Some(
-                        func.value
-                            .signature
-                            .inner()
-                            .display_inline()
-                            .to_string(),
-                    ),
+                    display_override: None,
+                    description: Some(func.value.signature.inner().display_inline().to_string()),
                     style: None,
                     extra: None,
                     span,
@@ -378,13 +375,9 @@ fn build_method_completions<'a>(
                             Some(ref prefix) => format!("{prefix}{name}"),
                             None => name.clone(),
                         },
+                        display_override: None,
                         description: Some(
-                            method
-                                .value
-                                .signature
-                                .inner()
-                                .display_inline()
-                                .to_string(),
+                            method.value.signature.inner().display_inline().to_string(),
                         ),
                         style: None,
                         extra: None,
@@ -476,6 +469,7 @@ fn build_external_cmd_completions(
                 item_name.to_owned(),
                 Suggestion {
                     value: escape_str(item_name, None).into_owned(),
+                    display_override: Some(item_name.to_owned()),
                     description: None,
                     style: None,
                     extra: None,
@@ -513,6 +507,7 @@ fn complete_var_name(
                         Some(prefix) => format!("{prefix}{name}"),
                         None => name.clone(),
                     },
+                    display_override: None,
                     description: Some(
                         item.value
                             .read_promise_no_write()
@@ -618,6 +613,7 @@ fn complete_path(
             path_str,
             Suggestion {
                 value,
+                display_override: None,
                 description: None,
                 style: None,
                 extra: None,

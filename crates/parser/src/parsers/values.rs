@@ -58,7 +58,7 @@ pub fn literal_int() -> impl Parser<i64> + Send + Sync {
         .then(digit(10).repeated().at_least(1))
         .not_followed_by(possible_ident_char)
         // TODO: find a way to not require an allocation
-        .map_str(|num| (num.to_owned(), str::parse::<i64>(num).unwrap()))
+        .map_consumed_str(|num| (num.to_owned(), str::parse::<i64>(num).unwrap()))
         .validate_or_critical(
             |(literal, parsed)| parsed.to_string() == *literal,
             "this integer's literal form is different from its parsed value (tip: use quotes or remove the leading zeroes / dash)",
@@ -98,7 +98,7 @@ pub fn literal_value() -> impl Parser<LiteralValue> + Send + Sync {
             )
             .not_followed_by(possible_ident_char)
             // TODO: find a way to not require an allocation
-            .map_str(|num| (num.to_owned(), str::parse::<f64>(num).unwrap()))
+            .map_consumed_str(|num| (num.to_owned(), str::parse::<f64>(num).unwrap()))
             .validate_or_critical(
                 |(literal, parsed)| parsed.to_string() == *literal,
                 "this float's literal form is different from its parsed value (tip: use quotes or remove the leading zeroes / dash)",

@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-jiff = { version = "0.2.18" }
-colored = "3.0.0"
+jiff = { version = "0.2.22" }
+colored = "3.1.1"
 indexmap = "2.13.0"
-parsy = "0.16.2"
+parsy = "0.16.3"
 reshell-parser = { path = "../parser" }
 reshell-checker = { path = "../checker" }
 reshell-prettify = { version = "0.1.0", path = "../prettify" }
-regex = "1.12.2"
+regex = "1.12.3"
