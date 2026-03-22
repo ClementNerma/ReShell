@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-annotate-snippets = "0.12.12"
+annotate-snippets = "0.12.13"
 colored = "3.1.1"
 parsy = "0.16.3"
 reshell-checker = { version = "0.1.0", path = "../checker" }
