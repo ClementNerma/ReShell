@@ -1059,7 +1059,6 @@ dependencies = [
  "dirs",
  "dunce",
  "globby",
- "indexmap",
  "nu-ansi-term",
  "parsy 0.16.3",
  "reedline",
