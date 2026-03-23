@@ -14,8 +14,8 @@ reshell-parser = { path = "../parser" }
 reshell-runtime = { path = "../runtime" }
 reshell-checker = { path = "../checker" }
 serde_json = { version = "1.0.149", features = ["preserve_order"] }
-terminal_size = "0.4.3"
-toml = "1.0.7"
+terminal_size = "0.4.4"
+toml = "1.1.0"
 rand = { version = "0.10.0" }
 reshell-prettify = { path = "../prettify" }
 jiff = "0.2.23"
