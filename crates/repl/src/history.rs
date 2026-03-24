@@ -117,6 +117,7 @@ impl RlHistory for History {
             file.write_all(
                 format!("{}\n", h.command_line.replace("\n", NEWLINE_SYMBOL)).as_bytes(),
             )
+            .and_then(|()| file.flush())
             .map_err(ReedlineErrorVariants::IOError)
             .map_err(ReedlineError)?;
         }
