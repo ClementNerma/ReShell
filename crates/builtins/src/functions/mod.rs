@@ -30,6 +30,7 @@ functions_set! {
         mod error;
         mod exit;
         mod extname;
+        mod fetch_file;
         mod fetch_text;
         mod file_exists;
         mod file_size;
