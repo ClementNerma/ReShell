@@ -6,5 +6,6 @@ functions_set! {
         mod subsec_micros;
         mod subsec_millis;
         mod subsec_nanos;
+        mod as_millis;
     }
 }
