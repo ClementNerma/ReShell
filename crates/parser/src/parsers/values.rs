@@ -100,6 +100,7 @@ pub fn literal_value() -> impl Parser<LiteralValue> + Send + Sync {
             // TODO: find a way to not require an allocation
             .map_consumed_str(|num| (num.to_owned(), str::parse::<f64>(num).unwrap()))
             .validate_or_critical(
+                // TODO: fix for literals ending with zeroes in decimal part
                 |(literal, parsed)| parsed.to_string() == *literal,
                 "this float's literal form is different from its parsed value (tip: use quotes or remove the leading zeroes / dash)",
             )
