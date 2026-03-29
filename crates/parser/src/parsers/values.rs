@@ -94,7 +94,6 @@ pub fn literal_value() -> impl Parser<LiteralValue> + Send + Sync {
                 digit(10)
                     .repeated()
                     .at_least(1)
-                    .critical("expected digits after the dot separator"),
             )
             .not_followed_by(possible_ident_char)
             // TODO: find a way to not require an allocation
