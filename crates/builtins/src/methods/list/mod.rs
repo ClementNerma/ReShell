@@ -11,6 +11,7 @@ functions_set! {
         mod deduped;
         mod each;
         mod expect_at;
+        mod enumerate;
         mod filter;
         mod filter_map;
         mod find;
