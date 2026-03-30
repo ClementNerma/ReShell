@@ -48,7 +48,7 @@ fn run() -> Runner {
                         "brightGreen" => Color::BrightGreen,
                         "brightYellow" => Color::BrightYellow,
                         "brightBlue" => Color::BrightBlue,
-                        "brightmagenta" => Color::BrightMagenta,
+                        "brightMagenta" => Color::BrightMagenta,
                         "brightCyan" => Color::BrightCyan,
                         "brightWhite" => Color::BrightWhite,
                         _ => {
