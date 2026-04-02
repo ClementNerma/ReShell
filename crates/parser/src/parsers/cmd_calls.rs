@@ -35,7 +35,11 @@ pub fn single_cmd_call() -> impl Parser<SingleCmdCall> + Send + Sync {
         .spanned()
         .repeated_into_vec()
         .at_least(1)
-        .map(|pieces| CmdRawString { pieces }),
+        .map(|pieces| CmdRawString { pieces })
+        .validate_or_critical(
+            |raw_str| raw_str.only_literal() != Some("&&") && raw_str.only_literal() != Some("||"),
+            "'&&' and '||' literals are forbidden (too ambiguous with Bash)",
+        ),
     );
 
     let raw_cmd_path = filter(|c| !c.is_whitespace() && !DELIMITER_CHARS.contains(&c))
