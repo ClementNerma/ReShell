@@ -89,6 +89,8 @@ pub fn run_cmd(
 
     let mut state = from_value.map(CmdChainState::Value);
 
+    // Iterate over every command in the chain, evaluating their data and executing them one
+    // after another while properly handling the pipes between them
     for (i, (cmd_data, pipe_type)) in chain.into_iter().enumerate() {
         let next_pipe_type = pipe_types
             .get(i + 1)
@@ -102,7 +104,8 @@ pub fn run_cmd(
             redirects,
         } = cmd_data;
 
-        state = Some(match target {
+        let new_state = match target {
+            // External command: execute it and update the state to provide its output as an input for the next command in the chain (if any)
             EvaluatedCmdTarget::ExternalCommand(cmd_name) => {
                 // TODO: deduplicate sub routines
                 let (piped_string, children) = match state {
@@ -166,11 +169,14 @@ pub fn run_cmd(
                 CmdChainState::Commands(children)
             }
 
+            // Function or method: call it and update the state to provide its return value as an input for the next command in the chain (if any)
             EvaluatedCmdTarget::Function(_) | EvaluatedCmdTarget::Method(_) => {
                 let EvaluatedCmdArgs { env_vars, args } = args;
 
+                // (TODO) Functions and methods don't support environment variables (yet)
                 assert!(env_vars.is_empty());
 
+                // Determine the value to pipe into this function/method, if any
                 let piped_value = match state {
                     Some(CmdChainState::NoValue(from)) => {
                         if i > 0 {
@@ -204,6 +210,7 @@ pub fn run_cmd(
                     None => None,
                 };
 
+                // Determine the function/method to call
                 let func = match target {
                     EvaluatedCmdTarget::ExternalCommand(_) => unreachable!(),
                     EvaluatedCmdTarget::Function(func) => func,
@@ -237,6 +244,7 @@ pub fn run_cmd(
                     }
                 };
 
+                // Call the function/method and update the state with its return value
                 let return_value = call_fn_value(
                     RuntimeCodeRange::Parsed(call_at),
                     &func,
@@ -257,12 +265,16 @@ pub fn run_cmd(
                     None => CmdChainState::NoValue(call_at),
                 }
             }
-        });
+        };
+
+        state = Some(new_state);
     }
 
+    // At least one command was executed, so the state is guaranteed to be `Some`
     let state = state.unwrap();
 
     match capture {
+        // Capture the output of the last command in the chain instead of returning it as a value
         Some(capture) => Ok(match state {
             CmdChainState::NoValue(from) => {
                 return Err(ctx.hard_error(from, "this returned nothing to capture"));
@@ -299,6 +311,7 @@ pub fn run_cmd(
             }
         }),
 
+        // No capture: return the output of the last command in the chain as a value (if it returned one), or just return `None` if it didn't
         None => Ok(match state {
             CmdChainState::NoValue(_) => CmdExecResult::None,
             CmdChainState::Value(loc_val) => CmdExecResult::Returned(loc_val),
@@ -312,8 +325,15 @@ pub fn run_cmd(
 
 /// Internal representation of command chain state
 enum CmdChainState {
+    // The last command in the chain returned nothing, but we still want to keep track of where this
+    // happened for better error messages if the next command tries to pipe this non-value
     NoValue(InputRange),
+
+    // The last command in the chain returned a value that can be piped into the next command
     Value(LocatedValue),
+
+    // The last command in the chain is still running, and we have its child process handler (and the associated pipes if any)
+    // to eventually pipe into the next command once it has finished
     Commands(Vec<(SpawnedCmd, InputRange)>),
 }
 
@@ -325,6 +345,8 @@ pub enum CmdExecResult {
 }
 
 impl CmdExecResult {
+    // Helper methods to easily extract the inner value of a `CmdExecResult` if it is of the expected variant,
+    // or just return `None` if it is not
     pub fn as_returned(self) -> Option<LocatedValue> {
         match self {
             CmdExecResult::Returned(inner) => Some(inner),
@@ -333,6 +355,8 @@ impl CmdExecResult {
         }
     }
 
+    // (Only for captured output) Helper method to easily extract the inner value of a `CmdExecResult::Captured`,
+    // or just return `None` if it is not
     pub fn as_captured(self) -> Option<String> {
         match self {
             CmdExecResult::Returned(_) => None,
@@ -343,6 +367,10 @@ impl CmdExecResult {
 }
 
 /// Build command execution data
+///
+/// This consists in evaluating the command's arguments and environment variables,
+/// resolving the command's target (e.g. function/method or external command)
+/// and properly handling aliases (if any)
 fn build_cmd_data<'a>(
     call: &'a Span<SingleCmdCall>,
     ctx: &mut Context,
@@ -352,6 +380,8 @@ fn build_cmd_data<'a>(
         args: vec![],
     };
 
+    // We need to handle aliases before evaluating the command's arguments, environment variables and target,
+    // because all of these might actually be defined in the called alias' content
     let developed = ctx.get_developed_cmd_call(call);
 
     let DevelopedSingleCmdCall {
@@ -362,6 +392,7 @@ fn build_cmd_data<'a>(
 
     let mut target = None::<EvaluatedCmdTarget>;
 
+    // Iterate over the called aliases in reverse order (from the most recently called to the least recently called),
     for (i, developed_alias) in developed_aliases.iter().rev().enumerate() {
         let runtime_alias = ctx
             .visible_scopes_content()
@@ -382,6 +413,8 @@ fn build_cmd_data<'a>(
             captured_deps,
         } = &*runtime_alias.value;
 
+        // Push the alias' content scope with the captured dependencies as variables,
+        // so that the alias' content can properly access them when we evaluate it
         ctx.create_and_push_scope_detailed(
             *content_scope_id,
             captured_deps.clone(),
@@ -389,6 +422,9 @@ fn build_cmd_data<'a>(
             None,
         );
 
+        // Evaluate the alias' content to properly handle nested aliases and
+        // to eventually get the target of the command call if it is defined in one of the called aliases
+        // (e.g. if the command call is actually an alias to a function or method call)
         let alias_inner_content = ctx.get_developed_cmd_alias_content(developed_alias);
 
         complete_cmd_data(&alias_inner_content, &mut args, ctx)?;
@@ -422,6 +458,8 @@ fn build_cmd_data<'a>(
 }
 
 /// Complete a commands' data with evaluated arguments and environment variables
+///
+/// This is used both for the original command call and for the content of any called aliases
 fn complete_cmd_data(
     call: &Span<SingleCmdCall>,
     out: &mut EvaluatedCmdArgs,
@@ -434,6 +472,7 @@ fn complete_cmd_data(
         redirects: _,
     } = &call.data;
 
+    // Evaluate environment variables and push them to `out.env_vars`
     for env_var in &env_vars.data {
         let CmdEnvVar { name, value } = &env_var.data;
 
@@ -451,6 +490,7 @@ fn complete_cmd_data(
     }
 
     for arg in &args.data {
+        // Evaluate each argument and push it to `out.args`
         out.args.push((eval_cmd_arg(arg, ctx)?, arg.at));
     }
 
@@ -458,6 +498,9 @@ fn complete_cmd_data(
 }
 
 /// Evaluate the target of a command call
+///
+/// This can be either an external command (e.g. `echo`), a function or a method,
+/// depending on the content of the called aliases (if any) and on the command call itself
 fn evaluate_cmd_target(
     call: &Span<SingleCmdCall>,
     ctx: &mut Context,
@@ -497,6 +540,11 @@ fn evaluate_cmd_target(
     }))
 }
 
+/// Evaluated data for a command call
+///
+/// This is the result of evaluating a command call's content (including the content of any called aliases),
+/// and consists in the command's target (e.g. function/method or external command),
+/// its evaluated arguments and environment variables, and the command call's location for better error messages
 struct EvaluatedCmdData<'a> {
     target: EvaluatedCmdTarget,
     args: EvaluatedCmdArgs,
@@ -505,6 +553,9 @@ struct EvaluatedCmdData<'a> {
     redirects: Option<&'a Span<CmdRedirects>>,
 }
 
+/// Evaluated arguments for a command call
+///
+/// This is the result of evaluating a command call's arguments and environment variables (including those defined in any called aliases)
 struct EvaluatedCmdArgs {
     env_vars: HashMap<String, String>,
     args: Vec<(CmdArgResult, InputRange)>,
@@ -546,6 +597,9 @@ struct ExecCmdArgs<'a, 'b> {
 }
 
 /// Execute a command
+///
+/// This is used both for external commands and for function/method calls,
+/// since the latter are also executed as commands in order to properly handle pipes and captures
 fn exec_cmd(
     args: ExecCmdArgs,
     input: Option<CmdInput<'_>>,
@@ -564,6 +618,7 @@ fn exec_cmd(
 
     let EvaluatedCmdArgs { env_vars, args } = args;
 
+    // First, we need to evaluate the command's arguments as strings, since that's what the `Command` API expects,
     let mut args_str = vec![];
 
     for (arg, arg_at) in args {
@@ -690,14 +745,20 @@ fn build_pipes_for_child(
     redirects: Option<&CmdRedirects>,
     ctx: &mut Context,
 ) -> ExecResult<StdioPipesForChild> {
+    // Determine if we need to capture this command's STDOUT,
+    // either because of a capture or because the next command in the chain is piping from it,
+    // or because of the `silent` parameter that hides output from non-captured pipes
     let capturing_stdout = next_pipe_type == Some(CmdPipeType::ValueOrStdout)
         || matches!(capture, Some(CmdCaptureType::Stdout))
         || silent;
 
+    // Same thing for STDERR
     let capturing_stderr = next_pipe_type == Some(CmdPipeType::Stderr)
         || matches!(capture, Some(CmdCaptureType::Stderr))
         || silent;
 
+    // Determine the type of pipes we need to provide to the child process for its STDOUT and STDERR,
+    // depending on the redirections specified in the command call (if any) and on whether we need to capture these streams or not
     enum PipeType {
         Custom {
             reader: PipeReader,
@@ -792,6 +853,7 @@ fn build_pipes_for_child(
             }
         },
 
+        // No redirections: determine the pipes based on whether we need to capture STDOUT and STDERR or not
         None => (
             if capturing_stdout {
                 PipeType::Piped
@@ -806,6 +868,8 @@ fn build_pipes_for_child(
         ),
     };
 
+    // Finally, build the actual `Stdio` objects to provide to the child process,
+    // and keep the associated readers if we need to capture these streams
     let (stdout, stdout_reader) = match stdout {
         PipeType::Custom { reader, writer } => (Stdio::from(writer), Some(reader)),
         PipeType::Stdout => (Stdio::inherit(), None),
@@ -814,6 +878,7 @@ fn build_pipes_for_child(
         PipeType::File(file) => (Stdio::from(file), None),
     };
 
+    // Same thing for STDERR
     let (stderr, stderr_reader) = match stderr {
         PipeType::Custom { reader, writer } => (Stdio::from(writer), Some(reader)),
         PipeType::Stdout => (std::io::stdout().into(), None),
@@ -879,7 +944,9 @@ fn append_cmd_arg_as_string(
     };
 
     match cmd_arg_result {
+        // A single argument: just convert it to a string
         CmdArgResult::Single(value) => match value {
+            // A basic argument: convert it to a string
             SingleCmdArgResult::Basic(value) => args_str.push(value_to_str(
                 &value.value,
                 cmd_arg_result_at,
@@ -887,6 +954,8 @@ fn append_cmd_arg_as_string(
                 ctx,
             )?),
 
+            // A flag argument: convert it to the appropriate string format depending on whether it has a value or not,
+            // and on the specified separator if it has a value
             SingleCmdArgResult::Flag(CmdFlagValue { name, value }) => {
                 let name = name.data.back_to_string();
 
@@ -911,6 +980,7 @@ fn append_cmd_arg_as_string(
             }
         },
 
+        // A spread argument: append each of the spreaded items as a separate argument
         CmdArgResult::Spreaded(items) => {
             for item in items {
                 append_cmd_arg_as_string(
@@ -930,9 +1000,11 @@ fn append_cmd_arg_as_string(
 /// Evaluate a command argument's value
 pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgResult> {
     match &arg.data {
+        // A basic argument: just evaluate its value
         CmdArg::ValueMaking(value_making) => eval_cmd_value_making_arg(value_making, ctx)
             .map(|value| CmdArgResult::Single(SingleCmdArgResult::Basic(value))),
 
+        // A flag argument: evaluate its name and value (if any)
         CmdArg::Flag(CmdFlagArg { name, value }) => Ok(CmdArgResult::Single(
             SingleCmdArgResult::Flag(CmdFlagValue {
                 name: RuntimeSpan::from(name.clone()),
@@ -948,6 +1020,7 @@ pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgR
             }),
         )),
 
+        // A spread argument: evaluate the value to spread, which should be a list, and extract its items to provide them as separate arguments
         CmdArg::Spread(spread_value) => {
             let items = eval_list_spread_value(spread_value, ctx)?;
 
@@ -970,6 +1043,9 @@ pub fn eval_cmd_arg(arg: &Span<CmdArg>, ctx: &mut Context) -> ExecResult<CmdArgR
 }
 
 /// Evaluate a command value-making argument
+///
+/// This is an argument that can be used to make a value (e.g. a string, a list, etc.)
+/// that will then be provided to a command as an argument or as an environment variable
 fn eval_cmd_value_making_arg(
     arg: &Span<CmdValueMakingArg>,
     ctx: &mut Context,
@@ -1062,7 +1138,7 @@ pub fn try_replace_home_dir_tilde(raw: &str, ctx: &Context) -> Result<String, &'
     Ok(out)
 }
 
-/// Wait for a set of spawned commands to complete
+/// Wait for a set of spawned commands to complete and return the output of the last one that needs to be captured (if any)
 fn wait_for_commands_ending(
     children: Vec<(SpawnedCmd, InputRange)>,
     capture: Option<CmdCaptureType>,
@@ -1072,7 +1148,8 @@ fn wait_for_commands_ending(
 
     let mut final_output = None;
 
-    // Evaluate each subcommand
+    // Iterate over the child processes in reverse order (from the most recently spawned to the least recently spawned),
+    // and wait for each of them to complete before moving on to the previous one, so that pipes are properly handled
     for (i, (mut spawned, at)) in children.into_iter().rev().enumerate() {
         let output = spawned.child.wait_with_output();
 
@@ -1139,6 +1216,7 @@ fn wait_for_commands_ending(
         }
     }
 
+    // Return the captured output of the last command that needs to be captured (if any)
     Ok(final_output.map(|captured| {
         // Invalid UTF-8 output will be handled with "unknown" symbols
         let mut out = String::from_utf8_lossy(&captured).into_owned();
